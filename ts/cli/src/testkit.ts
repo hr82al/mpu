@@ -3,6 +3,13 @@
  * который видит дверь, токен и первый кадр и отвечает кадрами сценария.
  */
 
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+} from "node:http";
+import process from "node:process";
+import type { Duplex } from "node:stream";
+import { WebSocketServer } from "ws";
 import type { TerminalIo } from "./terminal/mod.ts";
 import type { ClientEnv } from "./client.ts";
 
@@ -155,7 +162,7 @@ export function testEnv(setup: EnvSetup): TestEnv {
       },
       stdout: (text) => void stdout.push(text),
       stderr: (text) => void stderr.push(text),
-      cwd: () => Deno.cwd(),
+      cwd: () => process.cwd(),
       interrupted: interrupted.promise,
     },
   };
@@ -172,9 +179,48 @@ export interface Visit {
   readonly inputs: string[];
 }
 
+/** Сокет сценария: часть поверхности сокета `ws`, которой пользуются сценарии. */
+export interface ScriptSocket {
+  readonly readyState: number;
+  send(data: string): void;
+  close(code?: number): void;
+  addEventListener(
+    type: "message" | "close",
+    listener: () => void,
+    options?: { readonly once?: boolean },
+  ): void;
+}
+
+/** Сокет `ws` со стороны сервера: сценарий и разбор кадров клиента. */
+interface FakeSocket extends ScriptSocket {
+  on(
+    event: "message",
+    listener: (data: Uint8Array, isBinary: boolean) => void,
+  ): void;
+  once(event: "close", listener: () => void): void;
+}
+
+/** Часть поверхности сервера `ws`, которой пользуется записывающий сервер. */
+interface FakeWsServer {
+  handleUpgrade(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Uint8Array,
+    accepted: (socket: FakeSocket) => void,
+  ): void;
+  close(): void;
+}
+
+// Своих типов `ws` не несёт: поверхность объявлена выше (как у сервера
+// строк, `back/src/backend/loopback.ts`, — импортировать его `cli/` нельзя).
+const FakeWsServerOf = WebSocketServer as new (options: {
+  readonly noServer: true;
+  readonly handleProtocols: () => string;
+}) => FakeWsServer;
+
 /** Сценарий сервера: что ответить на строку. */
 export type Script = (
-  socket: WebSocket,
+  socket: ScriptSocket,
   first: Record<string, unknown>,
   answers: AsyncIterable<string>,
   inputs: AsyncIterable<string>,
@@ -210,10 +256,10 @@ export const EXIT_ZERO: Script = (socket) => {
   return Promise.resolve();
 };
 
-function tokenOf(request: Request): string {
-  const header = request.headers.get("Authorization") ?? "";
+function tokenOf(request: IncomingMessage): string {
+  const header = request.headers.authorization ?? "";
   if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
-  const offered = (request.headers.get("Sec-WebSocket-Protocol") ?? "")
+  const offered = (request.headers["sec-websocket-protocol"] ?? "")
     .split(",").map((one) => one.trim());
   return offered.find((one) => one.startsWith("bearer."))
     ?.slice("bearer.".length) ?? "";
@@ -255,62 +301,78 @@ export async function withFakeServer(
 ): Promise<void> {
   const visits: Visit[] = [];
   const scripts: Promise<void>[] = [];
-  const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (
-    request,
-  ) => {
-    if (request.headers.get("upgrade") !== "websocket") {
-      return new Response(null, { status: options.status ?? 400 });
-    }
+  const wss = new FakeWsServerOf({
+    noServer: true,
+    handleProtocols: () => "mpu",
+  });
+  const server = createHttpServer((_request, response) => {
+    response.statusCode = options.status ?? 400;
+    response.end();
+  });
+  server.on("upgrade", (request: IncomingMessage, socket: Duplex, head) => {
     // Заголовки — до upgrade: после него запрос закрыт.
     const visit: Visit = {
-      path: new URL(request.url).pathname,
+      path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
       token: tokenOf(request),
       first: {},
       answers: [],
       inputs: [],
     };
-    const { socket, response } = Deno.upgradeWebSocket(request, {
-      protocol: "mpu",
+    wss.handleUpgrade(request, socket, head, (accepted) => {
+      scripts.push(
+        played(accepted, visit, visits, options.script ?? EXIT_ZERO),
+      );
     });
-    const answers = new Answers();
-    const inputs = new Answers();
-    const started = Promise.withResolvers<void>();
-    socket.onmessage = (event) => {
-      const frame = JSON.parse(String(event.data));
-      if (visits.includes(visit) && "stdin" in frame) {
-        visit.inputs.push(frame.stdin);
-        inputs.push(frame.stdin);
-        return;
-      }
-      if (visits.includes(visit)) {
-        visit.answers.push(frame.answer);
-        answers.push(frame.answer);
-        return;
-      }
-      Object.assign(visit.first, frame);
-      visits.push(visit);
-      started.resolve();
-    };
-    const closed = Promise.withResolvers<void>();
-    socket.onclose = () => {
-      started.resolve();
-      closed.resolve();
-    };
-    scripts.push(
-      started.promise.then(async () => {
-        if (socket.readyState === WebSocket.OPEN) {
-          const script = options.script ?? EXIT_ZERO;
-          await script(socket, visit.first, answers, inputs);
-        }
-        await closed.promise;
-      }),
-    );
-    return response;
   });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error(`адрес петли не порт: ${address}`);
+  }
   try {
-    await body(`http://127.0.0.1:${server.addr.port}`, visits);
+    await body(`http://127.0.0.1:${address.port}`, visits);
   } finally {
     await Promise.allSettled(scripts);
-    await server.shutdown();
+    wss.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
   }
+}
+
+/** Строка на принятом сокете: кадры клиента — в `visit`, ответ — сценарием. */
+async function played(
+  socket: FakeSocket,
+  visit: Visit,
+  visits: Visit[],
+  script: Script,
+): Promise<void> {
+  const answers = new Answers();
+  const inputs = new Answers();
+  const started = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
+  socket.on("message", (data) => {
+    const frame = JSON.parse(new TextDecoder().decode(data));
+    if (visits.includes(visit) && "stdin" in frame) {
+      visit.inputs.push(frame.stdin);
+      inputs.push(frame.stdin);
+      return;
+    }
+    if (visits.includes(visit)) {
+      visit.answers.push(frame.answer);
+      answers.push(frame.answer);
+      return;
+    }
+    Object.assign(visit.first, frame);
+    visits.push(visit);
+    started.resolve();
+  });
+  socket.once("close", () => {
+    started.resolve();
+    closed.resolve();
+  });
+  await started.promise;
+  if (socket.readyState === WebSocket.OPEN) {
+    await script(socket, visit.first, answers, inputs);
+  }
+  await closed.promise;
 }

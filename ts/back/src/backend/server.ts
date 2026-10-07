@@ -4,8 +4,10 @@
  * решается до всего остального: путь, метод, `Origin`, токен.
  */
 
+import { stat } from "node:fs/promises";
+import process from "node:process";
 import { Hono } from "hono";
-import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
+import { hasBearer, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import {
   type InvokeLog,
@@ -50,6 +52,7 @@ import { ChatConfirms, ConfirmingLine } from "./confirm.ts";
 import { DETACHED, Line } from "./line.ts";
 import { type Spill, SPILL_DIR, SPILL_THRESHOLD } from "./outlet.ts";
 import { socketLine } from "./socket.ts";
+import { type AcceptedSocket, listenLoopback, Upgrades } from "./loopback.ts";
 import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
 import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
@@ -77,7 +80,7 @@ import {
 import { ChannelConnection } from "./channel.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
-import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
+import { PROCESS_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
 
 /** Окружение службы не читается: строка видит только принесённое. */
 const NOT_SERVER = () => undefined;
@@ -288,24 +291,14 @@ function offeredProtocols(request: Request): string[] {
  * ответ не выбирается.
  */
 function webSocketOf(
+  upgrades: Upgrades,
   request: Request,
-  use: (socket: WebSocket) => void,
+  use: (socket: AcceptedSocket) => void,
 ): Response {
   const chosen = offeredProtocols(request).find((one) =>
     !one.startsWith(BEARER_PROTOCOL)
   );
-  let upgraded: { socket: WebSocket; response: Response };
-  try {
-    upgraded = Deno.upgradeWebSocket(
-      request,
-      chosen === undefined ? {} : { protocol: chosen },
-    );
-  } catch (err) {
-    if (!(err instanceof TypeError)) throw err;
-    return empty(400);
-  }
-  use(upgraded.socket);
-  return upgraded.response;
+  return upgrades.accept(request, chosen, use) ?? empty(400);
 }
 
 function empty(status: number, headers?: HeadersInit): Response {
@@ -388,11 +381,11 @@ function remoteFrames(line: Line): RemoteOutput {
   const out = new TextDecoder();
   const err = new TextDecoder();
   const sent = async (text: string, send: (text: string) => void) => {
-    if (text === "") return;
-    send(text);
+    if (text !== "") send(text);
     // Кадр отдан — ждём, пока клиент его разберёт: иначе вывод
     // быстрой команды копился бы в памяти сервера
-    // (`platform/line-cancel.md`).
+    // (`platform/line-cancel.md`). Пустой кусок не шлёт ничего, но
+    // готовность ждёт: им её спрашивает вывод программы.
     await line.ready();
   };
   return {
@@ -406,7 +399,7 @@ function remoteFrames(line: Line): RemoteOutput {
 
 async function isDirectory(path: string): Promise<boolean> {
   try {
-    return (await Deno.stat(path)).isDirectory;
+    return (await stat(path)).isDirectory();
   } catch {
     // Нет пути, нет права или не каталог — исполнить строку там нельзя,
     // и ответ клиенту один: каталога нет.
@@ -444,7 +437,9 @@ class Back {
   /** Снимки окон хука `Notification`: живут дольше своих строк. */
   readonly #notifyDesk: NotifyDesk;
   /** Открытые соединения каналов: их закрывает остановка ядра. */
-  readonly #channels = new Set<WebSocket>();
+  readonly #channels = new Set<AcceptedSocket>();
+  /** Запросы, пришедшие апгрейдом, и принятые из них сокеты. */
+  readonly #upgrades: Upgrades;
   /** Сессии Claude Code по ключу: вопрос «ждёт ввода» каждой. */
   readonly #sessions = new Sessions(REAL_CLOCK);
   /** Окна tmux: подпись вопросов в чате владельца. */
@@ -452,8 +447,9 @@ class Back {
   /** Формы MCP-серверов хука `Elicitation`. */
   readonly #elicitationDesk: ElicitationDesk;
 
-  constructor(options: BackOptions) {
+  constructor(options: BackOptions, upgrades: Upgrades) {
     this.#options = options;
+    this.#upgrades = upgrades;
     this.#now = options.now ?? Date.now;
     this.#image = Image.at(options.imageFile);
     this.#snapshot = snapshotOf(this.#imageMethods());
@@ -541,7 +537,7 @@ class Back {
     const failure = await writeSnapshot(
       this.#options.snapshotFile,
       JSON.stringify(this.#snapshot),
-      this.#options.fs ?? DENO_FS,
+      this.#options.fs ?? PROCESS_FS,
     );
     if (failure !== undefined) {
       this.#options.diagnose(`mpu-back: снимок дерева не записан: ${failure}`);
@@ -567,7 +563,7 @@ class Back {
         gate: OPEN_GATE,
         // `pid` — чтобы установка отличила новый процесс от старого
         // (`platform/supervisor-install.md`, шаг 7): версия у них одна.
-        handle: () => json({ ok: true, version: VERSION, pid: Deno.pid }),
+        handle: () => json({ ok: true, version: VERSION, pid: process.pid }),
       },
     });
     this.#route(app, "/rpc", {
@@ -584,7 +580,11 @@ class Back {
         // Канал запускает Claude Code от имени владельца: дверь — его.
         gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
         handle: (request) =>
-          webSocketOf(request, (socket) => this.#channel(socket)),
+          webSocketOf(
+            this.#upgrades,
+            request,
+            (socket) => this.#channel(socket),
+          ),
       },
     });
     for (const { path, door, entry } of DOORS) {
@@ -705,30 +705,28 @@ class Back {
    * Соединение канала Claude Code (`claude-channel.md`, «Регистрация в
    * ядре»): кадры и закрытие — соединению; открытые закрывает остановка.
    */
-  #channel(socket: WebSocket): void {
+  #channel(socket: AcceptedSocket): void {
     const connection = new ChannelConnection(this.#sessions, {
       send: (frame) => {
-        if (socket.readyState !== WebSocket.OPEN) return false;
+        if (!socket.isOpen()) return false;
         socket.send(frame);
         return true;
       },
       close: () => socket.close(),
     });
     this.#channels.add(socket);
-    socket.addEventListener("message", (event) => {
-      connection.heard(String(event.data));
-    });
-    socket.addEventListener("close", () => {
+    socket.onMessage((data) => connection.heard(String(data)));
+    socket.onClose(() => {
       this.#channels.delete(socket);
       connection.closed();
-    }, { once: true });
+    });
   }
 
   /** WebSocket строки. */
   #upgrade(request: Request, door: Door, caller: Caller): Response {
     // После апгрейда запрос закрыт: имя вызывающего — до него.
     const naming = caller.naming(request);
-    return webSocketOf(request, (socket) => {
+    return webSocketOf(this.#upgrades, request, (socket) => {
       const { line, first, input } = socketLine(socket);
       this.#track(line, first, input, door, caller, naming);
     });
@@ -942,34 +940,31 @@ function snapshotOf(image: readonly ImageMethod[]) {
 /**
  * Поднимает сервер на петле и записывает снимок дерева.
  *
- * @throws Deno.errors.AddrInUse — порт занят
+ * @throws Error с `code === "EADDRINUSE"` — порт занят
  */
 export async function serveBack(options: BackOptions): Promise<RunningBack> {
-  const back = new Back(options);
-  const address = Promise.withResolvers<Deno.NetAddr>();
-  const server = Deno.serve({
-    hostname: LOOPBACK,
+  const upgrades = new Upgrades();
+  const back = new Back(options, upgrades);
+  // Исполнители — после привязки порта: процесс, не ставший сервером
+  // (порт занят), не должен оставить за собой запущенных исполнителей.
+  const server = await listenLoopback({
     port: options.port,
-    onListen: address.resolve,
-  }, back.app().fetch);
-  // Исполнители — после привязки порта: занятый порт бросает из
-  // `Deno.serve`, и процесс, не ставший сервером, не должен оставить
-  // за собой запущенных исполнителей. Строк до этой точки нет — их
-  // обработчик зовётся не раньше следующего оборота цикла событий.
+    fetch: back.app().fetch,
+    upgrades,
+  });
   back.start();
-  const bound = await address.promise;
-  back.listening(bound.port);
+  back.listening(server.port);
   await back.writeSnapshot();
   // Остановка одна: повторный вызов ждёт ту же (сигнал может прийти
-  // дважды, а второй `shutdown` у сервера Deno бросает).
+  // дважды, а второй `close` у сервера бросает).
   let stopping: Promise<void> | undefined;
   return {
-    port: bound.port,
-    hostname: bound.hostname,
+    port: server.port,
+    hostname: server.hostname,
     stop: () =>
       stopping ??= (async () => {
         await back.stop();
-        await server.shutdown();
+        await server.stop();
       })(),
   };
 }

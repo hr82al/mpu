@@ -6,6 +6,7 @@
  * добавляет `[task] `), остановка — `SIGTERM`/`SIGINT`.
  */
 
+import process from "node:process";
 import { openCacheDb } from "./src/store/mod.ts";
 import {
   Orchestra,
@@ -21,17 +22,18 @@ import { VERSION } from "./src/version.ts";
 if (import.meta.main) {
   // Как у соседей: `--version` — версия сборки, ничего не поднимая
   // (`platform/supervisor-install.md`, «Части»).
-  if (Deno.args.length === 1 && Deno.args[0] === "--version") {
+  const args = process.argv.slice(2);
+  if (args.length === 1 && args[0] === "--version") {
     console.log(VERSION);
-    Deno.exit(0);
+    process.exit(0);
   }
-  const home = Deno.env.get("HOME") ?? "";
-  const runtime = Deno.env.get("XDG_RUNTIME_DIR") ?? "";
-  if (Deno.args.length > 0 || home === "" || runtime === "") {
+  const home = process.env.HOME ?? "";
+  const runtime = process.env.XDG_RUNTIME_DIR ?? "";
+  if (args.length > 0 || home === "" || runtime === "") {
     console.error(
       "mpu-task: аргументов нет; нужны HOME и XDG_RUNTIME_DIR",
     );
-    Deno.exit(2);
+    process.exit(2);
   }
   const line = (text: string) => console.log(text);
   const orchestra = new Orchestra({
@@ -43,10 +45,10 @@ if (import.meta.main) {
   }, () => openCacheDb(`${home}/.config/mpu/mpu.db`));
   const stopping = new AbortController();
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
-    Deno.addSignalListener(signal, () => stopping.abort());
+    process.on(signal, () => stopping.abort());
   }
   line("старт");
   await runSteps(orchestra, stopping.signal, line);
   line("остановка");
-  Deno.exit(0);
+  process.exit(0);
 }

@@ -150,7 +150,7 @@ class LineSocket {
     ]);
     await this.#closed.promise;
     // Копирование переживает закрытие сокета: клиент выходит
-    // `Deno.exit`, и незаконченная просьба пропала бы вместе с
+    // `process.exit`, и незаконченная просьба пропала бы вместе с
     // процессом, не дождавшись программы копирования.
     await this.#copying;
     return this.#ending.close(this.#fate);

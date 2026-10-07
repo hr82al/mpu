@@ -737,6 +737,13 @@ Node (у `coverage-v8` ветви расходятся).
   обещает эти схемы (`docs/specs/telegram-log.md`), а прежний клиент Deno их
   понимал (решение владельца 2026-10-07). Версия 8.x — на той же `agent-base` 7,
   что у `https-proxy-agent`.
+- `@hono/node-server` — сервер Hono на `node:http` для `mpu-back` и `mpu-mcp`
+  вместо `Deno.serve` (`platform/node-runtime.md`, E1): проба этапа 2 —
+  одинаково под Bun, Node и Deno. Зависимостей, кроме `hono` (peer), нет.
+- `ws` — WebSocket сервера строк вместо `Deno.upgradeWebSocket`
+  (`platform/node-runtime.md`, E1; проба — одинаково под тремя). Своих типов
+  пакет не несёт: нужную часть поверхности объявляет потребитель
+  (`back/src/backend/loopback.ts`), как у `pg`. Зависимостей нет.
 
 - `vitest` — раннер тестов `*.test.ts`, одинаковый под Bun, Deno и Node
   (`platform/vitest.md`); задача `deno task vitest`. Версия совпадает с записью

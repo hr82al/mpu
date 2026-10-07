@@ -9,7 +9,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import { rejected, thrown } from "../testing/thrown.ts";
 import { DomainError, NotFoundIoError } from "../command/mod.ts";
 import {
@@ -175,30 +176,34 @@ it("токен-кэш sl-back ложится в каталог конфигур�
 });
 
 it("вывод пишется целиком, даже когда поток берёт по куску", () => {
-  // Приёмник пишет в реальные потоки, поэтому подменяем дескриптор на
-  // скупой: он принимает по три байта за раз — ровно тот случай, ради
+  // Приёмник пишет в реальные потоки, поэтому подменяем запись на
+  // скупую: она принимает по три байта за раз — ровно тот случай, ради
   // которого в записи есть цикл.
   const written: Uint8Array[] = [];
-  const stingy = {
-    writeSync(data: Uint8Array): number {
-      const chunk = data.subarray(0, 3);
-      written.push(chunk.slice());
-      return chunk.length;
-    },
+  const fds = new Set<number>();
+  const stingy = (fd: number, data: Uint8Array): number => {
+    const chunk = data.subarray(0, 3);
+    fds.add(fd);
+    written.push(chunk.slice());
+    return chunk.length;
   };
   const text = "строка с «кавычками»\n";
-  const real = Deno.stdout;
-  Object.defineProperty(Deno, "stdout", { value: stingy, configurable: true });
+  // `as`: у `writeSync` перегрузки, подмена реализует ровно ту, которой
+  // пишет приёмник (дескриптор и байты).
+  const spy = vi.spyOn(fs, "writeSync").mockImplementation(
+    stingy as typeof fs.writeSync,
+  );
   try {
     makeDenoOutput().stdout(text);
   } finally {
-    Object.defineProperty(Deno, "stdout", { value: real, configurable: true });
+    spy.mockRestore();
   }
   const joined = written.reduce<number[]>(
     (all, chunk) => [...all, ...chunk],
     [],
   );
   expect(new TextDecoder().decode(Uint8Array.from(joined))).toStrictEqual(text);
+  expect([...fds], "запись не в stdout").toStrictEqual([1]);
 });
 
 it("отсутствующий файл переводится в NotFoundIoError", async () => {
@@ -217,9 +222,7 @@ it("открыватель: нет бинаря — false, прочий сбой
     // такую ошибку нельзя — иначе команда молча соврёт про успех.
     const path = `${dir}/opener`;
     await writeFile(path, "#!/bin/sh\n", { mode: 0o600 });
-    // Класс не фиксируем: он зависит от прав прогона (без --allow-run
-    // это NotCapable, с ним — PermissionDenied). Важно, что ошибка не
-    // проглочена и наружу не ушёл ложный успех.
+    // Важно, что ошибка не проглочена и наружу не ушёл ложный успех.
     expect(() => io.launchOpener(path, "/tmp/x")).toThrow(Error);
   } finally {
     await rm(dir, { recursive: true });
@@ -415,18 +418,21 @@ it("openCacheDb: без HOME — DomainError с текстом спеки", () =
 
 it("progress пишет строку с переводом строки в stderr", () => {
   const chunks: Uint8Array[] = [];
-  const stub = {
-    writeSync(data: Uint8Array): number {
-      chunks.push(data.slice());
-      return data.length;
-    },
+  const fds = new Set<number>();
+  const stub = (fd: number, data: Uint8Array): number => {
+    fds.add(fd);
+    chunks.push(data.slice());
+    return data.length;
   };
-  const real = Deno.stderr;
-  Object.defineProperty(Deno, "stderr", { value: stub, configurable: true });
+  // `as`: подмена реализует ту перегрузку `writeSync`, которой пишет
+  // рантайм (дескриптор и байты).
+  const spy = vi.spyOn(fs, "writeSync").mockImplementation(
+    stub as typeof fs.writeSync,
+  );
   try {
     makeDenoIo(undefined).progress("шаг 1: bootstrap готов");
   } finally {
-    Object.defineProperty(Deno, "stderr", { value: real, configurable: true });
+    spy.mockRestore();
   }
   const total = chunks.reduce((n, c) => n + c.length, 0);
   const joined = new Uint8Array(total);
@@ -436,6 +442,7 @@ it("progress пишет строку с переводом строки в stder
     offset += chunk.length;
   }
   expect(new TextDecoder().decode(joined)).toBe("шаг 1: bootstrap готов\n");
+  expect([...fds], "запись не в stderr").toStrictEqual([2]);
 });
 
 describe("разбор строки /proc/<pid>/stat", () => {

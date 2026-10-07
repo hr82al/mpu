@@ -3,6 +3,8 @@
  * запускает служба `mpu.service`.
  */
 
+import { writeSync } from "node:fs";
+import process from "node:process";
 import {
   DEFAULT_MIN_BYTES,
   defaultThreshold,
@@ -17,26 +19,27 @@ import {
 
 const encoder = new TextEncoder();
 
-function write(file: { writeSync(p: Uint8Array): number }, text: string) {
+/** Полная запись в дескриптор: `writeSync` может записать часть. */
+function write(fd: number, text: string) {
   const bytes = encoder.encode(text);
   let written = 0;
   while (written < bytes.length) {
-    written += file.writeSync(bytes.subarray(written));
+    written += writeSync(fd, bytes.subarray(written));
   }
 }
 
 if (import.meta.main) {
-  const runtimeDir = Deno.env.get("XDG_RUNTIME_DIR");
-  Deno.exit(
-    await runSupervisor(Deno.args, {
+  const runtimeDir = process.env.XDG_RUNTIME_DIR;
+  process.exit(
+    await runSupervisor(process.argv.slice(2), {
       launcher: SYSTEM_LAUNCHER,
       clock: SYSTEM_CLOCK,
       log: {
-        out: (text) => write(Deno.stdout, `${text}\n`),
-        err: (text) => write(Deno.stderr, `${text}\n`),
+        out: (text) => write(1, `${text}\n`),
+        err: (text) => write(2, `${text}\n`),
       },
-      stdout: (text) => write(Deno.stdout, text),
-      onSignal: (signal, handler) => Deno.addSignalListener(signal, handler),
+      stdout: (text) => write(1, text),
+      onSignal: (signal, handler) => process.on(signal, handler),
       watch: {
         source: SYSTEM_PROCS,
         hands: runtimeDir === undefined || runtimeDir === ""

@@ -98,11 +98,25 @@ interface Sink {
   err(text: string): Promise<void>;
 }
 
-/** Вывод программы — в вывод строки: его перехватывает журнал. */
-function lineSink(output: Output): Sink {
+/** Пустой кусок: ничего не печатает, ответ — готовность строки. */
+const NOTHING = new Uint8Array();
+
+/**
+ * Вывод программы — в вывод строки: его перехватывает журнал. Следующий
+ * кадр ждёт готовности строки принять его (`RemoteOutput.out`): иначе
+ * быстрая программа копила бы вывод в буфере сокета, и кадр закрытия
+ * клиента сервер читал бы секундами позже (`platform/line-cancel.md`).
+ */
+function lineSink(output: Output, pressure: RemoteOutput): Sink {
   return {
-    out: (text) => Promise.resolve(output.stdout(text)),
-    err: (text) => Promise.resolve(output.stderr(text)),
+    out: async (text) => {
+      output.stdout(text);
+      await pressure.out(NOTHING);
+    },
+    err: async (text) => {
+      output.stderr(text);
+      await pressure.err(NOTHING);
+    },
   };
 }
 
@@ -206,7 +220,9 @@ export class LineWorker {
         },
       });
       if (io.signal.aborted) this.stop();
-      return endOf(await this.#converse(io, lineSink(output), core));
+      return endOf(
+        await this.#converse(io, lineSink(output, io.openRemoteOutput()), core),
+      );
     } finally {
       io.signal.removeEventListener("abort", stop);
       await this.close();

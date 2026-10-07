@@ -4,6 +4,8 @@
  * Без токена; `Content-Security-Policy: default-src 'self'`.
  */
 
+import { readFile } from "node:fs/promises";
+
 const CSP = { "Content-Security-Policy": "default-src 'self'" };
 
 const NOT_INSTALLED = "mpu-back: фронт не установлен\n";
@@ -28,7 +30,8 @@ function typeOf(path: string): string {
 
 async function file(path: string): Promise<Response | undefined> {
   try {
-    const bytes = await Deno.readFile(path);
+    // Копия в `Uint8Array`: `Buffer` тело `Response` по типам не берёт.
+    const bytes = new Uint8Array(await readFile(path));
     return new Response(bytes, {
       headers: { ...CSP, "Content-Type": typeOf(path) },
     });

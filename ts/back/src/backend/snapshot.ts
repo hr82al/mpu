@@ -3,6 +3,8 @@
  * записывается атомарно — читатель видит прежний файл или новый целиком.
  */
 
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+
 /** Файловые операции записи снимка. */
 export interface SnapshotFs {
   mkdir(dir: string): Promise<void>;
@@ -12,11 +14,13 @@ export interface SnapshotFs {
 }
 
 /** Файловая система процесса. */
-export const DENO_FS: SnapshotFs = {
-  mkdir: (dir) => Deno.mkdir(dir, { recursive: true }),
-  writeTextFile: (path, text) => Deno.writeTextFile(path, text),
-  rename: (from, to) => Deno.rename(from, to),
-  remove: (path) => Deno.remove(path),
+export const PROCESS_FS: SnapshotFs = {
+  mkdir: async (dir) => {
+    await mkdir(dir, { recursive: true });
+  },
+  writeTextFile: (path, text) => writeFile(path, text),
+  rename: (from, to) => rename(from, to),
+  remove: (path) => rm(path),
 };
 
 /**
@@ -30,7 +34,7 @@ export const DENO_FS: SnapshotFs = {
 export async function writeSnapshot(
   file: string | undefined,
   text: string,
-  fs: SnapshotFs = DENO_FS,
+  fs: SnapshotFs = PROCESS_FS,
 ): Promise<string | undefined> {
   if (file === undefined) return "каталог кэша не задан (нет HOME)";
   const cut = file.lastIndexOf("/");

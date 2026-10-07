@@ -8,6 +8,16 @@
  * настроек оболочек не трогаются.
  */
 
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+import { text } from "node:stream/consumers";
+
 export const ROOT = new URL("../../", import.meta.url).pathname;
 
 const FAKE_DENO = `#!/bin/bash
@@ -91,21 +101,27 @@ const OLD_ANSWERS = 3;
  * Фальшивая часть службы: /health с pid; после строки в файле пометок
  * ещё несколько ответов — старый pid, затем новый.
  */
-function fakePart(mark: string, base: number, extra: object) {
+async function fakePart(mark: string, base: number, extra: object) {
   let generation = 0;
   let lag = 0;
   const seen = { newPid: false };
-  const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (
-    request,
-  ) => {
-    const path = new URL(request.url).pathname;
-    if (path === "/mcp") return new Response(null, { status: 401 });
-    if (path !== "/health") return new Response(null, { status: 404 });
+  const server = createServer((request, response) => {
+    const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    if (path === "/mcp") {
+      response.statusCode = 401;
+      return response.end();
+    }
+    if (path !== "/health") {
+      response.statusCode = 404;
+      return response.end();
+    }
     let marks = 0;
     try {
-      marks = Deno.readTextFileSync(mark).split("\n").length - 1;
+      marks = readFileSync(mark, "utf8").split("\n").length - 1;
     } catch (err) {
-      if (!(err instanceof Deno.errors.NotFound)) throw err;
+      if (!(err instanceof Error && "code" in err && err.code === "ENOENT")) {
+        throw err;
+      }
     }
     if (marks > generation && lag < OLD_ANSWERS) {
       lag += 1;
@@ -114,31 +130,43 @@ function fakePart(mark: string, base: number, extra: object) {
       lag = 0;
       seen.newPid = true;
     }
-    return Response.json({ ok: true, ...extra, pid: base + generation });
+    response.setHeader("Content-Type", "application/json");
+    response.end(
+      JSON.stringify({ ok: true, ...extra, pid: base + generation }),
+    );
   });
-  return { server, seen, url: `http://127.0.0.1:${server.addr.port}` };
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error(`адрес петли не порт: ${address}`);
+  }
+  return { server, seen, url: `http://127.0.0.1:${address.port}` };
+}
+
+/** Остановка фальшивой части: соединения — сразу, иначе `close` ждёт их. */
+function stopped(server: Server): Promise<void> {
+  server.closeAllConnections();
+  return new Promise((resolve) => server.close(() => resolve()));
 }
 
 export interface Place {
   readonly dir: string;
-  readonly back: ReturnType<typeof fakePart>;
-  readonly mcp: ReturnType<typeof fakePart>;
+  readonly back: Awaited<ReturnType<typeof fakePart>>;
+  readonly mcp: Awaited<ReturnType<typeof fakePart>>;
   readonly bin: string;
   readonly unit: string;
   readonly calls: string;
 }
 
 export async function withPlace(body: (place: Place) => Promise<void>) {
-  const dir = await Deno.makeTempDir();
-  const back = fakePart(`${dir}/back`, 100, { version: "0.1.0" });
-  const mcp = fakePart(`${dir}/mcp`, 200, {});
+  const dir = await mkdtemp(join(tmpdir(), "mpu-install-"));
+  const back = await fakePart(`${dir}/back`, 100, { version: "0.1.0" });
+  const mcp = await fakePart(`${dir}/mcp`, 200, {});
   try {
-    await Deno.writeTextFile(`${dir}/deno`, FAKE_DENO, { mode: 0o755 });
-    await Deno.writeTextFile(`${dir}/systemctl`, FAKE_SYSTEMCTL, {
-      mode: 0o755,
-    });
-    await Deno.writeTextFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
-    await Deno.writeTextFile(`${dir}/nu`, FAKE_NU, { mode: 0o755 });
+    await writeFile(`${dir}/deno`, FAKE_DENO, { mode: 0o755 });
+    await writeFile(`${dir}/systemctl`, FAKE_SYSTEMCTL, { mode: 0o755 });
+    await writeFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
+    await writeFile(`${dir}/nu`, FAKE_NU, { mode: 0o755 });
     await body({
       dir,
       back,
@@ -148,9 +176,9 @@ export async function withPlace(body: (place: Place) => Promise<void>) {
       calls: `${dir}/calls`,
     });
   } finally {
-    await back.server.shutdown();
-    await mcp.server.shutdown();
-    await Deno.remove(dir, { recursive: true });
+    await stopped(back.server);
+    await stopped(mcp.server);
+    await rm(dir, { recursive: true });
   }
 }
 
@@ -172,13 +200,15 @@ export async function runScript(
   where: { readonly tree?: string; readonly from?: string } = {},
 ): Promise<Run> {
   const tree = where.tree ?? ROOT;
-  await Deno.writeTextFile(place.calls, "");
+  await writeFile(place.calls, "");
   const claudeLog = `${place.dir}/claude-calls`;
-  await Deno.writeTextFile(claudeLog, "");
-  const output = await new Deno.Command("/bin/bash", {
-    args: [`${tree}${script}`, ...args],
+  await writeFile(claudeLog, "");
+  const output = await ran("/bin/bash", [`${tree}${script}`, ...args], {
     cwd: where.from ?? ROOT,
+    // Окружение запускающего — под подменами: прежний запуск сливал
+    // `env` с ним, `spawn` его заменяет.
     env: {
+      ...process.env,
       HOME: place.dir,
       // Каталог настроек — во временном HOME: без этого fish и nu
       // указали бы на настоящие файлы запускающего.
@@ -200,18 +230,15 @@ export async function runScript(
       FAKE_STATE: `${place.dir}/active`,
       ...env,
     },
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  const text = new TextDecoder().decode(output.stdout) +
-    new TextDecoder().decode(output.stderr);
-  const calls = (await Deno.readTextFile(place.calls)).split("\n")
+  });
+  const printed = output.stdout + output.stderr;
+  const calls = (await readFile(place.calls, "utf8")).split("\n")
     .filter((call) => call !== "" && !call.includes("is-active"));
-  const claude = (await Deno.readTextFile(claudeLog)).split("\n")
+  const claude = (await readFile(claudeLog, "utf8")).split("\n")
     .filter((call) => call !== "");
   return {
     code: output.code,
-    lines: text.split("\n").filter((line) => line !== ""),
+    lines: printed.split("\n").filter((line) => line !== ""),
     calls,
     claude,
   };
@@ -221,16 +248,37 @@ export async function runScript(
 export async function snapshot(dir: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   try {
-    for await (const entry of Deno.readDir(dir)) {
-      const bytes = await Deno.readFile(`${dir}/${entry.name}`);
-      const digest = await crypto.subtle.digest("SHA-256", bytes);
-      files[entry.name] = Array.from(
-        new Uint8Array(digest),
-        (byte) => byte.toString(16).padStart(2, "0"),
-      ).join("");
+    for (const name of await readdir(dir)) {
+      const bytes = await readFile(`${dir}/${name}`);
+      files[name] = createHash("sha256").update(bytes).digest("hex");
     }
   } catch (err) {
-    if (!(err instanceof Deno.errors.NotFound)) throw err;
+    if (!(err instanceof Error && "code" in err && err.code === "ENOENT")) {
+      throw err;
+    }
   }
   return files;
+}
+
+/** Итог программы: код и оба потока текстом. */
+async function ran(
+  program: string,
+  args: readonly string[],
+  options: { readonly cwd: string; readonly env: NodeJS.ProcessEnv },
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const child = spawn(program, [...args], {
+    ...options,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const exited = new Promise<number | null>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", resolve);
+  });
+  const [stdout, stderr, code] = await Promise.all([
+    text(child.stdout),
+    text(child.stderr),
+    exited,
+  ]);
+  // Убит сигналом — кода нет; для прогона скрипта это провал.
+  return { code: code ?? 1, stdout, stderr };
 }

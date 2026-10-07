@@ -6,6 +6,9 @@
  */
 
 import { strictEqual } from "node:assert/strict";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DEFINED_AT } from "../line/testimage.ts";
 import { collected, type Frame, type TestBack, withBack } from "./testback.ts";
 
@@ -82,10 +85,10 @@ async function session(back: TestBack): Promise<Record<string, string>> {
 export async function withWebImage(
   body: (stand: WebImage) => Promise<void>,
 ): Promise<void> {
-  const home = await Deno.makeTempDir();
+  const home = await mkdtemp(join(tmpdir(), "mpu-web-"));
   let now = Date.parse(DEFINED_AT);
   try {
-    await Deno.mkdir(`${home}/mr/mp/mpu`, { recursive: true });
+    await mkdir(`${home}/mr/mp/mpu`, { recursive: true });
     await withBack(async (back) => {
       const bearer = { Authorization: `Bearer ${back.token}` };
       const terminal = async (
@@ -137,7 +140,7 @@ export async function withWebImage(
       io: { env: (name) => name === "HOME" ? home : undefined },
     });
   } finally {
-    await Deno.remove(home, { recursive: true });
+    await rm(home, { recursive: true });
   }
 }
 

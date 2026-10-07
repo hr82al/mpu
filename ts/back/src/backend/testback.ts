@@ -6,6 +6,10 @@
  */
 
 import { ok, strictEqual } from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -155,7 +159,7 @@ export async function withBack(
   body: (back: TestBack) => Promise<void>,
   setup: BackSetup = {},
 ): Promise<void> {
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-back-"));
   const called: string[] = [];
   const executors: number[] = [];
   const logged: string[] = [];
@@ -206,7 +210,7 @@ export async function withBack(
     questions: setup.questions ?? NO_BOT,
     windows: setup.windows ?? NO_WINDOWS,
   }).catch(async (err) => {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
     throw err;
   });
   const back: TestBack = {
@@ -233,7 +237,7 @@ export async function withBack(
   } finally {
     // Повисшее исполнение держало бы остановку вечно: тест краснеет.
     await within(running.stop(), 10_000, "остановка сервера");
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
   for (const text of [...back.seen, ...diagnosed]) {
     ok(!text.includes(TOKEN), `токен в выводе: ${text}`);
@@ -333,7 +337,7 @@ export class Client {
 
   /** Первый кадр строки: слова, каталог процесса теста, человек. */
   start(words: readonly string[], human = true) {
-    this.send({ words, cwd: Deno.cwd(), human });
+    this.send({ words, cwd: process.cwd(), human });
   }
 
   close() {

@@ -10,7 +10,7 @@ import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
 import { ownerQuestions } from "../botquestions/mod.ts";
 import { VERSION } from "../version.ts";
-import type { SecretText } from "../runtime/mod.ts";
+import { hasErrorCode, type SecretText } from "../runtime/mod.ts";
 import { DEFAULT_LINES } from "./limit.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
 import { WebAccess } from "./web.ts";
@@ -158,7 +158,7 @@ export async function runBack(
       },
     });
   } catch (err) {
-    if (!(err instanceof Deno.errors.AddrInUse)) throw err;
+    if (!hasErrorCode(err, "EADDRINUSE")) throw err;
     proc.output.stderr(`mpu-back: порт ${port} занят\n`);
     return 1;
   }

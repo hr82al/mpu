@@ -60,13 +60,13 @@ it("порт занят — ни вопросов, ни исполнителей
   const busy = createServer();
   const port = await listenLoopback(busy);
   try {
-    // Отказ кода под тестом — ошибка рантайма «адрес занят»; узнаётся
-    // по имени, а не по классу рантайма.
+    // Отказ кода под тестом — ошибка «адрес занят»; узнаётся по коду
+    // `node:*`, одинаковому под тремя рантаймами.
     await expect(withBack(() => Promise.resolve(), {
       port,
       questions,
       launcher,
-    })).rejects.toMatchObject({ name: "AddrInUse" });
+    })).rejects.toMatchObject({ code: "EADDRINUSE" });
     expect(events).toStrictEqual([]);
     expect(launched, "исполнители запущены процессом без порта").toBe(0);
     expect(await readdir(ownTmp), "каталог стенда остался").toStrictEqual([]);

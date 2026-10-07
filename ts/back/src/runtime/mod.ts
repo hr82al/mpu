@@ -1,11 +1,26 @@
 /**
- * Реальные зависимости поверх API Deno: файлы, stdin, токен доступа
+ * Реальные зависимости поверх `node:*`: файлы, stdin, токен доступа
  * (0600), кэш-БД, запуск открывателя и запись в потоки процесса. Отделены от
  * main.ts, чтобы всё остальное тестировалось без запуска бинаря, и от
  * команд — чтобы `CommandIo` оставался интерфейсом на стороне
  * потребителя.
  */
 
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import {
+  appendFile,
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import process from "node:process";
+import { buffer } from "node:stream/consumers";
+import tty from "node:tty";
 import {
   type CommandIo,
   DomainError,
@@ -23,27 +38,37 @@ import {
 } from "../env/mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 
-/** Достаточная часть Deno.stdout/stderr: синхронная запись. */
-interface SyncSink {
-  writeSync(data: Uint8Array): number;
-}
+/** Дескрипторы потоков процесса. */
+const STDIN = 0;
+const STDOUT = 1;
+const STDERR = 2;
 
 const encoder = new TextEncoder();
 
-/** Полная запись: writeSync может записать буфер частично. */
-function writeAllSync(stream: SyncSink, text: string): void {
-  writeAllBytesSync(stream, encoder.encode(text));
+/** Полная запись: `writeSync` может записать буфер частично. */
+function writeAllSync(fd: number, text: string): void {
+  writeAllBytesSync(fd, encoder.encode(text));
 }
 
-function writeAllBytesSync(stream: SyncSink, bytes: Uint8Array): void {
+function writeAllBytesSync(fd: number, bytes: Uint8Array): void {
   let written = 0;
   while (written < bytes.length) {
-    written += stream.writeSync(bytes.subarray(written));
+    // Через объект модуля, а не именованный импорт: тест подменяет
+    // запись на нём, и подмену видят все три рантайма.
+    written += fs.writeSync(fd, bytes.subarray(written));
   }
 }
 
+/**
+ * Ошибка ввода-вывода с кодом `code` (`ENOENT`, `EADDRINUSE`, …): коды у
+ * `node:*` под Bun, Node и Deno одинаковы.
+ */
+export function hasErrorCode(err: unknown, code: string): boolean {
+  return err instanceof Error && "code" in err && err.code === code;
+}
+
 function translateNotFound(err: unknown): never {
-  if (err instanceof Deno.errors.NotFound) {
+  if (hasErrorCode(err, "ENOENT")) {
     throw new NotFoundIoError("file not found", { cause: err });
   }
   throw err;
@@ -64,7 +89,7 @@ function translateNotFound(err: unknown): never {
  * конфигурацию можно только подменой `HOME`.
  */
 export function defaultStateDir(): string | undefined {
-  const home = Deno.env.get("HOME");
+  const home = process.env.HOME;
   if (home === undefined || home === "") return undefined;
   return `${home}/.config/mpu`;
 }
@@ -76,7 +101,7 @@ export function defaultStateDir(): string | undefined {
  * причине, что и кэш-БД (`defaultStateDir`).
  */
 export function defaultInvokeLogPath(): string | undefined {
-  const home = Deno.env.get("HOME");
+  const home = process.env.HOME;
   if (home === undefined || home === "") return undefined;
   return `${home}/.config/mpu/mpu.log`;
 }
@@ -84,8 +109,8 @@ export function defaultInvokeLogPath(): string | undefined {
 /** Потоки процесса как приёмник вывода точки входа. */
 export function makeDenoOutput(): Output {
   return {
-    stdout: (text) => writeAllSync(Deno.stdout, text),
-    stderr: (text) => writeAllSync(Deno.stderr, text),
+    stdout: (text) => writeAllSync(STDOUT, text),
+    stderr: (text) => writeAllSync(STDERR, text),
   };
 }
 
@@ -96,7 +121,7 @@ export function makeDenoOutput(): Output {
  * (`src/env/mod.ts`).
  */
 export function defaultCredsDir(): string | undefined {
-  return configHomeDir((name) => Deno.env.get(name));
+  return configHomeDir((name) => process.env[name]);
 }
 
 /**
@@ -135,7 +160,7 @@ const KNOWN_SHELLS = ["bash", "zsh"];
  * аргументом.
  */
 function detectShell(): string | undefined {
-  return shellInAncestors(readProcStatFile, Deno.ppid);
+  return shellInAncestors(readProcStatFile, process.ppid);
 }
 
 /** Запись `/proc/<pid>/stat`: имя процесса и его родитель. */
@@ -186,7 +211,7 @@ export function parseProcStat(raw: string): ProcStat | undefined {
 
 function readProcStatFile(pid: number): ProcStat | undefined {
   try {
-    return parseProcStat(Deno.readTextFileSync(`/proc/${pid}/stat`));
+    return parseProcStat(fs.readFileSync(`/proc/${pid}/stat`, "utf8"));
   } catch {
     // Нет procfs или процесс исчез — shell не определён; это не сбой.
     return undefined;
@@ -204,9 +229,9 @@ export function tokenFile(
   return {
     readAccessToken: async () => {
       try {
-        return (await Deno.readTextFile(path)).trim();
+        return (await readFile(path, "utf8")).trim();
       } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return undefined;
+        if (hasErrorCode(err, "ENOENT")) return undefined;
         throw err;
       }
     },
@@ -229,9 +254,9 @@ export function secretText(path: string): SecretText {
   return {
     read: async () => {
       try {
-        return await Deno.readTextFile(path);
+        return await readFile(path, "utf8");
       } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return "";
+        if (hasErrorCode(err, "ENOENT")) return "";
         throw err;
       }
     },
@@ -242,11 +267,11 @@ export function secretText(path: string): SecretText {
 /** Запись файла с секретом: каталог создаётся, права ровно 0600. */
 async function writeSecret(path: string, text: string): Promise<void> {
   const dir = path.slice(0, path.lastIndexOf("/"));
-  await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(path, text, { mode: 0o600 });
-  // При существующем файле mode из writeTextFile не применяется —
+  await mkdir(dir, { recursive: true });
+  await writeFile(path, text, { mode: 0o600 });
+  // При существующем файле mode из writeFile не применяется —
   // права выравниваются явно.
-  await Deno.chmod(path, 0o600);
+  await chmod(path, 0o600);
 }
 
 /**
@@ -261,16 +286,16 @@ async function writeSecretAtomically(
   text: string,
 ): Promise<void> {
   const dir = path.slice(0, path.lastIndexOf("/"));
-  await Deno.mkdir(dir, { recursive: true });
-  const temp = `${path}.${Deno.pid}.tmp`;
+  await mkdir(dir, { recursive: true });
+  const temp = `${path}.${process.pid}.tmp`;
   try {
-    await Deno.writeTextFile(temp, text, { mode: 0o600 });
-    await Deno.chmod(temp, 0o600);
-    await Deno.rename(temp, path);
+    await writeFile(temp, text, { mode: 0o600 });
+    await chmod(temp, 0o600);
+    await rename(temp, path);
   } catch (err) {
     // Уборка временного файла не важнее исходной причины отказа и её
     // не затирает.
-    await Deno.remove(temp).catch(() => {});
+    await rm(temp).catch(() => {});
     throw err;
   }
 }
@@ -280,7 +305,7 @@ async function writeSecretAtomically(
  * «Ввод/вывод»): чтение снапшотом, атомарная запись. Запись идёт через
  * временный файл-сосед в том же каталоге — так читатели никогда не видят
  * файл в промежуточном состоянии, — права 0600 выставляются до
- * переименования поверх цели. Сбой до `Deno.rename` убирает временный
+ * переименования поверх цели. Сбой до `rename` убирает временный
  * файл, чтобы он не копился; сбой самой уборки не важнее исходной
  * причины отказа записи и её не затирает.
  */
@@ -290,28 +315,28 @@ export function makeEnvFileStore(path: string): EnvFileStore {
     path,
     readSync: () => {
       try {
-        return Deno.readTextFileSync(path);
+        return fs.readFileSync(path, "utf8");
       } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return undefined;
+        if (hasErrorCode(err, "ENOENT")) return undefined;
         throw err;
       }
     },
     write: async (text) => {
-      await Deno.mkdir(dir, { recursive: true });
+      await mkdir(dir, { recursive: true });
       const tmpPath = `${path}.${crypto.randomUUID()}.tmp`;
       try {
-        await Deno.writeTextFile(tmpPath, text, { mode: 0o600 });
+        await writeFile(tmpPath, text, { mode: 0o600 });
         // Файл заведомо новый (имя несёт UUID) — переиспользованием мода
         // существующего файла дело не в этом: umask процесса режет mode
-        // при создании, поэтому права после writeTextFile выравниваются
+        // при создании, поэтому права после writeFile выравниваются
         // явным chmod.
-        await Deno.chmod(tmpPath, 0o600);
-        await Deno.rename(tmpPath, path);
+        await chmod(tmpPath, 0o600);
+        await rename(tmpPath, path);
       } catch (err) {
         try {
-          await Deno.remove(tmpPath);
+          await rm(tmpPath);
         } catch {
-          // Файла может не быть, если сбой случился до writeTextFile —
+          // Файла может не быть, если сбой случился до writeFile —
           // это ожидаемый исход уборки, а не отдельная ошибка.
         }
         throw err;
@@ -321,7 +346,7 @@ export function makeEnvFileStore(path: string): EnvFileStore {
 }
 
 /**
- * Реальные зависимости исполнения команд поверх API Deno. Каталогов
+ * Реальные зависимости исполнения команд поверх `node:*`. Каталогов
  * два: `stateDir` — состояние (кэш-БД, токен MCP-сервера), `credsDir`
  * — конфигурация (env-файл, токен-кэш sl-back). Умолчание второго —
  * первый: тест, подставивший один каталог, по-прежнему изолирует всё
@@ -334,13 +359,13 @@ export function makeDenoIo(
 ): CommandIo {
   const tokenPath = accessTokenPath(stateDir);
   const cachePath = tokenCachePath(credsDir);
-  const envPath = envFilePath((name) => Deno.env.get(name));
+  const envPath = envFilePath((name) => process.env[name]);
   return {
-    env: (name) => Deno.env.get(name),
-    cwd: () => Deno.cwd(),
+    env: (name) => process.env[name],
+    cwd: () => process.cwd(),
     readFile: async (path) => {
       try {
-        return await Deno.readFile(path);
+        return await bytesOf(path);
       } catch (err) {
         translateNotFound(err);
       }
@@ -348,33 +373,32 @@ export function makeDenoIo(
     readRegularFile: async (path) => {
       try {
         // Проверка перед чтением, а не разбор ошибки после: у каталога
-        // `Deno.readFile` отвечает своим классом, а вызывающему нужен
+        // чтение отвечает своим кодом (`EISDIR`), а вызывающему нужен
         // один ответ «читать нечего» на оба случая.
-        if (!(await Deno.stat(path)).isFile) {
+        if (!(await stat(path)).isFile()) {
           throw new NotFoundIoError(`not a regular file: ${path}`);
         }
-        return await Deno.readFile(path);
+        return await bytesOf(path);
       } catch (err) {
         translateNotFound(err);
       }
     },
     readTextFile: async (path) => {
       try {
-        return await Deno.readTextFile(path);
+        return await readFile(path, "utf8");
       } catch (err) {
         translateNotFound(err);
       }
     },
-    readStdin: async () =>
-      new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer()),
-    stdinIsTerminal: () => Deno.stdin.isTerminal(),
-    stdoutIsTerminal: () => Deno.stdout.isTerminal(),
+    readStdin: async () => new Uint8Array(await buffer(process.stdin)),
+    stdinIsTerminal: () => tty.isatty(STDIN),
+    stdoutIsTerminal: () => tty.isatty(STDOUT),
     // У процесса CLI остановки не бывает: Ctrl+C приходит сигналом ОС
     // и снимает процесс вместе с его подпроцессами, как у старого
     // `mpu` (`platform/line-cancel.md`).
     signal: NEVER_STOPPED,
     consoleColumns: () => consoleColumns(),
-    stderrIsTerminal: () => Deno.stderr.isTerminal(),
+    stderrIsTerminal: () => tty.isatty(STDERR),
     // Заметку журнала подставляет точка входа: у рантайма записи нет
     // (как и с `progress`, `platform/invoke-log.md`).
     note: () => {},
@@ -386,9 +410,9 @@ export function makeDenoIo(
     readAccessToken: async () => {
       if (tokenPath === undefined) return undefined;
       try {
-        return (await Deno.readTextFile(tokenPath)).trim();
+        return (await readFile(tokenPath, "utf8")).trim();
       } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return undefined;
+        if (hasErrorCode(err, "ENOENT")) return undefined;
         throw err;
       }
     },
@@ -402,7 +426,7 @@ export function makeDenoIo(
     readTokenCache: async () => {
       if (cachePath === undefined) return undefined;
       try {
-        return await Deno.readTextFile(cachePath);
+        return await readFile(cachePath, "utf8");
       } catch {
         // Любая причина — «кэша нет», а не отказ: спека равняет
         // отсутствие файла, нечитаемость и порчу содержимого
@@ -422,23 +446,9 @@ export function makeDenoIo(
     ),
     currentShell: () => detectShell(),
     appendFile: async (path, text) => {
-      await Deno.writeTextFile(path, text, { append: true, create: true });
+      await appendFile(path, text);
     },
-    launchOpener: (cmd, target) => {
-      try {
-        const child = new Deno.Command(cmd, {
-          args: [target],
-          stdin: "null",
-          stdout: "null",
-          stderr: "null",
-        }).spawn();
-        child.unref();
-        return true;
-      } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return false;
-        throw err;
-      }
-    },
+    launchOpener,
     openCacheDb: () => {
       if (stateDir === undefined) {
         // Штатная доменная ошибка (exit 1): без HOME негде искать файл,
@@ -449,9 +459,40 @@ export function makeDenoIo(
       // тест получает изолированное состояние целиком, а не наполовину.
       return openStoreDb(`${stateDir}/mpu.db`);
     },
-    progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
+    progress: (line) => writeAllSync(STDERR, `${line}\n`),
     openRemoteOutput: () => streamingRemoteOutput(),
   };
+}
+
+/** Файл байтами — `Uint8Array`, а не его подкласс `Buffer`. */
+async function bytesOf(path: string): Promise<Uint8Array> {
+  return new Uint8Array(await readFile(path));
+}
+
+/**
+ * Открыватель в фоне: `true` — запущен, `false` — открывателя нет,
+ * исключение — есть, но не запустился. Ответ нужен сразу, а `spawn`
+ * сообщает причину сбоя событием позже: сбой виден по отсутствию pid, а
+ * «нет» отличается от «не запустился» по пути — имя с `/` проверяется
+ * наличием файла, голое имя без pid в `PATH` не нашлось.
+ */
+function launchOpener(cmd: string, target: string): boolean {
+  const child = spawn(cmd, [target], { stdio: "ignore" });
+  // Причина уже учтена ответом ниже; без слушателя событие `error`
+  // уронило бы процесс.
+  child.on("error", () => {});
+  if (child.pid !== undefined) {
+    child.unref();
+    return true;
+  }
+  if (!cmd.includes("/") || !fs.existsSync(cmd)) return false;
+  // Файл есть, но не запустился: причину (`EACCES`) даёт проверка права.
+  try {
+    fs.accessSync(cmd, fs.constants.X_OK);
+  } catch (err) {
+    throw new Error(`opener did not start: ${cmd}`, { cause: err });
+  }
+  throw new Error(`opener did not start: ${cmd}`);
 }
 
 /**
@@ -459,14 +500,10 @@ export function makeDenoIo(
  * терминал: в пайпе и в cron ширины нет, и ограничения вывода тоже.
  */
 function consoleColumns(): number | undefined {
-  if (!Deno.stdout.isTerminal()) return undefined;
-  try {
-    return Deno.consoleSize().columns;
-  } catch {
-    // Консоли нет (терминал исчез между проверкой и запросом) —
-    // ограничения тоже нет.
-    return undefined;
-  }
+  if (!tty.isatty(STDOUT)) return undefined;
+  // Терминал исчез между проверкой и запросом — ширины нет, и
+  // ограничения тоже.
+  return process.stdout.columns;
 }
 
 /**
@@ -479,11 +516,11 @@ function streamingRemoteOutput(): RemoteOutput {
   // кусок наступает тут же, давление передавать нечем и некому.
   return {
     out: (chunk) => {
-      writeAllBytesSync(Deno.stdout, chunk);
+      writeAllBytesSync(STDOUT, chunk);
       return Promise.resolve();
     },
     err: (chunk) => {
-      writeAllBytesSync(Deno.stderr, chunk);
+      writeAllBytesSync(STDERR, chunk);
       return Promise.resolve();
     },
     captured: () => "",

@@ -17,7 +17,7 @@ export interface Process {
   readonly pid: number;
   /** Завершается, когда процесс кончился (код не важен). */
   readonly exited: Promise<void>;
-  kill(signal: Deno.Signal): void;
+  kill(signal: NodeJS.Signals): void;
 }
 
 /** Как запускается процесс. */

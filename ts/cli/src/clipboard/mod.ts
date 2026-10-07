@@ -20,6 +20,14 @@
  * отсюда не видно**, и замер этого — за владельцем терминала.
  */
 
+import { type ChildProcess, spawn } from "node:child_process";
+import fs from "node:fs";
+import process from "node:process";
+import tty from "node:tty";
+
+/** Дескриптор stderr процесса. */
+const STDERR = 2;
+
 /** Предел ожидания внешней утилиты (спека). */
 const UTILITY_TIMEOUT_MS = 2_000;
 
@@ -81,7 +89,7 @@ export async function copyToClipboard(
   text: string,
   ports: Partial<ClipboardPorts> = {},
 ): Promise<boolean> {
-  const io: ClipboardPorts = { ...denoPorts(), ...ports };
+  const io: ClipboardPorts = { ...processPorts(), ...ports };
   if (await io.writeTerminal(osc52(text, io.env("TMUX")))) return true;
   const bytes = new TextEncoder().encode(text);
   for (const [bin, args] of UTILITIES) {
@@ -115,83 +123,71 @@ export function osc52(text: string, tmux: string | undefined): Uint8Array {
  * подстановка: у возможности две реализации одного порта, и обе —
  * часть её поверхности.
  */
-export function denoPorts(): ClipboardPorts {
+export function processPorts(): ClipboardPorts {
   return {
-    writeTerminal: async (bytes) => {
+    writeTerminal: (bytes) => {
       // Не терминал — писать некуда: последовательность легла бы
       // мусором в файл или в перехваченный stderr, а буфер остался бы
-      // пустым. Утилита рядом в этом случае сработает.
-      if (!Deno.stderr.isTerminal()) return false;
+      // пустым. Утилита рядом в этом случае сработает. Запись и признак
+      // — через объекты модулей: их подменяет тест адресата байтов.
+      if (!tty.isatty(STDERR)) return Promise.resolve(false);
       try {
-        await writeAll(Deno.stderr, bytes);
-        return true;
+        writeAll(STDERR, bytes);
+        return Promise.resolve(true);
       } catch {
         // Отказ записи — не ошибка вызова, а повод перейти ко второй
         // попытке (спека: наружу ошибка не идёт).
-        return false;
+        return Promise.resolve(false);
       }
     },
-    runUtility: async (bin, args, stdin, timeoutMs) => {
-      let child: Deno.ChildProcess;
-      try {
-        child = new Deno.Command(bin, {
-          args: [...args],
-          stdin: "piped",
-          // Потоки подавляются не для красоты: `wl-copy` и `xclip`
-          // уходят в фон, удерживая владение выделением, а вместе с ним
-          // — унаследованный stdout; читатель вывода команды не увидел
-          // бы конца потока до их смерти (спека).
-          stdout: "null",
-          stderr: "null",
-        }).spawn();
-      } catch {
-        // Утилиты нет в PATH — следующая по списку.
-        return false;
-      }
-      return await feedAndWait(child, stdin, timeoutMs);
+    runUtility: (bin, args, stdin, timeoutMs) => {
+      // Потоки подавляются не для красоты: `wl-copy` и `xclip`
+      // уходят в фон, удерживая владение выделением, а вместе с ним
+      // — унаследованный stdout; читатель вывода команды не увидел
+      // бы конца потока до их смерти (спека).
+      const child = spawn(bin, [...args], {
+        stdio: ["pipe", "ignore", "ignore"],
+      });
+      return feedAndWait(child, stdin, timeoutMs);
     },
-    env: (name) => Deno.env.get(name),
+    env: (name) => process.env[name],
   };
 }
 
-/** Подаёт текст утилите и ждёт её не дольше предела. */
-async function feedAndWait(
-  child: Deno.ChildProcess,
+/**
+ * Подаёт текст утилите и ждёт её не дольше предела. Утилиты нет в PATH
+ * или она не запустилась — `false` (событие `error` до выхода).
+ */
+function feedAndWait(
+  child: ChildProcess,
   stdin: Uint8Array,
   timeoutMs: number,
 ): Promise<boolean> {
-  const timer = setTimeout(() => {
-    // Зависшая утилита не держит команду: её убивают, попытка
-    // считается неуспешной (спека, «Инварианты»).
-    try {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      // Зависшая утилита не держит команду: её убивают, попытка
+      // считается неуспешной (спека, «Инварианты»).
       child.kill();
-    } catch {
-      // Уже завершилась — убивать нечего.
-    }
-  }, timeoutMs);
-  try {
-    const writer = child.stdin.getWriter();
+    }, timeoutMs);
+    const settle = (success: boolean) => {
+      clearTimeout(timer);
+      resolve(success);
+    };
+    child.once("error", () => settle(false));
+    child.once("close", (code) => settle(code === 0));
     // Отказ записи исходом попытки не считается: утилита, закрывшая
     // stdin раньше времени, всё равно отвечает своим кодом выхода, а
     // спека перечисляет причинами неуспеха только его, отказ запуска и
     // истёкшее ожидание.
-    await writer.write(stdin).catch(() => {});
-    await writer.close().catch(() => {});
-    return (await child.status).success;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(stdin);
+  });
 }
 
-/** Полная запись: `write` может взять не весь буфер разом. */
-async function writeAll(
-  sink: { write: (bytes: Uint8Array) => Promise<number> },
-  bytes: Uint8Array,
-): Promise<void> {
+/** Полная запись в дескриптор: `writeSync` может взять не весь буфер. */
+function writeAll(fd: number, bytes: Uint8Array): void {
   let written = 0;
   while (written < bytes.length) {
-    written += await sink.write(bytes.subarray(written));
+    written += fs.writeSync(fd, bytes.subarray(written));
   }
 }

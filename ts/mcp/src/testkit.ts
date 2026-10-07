@@ -5,6 +5,7 @@
  * контракт кадров.
  */
 
+import process from "node:process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
@@ -46,7 +47,7 @@ export function withStack(
       token: MCP_TOKEN,
       version: "0.1.0",
       back: new BackLine(
-        { base: back.url, token: back.token, cwd: Deno.cwd() },
+        { base: back.url, token: back.token, cwd: process.cwd() },
         QUICK,
         setup.fetcher,
       ),

@@ -149,7 +149,15 @@ it(
         ["2", "print", SEP, "x", ASSIGN, "jsdate", SEP, "x", "isNil"],
         TYPED,
         NO_PARAMS,
-        makeFakeIo({}),
+        // Вывод строки, всегда готовый: им вывод программы спрашивает
+        // готовность строки.
+        makeFakeIo({
+          openRemoteOutput: () => ({
+            out: () => Promise.resolve(),
+            err: () => Promise.resolve(),
+            captured: () => "",
+          }),
+        }),
         { stdout: (text) => void printed.push(text), stderr: () => {} },
         (words) => {
           asked.push([...words]);

@@ -5,7 +5,17 @@
  * дверь по итогу прогона строки; форма ответа только спрашивает.
  */
 
+import {
+  chmod,
+  mkdir,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import type { OutputFile } from "../frames/mod.ts";
+import { hasErrorCode } from "../runtime/mod.ts";
 
 /** Поле ответа вместо вывода: сам вывод или файл с ним. */
 export type Settled =
@@ -91,28 +101,28 @@ export class FileOutlet implements Outlet {
    */
   async #write(path: string, bytes: Uint8Array) {
     const dir = this.#spill.dir;
-    await Deno.mkdir(dir, { recursive: true, mode: 0o700 });
-    await Deno.chmod(dir, 0o700);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    await chmod(dir, 0o700);
     await sweep(dir, this.#spill.now() - KEEP_MS);
     const temp = `${path}.part`;
-    await Deno.writeFile(temp, bytes, { mode: 0o600 });
-    await Deno.chmod(temp, 0o600);
-    await Deno.rename(temp, path);
+    await writeFile(temp, bytes, { mode: 0o600 });
+    await chmod(temp, 0o600);
+    await rename(temp, path);
   }
 }
 
 /** Удаляет файлы каталога, изменённые раньше `before` (мс). */
 async function sweep(dir: string, before: number) {
-  for await (const entry of Deno.readDir(dir)) {
-    if (!entry.isFile) continue;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
     const path = `${dir}/${entry.name}`;
     try {
-      const modified = (await Deno.stat(path)).mtime?.getTime() ?? before;
-      if (modified < before) await Deno.remove(path);
+      const modified = (await stat(path)).mtime.getTime();
+      if (modified < before) await rm(path);
     } catch (err) {
       // Файл убрал соседний прогон между чтением каталога и удалением —
       // цель уборки достигнута.
-      if (!(err instanceof Deno.errors.NotFound)) throw err;
+      if (!hasErrorCode(err, "ENOENT")) throw err;
     }
   }
 }

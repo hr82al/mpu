@@ -4,11 +4,13 @@
 //   stubborn — SIGTERM игнорирует (гасится только SIGKILL), строка с PID —
 //              после того, как обработчик стоит: по ней тест знает, что
 //              SIGTERM уже не убьёт.
-const [mode, ...rest] = Deno.args;
-if (mode === "stubborn") Deno.addSignalListener("SIGTERM", () => {});
-console.log(`${mode} pid ${Deno.pid} ${rest.join(" ")}`);
+import process from "node:process";
+
+const [mode, ...rest] = process.argv.slice(2);
+if (mode === "stubborn") process.on("SIGTERM", () => {});
+console.log(`${mode} pid ${process.pid} ${rest.join(" ")}`);
 if (mode === "crash") {
   console.error("упал");
-  Deno.exit(1);
+  process.exit(1);
 }
 setInterval(() => {}, 60_000);

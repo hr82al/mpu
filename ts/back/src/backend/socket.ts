@@ -17,21 +17,22 @@ import {
   stdinOf,
 } from "../frames/mod.ts";
 import { type Asking, type Delivery, Line, type Posed } from "./line.ts";
+import type { AcceptedSocket } from "./loopback.ts";
 
 /** Код закрытия сокета после кадра `exit`. */
 const NORMAL_CLOSURE = 1000;
 
-function socketDelivery(socket: WebSocket): Delivery {
+function socketDelivery(socket: AcceptedSocket): Delivery {
   return {
     frame(frame) {
       // Сокет мог закрыться со стороны клиента раньше, чем пришло событие.
-      if (socket.readyState !== WebSocket.OPEN) return;
+      if (!socket.isOpen()) return;
       socket.send(JSON.stringify(frame));
     },
-    // Давление сокетом не передаётся: события «буфер отправки
-    // опустел» у WebSocket нет, а опрос поля буфера — синхронизация по
-    // таймеру (отклонение в `platform/line-cancel.md`).
-    ready: () => Promise.resolve(),
+    // Давление — по отправке: следующий кадр ждёт, пока прежние ушли
+    // в ОС, и медленный клиент держит чтение вывода команды
+    // (`platform/line-cancel.md`).
+    ready: () => socket.drained(),
     end: () => socket.close(NORMAL_CLOSURE),
   };
 }
@@ -183,7 +184,7 @@ export interface SocketLine {
  *
  * @param socket сокет строки
  */
-export function socketLine(socket: WebSocket): SocketLine {
+export function socketLine(socket: AcceptedSocket): SocketLine {
   const first = Promise.withResolvers<unknown>();
   const gone = Promise.withResolvers<void>();
   const line = new Line(socketDelivery(socket), SOCKET_ASKING, gone.promise);
@@ -198,12 +199,12 @@ export function socketLine(socket: WebSocket): SocketLine {
     };
     first.resolve(data);
   };
-  socket.onmessage = (event) => receive(event.data);
-  socket.onclose = () => {
+  socket.onMessage((data) => receive(data));
+  socket.onClosing(() => {
     requested.lost();
     line.lost();
     first.resolve(undefined);
-    gone.resolve();
-  };
+  });
+  socket.onClose(() => gone.resolve());
   return { line, first: first.promise, input: inputOnRequest(requested) };
 }

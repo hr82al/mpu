@@ -14,6 +14,9 @@
  *
  * Коды выхода: 0 — успех, 2 — ошибка ввода, 1 — состояние ячейки.
  */
+import { readFile } from "node:fs/promises";
+import process from "node:process";
+import { text } from "node:stream/consumers";
 import {
   type Cell,
   CellError,
@@ -27,19 +30,13 @@ const DEFAULT_CELL = new URL("../.tmp/buf.txt", import.meta.url).pathname;
 const POLL_MS = 2000;
 
 function cellPath(): string {
-  return Deno.env.get("HANDOFF_CELL") ?? DEFAULT_CELL;
+  return process.env.HANDOFF_CELL ?? DEFAULT_CELL;
 }
 
 async function source(arg: string | undefined): Promise<string> {
   if (arg === undefined) throw new UsageError("нужен файл или '-' для stdin");
-  if (arg === "-") return new TextDecoder().decode(await readAll(Deno.stdin));
-  return await Deno.readTextFile(arg);
-}
-
-async function readAll(input: typeof Deno.stdin): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of input.readable) chunks.push(chunk);
-  return new Uint8Array(chunks.flatMap((chunk) => [...chunk]));
+  if (arg === "-") return await text(process.stdin);
+  return await readFile(arg, "utf8");
 }
 
 class UsageError extends Error {
@@ -104,15 +101,15 @@ async function run(argv: string[]): Promise<string> {
 
 if (import.meta.main) {
   try {
-    console.log(await run(Deno.args));
+    console.log(await run(process.argv.slice(2)));
   } catch (err) {
     if (err instanceof UsageError) {
       console.error(`handoff: ${err.message}`);
-      Deno.exit(2);
+      process.exit(2);
     }
     if (err instanceof CellError) {
       console.error(`handoff: ${err.message}`);
-      Deno.exit(1);
+      process.exit(1);
     }
     throw err;
   }

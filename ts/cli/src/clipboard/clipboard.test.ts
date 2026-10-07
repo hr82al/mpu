@@ -10,14 +10,31 @@
  * вывод команды-потребителя.
  */
 
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import tty from "node:tty";
+import { describe, expect, it, vi } from "vitest";
 import {
   type ClipboardPorts,
   COPY_UTILITIES,
   copyToClipboard,
-  denoPorts,
   osc52,
+  processPorts,
 } from "./mod.ts";
+
+/**
+ * Подмена синхронной записи по дескрипторам: байты — в `sink`, ответ —
+ * «записано всё». `as`: подмена реализует ту перегрузку `writeSync`,
+ * которой пишет код (дескриптор и байты).
+ */
+function capturedWrites(sink: Map<number, number[]>) {
+  const write = (fd: number, data: Uint8Array): number => {
+    sink.set(fd, [...(sink.get(fd) ?? []), ...data]);
+    return data.length;
+  };
+  return vi.spyOn(fs, "writeSync").mockImplementation(
+    write as typeof fs.writeSync,
+  );
+}
 
 const decoder = new TextDecoder();
 
@@ -82,22 +99,19 @@ it("последовательность уходит в stderr, а не в stdo
   // Байты в stdout попали бы в конвейер и испортили вывод
   // команды-потребителя (спека). Поэтому наблюдаемое здесь двойное:
   // терминалу байты ушли, а stdout не тронут ни одним.
-  const stdout: string[] = [];
-  const write = Deno.stdout.write.bind(Deno.stdout);
-  Deno.stdout.write = (bytes: Uint8Array) => {
-    stdout.push(new TextDecoder().decode(bytes));
-    return write(new Uint8Array());
-  };
+  const writes = new Map<number, number[]>();
+  const spy = capturedWrites(writes);
   try {
     const { io, written } = ports({ terminal: true, tmux: "сессия" });
     expect(await copyToClipboard(TEXT, io)).toBe(true);
     expect(written.length).toBe(1);
     expect(written[0]).toStrictEqual(osc52(TEXT, "сессия"));
   } finally {
-    Deno.stdout.write = write;
+    spy.mockRestore();
   }
+  const stdout = new TextDecoder().decode(Uint8Array.from(writes.get(1) ?? []));
   expect(stdout, `в stdout ушли байты: ${JSON.stringify(stdout)}`)
-    .toStrictEqual([]);
+    .toStrictEqual("");
 });
 
 describe("OSC 52: форма последовательности", () => {
@@ -153,7 +167,7 @@ it("предел ожидания передаётся утилите", async ()
 });
 
 describe("настоящие порты: утилита, её код выхода и отсутствие в PATH", () => {
-  const io = denoPorts();
+  const io = processPorts();
   const bytes = new TextEncoder().encode(TEXT);
 
   it("нулевой код — попытка удалась", async () => {
@@ -169,31 +183,22 @@ describe("настоящие порты: утилита, её код выход�
     // Настоящий порт, а не подстановка: мутация «писать в stdout»
     // краснеет только здесь — у фейка адресата нет вовсе. Терминал
     // подменяется признаком: в прогоне тестов stderr перехвачен.
-    const toStdout: number[] = [];
-    const toStderr: number[] = [];
-    const stdoutWrite = Deno.stdout.write.bind(Deno.stdout);
-    const stderrWrite = Deno.stderr.write.bind(Deno.stderr);
-    const isTerminal = Deno.stderr.isTerminal.bind(Deno.stderr);
-    Deno.stdout.write = (chunk: Uint8Array) => {
-      toStdout.push(...chunk);
-      return Promise.resolve(chunk.length);
-    };
-    Deno.stderr.write = (chunk: Uint8Array) => {
-      toStderr.push(...chunk);
-      return Promise.resolve(chunk.length);
-    };
-    Deno.stderr.isTerminal = () => true;
+    const writes = new Map<number, number[]>();
+    const write = capturedWrites(writes);
+    const terminal = vi.spyOn(tty, "isatty").mockImplementation((fd) =>
+      fd === 2
+    );
     try {
       expect(await io.writeTerminal(osc52(TEXT, undefined))).toBe(true);
     } finally {
-      Deno.stdout.write = stdoutWrite;
-      Deno.stderr.write = stderrWrite;
-      Deno.stderr.isTerminal = isTerminal;
+      write.mockRestore();
+      terminal.mockRestore();
     }
-    expect(Uint8Array.from(toStderr)).toStrictEqual(osc52(TEXT, undefined));
-    expect(toStdout, "байты ушли в stdout — конвейер испорчен").toStrictEqual(
-      [],
+    expect(Uint8Array.from(writes.get(2) ?? [])).toStrictEqual(
+      osc52(TEXT, undefined),
     );
+    expect(writes.get(1) ?? [], "байты ушли в stdout — конвейер испорчен")
+      .toStrictEqual([]);
   });
 
   it("stderr не терминал — попытка 1 честно неуспешна", async () => {

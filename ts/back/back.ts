@@ -3,6 +3,7 @@
  * В бинарь не собирается.
  */
 
+import process from "node:process";
 import { runBack } from "./src/backend/mod.ts";
 import { policyFile } from "./src/line/mod.ts";
 import { imageFile } from "./src/image/mod.ts";
@@ -17,22 +18,22 @@ import {
 
 /** Путь программы `name` в каталоге этой программы. */
 function besideSelf(name: string): string {
-  const self = Deno.execPath();
+  const self = process.execPath;
   return `${self.slice(0, self.lastIndexOf("/"))}/${name}`;
 }
 
 if (import.meta.main) {
   const stopped = Promise.withResolvers<void>();
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
-    Deno.addSignalListener(signal, () => stopped.resolve());
+    process.on(signal, () => stopped.resolve());
   }
-  const home = Deno.env.get("HOME");
+  const home = process.env.HOME;
   const io = processIo();
   const stateDir = defaultStateDir();
   const output = makeDenoOutput();
-  const runtimeDir = Deno.env.get("XDG_RUNTIME_DIR");
-  Deno.exit(
-    await runBack(Deno.args, {
+  const runtimeDir = process.env.XDG_RUNTIME_DIR;
+  process.exit(
+    await runBack(process.argv.slice(2), {
       io,
       // Без HOME каталога состояния нет: основной токен не создастся с
       // той же ошибкой, что у `mpu mcp`, раньше агентского.

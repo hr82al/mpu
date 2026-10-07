@@ -4,6 +4,10 @@
  * неизвестная сессия — 404 (только на него клиент сам переподключается).
  */
 
+import { once } from "node:events";
+import type { Server as HttpServer } from "node:http";
+import process from "node:process";
+import { serve } from "@hono/node-server";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
@@ -29,7 +33,7 @@ function health(request: Request): Response {
   if (request.method !== "GET") {
     return new Response(null, { status: 405, headers: { Allow: "GET" } });
   }
-  return Response.json({ ok: true, pid: Deno.pid });
+  return Response.json({ ok: true, pid: process.pid });
 }
 
 /** Страница с той же машины — и только она. */
@@ -187,27 +191,45 @@ class Translator {
 }
 
 /**
- * Поднимает переводчик на петле.
+ * Поднимает переводчик на петле. Сервер — `node:http` через
+ * `@hono/node-server`, как у `mpu-back` (`back/src/backend/loopback.ts`;
+ * общий модуль `mcp/` импортировать не может — «Границы модулей»).
  *
- * @throws Deno.errors.AddrInUse — порт занят
+ * @throws Error с `code === "EADDRINUSE"` — порт занят
  */
 export async function serveMcp(options: McpOptions): Promise<RunningMcp> {
   const translator = new Translator(options);
-  const address = Promise.withResolvers<Deno.NetAddr>();
-  const server = Deno.serve({
+  // `serve` отдаёт `http.Server`, пока не попросили HTTP/2.
+  const server = serve({
     hostname: LOOPBACK,
     port: options.port,
-    onListen: address.resolve,
-  }, (request) => translator.handle(request));
-  const bound = await address.promise;
+    fetch: (request) => translator.handle(request),
+    // Без этого `serve` подменяет глобальные `Request`/`Response` своими
+    // на весь процесс.
+    overrideGlobalObjects: false,
+    // Своя «уборка» непрочитанного тела рушит сокет keep-alive посреди
+    // следующего запроса (`back/src/backend/loopback.ts`).
+    autoCleanupIncoming: false,
+  }) as HttpServer;
+  // Отказ привязки (`EADDRINUSE`) — отказ `once`; слушатели снимаются.
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error(`адрес петли не порт: ${address}`);
+  }
   let stopping: Promise<void> | undefined;
   return {
-    port: bound.port,
-    hostname: bound.hostname,
+    port: address.port,
+    hostname: LOOPBACK,
     stop: () =>
       stopping ??= (async () => {
         await translator.stop();
-        await server.shutdown();
+        // Без закрытия соединений `close` ждёт keep-alive клиентов, и
+        // процесс под Deno не выходит (проба этапа 2).
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) =>
+          server.close((err) => err === undefined ? resolve() : reject(err))
+        );
       })(),
   };
 }

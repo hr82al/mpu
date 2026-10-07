@@ -28,6 +28,18 @@ const JSDATE = findCommand(["jsdate"]);
 if (JSDATE === undefined) throw new Error("в реестре нет jsdate");
 const COMMAND = JSDATE;
 
+/**
+ * Вывод строки, всегда готовый принять следующий кусок: им вывод
+ * программы спрашивает готовность строки.
+ */
+const READY_OUTPUT: Pick<CommandIo, "openRemoteOutput"> = {
+  openRemoteOutput: () => ({
+    out: () => Promise.resolve(),
+    err: () => Promise.resolve(),
+    captured: () => "",
+  }),
+};
+
 /** Журнал, помнящий только pid исполнителя. */
 function journal(pids: number[]): InvokeJournal {
   return {
@@ -335,7 +347,7 @@ it("исполнитель программы: строка команды — �
     ["x"],
     TYPED,
     NO_PARAMS,
-    makeFakeIo({}),
+    makeFakeIo({ ...READY_OUTPUT }),
     collected(printed),
     (words) => {
       sent.push([...words]);
@@ -373,7 +385,7 @@ it("исполнитель программы умер, пока ядро исп
     ["x"],
     TYPED,
     NO_PARAMS,
-    makeFakeIo({}),
+    makeFakeIo({ ...READY_OUTPUT }),
     collected([]),
     () => never.promise,
     journal([]),
@@ -398,7 +410,7 @@ it("исполнитель программы: отмена строки — к�
     ["x"],
     TYPED,
     NO_PARAMS,
-    makeFakeIo({ signal: stop.signal }),
+    makeFakeIo({ ...READY_OUTPUT, signal: stop.signal }),
     collected([]),
     () => Promise.resolve({ exit: 1 }),
     journal([]),

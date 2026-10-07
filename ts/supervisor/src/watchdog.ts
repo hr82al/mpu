@@ -6,6 +6,9 @@
  * он не трогает никогда: оно не исполнитель.
  */
 
+import { spawn } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
+import { text } from "node:stream/consumers";
 import type { Log } from "./child.ts";
 
 const MIB = 1024 * 1024;
@@ -177,16 +180,20 @@ async function outputOf(
   program: string,
   args: readonly string[],
 ): Promise<string> {
-  const done = await new Deno.Command(program, {
-    args: [...args],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  const decoder = new TextDecoder();
-  if (done.code !== 0) {
-    throw new Error(`${program}: ${decoder.decode(done.stderr).trim()}`);
-  }
-  return decoder.decode(done.stdout);
+  const child = spawn(program, [...args], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const exited = new Promise<number | null>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", resolve);
+  });
+  const [stdout, stderr, code] = await Promise.all([
+    text(child.stdout),
+    text(child.stderr),
+    exited,
+  ]);
+  if (code !== 0) throw new Error(`${program}: ${stderr.trim()}`);
+  return stdout;
 }
 
 /**
@@ -202,7 +209,7 @@ export const SYSTEM_PROCS: ProcSource = {
     ),
 };
 
-/** Убийство `/usr/bin/kill -KILL`: `Deno.kill` чужого pid требует `--allow-run` без списка (замер 166a). */
+/** Убийство `/usr/bin/kill -KILL`: сигнал чужому pid под Deno требует `--allow-run` без списка (замер 166a). */
 async function killed(pid: number): Promise<void> {
   await outputOf("/usr/bin/kill", ["-KILL", String(pid)]);
 }
@@ -216,8 +223,8 @@ async function killed(pid: number): Promise<void> {
 export function systemHands(dir: string): Hands {
   return {
     mark: async (pid, mib) => {
-      await Deno.mkdir(dir, { recursive: true, mode: 0o700 });
-      await Deno.writeTextFile(`${dir}/${pid}`, `${mib}\n`);
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      await writeFile(`${dir}/${pid}`, `${mib}\n`);
     },
     kill: killed,
   };

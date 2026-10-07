@@ -5,8 +5,9 @@
  * просит положить текст в буфер обмена.
  */
 
-import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import fsp, { readFile } from "node:fs/promises";
+import { describe, expect, it, vi } from "vitest";
 import type { Answer, CommandIo } from "../command/mod.ts";
 import { askFrame, type AskKind, type ServerFrame } from "../frames/mod.ts";
 import { linePrompt } from "./prompt.ts";
@@ -205,20 +206,26 @@ it("копирование: кадр clip у человека, у агента �
 
 it("терминал сервера не открывается ни разу", () =>
   withBack(async (back) => {
-    const opened: string[] = [];
-    const realOpen = Deno.open;
-    Deno.open = ((path: string | URL, options?: Deno.OpenOptions) => {
-      if (String(path).includes("/dev/tty")) opened.push(String(path));
-      return realOpen(path, options);
-    }) as typeof Deno.open;
+    // Подмена — на объектах модулей: её видят все три рантайма
+    // (именованный импорт подмену видит только под Node).
+    const spies = [
+      vi.spyOn(fs, "open"),
+      vi.spyOn(fs, "openSync"),
+      vi.spyOn(fsp, "open"),
+    ];
+    let opened: string[] = [];
     try {
       await lineAsking(back, ["confirm"], {
         stdin: "данные\n",
         answers: ["y"],
       });
       await lineAsking(back, ["confirm"], { stdin: "д\n", human: false });
+      opened = spies.flatMap((spy) =>
+        spy.mock.calls.map(([path]) => String(path))
+      )
+        .filter((path) => path.includes("/dev/tty"));
     } finally {
-      Deno.open = realOpen;
+      for (const spy of spies) spy.mockRestore();
     }
     expect(opened).toStrictEqual([]);
   }));

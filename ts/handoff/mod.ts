@@ -8,6 +8,8 @@
  * из этого ему.
  */
 
+import { readFile, rename, writeFile } from "node:fs/promises";
+
 /** Что лежит в ячейке. */
 export type Kind = "task" | "report";
 
@@ -46,9 +48,9 @@ export function parseCell(text: string): Cell {
 /** Прочитать ячейку с диска. Файла нет — та же ошибка, что и у пустой. */
 export async function readCell(path: string): Promise<Cell> {
   try {
-    return parseCell(await Deno.readTextFile(path));
+    return parseCell(await readFile(path, "utf8"));
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
       throw new CellError(`ячейки ${path} нет — работа ещё не передавалась`);
     }
     throw err;
@@ -70,8 +72,8 @@ export async function writeCell(
     ? body
     : `${MARKER[kind]}\n\n${body.replace(/^\s+/, "")}`;
   const temp = `${path}.new`;
-  await Deno.writeTextFile(temp, text.endsWith("\n") ? text : `${text}\n`);
-  await Deno.rename(temp, path);
+  await writeFile(temp, text.endsWith("\n") ? text : `${text}\n`);
+  await rename(temp, path);
   return parseCell(text);
 }
 

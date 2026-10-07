@@ -5,6 +5,8 @@
  * конец stdin — выходит.
  */
 
+import process from "node:process";
+import { Readable, Writable } from "node:stream";
 import { processIo } from "./src/process/mod.ts";
 import { VERSION } from "./src/version.ts";
 import { serveOne, streamWire } from "./src/worker/mod.ts";
@@ -12,17 +14,18 @@ import { serveOne, streamWire } from "./src/worker/mod.ts";
 if (import.meta.main) {
   // Как у соседей: `--version` — версия сборки, ничего не поднимая
   // (`platform/supervisor-install.md`, «Части»).
-  if (Deno.args.length === 1 && Deno.args[0] === "--version") {
+  const args = process.argv.slice(2);
+  if (args.length === 1 && args[0] === "--version") {
     console.log(VERSION);
-    Deno.exit(0);
+    process.exit(0);
   }
   await serveOne(
-    streamWire(Deno.stdin.readable, Deno.stdout.writable),
+    streamWire(Readable.toWeb(process.stdin), Writable.toWeb(process.stdout)),
     processIo(),
     // stderr исполнителя ядро пишет в журнал службы с его pid.
     (line) => console.error(line),
   );
   // Выход явный: библиотеки команды (клиент базы, таймеры повторов)
   // могут держать цикл событий, а процесс живёт ровно одну строку.
-  Deno.exit(0);
+  process.exit(0);
 }
