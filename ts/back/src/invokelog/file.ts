@@ -1,17 +1,24 @@
 /**
  * Файл журнала вызовов (`platform/invoke-log.md`, «Побочные эффекты»):
- * дозапись записи и ротация. Файл общий с Python-реализацией: она
- * установлена рядом и пишет в него сама, когда её зовут напрямую (наш
- * маршрут `legacy` снят порцией 97). Поэтому ротацию обе стороны
- * сериализуют одним lock-файлом, а не своим механизмом.
+ * дозапись записи и ротация. Пишут его разом несколько процессов (сервер
+ * строк, исполнители), поэтому ротацию между ними сериализует лок
+ * `mpu.lock` рядом с журналом.
  */
 
 import { Buffer } from "node:buffer";
-import { mkdir, open, rename, rm, stat } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  open,
+  rename,
+  rm,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { hasErrorCode } from "../oserror/mod.ts";
 
 /**
- * Имя lock-файла — сосед журнала. Без суффикса `.log` осознанно: под
+ * Имя лока ротации — сосед журнала. Без суффикса `.log` осознанно: под
  * глоббинг архивов ротации оно не попадает.
  */
 export const LOCK_NAME = "mpu.lock";
@@ -19,8 +26,35 @@ export const LOCK_NAME = "mpu.lock";
 /** Сколько ждать лок ротации: не дождались — пишем без неё (спека). */
 const LOCK_TIMEOUT_MS = 500;
 
-/** Шаг опроса лока: своего события об освобождении flock не даёт. */
+/** Шаг опроса лока: события об освобождении у лока-каталога нет. */
 const LOCK_POLL_MS = 10;
+
+/**
+ * Через сколько чужой лок считается брошенным: держатель умер посреди
+ * ротации. Живой держатель обновляет отметку вдвое чаще, а ротация —
+ * несколько переименований, на порядки короче.
+ */
+const LOCK_STALE_MS = 10_000;
+
+/**
+ * Часть поверхности `proper-lockfile`, которой пользуется ротация.
+ * Своих типов пакет не несёт — поверхность объявлена здесь, как у `pg`.
+ */
+interface LockFiles {
+  lock(
+    file: string,
+    options: {
+      readonly lockfilePath: string;
+      readonly realpath: false;
+      readonly retries: 0;
+      readonly stale: number;
+      readonly onCompromised: (err: Error) => void;
+    },
+  ): Promise<() => Promise<void>>;
+}
+
+/** Снятие лока ротации. */
+type Release = () => Promise<void>;
 
 /** Правила ротации файла журнала. */
 export interface Rotation {
@@ -80,31 +114,16 @@ async function rotate(
 ): Promise<void> {
   if (rotation.maxBytes <= 0) return;
   if (await sizeOf(path) < rotation.maxBytes) return;
-  // Лок — flock на `mpu.lock` средствами Deno до перехода сборки на Bun
-  // (E4): у `node:fs` flock нет, а `proper-lockfile` под правами
-  // собранного бинаря не загружается — его `graceful-fs` читает
-  // переменные окружения, которых нет в `--allow-env` (решение владельца
-  // 2026-10-07, порция E2).
-  const lock = await Deno.open(`${dir}/${LOCK_NAME}`, {
-    read: true,
-    write: true,
-    create: true,
-    mode: 0o600,
-  });
+  const release = await waitLock(dir);
+  if (release === undefined) return;
   try {
-    await Deno.chmod(`${dir}/${LOCK_NAME}`, 0o600);
-    if (!await waitLock(lock)) return;
-    try {
-      // Размер перечитывается под локом: пока мы ждали, файл мог
-      // ротировать сосед — второй раз подряд ротировать нечего.
-      if (await sizeOf(path) >= rotation.maxBytes) {
-        await shift(path, rotation.keep);
-      }
-    } finally {
-      await lock.unlock();
+    // Размер перечитывается под локом: пока мы ждали, файл мог
+    // ротировать сосед — второй раз подряд ротировать нечего.
+    if (await sizeOf(path) >= rotation.maxBytes) {
+      await shift(path, rotation.keep);
     }
   } finally {
-    lock.close();
+    await release();
   }
 }
 
@@ -131,17 +150,59 @@ async function shiftStep(step: () => Promise<void>): Promise<void> {
 }
 
 /**
- * Ждёт эксклюзивный лок не дольше отведённого времени. Опрос, а не
- * ожидание на `lock()`: у блокирующего варианта нет ни таймаута, ни
- * отмены, и незавершённый промис остался бы висеть после отказа ждать.
+ * Берёт лок ротации — каталог `mpu.lock` (`proper-lockfile`: `mkdir`
+ * атомарен между процессами, flock у `node:fs` нет; решение владельца
+ * 2026-10-07, `platform/node-runtime.md` [S.7]) — не дольше отведённого
+ * времени; не взят — `undefined`, и запись идёт без ротации.
+ *
+ * Пакет грузится здесь, а не при старте: ротация редка, а его
+ * `graceful-fs` при загрузке подменяет `fs.close` процесса.
  */
-async function waitLock(file: Deno.FsFile): Promise<boolean> {
+async function waitLock(dir: string): Promise<Release | undefined> {
+  const lockfile = (await import("proper-lockfile")).default as LockFiles;
+  const lockPath = `${dir}/${LOCK_NAME}`;
+  await dropFileLock(lockPath);
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
-  while (!await file.tryLock(true)) {
-    if (Date.now() >= deadline) return false;
+  for (;;) {
+    try {
+      return await lockfile.lock(dir, {
+        lockfilePath: lockPath,
+        realpath: false,
+        retries: 0,
+        stale: LOCK_STALE_MS,
+        // Лок перехвачен как брошенный — ротация шла дольше порога.
+        // Журнал обязан остаться fail-open (спека), а умолчание пакета
+        // бросает из таймера и роняет процесс.
+        onCompromised: () => {},
+      });
+    } catch (err) {
+      if (!isHeld(err)) throw err;
+    }
+    if (Date.now() >= deadline) return undefined;
     await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS));
   }
-  return true;
+}
+
+/** Лок держит другой процесс: ждать, а не отказывать. */
+function isHeld(err: unknown): boolean {
+  return err instanceof Error && "code" in err && err.code === "ELOCKED";
+}
+
+/**
+ * Лок прежней сборки — обычный файл `mpu.lock` (flock): он остаётся на
+ * диске навсегда, и `mkdir` на его месте отвечал бы «занято», а через
+ * порог брошенности — `ENOTDIR`, то есть ротация не случилась бы
+ * больше никогда. Удаляется только файл: живой лок соседа — каталог, и
+ * `unlink` под Deno удаляет пустой каталог, а не отказывает `EISDIR`.
+ */
+async function dropFileLock(lockPath: string): Promise<void> {
+  try {
+    if (!(await lstat(lockPath)).isFile()) return;
+    await unlink(lockPath);
+  } catch (err) {
+    // Сосед убрал файл раньше нас — убирать нечего.
+    if (!hasErrorCode(err, "ENOENT")) throw err;
+  }
 }
 
 /** Размер файла; файла нет — 0, ротировать нечего. */

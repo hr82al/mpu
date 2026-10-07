@@ -26,6 +26,12 @@ export default defineConfig({
     // пределу случай продолжал исполняться и портил следующий.
     testTimeout: 0,
     hookTimeout: 0,
+    // `zod` — через преобразование Vite, а не родным импортом: под Bun у
+    // внешнего модуля пропадает реэкспорт пространства имён (`export { z }`
+    // в `zod/index.js`), и `import { z } from "zod"` даёт `undefined`
+    // (проба 2026-10-07: у простого `bun` — есть, у Vitest под Bun — нет,
+    // инлайн и `vmForks` чинят). Под Node и Deno исход тот же.
+    server: { deps: { inline: ["zod"] } },
     coverage: {
       provider: "istanbul",
       // Только модули, которые загрузили тесты, — затронутые прогоном.

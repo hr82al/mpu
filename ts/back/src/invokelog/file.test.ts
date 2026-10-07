@@ -13,6 +13,8 @@ import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import lockfile from "proper-lockfile";
+import { runTs } from "../testing/runts.ts";
 import { appendRecord, LOCK_NAME } from "./file.ts";
 
 /** Временный каталог журнала с уборкой; путь файла — внутри него. */
@@ -165,32 +167,22 @@ it("две записи разом: обе целы, ни одна не разр
 it("лок занят: запись не теряется, ротации нет", async () => {
   await withDir(async (dir, path) => {
     await appendRecord(path, "старое\n", NO_ROTATION);
-    const held = await Deno.open(`${dir}/${LOCK_NAME}`, {
-      read: true,
-      write: true,
-      create: true,
+    // Сосед посреди ротации: лок взят тем же способом, что у журнала.
+    const release = await lockfile.lock(dir, {
+      lockfilePath: `${dir}/${LOCK_NAME}`,
+      realpath: false,
     });
     try {
-      await held.lock(true);
       await appendRecord(path, "новое\n", { maxBytes: 4, keep: 5 });
       // Ротация не состоялась — запись всё равно на месте, дописана к
       // прежнему содержимому.
       expect(await readFile(path, "utf8")).toBe("старое\nновое\n");
       expect(await exists(`${path}.1`)).toBe(false);
     } finally {
-      await held.unlock();
-      held.close();
+      await release();
     }
   });
 });
-
-/**
- * Как запустить модуль `.ts` текущим рантаймом: Node 24 и Bun исполняют
- * его сами, Deno — подкомандой и с правами.
- */
-const RUN_TS: readonly string[] = process.versions.deno === undefined
-  ? []
-  : ["run", "-A"];
 
 it("два процесса ротируют разом: каждая запись ровно один раз", async () => {
   await withDir(async (dir, path) => {
@@ -199,14 +191,9 @@ it("два процесса ротируют разом: каждая запис
     const maxBytes = 64;
     await Promise.all(
       ["a", "b"].map((label) =>
-        promisify(execFile)(process.execPath, [
-          ...RUN_TS,
-          rotator,
-          path,
-          label,
-          String(count),
-          String(maxBytes),
-        ])
+        promisify(execFile)(
+          ...runTs(rotator, [path, label, String(count), String(maxBytes)]),
+        )
       ),
     );
     const files = (await readdir(dir)).filter((name) =>
@@ -229,15 +216,16 @@ it("два процесса ротируют разом: каждая запис
   });
 }, 60_000);
 
-it("lock-файл — сосед журнала с правами 0600", async () => {
+it("файл-лок прежней сборки не мешает ротации, лок снят после неё", async () => {
   await withDir(async (dir, path) => {
-    // Файл общий с Python-реализацией: он мог создать его с другими
-    // правами, и они выравниваются при каждой записи (спека).
-    await writeFile(`${dir}/${LOCK_NAME}`, "", { mode: 0o644 });
-    await chmod(`${dir}/${LOCK_NAME}`, 0o644);
+    // Прежняя сборка держала ротацию flock'ом на файле `mpu.lock` и
+    // оставляла его на диске: на его месте лок-каталог не создать.
+    await writeFile(`${dir}/${LOCK_NAME}`, "", { mode: 0o600 });
     await appendRecord(path, "старое\n", NO_ROTATION);
     await appendRecord(path, "новое\n", { maxBytes: 4, keep: 5 });
-    expect(await modeOf(`${dir}/${LOCK_NAME}`)).toBe(0o600);
+    expect(await readFile(`${path}.1`, "utf8")).toBe("старое\n");
+    expect(await readFile(path, "utf8")).toBe("новое\n");
+    expect(await exists(`${dir}/${LOCK_NAME}`)).toBe(false);
     // Имя без суффикса `.log`: под глоббинг архивов оно не попадает.
     assert(!LOCK_NAME.includes(".log"));
   });
