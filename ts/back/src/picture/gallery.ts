@@ -3,6 +3,7 @@
  * их байтов (`platform/picture-frame.md`, «Предел»).
  */
 
+import { Buffer } from "node:buffer";
 import type { PictureData, PictureMime } from "../frames/mod.ts";
 import type { Picture, Shelf } from "./picture.ts";
 
@@ -50,6 +51,9 @@ export class Gallery implements Shelf {
     // вырасти между ними.
     if (!this.fits(bytes.byteLength)) return;
     this.#sum += bytes.byteLength;
-    this.#taken.push({ mime, data: bytes.toBase64() });
+    // `Buffer`, а не `Uint8Array#toBase64`: того нет в Node 24.
+    const data = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      .toString("base64");
+    this.#taken.push({ mime, data });
   }
 }
