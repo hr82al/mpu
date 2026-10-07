@@ -3,6 +3,7 @@
  * спецификаций байт-в-байт.
  */
 
+import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const FIXTURES: readonly string[] = [
@@ -28,8 +29,8 @@ const copyDir = new URL("testdata/objects/", import.meta.url);
 describe("копии эталонов объектов совпадают с каналом", () => {
   for (const name of FIXTURES) {
     it(name, async () => {
-      expect(await Deno.readTextFile(new URL(name, copyDir))).toStrictEqual(
-        await Deno.readTextFile(new URL(name, channelDir)),
+      expect(await readFile(new URL(name, copyDir), "utf8")).toStrictEqual(
+        await readFile(new URL(name, channelDir), "utf8"),
       );
     });
   }
@@ -37,7 +38,7 @@ describe("копии эталонов объектов совпадают с к�
 
 it("в testdata объектов нет копий, которых нет в канале", async () => {
   const copied: string[] = [];
-  for await (const entry of Deno.readDir(copyDir)) {
+  for (const entry of await readdir(copyDir, { withFileTypes: true })) {
     copied.push(entry.name);
   }
   expect(copied.sort()).toStrictEqual([...FIXTURES].sort());

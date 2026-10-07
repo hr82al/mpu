@@ -1,5 +1,6 @@
 /** Случаи эталона `cases.json` на тестовом дереве. */
 
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { GRAMMAR } from "../messages/mod.ts";
 import golden from "./testdata/objects/cases.json" with { type: "json" };
@@ -31,7 +32,7 @@ function unmarked(text: string): string {
 }
 
 function helpText(name: string): Promise<string> {
-  return Deno.readTextFile(new URL(name, helpDir));
+  return readFile(new URL(name, helpDir), "utf8");
 }
 
 it("в эталоне объектов 43 случая", () => {

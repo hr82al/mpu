@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, it } from "vitest";
 import {
   DATA,
@@ -45,7 +48,7 @@ async function writeModule(
   answer: string,
 ): Promise<URL> {
   const path = `${dir}/${name}`;
-  await Deno.writeTextFile(
+  await writeFile(
     path,
     `export default () => ${JSON.stringify(answer)};\n`,
   );
@@ -53,7 +56,7 @@ async function writeModule(
 }
 
 it("новая версия метода отвечает следующему сообщению", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     const ping = await Replaceable.load(
       load,
@@ -86,6 +89,6 @@ it("новая версия метода отвечает следующему �
       value: 2,
     });
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 });

@@ -1,0 +1,920 @@
+/**
+ * Вычислитель над поддельным деревом команд и поддельным ядром
+ * (`platform/evaluator.md`, «Граничные случаи»). Ядро здесь — функция:
+ * она записывает строки, которые ей отдала программа, и отвечает
+ * данными трёх карточек.
+ */
+
+import { assert, describe, expect, it } from "vitest";
+import { GRAMMAR } from "../messages/mod.ts";
+import { collectionOf, type Data, dataOf } from "../objects/mod.ts";
+import {
+  type CommandNode,
+  type Commands,
+  type CommandView,
+  Every,
+  fileParams,
+  isProgram,
+  type LineReply,
+  namingOf,
+  type Params,
+  parseProgram,
+  Placed,
+  type ProgramEnd,
+  refusalOf,
+  type Root,
+  runProgram,
+  TYPED,
+} from "./mod.ts";
+
+const { close: END, open: DO, blockEnd: DONE } = GRAMMAR;
+
+const ROWS = [
+  { id: 11, title: "один", column: "review", comments: 2, archived: false },
+  { id: 12, title: "два", column: "queue", comments: 0 },
+  { id: 13, title: "три", column: "review", comments: 5 },
+];
+
+/** Узел поддельного дерева: у листа — ключи и форматы `json`, `md`. */
+function node(
+  leaf: boolean,
+  keys: readonly string[],
+  messages: readonly string[] = [],
+  fromFile: ReadonlyMap<string, string> = new Map(),
+  texts: readonly string[] = [],
+): CommandNode {
+  return {
+    leaf,
+    keys: new Map(keys.map((key) => [key, "value" as const])),
+    messages,
+    formats: leaf ? ["json", "md"] : [],
+    fromFile,
+    texts: new Set(texts),
+    links: [],
+    methods: new Map(),
+  };
+}
+
+/**
+ * Имя ключа `kiten close` из реестра («7. Что сделано»): совпадает со
+ * словом конца блока, но пишется `done:` — другим словом.
+ */
+const CLOSE_KEY = "done";
+
+const NODES: ReadonlyMap<string, CommandNode> = new Map([
+  ["", node(false, [], ["kiten", "telegram"])],
+  ["telegram", node(false, [], ["send"])],
+  [
+    "telegram send",
+    node(true, ["chat", "text"], [], new Map(), ["chat", "text"]),
+  ],
+  ["kiten", node(false, [], ["card", "close", "ls", "post"])],
+  ["kiten ls", node(true, ["column"])],
+  ["kiten card", node(true, ["id"])],
+  ["kiten close", node(true, ["id", CLOSE_KEY])],
+  ["jsdate", node(true, [])],
+  [
+    "kiten post",
+    node(
+      true,
+      ["id", "body", "body-file"],
+      [],
+      new Map([["body", "body-file"]]),
+    ),
+  ],
+]);
+
+/** Вид `kiten ls`: названия по строке. */
+function titles(records: readonly unknown[]): string {
+  return records
+    .map((record) => `${(record as { title: string }).title}\n`)
+    .join("");
+}
+
+function dataFor(path: readonly string[], result: unknown): Data {
+  if (path.join(" ") !== "kiten ls") return dataOf(result);
+  const rows = (result as { rows: unknown[] }).rows;
+  return collectionOf(rows, {
+    text: (items) => titles(items.map((item) => item.data())),
+  });
+}
+
+const FORMATS = ["json", "md"];
+
+/** Формат результата: имя и данные. */
+function formatted(name: string, result: unknown): string {
+  return `${name}: ${JSON.stringify(result)}\n`;
+}
+
+const COMMANDS: Commands = {
+  node: (path) => NODES.get(path.join(" ")),
+  view: (path, result): CommandView => ({
+    data: () => dataFor(path, result),
+    formats: () => FORMATS,
+    format: (name) => formatted(name, result),
+  }),
+};
+
+/** Итог команды у ядра: данные, путь и напечатанное — видом или форматом. */
+function commandReply(
+  path: readonly string[],
+  argv: readonly string[],
+  data: unknown,
+  shown: string,
+): Promise<LineReply> {
+  const last = argv.at(-1) ?? "";
+  const text = FORMATS.includes(last) ? formatted(last, data) : shown;
+  return Promise.resolve({ data, command: { path, argv }, shown: text });
+}
+
+/**
+ * Ядро: `kiten ls` — три карточки, `kiten card id: N` — одна с
+ * комментариями, `nope` — отказ до исполнения (код 2), `fail` — отказ
+ * исполнения (код 1), прочее — `null`.
+ */
+function core(lines: string[][]) {
+  return (words: readonly string[]): Promise<LineReply> => {
+    lines.push([...words]);
+    const argv = words.filter((word) => word !== END);
+    if (argv[0] === "kiten" && argv[1] === "ls") {
+      const data = { rows: ROWS };
+      return commandReply(["kiten", "ls"], argv.slice(2), data, titles(ROWS));
+    }
+    if (argv[0] === "kiten" && argv[1] === "card") {
+      const id = Number(argv[3]);
+      const row = ROWS.find((one) => one.id === id);
+      const comments = Array.from({ length: row?.comments ?? 0 }, (_, i) => i);
+      const data = { id, comments };
+      return commandReply(
+        ["kiten", "card"],
+        argv.slice(2),
+        data,
+        `${JSON.stringify(data)}\n`,
+      );
+    }
+    if (argv[0] === "jsdate") {
+      const data = { stamp: "20260923" };
+      return commandReply(["jsdate"], [], data, "20260923\n");
+    }
+    if (argv[0] === "nope") return Promise.resolve({ exit: 2 });
+    if (argv[0] === "fail") return Promise.resolve({ exit: 1 });
+    return Promise.resolve({ data: null, command: null, shown: "" });
+  };
+}
+
+interface Ran {
+  readonly out: string;
+  readonly end: ProgramEnd;
+  readonly lines: string[][];
+}
+
+async function run(
+  line: string | readonly string[],
+  signal: AbortSignal = new AbortController().signal,
+  params?: Params,
+  naming = TYPED,
+): Promise<Ran> {
+  const lines: string[][] = [];
+  let out = "";
+  const words = typeof line === "string" ? line.split(" ") : line;
+  const end = await runProgram(words, {
+    commands: COMMANDS,
+    core: core(lines),
+    print: (text) => out += text,
+    signal,
+    pace: new Every(20, () => performance.now()),
+    naming,
+    params,
+  });
+  return { out, end, lines };
+}
+
+const PRINTS: readonly (readonly [string, string])[] = [
+  ["x := 5 . x plus: 2", "7\n"],
+  ["x := 5 . x plus: 2 print", "7\n"],
+  ["3 greater: 2", "true\n"],
+  [`3 greater: 2 ifTrue: ${DO} ^да^ print ${DONE}`, "да\n"],
+  [`1 greater: 2 ifTrue: ${DO} ^да^ print ${DONE}`, ""],
+  [
+    `3 greater: 2 ifTrue: ${DO} ^да^ ${DONE} ifFalse: ${DO} ^нет^ ${DONE}`,
+    "да\n",
+  ],
+  [
+    `1 greater: 2 ifTrue: ${DO} ^да^ ${DONE} ifFalse: ${DO} ^нет^ ${DONE}`,
+    "нет\n",
+  ],
+  [`1 to: 3 do: ${DO} :i i print ${DONE}`, "1\n2\n3\n"],
+  [`3 timesRepeat: ${DO} ^x^ print ${DONE}`, "x\nx\nx\n"],
+  ["10 div: 4", "2\n"],
+  ["-7 div: 2", "-4\n"],
+  ["1250 dividedBy: 8", "156.25\n"],
+  ["^готово к ревью^ size", "14\n"],
+  ["^^ size", "0\n"],
+  [`rem проверка ${END} 2 plus: 2`, "4\n"],
+  ["x := kiten ls . x size", "3\n"],
+  [
+    `x := kiten ls . x where: column is: review ${END} each: ${DO} :c c title print ${DONE} . x size print`,
+    "один\nтри\n3\n",
+  ],
+  [`kiten ls collect: ${DO} :c c id ${DONE} print`, "11\n12\n13\n"],
+  [`kiten ls inject: 0 into: ${DO} :a :c @a plus: 1 ${DONE}`, "3\n"],
+  [`kiten ls detect: ${DO} :c c id equals: 999999 ${DONE}`, ""],
+  [`kiten ls detect: ${DO} :c c id equals: 12 ${DONE} title`, "два\n"],
+  [
+    `kiten ls each: ${DO} :c kiten card id: @c id ${END} comments size print ${DONE}`,
+    "2\n0\n5\n",
+  ],
+  [`b := ${DO} :x @x plus: 1 ${DONE} . b value: 2`, "3\n"],
+  [`kiten ls where: column is: ${DONE} ${END} size`, "0\n"],
+  ["2 print . 3", "2\n3\n"],
+  ["x := kiten ls", "один\nдва\nтри\n"],
+  [`x := kiten ls . x where: column is: review`, "один\nтри\n"],
+  ["^a^ equals: 1", "false\n"],
+  ["^Готово^ includes: гот", "true\n"],
+  ["^b^ greater: ^a^", "true\n"],
+  [`true := 1 . @true`, "1\n"],
+  [`kiten ls select: ${DO} :c c comments greater: 1 ${DONE} size`, "2\n"],
+  [`kiten ls reject: ${DO} :c c comments greater: 1 ${DONE} size`, "1\n"],
+  ["kiten card id: 11 md", 'md: {"id":11,"comments":[0,1]}\n'],
+  [
+    `x := kiten ls ${END} json . x size`,
+    `${[...'json: {"rows":' + JSON.stringify(ROWS) + "}"].length}\n`,
+  ],
+  ["x := 1 . x isNil", "false\n"],
+  [`3 greater: 2 and: ${DO} 1 less: 2 ${DONE}`, "true\n"],
+  [`1 greater: 2 and: ${DO} 1 less: 2 ${DONE}`, "false\n"],
+  [`1 greater: 2 or: ${DO} 1 less: 2 ${DONE}`, "true\n"],
+  [`3 greater: 2 or: ${DO} 1 less: 2 ${DONE}`, "true\n"],
+  ["3 greater: 2 not", "false\n"],
+  ["1 greater: 2 not", "true\n"],
+  [`1 greater: 2 ifFalse: ${DO} ^нет^ ${DONE}`, "нет\n"],
+  [`3 greater: 2 ifFalse: ${DO} ^нет^ ${DONE}`, ""],
+  ["2 times: 3 minus: 1", "5\n"],
+  ["^a^ less: ^b^", "true\n"],
+  ["^a^ equals: ^a^", "true\n"],
+  ["3 equals: 3", "true\n"],
+  ["3 equals: ^3^", "false\n"],
+  ["^a3^ includes: 3", "true\n"],
+  [`x := kiten ls collect: ${DO} :c c id ${DONE} . x size`, "3\n"],
+  [`x := kiten ls collect: ${DO} :c c id ${DONE} . x first`, "11\n"],
+  [`x := kiten ls collect: ${DO} :c c id ${DONE} . x last`, "13\n"],
+  [`x := kiten ls collect: ${DO} :c c id ${DONE} . x isEmpty`, "false\n"],
+  [
+    `x := kiten ls select: ${DO} :c c id equals: 0 ${DONE} . x first isNil`,
+    "true\n",
+  ],
+  [`kiten ls collect: ${DO} :c c ${DONE} first title`, "один\n"],
+  ["3 understands: -- plus:", "true\n"],
+  ["3 understands: nope", "false\n"],
+  ["3 formats", "json\n"],
+  ["3 keys", ""],
+  ["3 variants", ""],
+  ["3 json", "3\n"],
+  [
+    `x := kiten ls ${END} first . x json`,
+    '{\n  "id": 11,\n  "title": "один",\n  "column": "review",\n  "comments": 2,\n  "archived": false\n}\n',
+  ],
+  [`b := ${DO} :x @x ${DONE} . b print`, "блок\n"],
+  [`kiten card id: ${DO} jsdate ${END}`, '{"id":20260923,"comments":[]}\n'],
+  [`x := kiten ls ${END} first . x pick: title`, "один\n"],
+  [`kiten ls where: column is: review ${END} size`, "2\n"],
+  ["x := kiten ls . x print . 1", "один\nдва\nтри\n1\n"],
+  ["x := kiten ls . x md", `md: ${JSON.stringify({ rows: ROWS })}\n`],
+  [`x := kiten ls ${END} first archived`, "false\n"],
+  [
+    `kiten ls collect: ${DO} :c c ${DONE} last`,
+    "id\t13\ntitle\tтри\ncolumn\treview\ncomments\t5\n",
+  ],
+  [`kiten ls detect: ${DO} :c c id equals: 0 ${DONE} isNil`, "true\n"],
+];
+
+describe("программа печатает значение последнего выражения", () => {
+  for (const [line, out] of PRINTS) {
+    it(line, async () => {
+      const ran = await run(line);
+      expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+      expect(ran.out).toStrictEqual(out);
+    });
+  }
+});
+
+const REFUSALS: readonly (readonly [string, string, number])[] = [
+  ["3 greater: ^a^", "выражение 1: сравнение числа и текста", 1],
+  ["10 div: 0", "выражение 1: деление на ноль", 1],
+  [
+    `kiten ls each: ${DO} :c kiten card id: c ${DONE}`,
+    "выражение 1, блок each:: переменная в значении — @c; текст — -- c",
+    2,
+  ],
+  [
+    `kiten ls each: ${DO} :c @c titel print ${DONE}`,
+    "выражение 1, блок each:: запись не понимает titel; ближайшие: title",
+    1,
+  ],
+  [
+    `b := ${DO} :x :y @x ${DONE} . b value: 1`,
+    "выражение 2: блок ждёт 2 значений, дано 1",
+    1,
+  ],
+  ["@y size", "выражение 1: y не связана; связанных нет", 2],
+  [
+    "x := 1 . kiten card id: @y",
+    "выражение 2: y не связана; связаны: x; текстом — -- @y",
+    2,
+  ],
+  ["@c.title", "выражение 1: поле — унарным: @c title", 2],
+  [
+    `kiten ls eatch: ${DO} :c c ${DONE}`,
+    "выражение 1: коллекция не понимает eatch:; ближайшие: each:",
+    2,
+  ],
+  ["x := 5 . x titel", "выражение 2: число не понимает titel", 1],
+  ["3 plus: ^a^", "выражение 1: plus: ждёт число", 1],
+  ["3 value", "выражение 1: число не понимает value", 1],
+  ["5 timesRepeat: 3", "выражение 1: число не понимает value", 1],
+  [
+    `kiten ls select: ${DO} :c 1 ${DONE}`,
+    "выражение 1: select: ждёт true или false",
+    1,
+  ],
+  [
+    `kiten card id: ${DO} kiten ls ${END}`,
+    "выражение 1: значение ключа id — не скаляр (список)",
+    1,
+  ],
+  [
+    `x := kiten ls ${END} first . kiten card id: @x`,
+    "выражение 2: значение ключа id — не скаляр (запись)",
+    1,
+  ],
+  [
+    `b := ${DO} :x @x ${DONE} . kiten card id: @b`,
+    "выражение 2: значение ключа id — не скаляр (блок)",
+    1,
+  ],
+  [
+    `x := kiten ls detect: ${DO} :c 1 less: 0 ${DONE} . kiten card id: @x`,
+    "выражение 2: значение ключа id — не скаляр (nil)",
+    1,
+  ],
+  ["x := 1 . x nope", "выражение 2: число не понимает nope", 1],
+  ["x := kiten ls . x value", "выражение 2: коллекция не понимает value", 1],
+  ["x := kiten ls . 3 plus: @x", "выражение 2: plus: ждёт число", 1],
+  [
+    `x := kiten ls . kiten ls select: ${DO} :c @x ${DONE}`,
+    "выражение 2: select: ждёт true или false",
+    1,
+  ],
+  [
+    `x := kiten ls ${END} first . x value`,
+    "выражение 2: запись не понимает value; ближайшие: id, title, column, comments, archived",
+    1,
+  ],
+  [
+    `x := kiten ls ${END} first . 3 less: @x`,
+    "выражение 2: не сравнивается",
+    1,
+  ],
+  [
+    "x := kiten ls . x eatch: 1",
+    "выражение 2: коллекция не понимает eatch:; ближайшие: each:",
+    1,
+  ],
+  ["^b^ greater: 1", "выражение 1: сравнение числа и текста", 1],
+  [
+    `x := kiten ls ${END} first . x less: 1`,
+    "выражение 2: запись не понимает less:; ближайшие: id, title, column, comments, archived",
+    1,
+  ],
+  [`${DO} :x @x`, `выражение 1: ${DO} не закрыт`, 2],
+  ["x := 1 . . 2", "выражение 2: пустое выражение", 2],
+];
+
+describe("отказы программы: текст с местом и код", () => {
+  for (const [line, text, exit] of REFUSALS) {
+    it(line, async () => {
+      const ran = await run(line);
+      expect(ran.end.refusal?.text).toStrictEqual(text);
+      expect(ran.end.exit).toStrictEqual(exit);
+    });
+  }
+});
+
+it("отказ до исполнения ничего не исполняет", async () => {
+  const lines = [
+    `kiten ls each: ${DO} :c kiten card id: c ${DONE}`,
+    `kiten ls eatch: ${DO} :c c ${DONE}`,
+    `kiten ls . @y`,
+  ];
+  for (const line of lines) {
+    const ran = await run(line);
+    expect(ran.lines, line).toStrictEqual([]);
+    expect(ran.end.exit, line).toBe(2);
+  }
+});
+
+it("деление склеенного: команде — её ключи, результату — остаток", async () => {
+  const ran = await run(
+    `kiten ls column: review each: ${DO} :c c id print ${DONE}`,
+  );
+  expect(ran.lines).toStrictEqual([["kiten", "ls", "column:", "review"]]);
+  expect(ran.out).toBe("11\n12\n13\n");
+});
+
+it("унарное после литерала — результату команды, а не значению", async () => {
+  const ran = await run("x := 1 . kiten card id: 11 md");
+  // Формат за значением — сообщение результату команды ([D.8]): он уходит
+  // строкой команды, а не становится частью значения.
+  expect(ran.lines).toStrictEqual([["kiten", "card", "id:", "11", "md"]]);
+  expect(ran.out).toBe('md: {"id":11,"comments":[0,1]}\n');
+});
+
+it("ключ done: блок не закрывает — это другое слово, чем конец блока", async () => {
+  const ran = await run(
+    `kiten ls each: ${DO} :c kiten close id: @c id ${CLOSE_KEY}: x ${DONE}`,
+  );
+  expect(ran.lines.slice(1).map((line) => line.join(" "))).toStrictEqual([
+    `kiten close id: 11 ${CLOSE_KEY}: x`,
+    `kiten close id: 12 ${CLOSE_KEY}: x`,
+    `kiten close id: 13 ${CLOSE_KEY}: x`,
+  ]);
+});
+
+const TEXTS: readonly (readonly [string | readonly string[], string])[] = [
+  ["^ответ: 2^^ готово^", "ответ: 2^ готово\n"],
+  ["^формула x^2 верна^", "формула x^2 верна\n"],
+  ["^^^_^^ спасибо^", "^_^ спасибо\n"],
+  ["^a^^ и b^^^", "a^ и b^\n"],
+  [`^итог: 5 штук. ${END}^`, `итог: 5 штук. ${END}\n`],
+  ["^a -- b^", "a -- b\n"],
+  ["^^ size", "0\n"],
+  ["^^^^", "^\n"],
+  [["^_^ спасибо"], "^_^ спасибо\n"],
+  [["^a b^"], "a b\n"],
+  [["^a b^^"], "a b^\n"],
+];
+
+describe("текст ^…^: ^ внутри — удвоением, слово с пробелом — одно", () => {
+  for (const [line, out] of TEXTS) {
+    it(String(line), async () => {
+      const ran = await run(line);
+      expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+      expect(ran.out).toStrictEqual(out);
+    });
+  }
+});
+
+describe("текст ^…^: отказы до исполнения с готовой строкой", () => {
+  const cases: readonly (readonly [string, string, readonly string[]])[] = [
+    [
+      "^ответ: 2^ готово^",
+      "выражение 1: текст ^…^ закрылся раньше: слово «2^» закрыло его, " +
+      "а «готово^» дальше закрывать нечему. Если ^ — часть текста, " +
+      "удвой: 2^^ — mpu ^ответ: 2^^ готово^",
+      ["^ответ:", "2^^", "готово^"],
+    ],
+    [
+      "^a b",
+      "выражение 1: текст не закрыт: добавь ^ к последнему слову — mpu ^a b^",
+      ["^a", "b^"],
+    ],
+  ];
+  for (const [line, text, hint] of cases) {
+    it(line, async () => {
+      const ran = await run(line);
+      expect(ran.end.exit).toBe(2);
+      expect(ran.end.refusal?.text).toStrictEqual(text);
+      expect(ran.end.refusal?.hint).toStrictEqual(hint);
+    });
+  }
+});
+
+describe("слово без разделителей открывает текст: U+00A0 и прочие — часть слова", () => {
+  it("незакрытый — отказ с готовой строкой", async () => {
+    const ran = await run([
+      "telegram",
+      "send",
+      "chat:",
+      "me",
+      "text:",
+      "^a\u00a0b",
+    ]);
+    expect(ran.end.exit).toBe(2);
+    expect(ran.end.refusal?.text).toStrictEqual(
+      "выражение 1: текст не закрыт: добавь ^ к последнему слову — " +
+        "mpu telegram send chat: me text: ^a\u00a0b^",
+    );
+    expect(ran.lines).toStrictEqual([]);
+  });
+  it("закрытый — текст без крайних ^", async () => {
+    const ran = await run(["^a\u2003b^"]);
+    expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+    expect(ran.out).toBe("a\u2003b\n");
+  });
+});
+
+it("значение ключа команды — текст выражения, словом-литералом", async () => {
+  const ran = await run(`x := ^${END}^ . kiten card id: @x`);
+  expect(ran.lines).toStrictEqual([["kiten", "card", "id:", "--", END]]);
+});
+
+it("одна ближайшая — подсказка строкой с заменённым словом", async () => {
+  const ran = await run(`kiten ls each: ${DO} :c @c titel print ${DONE}`);
+  expect(ran.end.refusal?.hint).toStrictEqual([
+    "kiten",
+    "ls",
+    "each:",
+    DO,
+    ":c",
+    "@c",
+    "title",
+    "print",
+    DONE,
+  ]);
+  expect(ran.end.refusal?.candidates).toStrictEqual(["title"]);
+});
+
+describe("@путь значением ключа с файлом своим ключом — отказ с готовой строкой", () => {
+  const cases: readonly (readonly [string, readonly string[]])[] = [
+    [
+      "kiten post id: 1 body: @req.json",
+      ["kiten", "post", "id:", "1", "body-file:", "req.json"],
+    ],
+    [
+      "x := 1 . kiten post id: 1 --body=@req.json",
+      [
+        "x",
+        ":=",
+        "1",
+        ".",
+        "kiten",
+        "post",
+        "id:",
+        "1",
+        "body-file:",
+        "req.json",
+      ],
+    ],
+    [
+      "x := 1 . kiten post id: 1 body: -- @req.json",
+      [
+        "x",
+        ":=",
+        "1",
+        ".",
+        "kiten",
+        "post",
+        "id:",
+        "1",
+        "body-file:",
+        "req.json",
+      ],
+    ],
+  ];
+  for (const [line, hint] of cases) {
+    it(line, async () => {
+      const ran = await run(line);
+      expect(ran.end.exit).toBe(2);
+      expect(
+        ran.end.refusal?.text.endsWith(
+          "файл — ключом: mpu kiten post id: 1 body-file: req.json",
+        ),
+        ran.end.refusal?.text,
+      ).toBe(true);
+      expect(ran.end.refusal?.hint).toStrictEqual(hint);
+      expect(ran.lines).toStrictEqual([]);
+    });
+  }
+});
+
+it("несвязанная @x в значении ключа команды — подсказка текстом", async () => {
+  const ran = await run("kiten card id: @all");
+  expect(ran.end.refusal?.hint).toStrictEqual([
+    "kiten",
+    "card",
+    "id:",
+    "--",
+    "@all",
+  ]);
+  expect(ran.end.refusal?.reason).toBe("не связана");
+});
+
+it("рекурсия блока через переменную на глубину 100 000", async () => {
+  const line = `f := ${DO} :n @n less: 1 ifTrue: ${DO} 0 ${DONE} ifFalse: ` +
+    `${DO} @f value: ${DO} @n minus: 1 ${END} ${DONE} ${DONE} . f value: 100000`;
+  const ran = await run(line);
+  expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+  expect(ran.out).toBe("0\n");
+});
+
+it("отмена останавливает бесконечный цикл, код 130", async () => {
+  const stop = new AbortController();
+  const started = performance.now();
+  const timer = setTimeout(() => stop.abort(), 50);
+  try {
+    const ran = await run(
+      `1 to: 1000000000 do: ${DO} :i i ${DONE}`,
+      stop.signal,
+    );
+    expect(ran.end).toStrictEqual({ exit: 130, refusal: null });
+  } finally {
+    clearTimeout(timer);
+  }
+  assert(performance.now() - started < 1000, "остановка дольше секунды");
+});
+
+describe("строка команды с кодом ≠ 0 — программа кончается", () => {
+  // Отказ до исполнения (2) — как есть, прочий — 1 (`ask-composite.md`).
+  const cases: readonly [string, number][] = [["nope", 2], ["fail", 1]];
+  for (const [word, exit] of cases) {
+    it(word, async () => {
+      const ran = await run(`x := 1 . ${word} . 2 print`);
+      expect(ran.end).toStrictEqual({ exit, refusal: null });
+      expect(ran.out).toBe("");
+    });
+  }
+});
+
+/** Корень строки: понимает `kiten` и `it`. */
+const ROOT: Root = {
+  accepts: (word) => ["kiten", "it", "help"].includes(word),
+  reserves: (name) => ["kiten", "it", "help"].includes(name),
+  messages: () => ["help", "it", "kiten"],
+};
+
+function refusedText(line: string): string {
+  const words = line.split(" ");
+  try {
+    parseProgram(words, COMMANDS, ROOT);
+  } catch (err) {
+    if (!(err instanceof Placed)) throw err;
+    return refusalOf(words, err).text();
+  }
+  throw new Error(`разбор не отказал: ${line}`);
+}
+
+it("отказы разбора с корнем строки", () => {
+  expect(refusedText("kiten := 1")).toBe(
+    "выражение 1: kiten — сообщение корня, выбери другое имя",
+  );
+  expect(refusedText(`${DONE} := 1`)).toStrictEqual(
+    `выражение 1: ${DONE} — слово грамматики, выбери другое имя`,
+  );
+  expect(refusedText("kiten ls . kitn")).toBe(
+    "выражение 2: mpu: не понимает kitn; ближайшие: kiten",
+  );
+  expect(refusedText("x := 1 . kiten lss")).toBe(
+    "выражение 2: mpu kiten: не понимает lss; ближайшие: ls",
+  );
+});
+
+it("строка — программа по словам, --  экранирует", () => {
+  const cases: readonly (readonly [string, boolean])[] = [
+    ["kiten ls", false],
+    [`${DO} kiten ls ${END} size`, false],
+    ["kiten ls size.", false],
+    ["kiten ls . x", true],
+    ["x := 1", true],
+    ["3 greater: 2", true],
+    ["^a^ size", true],
+    ["kiten card id: @x", true],
+    [`kiten ls each: ${DO} :c c ${DONE}`, true],
+    [`rem a ${END} kiten ls`, true],
+    ["text: -- .", false],
+    ["text: -- @x", false],
+    ["telegram send chat: @kalabass text: @x", false],
+    ["telegram send text: .", false],
+    [`telegram send text: ${DONE}`, false],
+    ["telegram send --text @x", false],
+    ["telegram send text: ^a b^", true],
+    [`telegram send text: ${DO} :c c ${DONE}`, true],
+    ["telegram send text: @x . 1", true],
+  ];
+  for (const [line, program] of cases) {
+    expect(isProgram(line.split(" "), COMMANDS), line).toStrictEqual(program);
+  }
+});
+
+/** Строка ядру: `telegram send chat: me text: <текст>`. */
+function sent(text: string): string[] {
+  return ["telegram", "send", "chat:", "me", "text:", text];
+}
+
+describe("ключ-текст: слово как есть, выражение — группой или ^…^", () => {
+  const cases: readonly (readonly [string | readonly string[], string[][]])[] =
+    [
+      [
+        "telegram send chat: @kalabass text: ^@kalabass Иван, итог: всё готово.^",
+        [[
+          "telegram",
+          "send",
+          "chat:",
+          "@kalabass",
+          "text:",
+          "@kalabass Иван, итог: всё готово.",
+        ]],
+      ],
+      [
+        ["telegram", "send", "chat:", "@kalabass", "text:", "@kalabass Иван."],
+        [[
+          "telegram",
+          "send",
+          "chat:",
+          "@kalabass",
+          "text:",
+          "@kalabass Иван.",
+        ]],
+      ],
+      ["x := 1 . telegram send chat: me text: .", [sent(".")]],
+      [`x := 1 . telegram send chat: me text: ${GRAMMAR.comment}`, [
+        sent("rem"),
+      ]],
+      [`x := 1 . telegram send chat: me text: ${DONE}`, [sent(DONE)]],
+      [
+        `telegram send chat: me text: ^итог: 5 штук. ${END}^`,
+        [["telegram", "send", "chat:", "me", "text:", `итог: 5 штук. ${END}`]],
+      ],
+      ["telegram send chat: me text: ^ответ: 2^^ готово^", [
+        sent("ответ: 2^ готово"),
+      ]],
+      ["telegram send chat: me text: ^a b^ print", [sent("a b")]],
+      [
+        "telegram send chat: ^Иван Петров^ text: ура^",
+        [["telegram", "send", "chat:", "Иван Петров", "text:", "ура^"]],
+      ],
+      [
+        `kiten ls each: ${DO} :c telegram send chat: me text: ${DO} @c title ${END} ${DONE}`,
+        [["kiten", "ls"], sent("один"), sent("два"), sent("три")],
+      ],
+      [
+        `kiten ls each: ${DO} :c telegram send chat: me text: @all ${DONE}`,
+        [["kiten", "ls"], sent("@all"), sent("@all"), sent("@all")],
+      ],
+    ];
+  for (const [line, lines] of cases) {
+    it(String(line), async () => {
+      const ran = await run(line);
+      expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+      expect(ran.lines).toStrictEqual(lines);
+    });
+  }
+});
+
+describe("ключ-текст: связанная переменная — отказ до исполнения", () => {
+  const each = `kiten ls each: ${DO} :c telegram send chat: me text:`;
+  const said = "выражение 1, блок each:: ключ-текст берёт слово как есть; " +
+    `переменную — группой: text: ${DO} @c ${END}`;
+  const cases: readonly (readonly [string, string])[] = [
+    [`${each} @c ${DONE}`, said],
+    [`${each} c ${DONE}`, `${said}; текстом — -- c`],
+  ];
+  for (const [line, text] of cases) {
+    it(line, async () => {
+      const ran = await run(line);
+      expect(ran.end.exit).toBe(2);
+      expect(ran.end.refusal?.text).toStrictEqual(text);
+      expect(ran.end.refusal?.hint).toStrictEqual([
+        ...`${each} ${DO} @c ${END} ${DONE}`.split(" "),
+      ]);
+      expect(ran.lines).toStrictEqual([]);
+    });
+  }
+});
+
+it("ключ-текст: ^ закрыл текст раньше, за ним непонятое — отказ до исполнения", async () => {
+  const ran = await run("telegram send chat: me text: ^ответ: 2^ готово");
+  expect(ran.end.exit).toBe(2);
+  expect(ran.end.refusal?.text).toStrictEqual(
+    "выражение 1: mpu telegram send: не понимает готово; возможно, ^ " +
+      "внутри текста закрыл его раньше — удвой ^^",
+  );
+  expect(ran.end.refusal?.hint).toStrictEqual([
+    ...sent("^ответ:").slice(0, 5),
+    "^ответ:",
+    "2^^",
+    "готово^",
+  ]);
+  expect(ran.lines).toStrictEqual([]);
+});
+
+it("run: не первым словом — отказ разбора, ничего не исполнено", async () => {
+  const ran = await run(`2 print . kiten ls . ${GRAMMAR.run} y.mpu`);
+  expect(ran.end.exit).toBe(2);
+  expect(ran.end.refusal?.text).toBe(
+    "выражение 3: run: — только первым словом строки",
+  );
+  expect(ran.end.refusal?.reason).toBe("run: не первым словом");
+  expect([ran.out, ran.lines]).toStrictEqual(["", []]);
+});
+
+/** Программа файла `x.mpu` с ключами вызова `given`. */
+function runFile(line: string, given: Record<string, string>): Promise<Ran> {
+  const typed = Object.entries(given).map(([key, value]) =>
+    ` ${key}: ${value}`
+  );
+  const source = `mpu ${GRAMMAR.run} x.mpu${typed.join("")}`;
+  const params = fileParams(source, new Map(Object.entries(given)));
+  return run(line, undefined, params, namingOf(source));
+}
+
+describe("параметры файла: @имя — ключ вызова, голое имя — как без параметра", () => {
+  const cases: readonly (readonly [string, Record<string, string>, string])[] =
+    [
+      ["@col print", { col: "review" }, "review\n"],
+      ["@col print", { col: "готово к ревью", extra: "1" }, "готово к ревью\n"],
+      ["col := 1 . @col print", {}, "1\n"],
+      [`kiten ls ${END} size`, { kiten: "5" }, "3\n"],
+      ["@n", { n: "5" }, "5\n"],
+    ];
+  for (const [line, given, out] of cases) {
+    it(`${line} ${JSON.stringify(given)}`, async () => {
+      const ran = await runFile(line, given);
+      expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+      expect(ran.out).toStrictEqual(out);
+    });
+  }
+  it("голое имя в ключе-тексте — текст, параметр не нужен", async () => {
+    const ran = await runFile("telegram send chat: me text: review", {
+      review: "1",
+    });
+    expect(ran.end.exit).toBe(0);
+    expect(ran.lines).toStrictEqual([
+      ["telegram", "send", "chat:", "me", "text:", "review"],
+    ]);
+  });
+  it("@имя группой в ключе-тексте — значение параметра", async () => {
+    const ran = await runFile(
+      `telegram send chat: me text: ${DO} @msg ${END}`,
+      { msg: "hi" },
+    );
+    expect(ran.end.exit).toBe(0);
+    expect(ran.lines).toStrictEqual([[
+      "telegram",
+      "send",
+      "chat:",
+      "me",
+      "text:",
+      "hi",
+    ]]);
+  });
+  it("параметр — текст: число не распознаётся", async () => {
+    const ran = await runFile("@n plus: 1", { n: "5" });
+    expect(ran.end.exit).toBe(1);
+    expect(ran.end.refusal?.text).toBe(
+      "mpu run: x.mpu n: 5: выражение 1: текст не понимает plus:",
+    );
+  });
+});
+
+describe("параметры файла: отказы до исполнения называют источник", () => {
+  const cases: readonly (readonly [
+    string,
+    Record<string, string>,
+    string,
+    string,
+  ])[] = [
+    [
+      "@col print",
+      {},
+      "mpu run: x.mpu: программа ждёт параметр col: — mpu run: x.mpu col: …",
+      "ждёт параметр",
+    ],
+    [
+      "col := 1 . @col print",
+      { col: "review" },
+      "mpu run: x.mpu col: review: параметр col: совпадает с переменной " +
+      "col := — переименуй одно из них",
+      "совпадает с переменной",
+    ],
+    [
+      `kiten ls each: ${DO} :col @col id print ${DONE}`,
+      { col: "review" },
+      "mpu run: x.mpu col: review: параметр col: совпадает с параметром " +
+      "блока :col — переименуй одно из них",
+      "совпадает с переменной",
+    ],
+    [
+      "telegram send chat: me text: @msg",
+      { msg: "hi" },
+      "mpu run: x.mpu msg: hi: выражение 1: ключ-текст берёт слово как есть; " +
+      `переменную — группой: text: ${DO} @msg ${END}`,
+      "ключ-текст берёт слово как есть",
+    ],
+  ];
+  for (const [line, given, text, reason] of cases) {
+    it(line, async () => {
+      const ran = await runFile(line, given);
+      expect(ran.end.exit).toBe(2);
+      expect(ran.end.refusal?.text).toStrictEqual(text);
+      expect(ran.end.refusal?.reason).toStrictEqual(reason);
+      expect(ran.end.refusal?.hint).toStrictEqual(null);
+      expect([ran.out, ran.lines]).toStrictEqual(["", []]);
+    });
+  }
+  it("без параметров файла @x — прежний отказ «не связана»", async () => {
+    const ran = await run("@col print");
+    expect(ran.end.refusal?.text).toBe(
+      "выражение 1: col не связана; связанных нет",
+    );
+  });
+});
