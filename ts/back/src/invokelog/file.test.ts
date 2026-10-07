@@ -3,13 +3,17 @@ import {
   chmod,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
+import lockfile from "proper-lockfile";
 import { appendRecord, LOCK_NAME } from "./file.ts";
 
 /** Временный каталог журнала с уборкой; путь файла — внутри него. */
@@ -162,24 +166,66 @@ it("две записи разом: обе целы, ни одна не разр
 it("лок занят: запись не теряется, ротации нет", async () => {
   await withDir(async (dir, path) => {
     await appendRecord(path, "старое\n", NO_ROTATION);
-    const held = await Deno.open(`${dir}/${LOCK_NAME}`, {
-      read: true,
-      write: true,
-      create: true,
+    // Лок держит «сосед» тем же способом, каким его берёт ротация.
+    const release = await lockfile.lock(`${dir}/${LOCK_NAME}`, {
+      realpath: false,
     });
     try {
-      await held.lock(true);
       await appendRecord(path, "новое\n", { maxBytes: 4, keep: 5 });
       // Ротация не состоялась — запись всё равно на месте, дописана к
       // прежнему содержимому.
       expect(await readFile(path, "utf8")).toBe("старое\nновое\n");
       expect(await exists(`${path}.1`)).toBe(false);
     } finally {
-      await held.unlock();
-      held.close();
+      await release();
     }
   });
 });
+
+/**
+ * Как запустить модуль `.ts` текущим рантаймом: Node 24 и Bun исполняют
+ * его сами, Deno — подкомандой и с правами.
+ */
+const RUN_TS: readonly string[] = process.versions.deno === undefined
+  ? []
+  : ["run", "-A"];
+
+it("два процесса ротируют разом: каждая запись ровно один раз", async () => {
+  await withDir(async (dir, path) => {
+    const rotator = new URL("./testrotate.ts", import.meta.url).pathname;
+    const count = 150;
+    const maxBytes = 64;
+    await Promise.all(
+      ["a", "b"].map((label) =>
+        promisify(execFile)(process.execPath, [
+          ...RUN_TS,
+          rotator,
+          path,
+          label,
+          String(count),
+          String(maxBytes),
+        ])
+      ),
+    );
+    const files = (await readdir(dir)).filter((name) =>
+      name.startsWith("mpu.log")
+    );
+    const records: string[] = [];
+    for (const name of files) {
+      const text = await readFile(`${dir}/${name}`, "utf8");
+      records.push(...text.split("\n").filter((line) => line !== ""));
+      // Архив уходит только переросшим порог: ротация, не дождавшаяся
+      // соседа, увела бы в архив его свежий маленький файл.
+      if (name !== "mpu.log") {
+        expect(text.length, name).toBeGreaterThanOrEqual(maxBytes);
+      }
+    }
+    const expected = ["a", "b"].flatMap((label) =>
+      Array.from({ length: count }, (_, index) => `${label} ${index}`)
+    );
+    expect(records.sort()).toStrictEqual(expected.sort());
+  });
+}, 60_000);
 
 it("lock-файл — сосед журнала с правами 0600", async () => {
   await withDir(async (dir, path) => {
