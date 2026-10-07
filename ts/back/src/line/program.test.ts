@@ -31,12 +31,6 @@ function marked(text: string, stand: Stand): string {
   return text.replaceAll(stand.baseUrl, KAITEN_MARK);
 }
 
-/**
- * Предел прогона всего эталона вычислителя: под `deno test` он шёл ~2 с
- * без предела; 5 с Vitest по умолчанию на занятой машине — не дефект.
- */
-const LONG_MS = 60_000;
-
 it(
   "эталон вычислителя: строка → stdout, stderr, код",
   () =>
@@ -57,7 +51,6 @@ it(
         }
       })
     ),
-  LONG_MS,
 );
 
 it("журнал: запись программы и своя запись на каждую команду", () =>
