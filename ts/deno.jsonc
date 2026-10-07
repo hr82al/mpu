@@ -160,50 +160,33 @@
     "@mtcute/wasm": "jsr:@mtcute/wasm@0.31.0"
   },
   "tasks": {
-    // Тестам нужны чтение исходников с фикстурами, временные каталоги
-    // (Deno.makeTempDir пишет в $TMPDIR) и env — подстановка HOME/MPU_*
-    // в тестах хранилища; `--allow-env` здесь без списка (тесты сами
-    // переставляют разные переменные, включая XDG_CONFIG_HOME для
-    // `back/src/env`, — сузить список так, чтобы не гнаться за ним на
-    // каждый новый тест, не даёт смысла). Сеть — только петля: тесты
-    // транспорта поднимают MCP-сервер на 127.0.0.1 и ходят в него
-    // fetch'ем. Наружу тест не ходит: ему нужен фейк, а не право.
-    // `--allow-run=…` — для тестов запуска подпроцесса: `mpu ssh`
-    // (`back/src/exec/ssh_test.ts`) и утилита буфера обмена
-    // (`cli/src/clipboard/clipboard_test.ts`). Ими проверяется обёртка над
-    // API Deno — захват потоков, код возврата и перевод «файла нет» в
-    // отказ. Третий путь заведомо не существует: без права на него
-    // Deno отвечает «нет права» раньше, чем «нет файла», и ветка
-    // осталась бы непроверенной.
-    //   --allow-run=…,deno
-    //     Второй оракул полноты (`platform/code-analyzer.md`, deno-вид
-    //     проекта) запускает `deno check` ПОДПРОЦЕССОМ. Иначе нельзя:
-    //     эталон обязан приходить не из нашего кода — оракул, собранный
-    //     тем же разбором, что и ответ, сравнивал бы ответ с самим
-    //     собой, и мутация портила бы обе стороны сравнения разом.
-    //     Право нужно тесту, а не команде: бинарь `deno check` не
-    //     запускает, и в задаче `compile:back` этого права нет.
-    //     Именем, а не путём из `Deno.execPath()`: абсолютный путь
-    //     версионный (`…/installs/deno/<версия>/bin/deno`) и сломается
-    //     на первом же обновлении Deno — причём тихо, и выглядеть это
-    //     будет дефектом оракула, а не нехваткой права.
-    //     Согласовано владельцем 2026-09-08 (через сессию-спецификатора).
-    //     Покрытие: снятие `deno` из списка роняет тест
-    //     «оракул deno-дерева даёт три файла» на `NotCapable`.
-    //   — `/bin/bash`: скрипт установки `install.sh`
-    //     (`platform/supervisor-install.md`) — shell, и его тесты
-    //     запускают его, как запускает человек; поддельные `deno` и
-    //     `systemctl` он зовёт сам, правам теста они не подчинены.
-    //     Разрешено постановкой порции 145. Покрытие: снятие роняет тесты
-    //     `supervisor/src/install_test.ts` на `NotCapable`.
-    //   — `/bin/sh`, `/usr/bin/ps`, `/usr/bin/cat`, `/usr/bin/kill`:
-    //     живые тесты исполнителя строк (`platform/line-executor.md`) —
-    //     запуск через обёртку `sh` с `oom_score_adj` и сторож памяти
-    //     на настоящих программах. Порция 166a (сообщено хосту).
-    //     Покрытие: снятие роняет `back/src/worker/process_test.ts`
-    //     (`/bin/sh`, `/usr/bin/cat`) и
-    //     `supervisor/src/watchdog_live_test.ts` (`ps`, `cat`, `kill`).
-    "test": "deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=/bin/echo,/bin/false,/bin/net-takogo-binarya,deno,/bin/bash,/bin/sh,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill",
+    // `deno test` исполняет только 15 файлов `*_test.ts`, оставленных до
+    // этапа 3 (перечень и причина — `CLAUDE.md`, «Шаг 1 — гейты»): телеграм
+    // на JSR `@mtcute/deno` и `web/src/{tasks,vitest}_test.ts`. Права —
+    // ровно то, что нужно им; каждое сторожит прогон
+    // (замер 2026-10-07, `platform/vitest-v6.md` [S.5]: снятие роняет
+    // названные тесты на `NotCapable`):
+    //   --allow-read   исходники с фикстурами и wasm `@mtcute`
+    //                  (`telegram/*_test.ts`), `deno.jsonc`
+    //                  (`web/src/tasks_test.ts`).
+    //   --allow-write  временные каталоги (`Deno.makeTempDir` пишет в
+    //                  $TMPDIR) тестов `telegram/*_test.ts`.
+    //   --allow-env=MTCUTE_LOG_LEVEL
+    //                  его читает `@mtcute` (`telegram/connection_test.ts`
+    //                  и соседи); других переменных 15 файлов не читают.
+    //   --allow-run=deno
+    //                  `web/src/vitest_test.ts` запускает `deno task
+    //                  web:test` (раннер фронта) подпроцессом. Именем, а
+    //                  не путём из `Deno.execPath()`: абсолютный путь
+    //                  версионный и тихо сломается на обновлении Deno.
+    // Прежние права ушли вместе со сторожами в Vitest (`-A`, права тесты
+    // не воспроизводят): сеть петли (транспорт MCP), `/bin/echo`,
+    // `/bin/false`, `/bin/net-takogo-binarya` (`exec/ssh`, буфер
+    // обмена), `/bin/bash` (`install.sh`), `/bin/sh`, `/usr/bin/ps`,
+    // `/usr/bin/cat`, `/usr/bin/kill` (исполнитель строк, сторож
+    // памяти); оракул `deno check` (`platform/code-analyzer.md`) идёт
+    // под Vitest. Нехватку права в сборке ловит `deno task smoke`.
+    "test": "deno test --allow-read --allow-write --allow-env=MTCUTE_LOG_LEVEL --allow-run=deno",
     // Тесты `*.test.ts` (Vitest, `vitest.config.ts`) под Deno. Пакет — тот,
     // что поставлен из `package.json` в `node_modules`: версия названа там
     // одна, а `npm:vitest` без версии держал бы её только `deno.lock`.
