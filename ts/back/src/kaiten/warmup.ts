@@ -7,27 +7,26 @@
  * О команде `init` файл не знает — только о справочниках Kaiten и о
  * таблицах `kaiten_spaces`/`kaiten_boards`/`kaiten_lanes`/
  * `kaiten_columns`/`kaiten_roles`, в которые пишет. Сами запросы и разбор
- * ответов — каталоги внешнего API (`./refs.ts`, `./time.ts`); здесь —
+ * ответов — каталоги внешнего API (`@mpu/kaiten`); здесь —
  * состав прогрева и бюджет шага целиком (обход досок в частях 2–3).
  */
 
 import type { RequestTimeouts } from "@mpu/http";
-import type { CacheDb } from "../command/mod.ts";
 import {
+  type Board,
+  type Column,
   KAITEN_TIMEOUTS,
   type KaitenAccess,
   type KaitenCallOptions,
   KaitenError,
-} from "./http.ts";
-import {
-  type Board,
-  type Column,
+  type KaitenRole,
   listBoardColumns,
   listBoardLanes,
   listSpaces,
+  listUserRoles,
   type Space,
-} from "./refs.ts";
-import { type KaitenRole, listUserRoles } from "./time.ts";
+} from "@mpu/kaiten";
+import type { CacheDb } from "../command/mod.ts";
 
 /**
  * Строка пространства в кэше: вложенных досок в ней нет — они уходят своей
@@ -271,7 +270,7 @@ interface BoardPartOutcome {
  *
  * `notes` собирается в общий мутируемый массив, переданный каждому
  * вызову: retry-строки упавшей доски не должны теряться вместе с
- * отклонённым промисом (см. `KaitenCallOptions` в `./http.ts`).
+ * отклонённым промисом (см. `KaitenCallOptions` в `@mpu/kaiten`).
  */
 async function collectBoardPart(
   boards: readonly Board[],

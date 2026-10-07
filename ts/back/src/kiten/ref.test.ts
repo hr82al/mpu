@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
-import type { Column, Lane } from "../kaiten/mod.ts";
+import type { Column, Lane } from "@mpu/kaiten";
 import { resolveRef } from "./ref.ts";
 
 const BOARD_ID = 4000001;

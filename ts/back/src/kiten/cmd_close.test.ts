@@ -1,7 +1,7 @@
 /**
  * Команда `mpu kiten close` (`docs/specs/kiten-close.md`). Вызов идёт от
  * argv, как из точки входа, а каталог ходит в фейковый Kaiten на петле
- * (`../kaiten/testing.ts`): у оркестратора состав и ПОРЯДОК запросов сам
+ * (`@mpu/kaiten/testing`): у оркестратора состав и ПОРЯДОК запросов сам
  * по себе инвариант — неверная колонка не смеет стоить ни одной мутации,
  * а таймер без флага не смеет остановиться.
  *
@@ -24,7 +24,7 @@ import {
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { mskStamp } from "./msk.ts";
 import { kitenCloseCommand } from "./mod.ts";
 

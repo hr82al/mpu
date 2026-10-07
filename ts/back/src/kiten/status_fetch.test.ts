@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { CardSummary } from "../kaiten/mod.ts";
+import type { CardSummary } from "@mpu/kaiten";
 import {
   columnTitlesFor,
   feedPageCap,

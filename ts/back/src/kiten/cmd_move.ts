@@ -24,11 +24,11 @@ import {
   listBoardColumns,
   listBoardLanes,
   listSpaces,
-  parseCardRef,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -121,7 +121,7 @@ async function runKitenMove(
   ) {
     throw new UsageError("нужно хотя бы одно из --lane / --column / --board");
   }
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   return await runMove(
     access,
@@ -142,7 +142,7 @@ async function runFixedMove(
   io: MoveIo,
   fixed: ColumnDefault,
 ): Promise<KitenMoveResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   return await runMove(
     access,

@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import type { Card, CardFile, Comment, Member } from "../kaiten/mod.ts";
+import type { Card, CardFile, Comment, Member } from "@mpu/kaiten";
 
 /** Человек в выводе: владелец карточки и элемент `members`. */
 const personSchema = z.object({

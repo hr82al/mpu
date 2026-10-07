@@ -24,13 +24,13 @@ import type { CommandIo } from "../command/mod.ts";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { startFakeKaiten } from "../kaiten/testing.ts";
+import { startFakeKaiten } from "@mpu/kaiten/testing";
 import type {
   Activity,
   CardSummary,
   TimeLogCard,
   UserTimeLog,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type KitenStatusArgs,
   renderStatus,

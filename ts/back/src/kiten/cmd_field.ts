@@ -6,7 +6,7 @@
  * Три листа лежат вместе, потому что делят одну таблицу «вид поля → id
  * поля инстанса»: она и есть предмет спеки, а разложенная по трём файлам
  * распалась бы на три места правки. Про HTTP и форму ответов сервера
- * здесь не знают — только про каталог (`../kaiten/mod.ts`).
+ * здесь не знают — только про каталог (`@mpu/kaiten`).
  */
 
 import { z } from "zod";
@@ -19,14 +19,14 @@ import {
 import {
   deleteCardFile,
   getCard,
-  parseCardRef,
   updateCardProperties,
   uploadCustomPropertyFile,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
   baseName,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -125,7 +125,7 @@ async function runKitenFieldSet(
   args: KitenFieldSetArgs,
   io: FieldIo,
 ): Promise<KitenFieldSetResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   // Пусто — ровно строка нулевой длины: её и отвергает сервер. Значение
   // из пробелов он принимает, а спека обещает записать переданное как
@@ -155,7 +155,7 @@ async function runKitenArtefactSet(
   args: KitenArtefactSetArgs,
   io: FieldIo,
 ): Promise<KitenArtefactSetResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const name = baseName(args.path);
   if (!/\.md$/i.test(name)) {
     throw new UsageError(`артефакт должен быть .md-файлом, получен '${name}'`);
@@ -193,7 +193,7 @@ async function runKitenArtefactRm(
   args: KitenArtefactRmArgs,
   io: FieldIo,
 ): Promise<KitenArtefactRmResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   try {
     const card = await getCard(access, cardId);

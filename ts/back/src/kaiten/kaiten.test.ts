@@ -1,41 +1,37 @@
 /**
- * Клиент Kaiten (`docs/specs/platform/kaiten-http.md`, раздел «Прогрев
- * справочников»; `docs/specs/init.md`, шаг 4) на фейковом HTTP-сервере:
+ * Прогрев справочников Kaiten (`docs/specs/platform/kaiten-http.md`,
+ * раздел «Прогрев справочников»; `docs/specs/init.md`, шаг 4) на фейковом
+ * HTTP-сервере:
  * happy path на golden-фикстурах, независимость частей 1/4 и 2/3 друг от
  * друга, пропуск одной доски без остановки обхода, retry на 429 (пауза
- * и исчерпание попыток), бюджет шага, отсутствие ключа в текстах ошибок,
- * `requireKaitenAccess`, `retryDelayMs` и запись `writeKaitenWarmup`
- * поверх настоящей SQLite-БД (scoped-замена дорожек/колонок).
+ * и исчерпание попыток), бюджет шага, отсутствие ключа в текстах ошибок и
+ * запись `writeKaitenWarmup` поверх настоящей SQLite-БД (scoped-замена
+ * дорожек/колонок).
  *
  * Фейковый сервер — общий стенд `serveFetch` (`@mpu/testing`, петля,
- * порт от ОС): обработчики здесь отвечают по самому запросу. Стенд модуля
- * (`startFakeKaiten`, `./testing.ts`) отдаёт ответчику только накопленные
- * разобранные запросы — перевод пятнадцати обработчиков на него вышел бы
+ * порт от ОС): обработчики здесь отвечают по самому запросу. Стенд
+ * библиотеки (`startFakeKaiten`, `@mpu/kaiten/testing`) отдаёт ответчику
+ * только накопленные разобранные запросы — перевод пятнадцати обработчиков на него вышел бы
  * за механический перевод тестов.
  *
- * Паузы retry в тестах — либо `Retry-After: 0` (задержка вырождается в
- * `setTimeout(0)`, не «сон стеной»), либо прямая проверка чистой функции
- * `retryDelayMs` без реального ожидания (`ts/CLAUDE.md`: сон стеной в
- * тестах запрещён).
+ * Паузы retry в тестах — `Retry-After: 0` (задержка вырождается в
+ * `setTimeout(0)`, не «сон стеной»; `ts/CLAUDE.md`: сон стеной в тестах
+ * запрещён).
  */
 
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { rejected, thrown } from "@mpu/testing/thrown";
+import { rejected } from "@mpu/testing/thrown";
 import { plainRows } from "../testing/cache.ts";
 import { serveFetch } from "@mpu/testing";
+import { KAITEN_TIMEOUTS, type KaitenAccess, KaitenError } from "@mpu/kaiten";
 import { openCacheDb } from "../store/mod.ts";
 import {
   collectKaitenWarmup,
   DEFAULT_KAITEN_LIMITS,
-  KAITEN_TIMEOUTS,
-  type KaitenAccess,
-  KaitenError,
   type KaitenLimits,
-  requireKaitenAccess,
-  retryDelayMs,
   WARMUP_BUDGET_MS,
   writeKaitenWarmup,
 } from "./mod.ts";
@@ -489,32 +485,6 @@ it("шесть 429 подряд: ошибка exhausted retries как прич�
   }
 });
 
-// --- retryDelayMs: чистая функция расписания ------------------------------
-
-describe("retryDelayMs: табличный тест расписания пауз", () => {
-  const cases: ReadonlyArray<readonly [string, number, string | null, number]> =
-    [
-      ["Retry-After: 7 → 7000", 1, "7", 7_000],
-      ["нет заголовка, попытка 1 → 1000", 1, null, 1_000],
-      ["нет заголовка, попытка 2 → 2000", 2, null, 2_000],
-      ["нет заголовка, попытка 3 → 4000", 3, null, 4_000],
-      ["нет заголовка, попытка 4 → 8000", 4, null, 8_000],
-      ["нет заголовка, попытка 5 → 16000", 5, null, 16_000],
-      ["нет заголовка, попытка 6 → потолок 30000", 6, null, 30_000],
-      [
-        "нечисловое значение → как отсутствие (попытка 1)",
-        1,
-        "не-число",
-        1_000,
-      ],
-    ];
-  for (const [name, attempt, retryAfter, expected] of cases) {
-    it(name, () => {
-      expect(retryDelayMs(attempt, retryAfter)).toStrictEqual(expected);
-    });
-  }
-});
-
 // --- бюджет шага -------------------------------------------------------------
 
 it("бюджет шага исчерпан: доски пропущены, части 1 и 4 всё равно собраны", async () => {
@@ -645,58 +615,6 @@ describe("API-ключ не появляется в текстах ошибок"
       await stop();
     }
   });
-});
-
-// --- requireKaitenAccess -----------------------------------------------------
-
-describe("requireKaitenAccess: ключ есть/пуст/отсутствует, дефолт и override базового URL", () => {
-  interface Case {
-    readonly name: string;
-    readonly apiKey: string | undefined;
-    readonly baseUrl: string | undefined;
-    readonly expected: KaitenAccess | "ошибка";
-  }
-  const cases: readonly Case[] = [
-    {
-      name: "ключ задан, базовый URL по умолчанию",
-      apiKey: "k1",
-      baseUrl: undefined,
-      expected: { baseUrl: "https://btlz.kaiten.ru", apiKey: "k1" },
-    },
-    {
-      name: "базовый URL переопределён, хвостовые / срезаны",
-      apiKey: "k2",
-      baseUrl: "https://kaiten.example.com///",
-      expected: { baseUrl: "https://kaiten.example.com", apiKey: "k2" },
-    },
-    { name: "ключ пуст", apiKey: "", baseUrl: undefined, expected: "ошибка" },
-    {
-      name: "ключа нет",
-      apiKey: undefined,
-      baseUrl: undefined,
-      expected: "ошибка",
-    },
-  ];
-  for (const c of cases) {
-    it(c.name, () => {
-      const envFile = {
-        get: (name: string) => {
-          if (name === "KITEN_API_KEY") return c.apiKey;
-          if (name === "KITEN_BASE_URL") return c.baseUrl;
-          return undefined;
-        },
-      };
-      if (c.expected === "ошибка") {
-        const err = thrown(() => {
-          requireKaitenAccess(envFile);
-        }, KaitenError);
-        expect(err.message).toContain("KITEN_API_KEY не задан");
-        expect(err.message).toBe("KITEN_API_KEY не задан");
-      } else {
-        expect(requireKaitenAccess(envFile)).toStrictEqual(c.expected);
-      }
-    });
-  }
 });
 
 // --- writeKaitenWarmup --------------------------------------------------------

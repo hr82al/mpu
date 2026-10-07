@@ -24,8 +24,8 @@ import {
   listCards,
   listUserActivities,
   listUserTimeLogs,
-  writeBoardRows,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
+import { writeBoardRows } from "../kaiten/mod.ts";
 import {
   type AccessIo,
   asCommandError,

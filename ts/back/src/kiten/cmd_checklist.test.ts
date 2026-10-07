@@ -2,7 +2,7 @@
  * Чек-листы карточки — `mpu kiten checklist ls | add | check | uncheck`
  * (`docs/specs/kiten-checklist.md`). Вызов идёт от argv, как из точки
  * входа, а каталог ходит в фейковый Kaiten на петле
- * (`../kaiten/testing.ts`): так под проверку попадает и состав запросов,
+ * (`@mpu/kaiten/testing`): так под проверку попадает и состав запросов,
  * который у этой команды сам по себе инвариант — ошибка ссылки на пункт
  * не смеет отправить ни одного мутирующего запроса, а повторный `add` не
  * смеет создать второй чек-лист.
@@ -23,7 +23,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenChecklistAddCommand,
   kitenChecklistCheckCommand,

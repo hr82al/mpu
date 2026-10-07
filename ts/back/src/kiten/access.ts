@@ -1,7 +1,8 @@
 /**
  * Общее для всех команд семейства `mpu kiten`: как достаётся доступ к
- * Kaiten, во что превращается его отказ, как собирается адрес карточки
- * для человека и как из пути получается имя файла для загрузки. Всё это
+ * Kaiten, во что превращается его отказ, как разбирается селектор
+ * карточки, как собирается адрес карточки для человека и как из пути
+ * получается имя файла для загрузки. Всё это
  * одинаково у каждой команды семейства
  * (`platform/kaiten-http.md`), и копия на команду значила бы столько же
  * мест правки при изменении класса ошибки или текста подсказки.
@@ -11,8 +12,10 @@ import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
 import {
   type KaitenAccess,
   KaitenError,
+  KaitenInputError,
+  parseCardRef,
   requireKaitenAccess,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 
 /** Срез порта исполнения: ключ доступа берётся из env-файла. */
 export type AccessIo = Pick<CommandIo, "envFile">;
@@ -32,6 +35,20 @@ export function kaitenAccess(io: AccessIo): KaitenAccess {
       hint: "добавить KITEN_API_KEY в env-файл",
       cause: err,
     });
+  }
+}
+
+/**
+ * Id карточки из селектора аргумента команды (`platform/kaiten-http.md`,
+ * «Селектор карточки»). Разбор — библиотеки; её отказ ввода — ошибка ввода
+ * команды (exit 2) с тем же текстом, до сети.
+ */
+export function cardIdOf(selector: string): number {
+  try {
+    return parseCardRef(selector);
+  } catch (err) {
+    if (!(err instanceof KaitenInputError)) throw err;
+    throw new UsageError(err.message, { cause: err });
   }
 }
 

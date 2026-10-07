@@ -28,7 +28,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenTimeDiscardCommand,
   kitenTimeStartCommand,

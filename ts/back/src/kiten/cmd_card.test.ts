@@ -6,7 +6,7 @@
  *
  * Вход тестов — ответы внешней границы из тех же голденов, а не
  * подставленный порт: команда ходит в каталог, каталог — в фейковый Kaiten
- * на петле (`../kaiten/testing.ts`). Так проверяется и то, каких запросов
+ * на петле (`@mpu/kaiten/testing`). Так проверяется и то, каких запросов
  * команда НЕ делает: справочника имён на `--json`, комментариев на
  * `--no-comments`.
  *
@@ -25,7 +25,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   type KitenCardArgs,
   kitenCardCommand,

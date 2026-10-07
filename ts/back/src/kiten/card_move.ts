@@ -19,7 +19,7 @@ import {
   getCard,
   type KaitenAccess,
   moveCard,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import type { RefItem } from "./ref.ts";
 
 /** Место карточки: ровно то, из чего складывается строка положения. */

@@ -15,7 +15,7 @@ import type {
   Column,
   TimeLogCard,
   UserTimeLog,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import { stateLabel } from "./card_view.ts";
 import type { StatusInput, StatusSource } from "./status_data.ts";
 

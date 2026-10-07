@@ -19,7 +19,7 @@ import {
   listCardLocationHistory,
   listCards,
   requireKaitenAccess,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import { movesInWindow } from "../kiten/card_move.ts";
 import { EMPTY_TARGET, parsePeer, type Peer, sendMessage } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";

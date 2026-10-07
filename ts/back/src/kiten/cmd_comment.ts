@@ -5,7 +5,7 @@
  * Здесь порядок шагов и разбор ввода; текстовые преобразования (адресаты,
  * `@all`, сборка строк) — `comment_text.ts`: они чистые и проверяются без
  * сети. Про HTTP команда не знает — только про каталог
- * (`../kaiten/mod.ts`).
+ * (`@mpu/kaiten`).
  */
 
 import { z } from "zod";
@@ -21,13 +21,13 @@ import {
   createCardCommentWithFiles,
   getCard,
   type KaitenAccess,
-  parseCardRef,
   type UploadFile,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
   baseName,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -97,7 +97,7 @@ async function runKitenComment(
   args: KitenCommentArgs,
   io: CommentIo,
 ): Promise<KitenCommentResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   // Адресаты считаются токенами, а не флагами: `--to ''` — флаг есть, а
   // адресата нет, и текст такому комментарию всё ещё нужен.
   const tokens = recipientTokens(args.to);

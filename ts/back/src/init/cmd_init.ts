@@ -45,13 +45,12 @@ import {
   requireLokiAccess,
   writeLokiCache,
 } from "../loki/mod.ts";
+import { KAITEN_TIMEOUTS, requireKaitenAccess } from "@mpu/kaiten";
 import {
   collectKaitenWarmup,
   DEFAULT_KAITEN_LIMITS,
-  KAITEN_TIMEOUTS,
   type KaitenLimits,
   type KaitenWarmup,
-  requireKaitenAccess,
   WARMUP_BUDGET_MS,
   writeKaitenWarmup,
 } from "../kaiten/mod.ts";

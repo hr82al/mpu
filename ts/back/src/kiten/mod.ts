@@ -1,6 +1,6 @@
 /**
  * Публичная поверхность команд семейства `mpu kiten` — тонких команд над
- * каталогами внешнего API Kaiten (`../kaiten/`). Перенесены: `mpu kiten
+ * каталогами внешнего API Kaiten (`@mpu/kaiten`). Перенесены: `mpu kiten
  * card` (`docs/specs/kiten-card.md`), `mpu kiten field`
  * (`docs/specs/kiten-field.md`), `mpu kiten comment`
  * (`docs/specs/kiten-comment.md`), учёт времени `mpu kiten time`

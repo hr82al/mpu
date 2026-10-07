@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import type { Checklist, ChecklistItem } from "../kaiten/mod.ts";
+import type { Checklist, ChecklistItem } from "@mpu/kaiten";
 
 /** Пункт чек-листа в форме вывода: ключи и их порядок — контракт `--json`. */
 export const checklistItemViewSchema = z.object({

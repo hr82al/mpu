@@ -17,7 +17,7 @@ import {
   type InvokeLog,
   NO_INVOKE_LOG,
 } from "../invokelog/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { GRAMMAR } from "../messages/mod.ts";
 import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
 import { openCacheDb } from "../store/mod.ts";

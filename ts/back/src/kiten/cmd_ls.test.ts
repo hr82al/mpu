@@ -3,7 +3,7 @@
  * CLI-флаг → env → дефолт, глобальный режим дат и четыре машиночитаемых
  * вида вывода поверх таблицы по умолчанию.
  *
- * Вход тестов — фейковый Kaiten на петле (`../kaiten/testing.ts`) и
+ * Вход тестов — фейковый Kaiten на петле (`@mpu/kaiten/testing`) и
  * настоящая кэш-БД во временном каталоге: резолв `REF` и подпись колонки
  * читают её саму, а не мок. Вызов идёт от argv, как из точки входа.
  */
@@ -23,7 +23,7 @@ import {
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { kitenLsCommand } from "./mod.ts";
 
 const USER_PATH = "/api/latest/users/current";

@@ -8,7 +8,7 @@
  * `ITEM` — id либо подстрока текста, и резолв у обеих отметок общий, а
  * `ls` печатает ровно тот список, по которому ссылку и составляют.
  * Порядок пунктов и оформление — `checklist_view.ts`; про HTTP и форму
- * ответов сервера здесь не знают — только про каталог (`../kaiten/mod.ts`).
+ * ответов сервера здесь не знают — только про каталог (`@mpu/kaiten`).
  */
 
 import { z } from "zod";
@@ -19,12 +19,12 @@ import {
   createChecklistItem,
   getCard,
   type KaitenAccess,
-  parseCardRef,
   updateChecklistItem,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -124,7 +124,7 @@ async function runKitenChecklistLs(
   args: KitenChecklistLsArgs,
   io: AccessIo,
 ): Promise<KitenChecklistLsResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   try {
     const card = await getCard(access, cardId);
@@ -143,7 +143,7 @@ async function runKitenChecklistAdd(
   args: KitenChecklistAddArgs,
   io: AccessIo,
 ): Promise<KitenChecklistAddResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   const target = await resolveChecklist(access, cardId, args.name);
   const added = await appendItems(access, cardId, target.checklist, args.item);
@@ -166,7 +166,7 @@ async function runKitenChecklistMark(
   io: AccessIo,
   checked: boolean,
 ): Promise<KitenChecklistMarkResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   requireItemRef(args.item);
   const access = kaitenAccess(io);
   const found = locateItem(await readItems(access, cardId), args.item);

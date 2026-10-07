@@ -2,7 +2,7 @@
  * Записи учёта времени — `mpu kiten time ls | add | edit | rm`
  * (`docs/specs/kiten-time.md`). Успешные ветви закрыты голденами канала,
  * снятыми живым прогоном; вызов идёт от argv, как из точки входа, а
- * каталог ходит в фейковый Kaiten на петле (`../kaiten/testing.ts`) — так
+ * каталог ходит в фейковый Kaiten на петле (`@mpu/kaiten/testing`) — так
  * под проверку попадает и состав запросов, который у этой команды сам по
  * себе контракт: клиентский фильтр «только мои» стоит одного лишнего
  * вызова, а справочник ролей мутирующие подкоманды читают всегда — ради
@@ -24,7 +24,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenTimeAddCommand,
   kitenTimeEditCommand,

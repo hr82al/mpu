@@ -30,7 +30,8 @@ import {
 } from "./cmd_init.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "@mpu/http";
 import type { PortainerAccess } from "../portainer/mod.ts";
-import { KAITEN_TIMEOUTS, WARMUP_BUDGET_MS } from "../kaiten/mod.ts";
+import { KAITEN_TIMEOUTS } from "@mpu/kaiten";
+import { WARMUP_BUDGET_MS } from "../kaiten/mod.ts";
 
 const API_KEY = "proba-portainer-key-K7x9Qz";
 

@@ -4,7 +4,7 @@
  * и итоговой строкой (рамка контрактом не является).
  *
  * Вход тестов — ответы внешней границы: команда ходит в каталог, каталог
- * — в фейковый Kaiten на петле (`../kaiten/testing.ts`), кэш-БД
+ * — в фейковый Kaiten на петле (`@mpu/kaiten/testing`), кэш-БД
  * настоящая во временном каталоге. Так проверяется и то, чего команда НЕ
  * делает: `whoami` не открывает кэш вовсе (в фейке порта эта операция
  * падает), а фильтры `--all`/`--space` не доходят до записи кэша.
@@ -29,7 +29,7 @@ import {
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { startFakeKaiten } from "../kaiten/testing.ts";
+import { startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenBoardsCommand,
   kitenColumnsCommand,

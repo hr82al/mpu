@@ -12,8 +12,8 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
 import { type CacheDb, UsageError } from "../command/mod.ts";
-import type { Column, KaitenAccess } from "../kaiten/mod.ts";
-import { startFakeKaiten } from "../kaiten/testing.ts";
+import type { Column, KaitenAccess } from "@mpu/kaiten";
+import { startFakeKaiten } from "@mpu/kaiten/testing";
 import { openCacheDb } from "../store/mod.ts";
 import {
   appliedOf,

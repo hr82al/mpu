@@ -27,15 +27,15 @@ import {
   type KaitenRole,
   listCardTimeLogs,
   listUserRoles,
-  parseCardRef,
   resetUserTimer,
   startUserTimer,
   stopUserTimer,
   type Timer,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -209,7 +209,7 @@ async function runKitenTimeStart(
   args: KitenTimeStartArgs,
   io: AccessIo,
 ): Promise<KitenTimeStartResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   try {
     // Свежее чтение карточки перед стартом — инвариант спеки: несуществующая
@@ -234,7 +234,7 @@ async function runKitenTimeStatus(
   args: KitenTimeStatusArgs,
   io: AccessIo,
 ): Promise<KitenTimeStatusResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   try {
     const card = await getCard(access, cardId);
@@ -260,7 +260,7 @@ async function runKitenTimeStop(
   args: KitenTimeStopArgs,
   io: TimerIo,
 ): Promise<KitenTimeStopResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const timeMinutes =
     args.time === undefined ? null : parseDuration(args.time, "--time");
   const access = kaitenAccess(io);
@@ -303,7 +303,7 @@ async function runKitenTimeDiscard(
   args: KitenTimeDiscardArgs,
   io: AccessIo,
 ): Promise<KitenTimeDiscardResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const access = kaitenAccess(io);
   try {
     const timer = (await getCard(access, cardId)).timer;

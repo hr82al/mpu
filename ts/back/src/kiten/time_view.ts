@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import type { TimeLog } from "../kaiten/mod.ts";
+import type { TimeLog } from "@mpu/kaiten";
 
 /**
  * Запись времени в форме вывода: плоский объект с ключами внешней

@@ -5,7 +5,7 @@
  *
  * Здесь порядок шагов вызова и его аргументы; состав данных вывода —
  * `card_view.ts`, оформление трёх видов — `render.ts`. Граница «команда ↔
- * каталог» узкая намеренно: команда зовёт каталог (`../kaiten/mod.ts`) и
+ * каталог» узкая намеренно: команда зовёт каталог (`@mpu/kaiten`) и
  * ничего не знает ни про HTTP, ни про форму ответов сервера.
  */
 
@@ -17,9 +17,13 @@ import {
   type KaitenAccess,
   listCardComments,
   listCustomProperties,
-  parseCardRef,
-} from "../kaiten/mod.ts";
-import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
+} from "@mpu/kaiten";
+import {
+  type AccessIo,
+  asCommandError,
+  cardIdOf,
+  kaitenAccess,
+} from "./access.ts";
 import { cardView, cardViewSchema } from "./card_view.ts";
 import {
   type PropertyNames,
@@ -87,7 +91,7 @@ export async function runKitenCard(
   args: KitenCardArgs,
   io: CardIo,
 ): Promise<KitenCardResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const view = viewOf(args, io);
   const access = kaitenAccess(io);
   try {

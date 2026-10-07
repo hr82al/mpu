@@ -8,7 +8,7 @@
  * Шесть команд в одном файле, потому что общее у них всё, кроме вызова
  * каталога и вида таблицы: доступ, порядок «ответ → кэш → фильтр →
  * вывод» и форма отказов. Оформление вывода — `refs_view.ts`, запросы —
- * каталог `../kaiten/mod.ts`; о HTTP и форме ответов сервера команды не
+ * каталог `@mpu/kaiten`; о HTTP и форме ответов сервера команды не
  * знают.
  */
 
@@ -24,12 +24,14 @@ import {
   getCurrentUser,
   type KaitenAccess,
   type KaitenRole,
-  type KaitenWarmup,
   listBoardColumns,
   listBoardLanes,
   listSpaces,
   listUserRoles,
   type Space,
+} from "@mpu/kaiten";
+import {
+  type KaitenWarmup,
   writeBoardRows,
   writeKaitenWarmup,
 } from "../kaiten/mod.ts";

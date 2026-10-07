@@ -20,7 +20,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { kitenCommentCommand } from "./mod.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";

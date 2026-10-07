@@ -1,103 +1,14 @@
 /**
- * Публичная поверхность платформенного атома Kaiten
- * (`docs/specs/platform/kaiten-http.md`): транспорт (доступ, форма
- * запроса, retry на 429, пагинация, формат ошибки) и селектор карточки —
- * `./http.ts` и `./card_ref.ts`; каталог учёта времени и таймеров
- * (`platform/kaiten-api-time.md`) — `./time.ts`; каталог карточки и её
- * содержимого (`platform/kaiten-api-cards.md`) — `./cards.ts`; каталог
- * справочников и пользователя (`platform/kaiten-api-refs.md`) —
- * `./refs.ts`; прогрев справочников с записью в кэш-БД — `./warmup.ts`.
+ * Прогрев справочников Kaiten с записью в кэш-БД команд
+ * (`docs/specs/platform/kaiten-http.md`, «Прогрев справочников»;
+ * `docs/specs/init.md`, шаг 4) — `./warmup.ts`. Разговор с Kaiten
+ * (транспорт, селектор карточки, каталоги) — библиотека `@mpu/kaiten`
+ * (`docs/specs/platform/tslibs-kaiten.md`); здесь — состав прогрева, бюджет
+ * шага и запись собранного в кэш-БД команд.
  *
- * Потребители — команда `init` (шаг 4) и, по мере переноса, подкоманды
- * `mpu kiten`.
+ * Потребители — команда `init` (шаг 4), `mpu kiten refs` и `mpu kiten
+ * status` (запись справочников в кэш).
  */
-
-export {
-  KAITEN_TIMEOUTS,
-  type KaitenAccess,
-  kaitenBaseUrl,
-  type KaitenCallOptions,
-  KaitenError,
-  type KaitenMethod,
-  type KaitenRequest,
-  requireKaitenAccess,
-  retryDelayMs,
-} from "./http.ts";
-
-export { parseCardRef } from "./card_ref.ts";
-
-export {
-  type Card,
-  type CardCondition,
-  type CardFile,
-  type CardFilter,
-  type CardLocation,
-  type CardProperties,
-  type CardState,
-  type CardSummary,
-  type Checklist,
-  type ChecklistItem,
-  type ChecklistItemPatch,
-  type Comment,
-  createCardChecklist,
-  createCardComment,
-  createCardCommentWithFiles,
-  createChecklistItem,
-  deleteCardFile,
-  getCard,
-  listCardComments,
-  listCardLocationHistory,
-  listCards,
-  type LocationChange,
-  type Member,
-  moveCard,
-  type NewChecklistItem,
-  updateCardDescription,
-  updateCardProperties,
-  updateChecklistItem,
-  uploadCustomPropertyFile,
-  type UploadFile,
-} from "./cards.ts";
-
-export {
-  type Activity,
-  type ActivityFeedRequest,
-  type Board,
-  type Column,
-  type CurrentUser,
-  type CustomProperty,
-  getCurrentUser,
-  type Lane,
-  listBoardColumns,
-  listBoardLanes,
-  listCustomProperties,
-  listSpaces,
-  listUserActivities,
-  type Space,
-} from "./refs.ts";
-
-export {
-  createCardTimeLog,
-  deleteCardTimeLog,
-  type KaitenRole,
-  listCardTimeLogs,
-  listUserRoles,
-  listUserTimeLogs,
-  resetUserTimer,
-  startUserTimer,
-  stopUserTimer,
-  type TimeLog,
-  type TimeLogCard,
-  type TimeLogEntry,
-  type TimeLogPatch,
-  type TimeLogWindow,
-  type Timer,
-  type TimerStartOutcome,
-  type TimerStartRequest,
-  type TimerStopRequest,
-  updateCardTimeLog,
-  type UserTimeLog,
-} from "./time.ts";
 
 export {
   collectKaitenWarmup,

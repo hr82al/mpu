@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { startFakeKaiten } from "../kaiten/testing.ts";
+import { startFakeKaiten } from "@mpu/kaiten/testing";
 import { GRAMMAR } from "../messages/mod.ts";
 import { AsideCall, runChain, SELECTABLE } from "../objects/mod.ts";
 import { findCommand } from "../registry/mod.ts";

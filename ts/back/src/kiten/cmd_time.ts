@@ -8,7 +8,7 @@
  * карточке с проверкой владельца, форму вывода записи и разбор входа.
  * Разложенные по файлам, они дали бы четыре места правки на одно
  * изменение контракта. Про HTTP и форму ответов сервера здесь не знают —
- * только про каталог (`../kaiten/mod.ts`).
+ * только про каталог (`@mpu/kaiten`).
  *
  * Локального состояния у команды нет: на диск не пишется ничего
  * (`kiten-time.md`, «Побочные эффекты»).
@@ -29,14 +29,14 @@ import {
   type KaitenRole,
   listCardTimeLogs,
   listUserRoles,
-  parseCardRef,
   type TimeLog,
   type TimeLogPatch,
   updateCardTimeLog,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -200,7 +200,7 @@ async function runKitenTimeLs(
   args: KitenTimeLsArgs,
   io: AccessIo,
 ): Promise<KitenTimeLsResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const from = optionalDate(args["date-from"], "--date-from");
   const to = optionalDate(args["date-to"], "--date-to");
   const access = kaitenAccess(io);
@@ -237,7 +237,7 @@ async function runKitenTimeAdd(
   args: KitenTimeAddArgs,
   io: AddIo,
 ): Promise<KitenTimeAddResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const timeSpent = parseDuration(args.duration, "DURATION");
   const today = mskDay();
   const forDate =
@@ -275,7 +275,7 @@ async function runKitenTimeEdit(
   args: KitenTimeEditArgs,
   io: AccessIo,
 ): Promise<KitenTimeEditResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const id = parseLogId(args.logId);
   const changed = EDIT_AXES.filter((axis) => args[axis] !== undefined);
   if (changed.length === 0) {
@@ -320,7 +320,7 @@ async function runKitenTimeRm(
   args: KitenTimeRmArgs,
   io: AccessIo,
 ): Promise<KitenTimeRmResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const id = parseLogId(args.logId);
   const access = kaitenAccess(io);
   try {

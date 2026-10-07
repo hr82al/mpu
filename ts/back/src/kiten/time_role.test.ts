@@ -11,8 +11,8 @@
 import { describe, expect, it } from "vitest";
 import { rejected, thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
-import type { KaitenAccess } from "../kaiten/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import type { KaitenAccess } from "@mpu/kaiten";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   chooseRoleId,
   DEFAULT_ROLE_ID,

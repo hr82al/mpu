@@ -24,11 +24,7 @@
  */
 
 import { UsageError } from "../command/mod.ts";
-import {
-  type KaitenAccess,
-  type KaitenRole,
-  listUserRoles,
-} from "../kaiten/mod.ts";
+import { type KaitenAccess, type KaitenRole, listUserRoles } from "@mpu/kaiten";
 
 /** Ключ env-файла с ролью по умолчанию. */
 export const ROLE_ENV_KEY = "KITEN_TIME_ROLE";

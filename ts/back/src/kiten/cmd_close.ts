@@ -28,15 +28,15 @@ import {
   listBoardColumns,
   listCardTimeLogs,
   listUserRoles,
-  parseCardRef,
   stopUserTimer,
   type Timer,
   updateCardProperties,
-} from "../kaiten/mod.ts";
+} from "@mpu/kaiten";
 import {
   type AccessIo,
   asCommandError,
   asStepError,
+  cardIdOf,
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
@@ -232,7 +232,7 @@ async function runKitenClose(
   args: KitenCloseArgs,
   io: CloseIo,
 ): Promise<KitenCloseResult> {
-  const cardId = parseCardRef(args.selector);
+  const cardId = cardIdOf(args.selector);
   const reply = await readReply(args, io);
   const access = kaitenAccess(io);
   const plan = await buildPlan(access, cardId, args, reply, io);

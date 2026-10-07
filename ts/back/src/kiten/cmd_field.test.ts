@@ -6,7 +6,7 @@
  * именно он.
  *
  * Вызов идёт от argv, как из точки входа, а каталог ходит в фейковый
- * Kaiten на петле (`../kaiten/testing.ts`): так под проверку попадает и
+ * Kaiten на петле (`@mpu/kaiten/testing`): так под проверку попадает и
  * состав запросов — какие ушли, в каком порядке и чего в них нет.
  */
 
@@ -21,7 +21,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,

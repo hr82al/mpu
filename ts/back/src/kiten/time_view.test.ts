@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { TimeLog } from "../kaiten/mod.ts";
+import type { TimeLog } from "@mpu/kaiten";
 import {
   formatDuration,
   formatLogCount,
