@@ -220,6 +220,14 @@ API: `kaiten`, `gitlab`, `sheet`, `dates`), затем слой платформ
 
 ### 4. Домены в `mpu/tslibs/<домен>` (без нового репо)
 
+Спеки (2026-10-07): договор пакета — `ts/docs/specs/platform/tslibs-package.md`;
+первая библиотека **H1 `tslibs/http`** (`platform/tslibs-http.md`: транспорт
+нужен почти всем доменам; прокси — `https-proxy-agent` + `node:https`, проба:
+одинаково под тремя, `undici` под Bun ломается), затем **T1 `tslibs/telegram`**
+(`platform/tslibs-telegram.md`). Обе — после этапа 1. Пока `ts/` на Deno,
+архив ставит `bun install`, Deno читает `node_modules` (`nodeModulesDir:
+"manual"`): `deno install` архив `file:…tgz` не распаковывает (проба).
+
 Протокол получателя (самоописание `about`, конверт Proxy, файл интерфейса,
 тесты соответствия) — `docs/2026-10-06-tslibs-receiver-protocol-design.md`
 (согласован владельцем 2026-10-06).
