@@ -5,7 +5,7 @@
  * пересборка голденов `testdata/web/*-image.json`.
  */
 
-import { assertEquals } from "@std/assert";
+import { strictEqual } from "node:assert/strict";
 import { DEFINED_AT } from "../line/testimage.ts";
 import { collected, type Frame, type TestBack, withBack } from "./testback.ts";
 
@@ -70,7 +70,7 @@ async function session(back: TestBack): Promise<Record<string, string>> {
     body: JSON.stringify({ key }),
   });
   await response.body?.cancel();
-  assertEquals(response.status, 204, "обмен ключа");
+  strictEqual(response.status, 204, "обмен ключа");
   const cookie = response.headers.get("Set-Cookie") ?? "";
   return { Cookie: cookie.split(";")[0], Origin: origin(back) };
 }
@@ -108,7 +108,7 @@ export async function withWebImage(
       };
       for (const said of THREE) {
         const done = await terminal(said, ["y"]);
-        assertEquals(done.exit, 0, JSON.stringify(done));
+        strictEqual(done.exit, 0, JSON.stringify(done));
       }
       now = Date.parse(LINES_AT);
       const cookie = await session(back);

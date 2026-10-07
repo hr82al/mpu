@@ -5,7 +5,7 @@
  * на отсутствие токена (`platform/back-rpc.md`, инвариант о токене).
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { ok, strictEqual } from "node:assert/strict";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -236,8 +236,8 @@ export async function withBack(
     await Deno.remove(dir, { recursive: true });
   }
   for (const text of [...back.seen, ...diagnosed]) {
-    assert(!text.includes(TOKEN), `токен в выводе: ${text}`);
-    assert(!text.includes(AGENT_TOKEN), `агентский токен в выводе: ${text}`);
+    ok(!text.includes(TOKEN), `токен в выводе: ${text}`);
+    ok(!text.includes(AGENT_TOKEN), `агентский токен в выводе: ${text}`);
   }
 }
 
@@ -360,7 +360,7 @@ export class Client {
   /** Ждёт кадр `exit` и закрытие; отдаёт все кадры. */
   async finished(): Promise<Frame[]> {
     await this.frame((frame) => "exit" in frame);
-    assertEquals(await this.closed(), 1000);
+    strictEqual(await this.closed(), 1000);
     return [...this.frames];
   }
 
