@@ -8,7 +8,8 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
-import { NoAccessTokenError, openSlback } from "../slback/mod.ts";
+import { NoAccessTokenError } from "@mpu/slback";
+import { openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";
 
 const argsSchema = z.object({

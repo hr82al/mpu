@@ -680,6 +680,12 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`docs/specs/platform/tslibs-ops.md`); библиотека `tslibs/loki`, архивом
   `release/`. Запись discovery в кэш-БД (`back/src/loki/mod.ts`,
   `writeLokiCache`) остаётся в `ts/`.
+- `@mpu/slback` — разговор с sl-back для `mpu api …`, `get-token`,
+  `ss-access`, `wb-cards-reset`, `wb-loader`: вызов, отказ с телом, токен
+  через кэш или логин (`docs/specs/platform/tslibs-slback.md`); библиотека
+  `tslibs/slback`, архивом `release/`. Подставной sl-back тестов — вход
+  `@mpu/slback/testing`. Адрес и креды из env-файла и порт сеанса над io
+  команды (`back/src/slback/`) остаются в `ts/`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

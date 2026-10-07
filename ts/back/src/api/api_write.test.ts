@@ -16,7 +16,7 @@ import {
   type CapturedRequest,
   loginReply,
   startFakeSlback,
-} from "../slback/testing.ts";
+} from "@mpu/slback/testing";
 import { apiCommands } from "./mod.ts";
 
 const TOKEN = "jwt-proba-9f2";

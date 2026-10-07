@@ -16,7 +16,7 @@ import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
-import type { SlbackSession } from "../slback/mod.ts";
+import type { SlbackSession } from "@mpu/slback";
 import {
   curlOf,
   RESET_BODY,

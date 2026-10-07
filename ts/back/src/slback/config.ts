@@ -6,6 +6,7 @@
  * дословны в спеке, поэтому проверяются без поднятого сервера.
  */
 
+import type { SlbackCredentials } from "@mpu/slback";
 import { DomainError, type EnvFile } from "../command/mod.ts";
 
 /**
@@ -59,12 +60,6 @@ export function slbackBaseUrl(envFile: EnvFile): string {
 
 function trimEnd(url: string): string {
   return url.replace(/\/+$/, "");
-}
-
-/** Креды логина. */
-export interface SlbackCredentials {
-  readonly email: string;
-  readonly password: string;
 }
 
 /**

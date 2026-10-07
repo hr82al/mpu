@@ -38,6 +38,7 @@
     "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
     "@mpu/loki": "file:../tslibs/loki/release/mpu-loki-0.1.0.tgz",
     "@mpu/portainer": "file:../tslibs/portainer/release/mpu-portainer-0.1.0.tgz",
+    "@mpu/slback": "file:../tslibs/slback/release/mpu-slback-0.1.0.tgz",
     "@mpu/telegram": "file:../tslibs/telegram/release/mpu-telegram-0.1.0.tgz",
     "@tanstack/react-query": "5.103.1",
     "@tanstack/react-router": "1.170.38",

@@ -20,7 +20,8 @@ import {
   DomainError,
   UsageError,
 } from "../command/mod.ts";
-import { openSlback, type SlbackSession } from "../slback/mod.ts";
+import type { SlbackSession } from "@mpu/slback";
+import { openSlback } from "../slback/mod.ts";
 import { slbackCredentials } from "../slback/config.ts";
 import { denoSession, type OpenSession, serverTarget } from "../sql/mod.ts";
 import type { SqlSession } from "../sql/session.ts";

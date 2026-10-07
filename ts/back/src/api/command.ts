@@ -18,7 +18,8 @@ import {
   type KeyRename,
   UsageError,
 } from "../command/mod.ts";
-import { openSlback, SlbackError } from "../slback/mod.ts";
+import { SlbackError } from "@mpu/slback";
+import { openSlback } from "../slback/mod.ts";
 import {
   BODY_FILE_INPUT,
   BODY_INPUT,

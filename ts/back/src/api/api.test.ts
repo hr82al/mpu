@@ -13,7 +13,7 @@ import {
   type CapturedRequest,
   loginReply,
   startFakeSlback,
-} from "../slback/testing.ts";
+} from "@mpu/slback/testing";
 import { apiCommands } from "./mod.ts";
 import { PATH_ARG_HELP, pathParams } from "./endpoint.ts";
 import { READ_ENDPOINTS } from "./endpoints.ts";

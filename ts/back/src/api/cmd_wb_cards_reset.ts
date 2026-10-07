@@ -18,7 +18,8 @@ import {
   isSidLike,
   searchCandidates,
 } from "../selector/mod.ts";
-import { openSlback, type SlbackSession } from "../slback/mod.ts";
+import type { SlbackSession } from "@mpu/slback";
+import { openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";
 
 /** Путь и тело сняты с объекта дословно (спека, «Путь и тело»). */

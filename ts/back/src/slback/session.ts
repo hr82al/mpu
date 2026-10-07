@@ -1,124 +1,39 @@
 /**
- * Сеанс sl-back (`platform/slback-http.md`): получение токена через
- * файловый кэш и вызов эндпоинта с ним.
+ * Сеанс sl-back над io команды (`docs/specs/platform/slback-http.md`): адрес
+ * и креды — из env-файла по правилам `./config.ts`, кэш токена — файлом
+ * `CommandIo`. Сам сеанс — кэш или логин, вызов под токеном — библиотека
+ * `@mpu/slback` (`docs/specs/platform/tslibs-slback.md`).
  *
- * Кэш и логин живут вместе, потому что вместе они и работают: команда
- * просит токен, а откуда он пришёл — из файла или из `POST /auth/login` —
- * её не касается. Часы приходят параметром: срок годности записи
- * проверяется в тестах без ожидания стеной.
+ * Отказ адреса и кред (`DomainError` из `./config.ts`) библиотека
+ * пропускает тем же объектом, поэтому переводить здесь нечего.
  */
 
+import {
+  type Clock,
+  openSlback as openSession,
+  type SlbackSession,
+} from "@mpu/slback";
 import type { CommandIo } from "../command/mod.ts";
-import { RESPONSE_LIMIT, slbackCall, SlbackError, truncate } from "./client.ts";
 import { slbackBaseUrl, slbackCredentials } from "./config.ts";
-import { cachedToken, tokenCacheText } from "./token.ts";
 
-/** Срез порта: env-файл и обе стороны токен-кэша. */
+/** Срез io команды: env-файл и обе стороны кэша токена. */
 export type SlbackIo = Pick<
   CommandIo,
   "envFile" | "readTokenCache" | "writeTokenCache"
 >;
 
 /**
- * Логин прошёл, но токена в ответе нет. Отдельный класс, а не текст:
- * `mpu api get-token` называет этот случай своими словами (`api.md`),
- * все прочие команды — словами атома.
+ * Сеанс sl-back команды; `now` — часы срока годности записи кэша (по
+ * умолчанию — системные, у библиотеки).
  */
-export class NoAccessTokenError extends SlbackError {
-  override name = "NoAccessTokenError";
-}
-
-/** Явные креды вызова: заданное поле старше env (`api.md`). */
-export interface CredentialOverrides {
-  readonly email?: string;
-  readonly password?: string;
-}
-
-/** Сеанс: токен и вызов эндпоинта. */
-export interface SlbackSession {
-  /**
-   * Токен: живая запись кэша либо свежий логин с записью кэша.
-   * `useCache: false` — читать кэш нельзя, но перезаписать надо: так
-   * `get-token` с обоими флагами меняет пользователя в кэше.
-   */
-  readonly token: (opts?: {
-    readonly overrides?: CredentialOverrides;
-    readonly useCache?: boolean;
-  }) => Promise<string>;
-  /**
-   * Вызов эндпоинта под Bearer-токеном; результат — разобранный JSON.
-   *
-   * `auth: false` — вызов без заголовка и **без единого обращения к
-   * кэшу токена**: у эндпоинта с признаком `no_auth` авторизации нет
-   * по построению, а `/auth/login` иначе брал бы токен, чтобы за
-   * токеном сходить (`docs/specs/api-write.md`).
-   */
-  readonly call: (
-    method: string,
-    path: string,
-    body?: unknown,
-    opts?: { readonly auth?: boolean },
-  ) => Promise<unknown>;
-}
-
-/** Часы сеанса в секундах; подменяются в тестах. */
-export type Clock = () => number;
-
-const systemClock: Clock = () => Math.floor(Date.now() / 1000);
-
-export function openSlback(
-  io: SlbackIo,
-  now: Clock = systemClock,
-): SlbackSession {
-  const token: SlbackSession["token"] = async (opts = {}) => {
-    if (opts.useCache !== false) {
-      const cached = cachedToken(await io.readTokenCache(), now());
-      if (cached !== undefined) return cached;
-    }
-    const credentials = slbackCredentials(io.envFile, opts.overrides ?? {});
-    const response = await slbackCall(slbackBaseUrl(io.envFile), {
-      method: "POST",
-      path: "/auth/login",
-      body: credentials,
-    });
-    const fresh = accessTokenOf(response);
-    // Запись кэша — best-effort: токен уже получен, и отказ каталога не
-    // должен ронять вызов, ради которого он получен (вердикт fix
-    // `platform/slback-http.md`).
-    try {
-      await io.writeTokenCache(tokenCacheText(fresh, now()));
-    } catch {
-      // Причина не важна: следующий вызов просто сходит за токеном ещё раз.
-    }
-    return fresh;
-  };
-
-  return {
-    token,
-    call: async (method, path, body, opts) =>
-      await slbackCall(slbackBaseUrl(io.envFile), {
-        method,
-        path,
-        body,
-        // Токен берётся только там, где он нужен: у `auth: false`
-        // обращения к кэшу не происходит вовсе, а не «происходит и
-        // не используется».
-        token: opts?.auth === false ? undefined : await token(),
-      }),
-  };
-}
-
-/** Непустой `accessToken` из ответа логина; иначе — отказ с телом ответа. */
-function accessTokenOf(response: unknown): string {
-  const value =
-    typeof response === "object" && response !== null
-      ? (response as Record<string, unknown>)["accessToken"]
-      : undefined;
-  if (typeof value === "string" && value !== "") return value;
-  throw new NoAccessTokenError(
-    `sl-back login: нет accessToken в ответе: ${truncate(
-      JSON.stringify(response) ?? "",
-      RESPONSE_LIMIT,
-    )}`,
+export function openSlback(io: SlbackIo, now?: Clock): SlbackSession {
+  return openSession(
+    {
+      baseUrl: () => slbackBaseUrl(io.envFile),
+      credentials: (overrides) => slbackCredentials(io.envFile, overrides),
+      readTokenCache: () => io.readTokenCache(),
+      writeTokenCache: (text) => io.writeTokenCache(text),
+    },
+    now,
   );
 }
