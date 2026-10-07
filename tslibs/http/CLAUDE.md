@@ -17,10 +17,10 @@ Sheets, sl-back, Telegram), ставит пакет архивом из `release
 
 ```bash
 bun install
-VITEST_MAX_FORKS=2 bun run gate   # biome → tsc → тесты Bun, Node, Deno → сборка → check:release
+VITEST_MAX_FORKS=2 bun run gate   # biome → tsc → тесты Bun, Node, Deno → check:release
 bun run build                     # dist/index.js и dist/*.d.ts
 bun run release                   # release/mpu-http-<версия>.tgz
-bun run check:release             # архив в release/ = упаковка текущего dist/
+bun run check:release             # сборка и упаковка = архив в release/
 ```
 
 Рантаймы гейт гонит по одному. Поменялись исходники или `package.json` —
