@@ -11,7 +11,7 @@
  */
 
 import { type EnvFile, UsageError } from "../command/mod.ts";
-import type { PortainerAccess } from "../portainer/mod.ts";
+import type { PortainerAccess } from "@mpu/portainer";
 import type { CacheReader } from "../selector/mod.ts";
 import {
   type ContainerLocation,

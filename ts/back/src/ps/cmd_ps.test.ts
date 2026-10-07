@@ -16,8 +16,8 @@ import {
   formatCommandError,
   UsageError,
 } from "../command/mod.ts";
-import type { PortainerAccess, PortainerContainer } from "../portainer/mod.ts";
-import { PortainerError } from "../portainer/mod.ts";
+import type { PortainerAccess, PortainerContainer } from "@mpu/portainer";
+import { PortainerError } from "@mpu/portainer";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { psCommand } from "./cmd_ps.ts";

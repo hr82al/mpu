@@ -6,7 +6,7 @@
  * здесь только перевод туда и обратно.
  */
 
-import type { LogEntry } from "../loki/mod.ts";
+import type { LogEntry } from "@mpu/loki";
 import { isoOf } from "./render.ts";
 
 /** Строка лога — запись коллекции. */

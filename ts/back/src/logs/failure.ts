@@ -9,8 +9,8 @@
  */
 
 import { DomainError } from "../command/mod.ts";
-import { LokiError, LokiHttpError } from "../loki/mod.ts";
-import { PortainerError } from "../portainer/mod.ts";
+import { LokiError, LokiHttpError } from "@mpu/loki";
+import { PortainerError } from "@mpu/portainer";
 
 /** Сколько символов тела ответа попадает в текст ошибки. */
 const BODY_LIMIT = 500;

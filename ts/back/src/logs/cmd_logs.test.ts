@@ -25,10 +25,10 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import type { LogEntry, RangeQuery } from "../loki/mod.ts";
-import { LokiError, LokiHttpError } from "../loki/mod.ts";
-import type { ContainerLogsQuery, PortainerAccess } from "../portainer/mod.ts";
-import { PortainerError } from "../portainer/mod.ts";
+import type { LogEntry, RangeQuery } from "@mpu/loki";
+import { LokiError, LokiHttpError } from "@mpu/loki";
+import type { ContainerLogsQuery, PortainerAccess } from "@mpu/portainer";
+import { PortainerError } from "@mpu/portainer";
 import { logsCommand } from "./mod.ts";
 import {
   type LogsArgs,

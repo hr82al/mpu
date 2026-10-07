@@ -15,11 +15,8 @@ import {
   formatCommandError,
   UsageError,
 } from "../command/mod.ts";
-import type {
-  ContainerLogsQuery,
-  PortainerContainer,
-} from "../portainer/mod.ts";
-import { PortainerError } from "../portainer/mod.ts";
+import type { ContainerLogsQuery, PortainerContainer } from "@mpu/portainer";
+import { PortainerError } from "@mpu/portainer";
 import { makeFakeIo } from "../testing/mod.ts";
 import { healthCommand } from "./cmd_health.ts";
 import {

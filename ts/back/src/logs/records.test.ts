@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import type { LogEntry } from "../loki/mod.ts";
+import type { LogEntry } from "@mpu/loki";
 import {
   entryRecords,
   recordEntries,

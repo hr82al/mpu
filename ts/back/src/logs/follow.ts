@@ -10,7 +10,7 @@
  */
 
 import { DomainError, formatCommandError } from "../command/mod.ts";
-import type { LogEntry, RangeQuery } from "../loki/mod.ts";
+import type { LogEntry, RangeQuery } from "@mpu/loki";
 import { lokiFailure } from "./failure.ts";
 import { toNanoseconds } from "./query.ts";
 import { byTimeAscending, type EntryPrinter } from "./render.ts";

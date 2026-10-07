@@ -13,7 +13,7 @@ import {
   fetchContainerLogs,
   listContainers,
   PortainerError,
-} from "../portainer/mod.ts";
+} from "@mpu/portainer";
 import { type CacheReader, resolveSelector } from "../selector/mod.ts";
 import { classify, type Row } from "./classify.ts";
 

@@ -9,6 +9,8 @@
         "@modelcontextprotocol/sdk": "1.30.0",
         "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
         "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
+        "@mpu/loki": "file:../tslibs/loki/release/mpu-loki-0.1.0.tgz",
+        "@mpu/portainer": "file:../tslibs/portainer/release/mpu-portainer-0.1.0.tgz",
         "@mpu/telegram": "file:../tslibs/telegram/release/mpu-telegram-0.1.0.tgz",
         "@tanstack/react-query": "5.103.1",
         "@tanstack/react-router": "1.170.38",
@@ -183,6 +185,10 @@
     "@mpu/http": ["@mpu/http@../tslibs/http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-+hY7JHme3toSSMpYpWS7IXRAAGZvUIh0DFiMX0FIsbeWYrzrE/IXO5xb16zmWUdgJDMoqr61/e+Bj1MmnWIS7w=="],
 
     "@mpu/kaiten": ["@mpu/kaiten@../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
+
+    "@mpu/loki": ["@mpu/loki@../tslibs/loki/release/mpu-loki-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-P8+WOQ9OeAKeguI+Pdmpua63cB6VawgusDmeaoWa8dakJe8dhW7viuSIkbZkbV/DR5OSx9a6nfT8sMRMRP+lug=="],
+
+    "@mpu/portainer": ["@mpu/portainer@../tslibs/portainer/release/mpu-portainer-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-SQuM1YhjlpM+lWL5vGPFwCyVyQjN1/mUcztkIKAwz5EBlxdQPksbU7OheLRaNjcaySNGqIM2T3OePRFkbKLIyA=="],
 
     "@mpu/telegram": ["@mpu/telegram@../tslibs/telegram/release/mpu-telegram-0.1.0.tgz", { "dependencies": { "@mtcute/convert": "0.31.0", "@mtcute/markdown-parser": "0.31.0", "@mtcute/node": "0.31.0", "@mtcute/wasm": "0.31.0" }, "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-MIgubWwfMaOkJ1HxTcWNRMoF4c757vHC5s0xd0IQGYbc50ESnOX8v1eNu2n6Ix7L6X4zzBNipQvNu9Y+QdDFCw=="],
 

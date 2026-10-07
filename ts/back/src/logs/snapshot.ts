@@ -9,7 +9,7 @@
  */
 
 import { type EnvFile, UsageError } from "../command/mod.ts";
-import type { ContainerLogsQuery, PortainerAccess } from "../portainer/mod.ts";
+import type { ContainerLogsQuery, PortainerAccess } from "@mpu/portainer";
 import type { LogsCache, PortainerTarget } from "./cache.ts";
 import { portainerFailure } from "./failure.ts";
 import type { ListAllContainerNames, ReadContainerLogs } from "./sources.ts";

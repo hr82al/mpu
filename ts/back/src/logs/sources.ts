@@ -8,18 +8,18 @@
  * разбор ответа сделаны атомами) и нужны только команде.
  */
 
-import type { LogEntry, LokiAccess, RangeQuery } from "../loki/mod.ts";
-import { queryRange } from "../loki/mod.ts";
+import type { LogEntry, LokiAccess, RangeQuery } from "@mpu/loki";
+import { queryRange } from "@mpu/loki";
 import type {
   ContainerLogsQuery,
   DockerStreams,
   PortainerAccess,
-} from "../portainer/mod.ts";
+} from "@mpu/portainer";
 import {
   demuxDockerStream,
   fetchContainerLogs,
   listContainers,
-} from "../portainer/mod.ts";
+} from "@mpu/portainer";
 
 /** Чтение записей окна из Loki. */
 export type ReadLoki = (

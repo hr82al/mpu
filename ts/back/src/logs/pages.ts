@@ -6,7 +6,7 @@
  * повторно и отбрасываются.
  */
 
-import type { LogEntry, RangeQuery } from "../loki/mod.ts";
+import type { LogEntry, RangeQuery } from "@mpu/loki";
 import { byTimeAscending } from "./render.ts";
 
 /** Предел записей на запрос у Loki по умолчанию (`max_entries_limit_per_query`). */

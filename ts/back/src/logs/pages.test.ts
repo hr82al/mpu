@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type LogEntry, LokiHttpError, type RangeQuery } from "../loki/mod.ts";
+import { type LogEntry, LokiHttpError, type RangeQuery } from "@mpu/loki";
 import { readNewest } from "./pages.ts";
 
 const WINDOW = { logql: '{host="sl-1"}', startNs: 0n, endNs: 1_000_000n };

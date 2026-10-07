@@ -13,11 +13,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { escapeLike, LIKE_ESCAPE, requirePortainer } from "../exec/mod.ts";
-import {
-  containerName,
-  listContainers,
-  PortainerError,
-} from "../portainer/mod.ts";
+import { containerName, listContainers, PortainerError } from "@mpu/portainer";
 import type { RequestTimeouts } from "@mpu/http";
 import { type CacheReader, resolveSelector } from "../selector/mod.ts";
 

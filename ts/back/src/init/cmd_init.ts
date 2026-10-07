@@ -37,14 +37,14 @@ import {
   listEndpoints,
   type PortainerAccess,
   type PortainerEndpoint,
-} from "../portainer/mod.ts";
+} from "@mpu/portainer";
 import { classifyContainer } from "./discovery.ts";
 import {
   collectLokiSeries,
   type LokiSeries,
   requireLokiAccess,
-  writeLokiCache,
-} from "../loki/mod.ts";
+} from "@mpu/loki";
+import { writeLokiCache } from "../loki/mod.ts";
 import { KAITEN_TIMEOUTS, requireKaitenAccess } from "@mpu/kaiten";
 import {
   collectKaitenWarmup,

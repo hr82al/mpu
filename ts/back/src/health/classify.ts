@@ -4,7 +4,7 @@
  * — поводом для exit 1.
  */
 
-import { containerName, type PortainerContainer } from "../portainer/mod.ts";
+import { containerName, type PortainerContainer } from "@mpu/portainer";
 
 /**
  * Имя `mp`-строки: `sl-` или `wb-`, префикс `mp-` перед ними

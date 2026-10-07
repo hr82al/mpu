@@ -9,9 +9,9 @@
  * видно из отчёта, без запуска diff'а вручную. Калька с
  * `src/env/fixtures_test.ts` и `src/store/fixtures_test.ts`.
  *
- * Здесь — только свои golden команды. Формы ответов атомов, которые
- * она зовёт, сверяются там же, где живут атомы: `src/loki/` и
- * `src/kaiten/`.
+ * Здесь — только свои golden команды. Копии форм ответов внешних систем,
+ * которые разбирают библиотеки `@mpu/loki` и `@mpu/kaiten`, сверяются в
+ * своих каталогах: `src/loki/` и `src/kaiten/`.
  */
 
 import { describe, expect, it } from "vitest";

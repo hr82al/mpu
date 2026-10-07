@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { serveFetch } from "@mpu/testing";
-import type { PortainerAccess } from "../portainer/mod.ts";
+import type { PortainerAccess } from "@mpu/portainer";
 import {
   listAllContainerNamesOverHttp,
   readContainerLogsOverHttp,

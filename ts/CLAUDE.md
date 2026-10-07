@@ -670,6 +670,16 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `@mpu/kaiten/testing`. Отказ селектора (`KaitenInputError`) в ошибку
   ввода команды переводит `back/src/kiten/access.ts` (`cardIdOf`); запись
   справочников в кэш-БД (`back/src/kaiten/warmup.ts`) остаётся в `ts/`.
+- `@mpu/portainer` — разговор с Portainer API для `init`, `logs`, `ps`,
+  `health` и адресации `exec`: environment'ы, контейнеры, снимок логов и
+  разбор потока Docker (`docs/specs/platform/tslibs-ops.md`); библиотека
+  `tslibs/portainer`, архивом `release/`. Исполнение в контейнере по
+  WebSocket (`back/src/exec/portainer.ts`) — в `ts/`.
+- `@mpu/loki` — разговор с Loki для `init`, `update`, `logs`: discovery
+  хостов и сервисов, чтение `query_range`
+  (`docs/specs/platform/tslibs-ops.md`); библиотека `tslibs/loki`, архивом
+  `release/`. Запись discovery в кэш-БД (`back/src/loki/mod.ts`,
+  `writeLokiCache`) остаётся в `ts/`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

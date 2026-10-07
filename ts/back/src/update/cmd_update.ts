@@ -15,11 +15,8 @@ import {
   DomainError,
 } from "../command/mod.ts";
 import { DEFAULT_TIMEOUTS, firstLine, type RequestTimeouts } from "@mpu/http";
-import {
-  collectLokiSeries,
-  requireLokiAccess,
-  writeLokiCache,
-} from "../loki/mod.ts";
+import { collectLokiSeries, requireLokiAccess } from "@mpu/loki";
+import { writeLokiCache } from "../loki/mod.ts";
 import {
   type ClientSyncOutcome,
   CONNECT_TIMEOUT_MS,

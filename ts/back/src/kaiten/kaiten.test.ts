@@ -592,8 +592,8 @@ describe("API-ключ не появляется в текстах ошибок"
   it("сетевой сбой (HttpCallError): причина без ключа", async () => {
     // Часть 1 и часть 4 идут двумя одновременными запросами — общий
     // "затвор" вместо общего `Response`: тело читается один раз, а сервер
-    // отдаёт каждому запросу свежий объект (см. `portainer.test.ts`,
-    // тест "гонка таймеров"). Общий `Response`-промис отдал бы один и тот
+    // отдаёт каждому запросу свежий объект (см.
+    // `tslibs/portainer/src/portainer.test.ts`, тест "гонка таймеров"). Общий `Response`-промис отдал бы один и тот
     // же поток телу второго запроса и упал бы "body already consumed".
     const gate = Promise.withResolvers<void>();
     const { baseUrl, stop } = await serveFetch(async () => {
