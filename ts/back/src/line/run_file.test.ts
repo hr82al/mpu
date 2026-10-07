@@ -24,7 +24,8 @@ import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
 import { type CommandIo, DomainError } from "../command/mod.ts";
 import { makeInvokeLog } from "../invokelog/mod.ts";
 import { ASK, DENY, Human, NOBODY, RuleBook, RulePath } from "../policy/mod.ts";
-import { type ChannelOf, programFiles } from "./mod.ts";
+import { type ChannelOf, type ProgramFiles, programFiles } from "./mod.ts";
+import { osError } from "../oserror/mod.ts";
 import { within } from "../backend/testback.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { type Ran, runOnStand, withStand } from "./testprogram.ts";
@@ -117,6 +118,8 @@ interface Call {
   readonly log?: string;
   /** Ключей бота нет: `telegram log` падает конфигурацией, до сети. */
   readonly botless?: boolean;
+  /** Чтение файла программы отказывает этой ошибкой ОС. */
+  readonly readFails?: Error;
 }
 
 /** env-файл без ключей: любое требование — отказ конфигурации. */
@@ -164,6 +167,12 @@ function inputOf(given: Call, read: () => void): Partial<CommandIo> {
 }
 
 /** Строка `words` на стенде в домашнем каталоге `home`. */
+/** Файлы программ, у которых чтение отказывает `fails`; без неё — как есть. */
+function refusingRead(files: ProgramFiles, fails?: Error): ProgramFiles {
+  if (fails === undefined) return files;
+  return { ...files, read: () => Promise.reject(fails) };
+}
+
 function run(
   home: Home,
   words: readonly string[],
@@ -197,7 +206,7 @@ function run(
           ...(given.botless ? BOTLESS : {}),
         },
         channel: given.nobody ? () => NOBODY : humanAt(given.answers ?? []),
-        files: programFiles((name) => env[name]),
+        files: refusingRead(programFiles((name) => env[name]), given.readFails),
         log,
       });
       result = {
@@ -458,6 +467,18 @@ describe("run: отказы пути — до чтения, полный пут�
     } finally {
       await chmod(home.real("/home/u/w/x.mpu"), 0o644);
     }
+  });
+  it("нет права чтения — отказ ОС EPERM", async () => {
+    // `EPERM` (запрет не по правам файла, например LSM) — тот же ответ, что
+    // `EACCES`: Deno сводил оба к `PermissionDenied`.
+    const got = await run(home, ["run:", "x.mpu"], {
+      readFails: osError("EPERM", "operation not permitted"),
+    });
+    expect(seen(got)).toStrictEqual([
+      "",
+      "mpu run: x.mpu: нет права чтения /home/u/w/x.mpu\n",
+      2,
+    ]);
   });
   it("run: без значения", async () => {
     const got = await run(home, ["run:"]);
