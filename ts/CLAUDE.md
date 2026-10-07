@@ -86,6 +86,9 @@ code in this repository.
 валидация, HTTP, SQLite и т. п.). Возможность, которой нет хотя бы у одного из
 трёх, не используется и в тестах (`process.getActiveResourcesInfo()`,
 `async_hooks` — под Bun пусты). Тесты — на Vitest, зелёные под каждым из трёх.
+Исключение — компонентные тесты фронта `web/` (jsdom): только под Node — под Deno
+нет `vm.SourceTextModule`, под Bun jsdom течёт (до ~20 ГБ, OOM 2026-10-07); код
+фронта браузерный, рантайм здесь — лишь носитель jsdom (решение хоста).
 Новая переиспользуемая библиотека, в том числе тестовая, — папкой
 `mpu/tslibs/<имя>`, не внутри `ts/`. Мест на API Deno в `ts/` после порции E4
 этапа 3 не осталось (кроме голденов анализатора кода — это данные).
@@ -236,7 +239,7 @@ VITEST_MAX_FORKS=3 bun run gate    # всё ниже по порядку
 
 `bun run gate` — это `lint` (Biome: формат и линт) → `typecheck` (`tsc
 --noEmit`, дерево и `web/`) → `test` (Vitest под Bun) → `test:node` → `test:deno`
-→ `web:test` (фронт под Bun) → `smoke` (семь собранных программ). Рантаймы идут
+→ `web:test` (фронт под Node) → `smoke` (семь собранных программ). Рантаймы идут
 по одному, не параллельно; число воркеров Vitest — свойство машины, а не
 проекта, поэтому оно задаётся окружением (`VITEST_MAX_FORKS`), а не скриптом.
 Покрытие — `bun run test --coverage` (istanbul, по затронутым модулям).
@@ -805,7 +808,7 @@ bun run test path/to/x.test.ts -t "имя"   # один тест
 bun run test --coverage     # покрытие istanbul
 bun run test:node           # те же тесты под Node
 bun run test:deno           # те же тесты под Deno
-bun run web:test            # тесты фронта (Vitest под Bun)
+bun run web:test            # тесты фронта (Vitest под Node, jsdom)
 bun run smoke               # семь собранных программ во временном HOME
 VITEST_MAX_FORKS=3 bun run gate           # всё по порядку
 bun run compile:<часть>     # одна программа в $MPU_OUT (часть — как у install.sh)

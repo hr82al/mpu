@@ -20,15 +20,5 @@ export default defineConfig({
       "/web": back,
     },
   },
-  test: {
-    environment: "jsdom",
-    // Каждый файл — в своём контексте `vm`: под Bun у общего контекста
-    // разбор CSS в jsdom (`cssstyle` → `splitValue("inset")`) после
-    // нескольких случаев уходит в «Out of memory» (проба 2026-10-07:
-    // поодиночке случаи зелёные, файлом — четыре красных за 170 с; в
-    // `vmForks` — зелёные за 4 с). Под Node — тоже зелёные; Deno
-    // `vm.SourceTextModule` не умеет, но фронт и гоняется под Bun
-    // (`platform/node-runtime.md`, [S.14]).
-    pool: "vmForks",
-  },
+  test: { environment: "jsdom" },
 });

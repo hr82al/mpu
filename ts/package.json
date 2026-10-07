@@ -11,7 +11,7 @@
     "test": "bun --bun vitest run",
     "test:node": "node node_modules/vitest/vitest.mjs run",
     "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
-    "web:test": "cd web && bun --bun vitest run",
+    "web:test": "cd web && node ../node_modules/vitest/vitest.mjs run",
     "smoke": "bun back/scripts/smoke.ts",
     "gate": "bun run lint && bun run typecheck && bun run test && bun run test:node && bun run test:deno && bun run web:test && bun run smoke",
     "back": "bun back/back.ts --worker back/scripts/worker.sh",
