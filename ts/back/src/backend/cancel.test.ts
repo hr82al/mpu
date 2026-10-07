@@ -286,6 +286,9 @@ it("отмена в ожидании места: строка не исполн�
       expect(loki.asked()).toStrictEqual(asked);
       busy.close();
       await busy.closed();
+      // Запись — до выхода из стенда: иначе строку довела бы остановка
+      // сервера, и уход клиента от неё было бы не отличить.
+      await within(log.written(1), 10_000, "запись журнала");
     },
     { lines: 1, finishedWith: log.finishedWith, begun: second.begun },
   );
