@@ -1,0 +1,248 @@
+{
+  "path": "kaiten",
+  "receivers": {
+    "Kaiten": {
+      "path": "kaiten",
+      "comment": "Доска Kaiten.",
+      "methods": {
+        "card": {
+          "comment": "Карточка по номеру.\nЗови, чтобы работать с одной карточкой.",
+          "effect": "read",
+          "returns": "Card",
+          "args": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "номер карточки"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "args": {
+                "id": 123
+              },
+              "answer": "Card 123"
+            }
+          ]
+        },
+        "login": {
+          "comment": "Войти на доску.\nЗови, когда доска отвечает отказом входа.",
+          "effect": "send",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "string",
+                "description": "почта"
+              },
+              "password": {
+                "type": "string",
+                "description": "пароль"
+              }
+            },
+            "required": [
+              "user",
+              "password"
+            ],
+            "additionalProperties": false
+          },
+          "secret": [
+            "password"
+          ],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "args": {
+                "user": "a@b.c",
+                "password": "***"
+              },
+              "answer": {
+                "user": "a@b.c"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Card": {
+      "path": "kaiten card",
+      "comment": "Карточка Kaiten.",
+      "methods": {
+        "show": {
+          "comment": "Номер и заголовок карточки.\nЗови, чтобы узнать, о чём карточка.",
+          "effect": "read",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [
+            "нет карточки — номер не найден на доске"
+          ],
+          "deprecated": null,
+          "examples": [
+            {
+              "answer": {
+                "id": 123,
+                "title": "Сборка"
+              }
+            }
+          ]
+        },
+        "comment": {
+          "comment": "Оставить комментарий.\nЗови, когда нужно ответить в карточке.",
+          "effect": "write",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "текст комментария"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "args": {
+                "text": "ок"
+              },
+              "answer": {
+                "ok": true
+              }
+            }
+          ]
+        },
+        "checklist": {
+          "comment": "Чек-лист карточки.\nЗови, чтобы работать с пунктами.",
+          "effect": "read",
+          "returns": "Checklist",
+          "args": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "answer": "Checklist 123"
+            }
+          ]
+        }
+      }
+    },
+    "Checklist": {
+      "path": "kaiten card checklist",
+      "comment": "Чек-лист карточки.",
+      "methods": {
+        "items": {
+          "comment": "Пункты чек-листа.\nЗови, чтобы узнать, что осталось сделать.",
+          "effect": "read",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "answer": [
+                {
+                  "text": "собрать",
+                  "done": false
+                }
+              ]
+            }
+          ]
+        },
+        "check": {
+          "comment": "Отметить пункт сделанным.\nЗови, когда пункт выполнен.",
+          "effect": "write",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {
+              "item": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "номер пункта с 0"
+              }
+            },
+            "required": [
+              "item"
+            ],
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": null,
+          "examples": [
+            {
+              "args": {
+                "item": 0
+              },
+              "answer": {
+                "ok": true
+              }
+            }
+          ]
+        },
+        "tick": {
+          "comment": "Отметить пункт (прежнее имя check).\nНе зови: устарел, зови check.",
+          "effect": "write",
+          "returns": "data",
+          "args": {
+            "type": "object",
+            "properties": {
+              "item": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "номер пункта с 0"
+              }
+            },
+            "required": [
+              "item"
+            ],
+            "additionalProperties": false
+          },
+          "secret": [],
+          "raises": [],
+          "deprecated": {
+            "use": "check",
+            "since": "0.1.0"
+          },
+          "examples": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+	"name": "@mpu/receiver",
+	"version": "0.1.0",
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./testing": {
+			"types": "./dist/testing.d.ts",
+			"default": "./dist/testing.js"
+		}
+	},
+	"scripts": {
+		"gate": "biome check . && tsc --noEmit -p . && bun run test:bun && bun run test:node && bun run test:deno && bun run build",
+		"test:bun": "bun --bun node_modules/vitest/vitest.mjs run",
+		"test:node": "node node_modules/vitest/vitest.mjs run",
+		"test:deno": "deno run -A node_modules/vitest/vitest.mjs run",
+		"build": "rm -rf dist && bun build index.ts testing.ts --outdir dist --target node --packages external --splitting && tsc -p tsconfig.build.json",
+		"release": "bun run build && mkdir -p release && bun pm pack --destination release",
+		"interface": "bun test/kaiten/interface.ts"
+	},
+	"dependencies": {
+		"fastest-levenshtein": "1.0.16",
+		"zod": "4.4.3"
+	},
+	"peerDependencies": {
+		"vitest": "3.2.4"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.15",
+		"@types/node": "24.19.1",
+		"@vitest/coverage-istanbul": "3.2.4",
+		"typescript": "5.9.3",
+		"vitest": "3.2.4"
+	}
+}
