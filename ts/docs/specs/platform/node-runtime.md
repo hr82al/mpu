@@ -74,6 +74,18 @@ E3:
 
 E4:
 
+9a. Остатки E1–E3, которые держали права собранных бинарей Deno (E2,
+    2026-10-07): `Deno.Command` → `node:child_process` в 11 файлах
+    (`exec/ssh`, `copy/tools`, `copy/cmd_copy_shared`, `task/orchestra/system`,
+    `worker/launch`, `gitlab/git`, `d2miro/env`, `code/git`,
+    `claudehook/window`, `mpinit/docker`, `mpclone/ports`);
+    `Deno.makeTempFileSync` в `copy/tools`; лок ротации журнала
+    (`invokelog/file.ts`) — `proper-lockfile` вместо `Deno.FsFile.lock` (под
+    Deno его `graceful-fs` упирался в `--allow-env`); переменные `ws`
+    (`WS_NO_BUFFER_UTIL`, `WS_NO_UTF_8_VALIDATE`), `DEBUG` у
+    `https-proxy-agent`, скрытый ввод (`setRawMode`) — права снимаются вместе
+    с `deno compile`. После E4 `rg -n 'Deno\.' ts/` — пусто, кроме голденов
+    анализатора кода.
 10. `bun install && bun run gate` в `ts/` → Biome, `tsc --noEmit`, Vitest под
     Bun, Node и Deno, сборка — зелёно; `deno.jsonc` и `deno.lock` удалены,
     `bun.lock` закоммичен.
