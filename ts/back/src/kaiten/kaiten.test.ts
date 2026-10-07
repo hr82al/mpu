@@ -7,11 +7,11 @@
  * `requireKaitenAccess`, `retryDelayMs` и запись `writeKaitenWarmup`
  * поверх настоящей SQLite-БД (scoped-замена дорожек/колонок).
  *
- * Фейковый сервер — свой, на `node:http` с переводом в `Request`/`Response`
- * (сервер на петле, порт от ОС): обработчики здесь отвечают по самому
- * запросу. Общий стенд модуля (`startFakeKaiten`, `./testing.ts`) отдаёт
- * ответчику только накопленные разобранные запросы — перевод пятнадцати
- * обработчиков на него вышел бы за механический перевод тестов.
+ * Фейковый сервер — общий стенд `serveFetch` (`testing/http.ts`, петля,
+ * порт от ОС): обработчики здесь отвечают по самому запросу. Стенд модуля
+ * (`startFakeKaiten`, `./testing.ts`) отдаёт ответчику только накопленные
+ * разобранные запросы — перевод пятнадцати обработчиков на него вышел бы
+ * за механический перевод тестов.
  *
  * Паузы retry в тестах — либо `Retry-After: 0` (задержка вырождается в
  * `setTimeout(0)`, не «сон стеной»), либо прямая проверка чистой функции
@@ -22,10 +22,9 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "node:http";
-import { type AddressInfo } from "node:net";
-import { Buffer } from "node:buffer";
 import { assert, describe, expect, it } from "vitest";
+import { plainRows } from "../testing/cache.ts";
+import { serveFetch } from "../testing/http.ts";
 import { openCacheDb } from "../store/mod.ts";
 import {
   collectKaitenWarmup,
@@ -41,54 +40,6 @@ import {
 } from "./mod.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
-
-/** Поднимает фейковый Kaiten на петле; гасить `await stop()` в `finally`. */
-async function fakeServer(
-  handler: (req: Request) => Response | Promise<Response>,
-): Promise<{ readonly baseUrl: string; readonly stop: () => Promise<void> }> {
-  const server = createServer(async (incoming, outgoing) => {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of incoming) chunks.push(chunk);
-    const headers = new Headers();
-    for (let i = 0; i < incoming.rawHeaders.length; i += 2) {
-      headers.append(incoming.rawHeaders[i], incoming.rawHeaders[i + 1]);
-    }
-    const method = incoming.method ?? "GET";
-    const request = new Request(`http://127.0.0.1${incoming.url}`, {
-      method,
-      headers,
-      body: method === "GET" || method === "HEAD"
-        ? undefined
-        : Buffer.concat(chunks),
-    });
-    // Обработчик бросил — 500, как у сервера рантайма по умолчанию.
-    const response = await Promise.resolve()
-      .then(() => handler(request))
-      .catch(() => new Response(null, { status: 500 }));
-    outgoing.writeHead(response.status, Object.fromEntries(response.headers));
-    outgoing.end(new Uint8Array(await response.arrayBuffer()));
-  });
-  await new Promise<void>((resolve, reject) =>
-    server.once("error", reject).listen(0, "127.0.0.1", resolve)
-  );
-  return {
-    baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-    stop: () =>
-      new Promise<void>((resolve) => {
-        server.closeAllConnections();
-        server.close(() => resolve());
-      }),
-  };
-}
-
-/**
- * Строки SQLite как обычные записи: `node:sqlite` отдаёт их с
- * null-прототипом, и `toStrictEqual` с литералом их не равняет, хотя
- * поля те же; копия сохраняет строгость к лишним и недостающим полям.
- */
-function plainRows(rows: readonly object[]): object[] {
-  return rows.map((row) => ({ ...row }));
-}
 
 function accessTo(baseUrl: string): KaitenAccess {
   return { baseUrl, apiKey: API_KEY };
@@ -149,8 +100,8 @@ async function withBootstrappedDb(
 function goldenServer(
   fixtures: Readonly<Record<string, string>>,
   onRequest?: (req: Request) => void,
-): ReturnType<typeof fakeServer> {
-  return fakeServer((req) => {
+): ReturnType<typeof serveFetch> {
+  return serveFetch((req) => {
     onRequest?.(req);
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
@@ -250,7 +201,7 @@ it("happy path: 2 space, 2 board, дорожки и колонки обеих д
 // --- ошибка части 1 ---------------------------------------------------------
 
 it("ошибка части 1 (/spaces): collectKaitenWarmup бросает KaitenError", async () => {
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       return new Response("upstream boom", { status: 500 });
@@ -285,7 +236,7 @@ describe("тело успешного ответа не той формы — о
   describe("часть 1: весь шаг отказывает", () => {
     for (const [name, body, reason] of cases) {
       it(name, async () => {
-        const { baseUrl, stop } = await fakeServer(() => new Response(body));
+        const { baseUrl, stop } = await serveFetch(() => new Response(body));
         try {
           const err = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS)
             .catch((thrown: unknown) => thrown);
@@ -300,7 +251,7 @@ describe("тело успешного ответа не той формы — о
 
   it("часть 2: пропуск доски с той же причиной", async () => {
     const fixtures = await loadGoldenFixtures();
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const { pathname } = new URL(req.url);
       if (pathname === "/api/latest/spaces") {
         return new Response(fixtures["spaces"]);
@@ -325,7 +276,7 @@ describe("тело успешного ответа не той формы — о
   });
 
   it("пустое тело — отсутствие данных, а не ошибка", async () => {
-    const { baseUrl, stop } = await fakeServer(() => new Response(""));
+    const { baseUrl, stop } = await serveFetch(() => new Response(""));
     try {
       const warmup = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS);
       expect(warmup.spaces).toStrictEqual([]);
@@ -341,7 +292,7 @@ describe("тело успешного ответа не той формы — о
 
 it("ошибка части 4 (/user-roles): roles: null, остальное собрано", async () => {
   const fixtures = await loadGoldenFixtures();
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/user-roles") {
       return new Response("roles are down", { status: 503 });
@@ -373,7 +324,7 @@ it("ошибка части 4 (/user-roles): roles: null, остальное с�
 
 it("ошибка одной доски в части 2: skips одна запись, часть не null", async () => {
   const fixtures = await loadGoldenFixtures();
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       return new Response(fixtures["spaces"]);
@@ -420,7 +371,7 @@ it("ошибка одной доски в части 2: skips одна запи�
 
 it("ошибка всех досок в части 2: lanes: null", async () => {
   const fixtures = await loadGoldenFixtures();
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       return new Response(fixtures["spaces"]);
@@ -456,7 +407,7 @@ it("ошибка всех досок в части 2: lanes: null", async () => 
 it("429 с Retry-After: 0 → один повтор, строка в notes, затем успех", async () => {
   const fixtures = await loadGoldenFixtures();
   let spacesCalls = 0;
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       spacesCalls++;
@@ -491,7 +442,7 @@ it("429 с Retry-After: 0 → один повтор, строка в notes, за
 it("шесть 429 подряд: ошибка exhausted retries как причина пропуска доски", async () => {
   const fixtures = await loadGoldenFixtures();
   let laneCalls501 = 0;
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       return new Response(fixtures["spaces"]);
@@ -563,7 +514,7 @@ describe("retryDelayMs: табличный тест расписания пау�
 it("бюджет шага исчерпан: доски пропущены, части 1 и 4 всё равно собраны", async () => {
   const fixtures = await loadGoldenFixtures();
   const boardCalls: string[] = [];
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     const { pathname } = new URL(req.url);
     if (pathname === "/api/latest/spaces") {
       return new Response(fixtures["spaces"]);
@@ -619,7 +570,7 @@ it("бюджет шага исчерпан: доски пропущены, ча�
 
 describe("API-ключ не появляется в текстах ошибок", () => {
   it("ошибка части 1 (не-2xx)", async () => {
-    const { baseUrl, stop } = await fakeServer(() =>
+    const { baseUrl, stop } = await serveFetch(() =>
       new Response("nope", { status: 500 })
     );
     try {
@@ -639,7 +590,7 @@ describe("API-ключ не появляется в текстах ошибок"
 
   it("skip доски: причина без ключа", async () => {
     const fixtures = await loadGoldenFixtures();
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const { pathname } = new URL(req.url);
       if (pathname === "/api/latest/spaces") {
         return new Response(fixtures["spaces"]);
@@ -665,11 +616,11 @@ describe("API-ключ не появляется в текстах ошибок"
   it("сетевой сбой (HttpCallError): причина без ключа", async () => {
     // Часть 1 и часть 4 идут двумя одновременными запросами — общий
     // "затвор" вместо общего `Response`: тело читается один раз, а сервер
-    // отдаёт каждому запросу свежий объект (см. `portainer_test.ts`,
+    // отдаёт каждому запросу свежий объект (см. `portainer.test.ts`,
     // тест "гонка таймеров"). Общий `Response`-промис отдал бы один и тот
     // же поток телу второго запроса и упал бы "body already consumed".
     const gate = Promise.withResolvers<void>();
-    const { baseUrl, stop } = await fakeServer(async () => {
+    const { baseUrl, stop } = await serveFetch(async () => {
       await gate.promise;
       return new Response("[]");
     });

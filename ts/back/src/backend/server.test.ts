@@ -7,8 +7,9 @@ import { readdirSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AddressInfo, createServer } from "node:net";
+import { createServer } from "node:net";
 import { expect, it } from "vitest";
+import { listenLoopback } from "../testing/http.ts";
 import { rulesOf } from "../line/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
@@ -172,9 +173,7 @@ it("процесс: адрес в stdout, оба токена 0600, остано
   const err: string[] = [];
   const stopped = Promise.withResolvers<void>();
   const busy = createServer();
-  await new Promise<void>((resolve, reject) =>
-    busy.once("error", reject).listen(0, "127.0.0.1", resolve)
-  );
+  const port = await listenLoopback(busy);
   try {
     const io = makeDenoIo(dir);
     const programs: string[] = [];
@@ -201,7 +200,6 @@ it("процесс: адрес в stdout, оба токена 0600, остано
         markers: NO_MARKERS,
       },
     };
-    const port = (busy.address() as AddressInfo).port;
     expect(await runBack(["--port", String(port)], proc)).toBe(1);
     expect(err).toStrictEqual([`mpu-back: порт ${port} занят\n`]);
     expect(await runBack(["--port", "x"], proc)).toBe(2);

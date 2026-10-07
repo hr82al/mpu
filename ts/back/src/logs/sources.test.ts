@@ -3,11 +3,11 @@
  * контейнеров без ведущего `/`, снимок логов уже разобранным на потоки,
  * чтение записей Loki, потоки процесса и прерываемая пауза слежения.
  *
- * Фейковый HTTP-сервер — та же калька, что в соседних модулях.
+ * Фейковый HTTP-сервер — общий стенд `serveFetch` (`testing/http.ts`).
  */
 
 import { describe, expect, it } from "vitest";
-import { serveLoopback } from "../exec/testserve.ts";
+import { serveFetch } from "../testing/http.ts";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import {
   listAllContainerNamesOverHttp,
@@ -15,16 +15,6 @@ import {
   readLokiOverHttp,
   waitFor,
 } from "./sources.ts";
-
-async function fakeServer(
-  handler: (req: Request) => Response | Promise<Response>,
-): Promise<{ readonly baseUrl: string; readonly stop: () => Promise<void> }> {
-  const server = await serveLoopback(handler);
-  return {
-    baseUrl: `http://127.0.0.1:${server.port}`,
-    stop: () => server.close(),
-  };
-}
 
 function accessTo(baseUrl: string): PortainerAccess {
   // Ключ в заголовке — только ASCII: значение заголовка HTTP не
@@ -42,7 +32,7 @@ it("имена контейнеров: все Names, ведущий слэш с�
     },
     { Id: "b", Names: ["mp-wb-loader"], State: "exited", Image: "" },
   ]);
-  const { baseUrl, stop } = await fakeServer(() =>
+  const { baseUrl, stop } = await serveFetch(() =>
     new Response(body, { status: 200 })
   );
   try {
@@ -68,7 +58,7 @@ it("снимок логов приходит разобранным на пот�
   };
   const body = new Uint8Array([...frame(1, "данные\n"), ...frame(2, "шум\n")]);
   const seen: URL[] = [];
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     seen.push(new URL(req.url));
     return new Response(body, { status: 200 });
   });
@@ -98,7 +88,7 @@ it("чтение Loki уходит в query_range", async () => {
     data: { result: [{ values: [["1", "строка"]] }] },
   });
   const seen: URL[] = [];
-  const { baseUrl, stop } = await fakeServer((req) => {
+  const { baseUrl, stop } = await serveFetch((req) => {
     seen.push(new URL(req.url));
     return new Response(body, { status: 200 });
   });

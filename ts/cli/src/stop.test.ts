@@ -10,7 +10,8 @@ import { STOP } from "../../back/src/frames/mod.ts";
 import { withBack } from "../../back/src/backend/testback.ts";
 import { FakeBot, fakeQuestions } from "../../back/src/botquestions/testbot.ts";
 import { runClient } from "./client.ts";
-import { closedPort, testEnv } from "./testkit.ts";
+import { testEnv } from "./testkit.ts";
+import { closedPort } from "../../back/src/testing/http.ts";
 
 /** Что увидел вызывающий клиента. */
 interface Seen {

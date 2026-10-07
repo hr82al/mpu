@@ -9,6 +9,7 @@ import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import { DatabaseSync } from "node:sqlite";
 import { rulesOf } from "../line/mod.ts";
 import { ALLOW, ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
@@ -126,16 +127,12 @@ it("ключ: 204 и cookie; второй раз — 404; чужой Origin — 
   }));
 
 it("ключ через 61 секунду — 404", async () => {
-  vi.useFakeTimers();
-  try {
-    await withBack(async (back) => {
-      const value = await key(back);
-      await vi.advanceTimersByTimeAsync(61_000);
-      expect((await exchange(back, value)).status).toBe(404);
-    });
-  } finally {
-    vi.useRealTimers();
-  }
+  fakeTimers();
+  await withBack(async (back) => {
+    const value = await key(back);
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect((await exchange(back, value)).status).toBe(404);
+  });
 });
 
 it("cookie действует только при Origin страницы фронта", () =>

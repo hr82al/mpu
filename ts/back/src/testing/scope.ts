@@ -44,9 +44,14 @@ export function heldScope<T>(
   return () => current();
 }
 
-/** Поддельные часы (`now` — их старт) до конца текущего `it`. */
-export function fakeTimers(now?: number): void {
-  vi.useFakeTimers(now === undefined ? undefined : { now });
+/**
+ * Поддельные часы до конца текущего `it`; `config` — настройки
+ * `vi.useFakeTimers` (старт `now`, что подменять `toFake`).
+ */
+export function fakeTimers(
+  config?: Parameters<typeof vi.useFakeTimers>[0],
+): void {
+  vi.useFakeTimers(config);
   onTestFinished(() => {
     vi.useRealTimers();
   });

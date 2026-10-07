@@ -5,6 +5,7 @@
  */
 
 import { expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import { ASK, NOT_CONFIRMED, RuleBook, RulePath } from "../policy/mod.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import { Lines } from "./limit.ts";
@@ -171,26 +172,22 @@ it("строка, ждущая ответа, места не занимает", 
 });
 
 it("ответа нет 120 секунд — не подтверждено, команда не вызвана", async () => {
-  vi.useFakeTimers();
-  try {
-    await withBack(async (back) => {
-      askOn(back, "xlsx alias ls");
-      const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
-      await a.frame((frame) => "ask" in frame);
-      await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS - 1);
-      expect(a.frames.some((frame) => "exit" in frame)).toBe(false);
-      await vi.advanceTimersByTimeAsync(1);
-      expect(await a.finished()).toStrictEqual([
-        { ask: "выполнить mpu xlsx alias ls? [y/N] " },
-        refusalFrame(NOT_CONFIRMED, `mpu xlsx alias ls: ${NOT_CONFIRMED}`),
-        { err: "mpu xlsx alias ls: не подтверждено\n" },
-        { exit: 1 },
-      ]);
-      expect(back.called).toStrictEqual([]);
-    });
-  } finally {
-    vi.useRealTimers();
-  }
+  fakeTimers();
+  await withBack(async (back) => {
+    askOn(back, "xlsx alias ls");
+    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
+    await a.frame((frame) => "ask" in frame);
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS - 1);
+    expect(a.frames.some((frame) => "exit" in frame)).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await a.finished()).toStrictEqual([
+      { ask: "выполнить mpu xlsx alias ls? [y/N] " },
+      refusalFrame(NOT_CONFIRMED, `mpu xlsx alias ls: ${NOT_CONFIRMED}`),
+      { err: "mpu xlsx alias ls: не подтверждено\n" },
+      { exit: 1 },
+    ]);
+    expect(back.called).toStrictEqual([]);
+  });
 });
 
 it("клиент закрыл сокет, не ответив — исполнения нет", async () => {

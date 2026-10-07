@@ -12,7 +12,8 @@
  * запрещён, CLAUDE.md).
  */
 
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import { serveFetch } from "../testing/http.ts";
 import { rejected } from "../testing/thrown.ts";
 import { firstLine } from "../http/mod.ts";
@@ -198,10 +199,7 @@ it("гонка таймеров: причину называет тот пред
   // в 1 мс друг от друга сходятся, и красноту давал планировщик, а не
   // починяемая ошибка. С поддельным временем срабатывания разведены
   // явно — сначала предел заголовков, следом общий.
-  vi.useFakeTimers();
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
+  fakeTimers();
   const gate = Promise.withResolvers<void>();
   const { baseUrl, stop } = await serveFetch(async () => {
     await gate.promise;
@@ -261,10 +259,7 @@ it("предела нет: запрос не рвётся сам собой", as
   // `setTimeout` не принимает значений шире int32 и схлопывает их в
   // одну миллисекунду, то есть «бесконечный» предел срабатывал бы
   // мгновенно (`specs/health.md`: у запроса логов предела чтения нет).
-  vi.useFakeTimers();
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
+  fakeTimers();
   const gate = Promise.withResolvers<void>();
   const { baseUrl, stop } = await serveFetch(async () => {
     await gate.promise;

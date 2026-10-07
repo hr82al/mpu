@@ -15,7 +15,8 @@ import {
   pressUpdate,
 } from "../../back/src/botquestions/testbot.ts";
 import { runClient } from "./client.ts";
-import { closedPort, type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { closedPort } from "../../back/src/testing/http.ts";
 
 const WORDS = PERMISSION_REQUEST.words;
 

@@ -10,7 +10,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import { plainRows } from "../testing/cache.ts";
 import { rejected } from "../testing/thrown.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -393,10 +394,7 @@ describe("молчащий инстанс: предупреждение и ог�
         // `withDeadline` — обычный `setTimeout`, `vi.useFakeTimers` его
         // подменяет. Продвигаем ровно на предел — без сна и без гонки
         // с реальным временем выполнения теста.
-        vi.useFakeTimers();
-        onTestFinished(() => {
-          vi.useRealTimers();
-        });
+        fakeTimers();
         const outcome = await Promise.all([
           syncSnapshot({
             db,

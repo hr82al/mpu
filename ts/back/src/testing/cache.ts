@@ -57,8 +57,8 @@ export async function openTempCache(
  * отличает их от литерала `{ … }` по прототипу. Копия — те же поля на
  * обычной записи: сравнение остаётся строгим к ключам и значениям.
  */
-export function plainRows(
-  rows: readonly Record<string, unknown>[],
-): Record<string, unknown>[] {
+export function plainRows<T extends Record<string, unknown>>(
+  rows: readonly T[],
+): T[] {
   return rows.map((row) => ({ ...row }));
 }

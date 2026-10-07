@@ -7,6 +7,7 @@
  */
 
 import { Buffer } from "node:buffer";
+import { once } from "node:events";
 import {
   createServer as createHttpServer,
   type IncomingMessage,
@@ -14,7 +15,10 @@ import {
   type ServerResponse,
 } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import type { AddressInfo } from "node:net";
+import {
+  createServer as createNetServer,
+  type Server as NetServer,
+} from "node:net";
 
 /** Обработчик запроса — как у `Deno.serve`. */
 export type FetchHandler = (request: Request) => Response | Promise<Response>;
@@ -26,7 +30,8 @@ export interface FakeHttp {
   readonly port: number;
   /**
    * Перестать принимать соединения и дождаться начатых ответов —
-   * как `shutdown` у `Deno.serve`.
+   * как `shutdown` у `Deno.serve`. Висящий обработчик тест отпускает до
+   * `stop`: при живом клиенте `stop` ждёт его ответа без срока.
    */
   stop(): Promise<void>;
 }
@@ -54,13 +59,7 @@ export async function serveFetch(
   const server: Server = tls === undefined
     ? createHttpServer(listener)
     : createHttpsServer({ cert: tls.cert, key: tls.key }, listener);
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  // Сервер слушает TCP: `address()` — `AddressInfo`, не путь сокета и не
-  // `null` (тот — до `listen`).
-  const { port } = server.address() as AddressInfo;
+  const port = await listenLoopback(server);
   return {
     baseUrl: `${scheme}://127.0.0.1:${port}`,
     port,
@@ -70,6 +69,30 @@ export async function serveFetch(
         server.closeIdleConnections();
       }),
   };
+}
+
+/**
+ * Ставит `server` слушать свободный порт `127.0.0.1`; ответ — порт. Для
+ * сервера без веб-обработчика: сокет `WebSocket`, занятый порт.
+ */
+export async function listenLoopback(server: NetServer): Promise<number> {
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error(`адрес петли не порт: ${address}`);
+  }
+  return address.port;
+}
+
+/** Порт петли, на котором заведомо никто не слушает: занят и отпущен. */
+export async function closedPort(): Promise<number> {
+  const server = createNetServer();
+  const port = await listenLoopback(server);
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => err === undefined ? resolve() : reject(err))
+  );
+  return port;
 }
 
 async function answer(

@@ -12,11 +12,15 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { type AddressInfo, createServer } from "node:net";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "../../back/src/testing/http.ts";
+import {
+  type FakeHttp,
+  listenLoopback,
+  serveFetch,
+} from "../../back/src/testing/http.ts";
 import { runMcp, type TokenFile } from "./mod.ts";
 import { MCP_TOKEN } from "./testkit.ts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -116,7 +120,7 @@ it("процесс: токен 0600, адрес, остановка, новая 
 it("процесс: порт занят — 1, нет токена back — 1", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   const busy = createServer();
-  await new Promise<void>((resolve) => busy.listen(0, "127.0.0.1", resolve));
+  const port = await listenLoopback(busy);
   const err: string[] = [];
   try {
     const proc = {
@@ -134,8 +138,6 @@ it("процесс: порт занят — 1, нет токена back — 1", 
       `mpu-mcp: нет токена mpu-back (${dir}/token)\n`,
     ]);
     await writeFile(`${dir}/token`, "b\n");
-    // Слушает TCP: `address()` — `AddressInfo`.
-    const { port } = busy.address() as AddressInfo;
     expect(await runMcp(["--port", String(port)], proc)).toBe(1);
     expect(err.at(-1)).toStrictEqual(`mpu-mcp: порт ${port} занят\n`);
   } finally {

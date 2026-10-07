@@ -4,8 +4,8 @@
  * тесты не ходят (`ts/CLAUDE.md`).
  */
 
-import { createServer } from "node:http";
 import { assert, expect, it } from "vitest";
+import { closedPort, serveFetch } from "../testing/http.ts";
 import { DomainError } from "../command/mod.ts";
 import type { BotConfig } from "./bot_config.ts";
 import { type BotMessage, sendBotMessage } from "./bot.ts";
@@ -26,68 +26,14 @@ function document(caption: string, name: string, body: string): BotMessage {
   };
 }
 
-/** Поднятый на петле сервер: адрес и остановка. */
-type Loopback = { base: string; stop: () => Promise<void> };
-
-/** Слушает `127.0.0.1` на свободном порту; `handler` отвечает как fetch-обработчик. */
-async function listen(
-  handler: (request: Request) => Response | Promise<Response>,
-): Promise<Loopback> {
-  const server = createServer((req, res) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("error", (err) => res.writeHead(400).end(String(err)));
-    req.on("end", () => {
-      const headers = new Headers();
-      for (const [name, value] of Object.entries(req.headers)) {
-        if (value === undefined) continue;
-        headers.set(name, Array.isArray(value) ? value.join(", ") : value);
-      }
-      const method = req.method ?? "GET";
-      const request = new Request(
-        `http://${req.headers.host ?? "127.0.0.1"}${req.url ?? "/"}`,
-        {
-          method,
-          headers,
-          body: method === "GET" || method === "HEAD"
-            ? undefined
-            : Buffer.concat(chunks),
-        },
-      );
-      // Отказ обработчика — ответ 500, как у `Deno.serve`: клиент получает
-      // ответ, а тест краснеет на нём, а не на пределе времени.
-      Promise.resolve(handler(request)).then(async (response) => {
-        res.writeHead(
-          response.status,
-          Object.fromEntries(response.headers.entries()),
-        );
-        res.end(Buffer.from(await response.arrayBuffer()));
-      }).catch((err: unknown) => {
-        res.writeHead(500).end(String(err));
-      });
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const addr = server.address();
-  assert(addr !== null && typeof addr === "object", "нет адреса сервера");
-  return {
-    base: `http://127.0.0.1:${addr.port}`,
-    stop: () =>
-      new Promise<void>((resolve, reject) => {
-        server.close((err) => err ? reject(err) : resolve());
-        server.closeAllConnections();
-      }),
-  };
-}
-
 /** Сервер на петле: отдаёт заготовленный ответ и записывает запрос. */
 async function withServer(
   handler: (request: Request) => Response | Promise<Response>,
   run: (base: string) => Promise<void>,
 ): Promise<void> {
-  const loopback = await listen(handler);
+  const loopback = await serveFetch(handler);
   try {
-    await run(loopback.base);
+    await run(loopback.baseUrl);
   } finally {
     await loopback.stop();
   }
@@ -316,10 +262,7 @@ it("тело не разбирается как JSON — отказ, а не м�
 });
 
 it("сервер недоступен — причина одной строкой", async () => {
-  // Порт заведомо закрыт: сервер поднят и сразу остановлен.
-  const loopback = await listen(() => new Response(""));
-  const base = loopback.base;
-  await loopback.stop();
+  const base = `http://127.0.0.1:${await closedPort()}`;
   const err = await sendBotMessage(CONFIG, text("x"), base).then(
     () => null,
     (e: unknown) => e,

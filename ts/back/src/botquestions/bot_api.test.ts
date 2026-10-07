@@ -9,7 +9,7 @@ import { assert, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { BotFailure, HttpBotApi } from "./bot_api.ts";
 import { type Inbox, type Sender, SinceStart } from "./updates.ts";
-import { serveLoopback } from "../exec/testserve.ts";
+import { closedPort, serveFetch } from "../testing/http.ts";
 
 const TOKEN = "8123:AAH";
 
@@ -29,7 +29,7 @@ async function withBot(
   run: (bot: HttpBotApi, seen: Seen) => Promise<void>,
 ): Promise<void> {
   const seen: Seen = { path: "", body: null };
-  const server = await serveLoopback(async (request) => {
+  const server = await serveFetch(async (request) => {
     seen.path = new URL(request.url).pathname;
     seen.body = await request.json();
     return new Response(reply);
@@ -45,7 +45,7 @@ async function withBot(
       seen,
     );
   } finally {
-    await server.close();
+    await server.stop();
   }
 }
 
@@ -233,9 +233,7 @@ it("токена нет в причине, даже если его повтор
 });
 
 it("сеть недоступна — причина одной строкой, без токена", async () => {
-  const server = await serveLoopback(() => new Response(""));
-  const port = server.port;
-  await server.close();
+  const port = await closedPort();
   const bot = new HttpBotApi({
     token: TOKEN,
     chatId: 111,
@@ -253,7 +251,7 @@ it("сеть недоступна — причина одной строкой, 
 it("опрос прерывается сигналом остановки", async () => {
   const release = Promise.withResolvers<void>();
   const arrived = Promise.withResolvers<void>();
-  const server = await serveLoopback(async () => {
+  const server = await serveFetch(async () => {
     arrived.resolve();
     await release.promise;
     return new Response('{"ok":true,"result":[]}');
@@ -272,6 +270,6 @@ it("опрос прерывается сигналом остановки", asyn
     await expect(polling).rejects.toThrow(BotFailure);
   } finally {
     release.resolve();
-    await server.close();
+    await server.stop();
   }
 });

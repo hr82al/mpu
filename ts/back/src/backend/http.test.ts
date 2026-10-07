@@ -6,6 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { rulesOf } from "../line/mod.ts";
 import {
@@ -249,29 +250,25 @@ it("номер: второй раз, чужая дверь, чужой токе�
   }));
 
 it("номер: 120 секунд без ответа — «нет», номер недействителен", async () => {
-  vi.useFakeTimers();
-  try {
-    await withBack(async (back) => {
-      {
-        using book = RuleBook.open(back.policyFile, []);
-        book.set(RulePath.parse("xlsx alias ls"), ASK);
-      }
-      const frames = await ndjson(
-        back,
-        await post(back, "/line", {
-          words: ["ask", "xlsx", "alias", "ls"],
-          cwd: process.cwd(),
-          human: true,
-        }),
-      );
-      const ticket = String(frames.at(-1)?.ticket);
-      await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
-      expect((await answer(back, "/line", ticket)).status).toBe(404);
-      expect(back.called).toStrictEqual([]);
-    });
-  } finally {
-    vi.useRealTimers();
-  }
+  fakeTimers();
+  await withBack(async (back) => {
+    {
+      using book = RuleBook.open(back.policyFile, []);
+      book.set(RulePath.parse("xlsx alias ls"), ASK);
+    }
+    const frames = await ndjson(
+      back,
+      await post(back, "/line", {
+        words: ["ask", "xlsx", "alias", "ls"],
+        cwd: process.cwd(),
+        human: true,
+      }),
+    );
+    const ticket = String(frames.at(-1)?.ticket);
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
+    expect((await answer(back, "/line", ticket)).status).toBe(404);
+    expect(back.called).toStrictEqual([]);
+  });
 });
 
 it("агентский токен: вопроса нет, спросить некого", () =>

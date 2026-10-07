@@ -9,9 +9,8 @@ import { GRAMMAR } from "../messages/mod.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "node:http";
-import { type AddressInfo } from "node:net";
 import { expect, it } from "vitest";
+import { serveFetch } from "../testing/http.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -54,21 +53,8 @@ function entry(index: number): string {
 /** Loki на петле: каждый опрос отдаёт новую запись. */
 async function fakeLoki() {
   let asked = 0;
-  const server = createServer((_, response) => {
-    response.writeHead(200).end(entry(asked++));
-  });
-  await new Promise<void>((resolve, reject) =>
-    server.once("error", reject).listen(0, "127.0.0.1", resolve)
-  );
-  return {
-    baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-    asked: () => asked,
-    stop: () =>
-      new Promise<void>((resolve) => {
-        server.closeAllConnections();
-        server.close(() => resolve());
-      }),
-  };
+  const server = await serveFetch(() => new Response(entry(asked++)));
+  return { baseUrl: server.baseUrl, asked: () => asked, stop: server.stop };
 }
 
 /** Сервер, у которого `logs` ходит к Loki на петле. */

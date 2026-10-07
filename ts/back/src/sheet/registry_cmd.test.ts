@@ -11,6 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
+import { plainRows } from "../testing/cache.ts";
 import {
   type CacheDb,
   type CommandIo,
@@ -134,14 +135,9 @@ const cacheSnapshot = (db: CacheDb) => [
   ),
 ];
 
-/**
- * Строки реестра как обычные записи: `node:sqlite` отдаёт их с
- * null-прототипом, и `toStrictEqual` с литералом их не равняет, хотя
- * поля те же; копия сохраняет строгость к лишним и недостающим полям.
- */
+/** Строки реестра как обычные записи (`plainRows`). */
 const aliasRowsOf = (db: CacheDb) =>
-  db.query("SELECT name, ss_id FROM sheet_aliases ORDER BY name")
-    .map((row) => ({ ...row }));
+  plainRows(db.query("SELECT name, ss_id FROM sheet_aliases ORDER BY name"));
 
 it("alias add поверх существующего имени обновляет строку", async () => {
   await withDb(async (db) => {

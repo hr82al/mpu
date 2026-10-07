@@ -6,9 +6,7 @@
  * ошибок в коды выхода.
  *
  * Фейковые серверы (Portainer, Loki, Kaiten) поднимаются на петле
- * (`serveLoopback`, порт 0) — калька вспомогательной функции
- * `portainer_test.ts`; общего тестового модуля под неё нет (несколько
- * мест с разной формой ответов, YAGNI), см. отчёт.
+ * общим стендом `serveFetch` (`testing/http.ts`, порт 0).
  */
 
 import { describe, expect, it } from "vitest";
@@ -16,7 +14,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type CommandIo, type EnvFile } from "../command/mod.ts";
-import { serveLoopback } from "../exec/testserve.ts";
+import { plainRows } from "../testing/cache.ts";
+import { serveFetch } from "../testing/http.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { NO_ONE } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
@@ -33,26 +32,7 @@ import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../http/mod.ts";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import { KAITEN_TIMEOUTS, WARMUP_BUDGET_MS } from "../kaiten/mod.ts";
 
-/**
- * Строки `node:sqlite` — записи без прототипа: `assertEquals` равнял их с
- * литералом, `toStrictEqual` различает прототип — сверяются копии.
- */
-function plain<T extends object>(rows: readonly T[]): T[] {
-  return rows.map((row) => ({ ...row }));
-}
-
 const API_KEY = "proba-portainer-key-K7x9Qz";
-
-/** Поднимает фейковый Portainer на петле; гасить `await stop()` в `finally`. */
-async function fakeServer(
-  handler: (req: Request) => Response | Promise<Response>,
-): Promise<{ readonly baseUrl: string; readonly stop: () => Promise<void> }> {
-  const server = await serveLoopback(handler);
-  return {
-    baseUrl: `http://127.0.0.1:${server.port}`,
-    stop: () => server.close(),
-  };
-}
 
 /** `status` по умолчанию 1 (доступен) — большинству тестов down не нужен. */
 function endpointsResponse(
@@ -310,7 +290,7 @@ describe("requirePortainerAccess: приоритет --portainer, PORTAINER_VERI
 
 it("happy path: сводка, запись в кэш, sl-строки по возрастанию server_number", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -352,7 +332,7 @@ it("happy path: сводка, запись в кэш, sl-строки по во�
       );
 
       using db = openCacheDb(dbPath);
-      const rows = plain(db.query(
+      const rows = plainRows(db.query(
         "SELECT container_id, container_name, server_number, portainer_url, endpoint_id FROM portainer_containers ORDER BY container_id",
       ));
       expect(rows).toStrictEqual([
@@ -388,7 +368,7 @@ it("sl-строки сортируются по server_number независим
   await withTempDb(async (dbPath) => {
     // endpoint 1 (обходится первым по id) отдаёт больший номер, чем
     // endpoint 2 — сортировка вывода обязана быть по номеру, не по id.
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "e1" }, {
@@ -438,7 +418,7 @@ it("обход endpoints конкурентный: оба запроса при�
     // только конкурентной отправкой обоих вызовов.
     let arrivals = 0;
     const both = Promise.withResolvers<void>();
-    const { baseUrl, stop } = await fakeServer(async (req) => {
+    const { baseUrl, stop } = await serveFetch(async (req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "e1" }, {
@@ -488,7 +468,7 @@ it("обход endpoints конкурентный: оба запроса при�
 
 it("ошибка одного endpoint'а: строка в stderr, обход продолжается, остальные записаны", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "bad" }, {
@@ -529,7 +509,7 @@ it("ошибка одного endpoint'а: строка в stderr, обход п
       // Инвариант init.md «обрыв не теряет уже собранное»: собранное с
       // здорового endpoint'а реально в БД, а не только в тексте сводки.
       using db = openCacheDb(dbPath);
-      expect(plain(db.query(
+      expect(plainRows(db.query(
         "SELECT container_id, endpoint_id FROM portainer_containers",
       ))).toStrictEqual([{ container_id: "c1", endpoint_id: 2 }]);
     } finally {
@@ -540,7 +520,7 @@ it("ошибка одного endpoint'а: строка в stderr, обход п
 
 it("ошибки нескольких endpoints — строки в stderr по возрастанию id", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         // Список отдаётся не по возрастанию id — сортировка вывода не
@@ -578,7 +558,7 @@ it("ошибки нескольких endpoints — строки в stderr по 
 it("таймаут молчащего endpoint'а: строка ошибки, обход продолжается, время ограничено", async () => {
   await withTempDb(async (dbPath) => {
     const pending = Promise.withResolvers<Response>();
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "silent" }, {
@@ -644,7 +624,7 @@ it("таймаут молчащего endpoint'а: строка ошибки, о
 
 it("0 sl-контейнеров при непустых прочих — не ошибка: сводка с нулём", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -675,7 +655,9 @@ it("0 sl-контейнеров при непустых прочих — не о
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query("SELECT COUNT(*) AS n FROM portainer_containers")))
+      expect(
+        plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
+      )
         .toStrictEqual([{ n: 2 }]);
     } finally {
       await stop();
@@ -685,7 +667,7 @@ it("0 sl-контейнеров при непустых прочих — не о
 
 it("exit 1: сбой списка endpoints", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer(() =>
+    const { baseUrl, stop } = await serveFetch(() =>
       new Response("nope", { status: 500 })
     );
     try {
@@ -709,7 +691,7 @@ it("exit 1: сбой списка endpoints", async () => {
 
 it("exit 1: ни одного контейнера не найдено", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "empty" }]);
@@ -731,7 +713,9 @@ it("exit 1: ни одного контейнера не найдено", async (
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query("SELECT COUNT(*) AS n FROM portainer_containers")))
+      expect(
+        plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
+      )
         .toStrictEqual([{ n: 0 }]);
     } finally {
       await stop();
@@ -741,7 +725,7 @@ it("exit 1: ни одного контейнера не найдено", async (
 
 it("--dry-run: кэш не изменяется, сводка та же, без строки # записано", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -767,7 +751,9 @@ it("--dry-run: кэш не изменяется, сводка та же, без 
       expect(outcome.stdout.includes("# записано")).toBe(false);
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query("SELECT COUNT(*) AS n FROM portainer_containers")))
+      expect(
+        plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
+      )
         .toStrictEqual([{ n: 0 }]);
     } finally {
       await stop();
@@ -777,7 +763,7 @@ it("--dry-run: кэш не изменяется, сводка та же, без 
 
 it("запись в кэш: image и endpoint_name дословны, discovered_at — unix-секунды", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 7, name: "custom-endpoint-name" }]);
@@ -806,7 +792,7 @@ it("запись в кэш: image и endpoint_name дословны, discovered_
       expect(outcome.code).toBe(0);
 
       using db = openCacheDb(dbPath);
-      const rows = plain(db.query(
+      const rows = plainRows(db.query(
         "SELECT image, endpoint_name, discovered_at FROM portainer_containers WHERE container_id = ?",
         "c1",
       ));
@@ -832,7 +818,7 @@ it("--reset: удаляет старые записи перед записью 
       { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
       { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
     ];
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -866,7 +852,9 @@ it("--reset: удаляет старые записи перед записью 
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query("SELECT container_id FROM portainer_containers")))
+      expect(
+        plainRows(db.query("SELECT container_id FROM portainer_containers")),
+      )
         .toStrictEqual([{ container_id: "c3" }]);
     } finally {
       await stop();
@@ -885,7 +873,7 @@ it("--reset: сбой во время upsert не теряет прежний к
     // шаг 2) — упавшая транзакция не должна оставить эту строку в
     // выводе.
     let broken = false;
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -934,7 +922,7 @@ it("--reset: сбой во время upsert не теряет прежний к
 
       using db = openCacheDb(dbPath);
       expect(
-        plain(db.query("SELECT container_id FROM portainer_containers")),
+        plainRows(db.query("SELECT container_id FROM portainer_containers")),
         "прежний кэш обязан пережить упавшую попытку --reset",
       ).toStrictEqual([{ container_id: "c1" }]);
     } finally {
@@ -949,7 +937,7 @@ it("повторный прогон без --reset: дублей нет, про�
       { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
       { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
     ];
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -979,7 +967,7 @@ it("повторный прогон без --reset: дублей нет, про�
       );
 
       using db = openCacheDb(dbPath);
-      const rows = plain(db.query(
+      const rows = plainRows(db.query(
         "SELECT container_id, state FROM portainer_containers ORDER BY container_id",
       ));
       // Ровно одна строка — c1 реконсилирован, c2 обновилась (upsert).
@@ -994,7 +982,7 @@ it("down-endpoint: строка пропуска без опроса, рекон
   await withTempDb(async (dbPath) => {
     let statusOfOne = 1;
     let endpoint1Requests = 0;
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([
@@ -1057,7 +1045,7 @@ it("down-endpoint: строка пропуска без опроса, рекон
         .toBe(1);
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query(
+      expect(plainRows(db.query(
         "SELECT portainer_url, endpoint_id, container_id FROM " +
           "portainer_containers ORDER BY portainer_url, container_id",
       ))).toStrictEqual([
@@ -1077,7 +1065,7 @@ it("down-endpoint: строка пропуска без опроса, рекон
 it("endpoint исчез из списка endpoints: реконсиляция удаляет его записи", async () => {
   await withTempDb(async (dbPath) => {
     let includeSecond = true;
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         const list = [{ id: 1, name: "prod" }];
@@ -1115,7 +1103,7 @@ it("endpoint исчез из списка endpoints: реконсиляция у
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query(
+      expect(plainRows(db.query(
         "SELECT endpoint_id, container_id FROM portainer_containers",
       ))).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
     } finally {
@@ -1129,7 +1117,7 @@ it("все контейнеры пропали с успешно обойдён�
     let containers2: readonly FakeContainer[] = [
       { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
     ];
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([
@@ -1168,7 +1156,7 @@ it("все контейнеры пропали с успешно обойдён�
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query(
+      expect(plainRows(db.query(
         "SELECT endpoint_id, container_id FROM portainer_containers",
       ))).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
     } finally {
@@ -1180,7 +1168,7 @@ it("все контейнеры пропали с успешно обойдён�
 it("сорвавшийся endpoint: записи целы, реконсиляция его не касается", async () => {
   await withTempDb(async (dbPath) => {
     let endpoint1Fails = false;
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([
@@ -1223,7 +1211,7 @@ it("сорвавшийся endpoint: записи целы, реконсиляц
       );
 
       using db = openCacheDb(dbPath);
-      expect(plain(db.query(
+      expect(plainRows(db.query(
         "SELECT endpoint_id, container_id FROM portainer_containers " +
           "ORDER BY endpoint_id",
       ))).toStrictEqual([
@@ -1239,7 +1227,7 @@ it("сорвавшийся endpoint: записи целы, реконсиляц
 it("--dry-run: не удаляет ничего, даже когда endpoint стал down", async () => {
   await withTempDb(async (dbPath) => {
     let statusOfOne = 1;
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([
@@ -1278,7 +1266,7 @@ it("--dry-run: не удаляет ничего, даже когда endpoint с
 
       using db = openCacheDb(dbPath);
       expect(
-        plain(db.query(
+        plainRows(db.query(
           "SELECT endpoint_id, container_id FROM portainer_containers " +
             "ORDER BY endpoint_id",
         )),
@@ -1295,7 +1283,7 @@ it("--dry-run: не удаляет ничего, даже когда endpoint с
 
 it("секреты: API-ключ не появляется ни в stdout, ни в stderr", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await fakeServer((req) => {
+    const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
         return endpointsResponse([{ id: 1, name: "prod" }]);
@@ -1411,7 +1399,7 @@ function fakeStand(
   hook: (url: URL) => Response | Promise<Response | undefined> | undefined =
     () => undefined,
 ) {
-  return fakeServer(async (req) => {
+  return serveFetch(async (req) => {
     const url = new URL(req.url);
     const hooked = await hook(url);
     if (hooked !== undefined) return hooked;
@@ -1727,7 +1715,7 @@ it("пропуск одной доски Kaiten: строка и scoped-запи
 
       // Собранное по здоровой доске записано, обход не оборван.
       using db = openCacheDb(dbPath);
-      expect(plain(db.query("SELECT id FROM kaiten_lanes ORDER BY id")))
+      expect(plainRows(db.query("SELECT id FROM kaiten_lanes ORDER BY id")))
         .toStrictEqual(
           [{ id: 9001 }, { id: 9002 }],
         );

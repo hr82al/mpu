@@ -18,7 +18,8 @@ import {
 import { rulesOf } from "../../back/src/line/mod.ts";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";
-import { closedPort, type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { closedPort } from "../../back/src/testing/http.ts";
 
 interface HookCase {
   readonly id: string;

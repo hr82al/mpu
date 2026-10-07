@@ -4,7 +4,7 @@
  */
 
 import { assert, expect, it, vi } from "vitest";
-import { fakeTimers } from "../../exec/testscope.ts";
+import { fakeTimers } from "../../testing/scope.ts";
 import { withStand } from "../teststand.ts";
 import { RESUME_LINE } from "./letter.ts";
 import { demo, ENTER, LETTER_DIR, Rig, shellWords } from "./teststage.ts";
@@ -13,7 +13,7 @@ const MINUTE = 60_000;
 
 function withRig(body: (rig: Rig) => Promise<void>): Promise<void> {
   return withStand(async (stand) => {
-    fakeTimers(Date.UTC(2026, 8, 26, 10));
+    fakeTimers({ now: Date.UTC(2026, 8, 26, 10) });
     await body(new Rig(stand, { tick: (ms) => vi.advanceTimersByTime(ms) }));
   });
 }

@@ -19,7 +19,7 @@ import {
 } from "../command/mod.ts";
 import type { RunProcess } from "../exec/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { heldScope } from "../exec/testscope.ts";
+import { heldScope } from "../testing/scope.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { dataLoaderCommand } from "./cmd_data_loader.ts";
 import { jobsCommands } from "./cmd_jobs.ts";

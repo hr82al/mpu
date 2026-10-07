@@ -5,10 +5,11 @@
  */
 
 import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { type AddressInfo, createServer } from "node:net";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { listenLoopback } from "../testing/http.ts";
 import { NO_BOT, type OwnerQuestions } from "../botquestions/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { type Launcher, MemoryLauncher } from "../worker/mod.ts";
@@ -57,14 +58,12 @@ it("порт занят — ни вопросов, ни исполнителей
   const tmpBefore = process.env.TMPDIR;
   process.env.TMPDIR = ownTmp;
   const busy = createServer();
-  await new Promise<void>((resolve, reject) =>
-    busy.once("error", reject).listen(0, "127.0.0.1", resolve)
-  );
+  const port = await listenLoopback(busy);
   try {
     // Отказ кода под тестом — ошибка рантайма «адрес занят»; узнаётся
     // по имени, а не по классу рантайма.
     await expect(withBack(() => Promise.resolve(), {
-      port: (busy.address() as AddressInfo).port,
+      port,
       questions,
       launcher,
     })).rejects.toMatchObject({ name: "AddrInUse" });

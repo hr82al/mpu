@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CacheDb } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { heldScope } from "./testscope.ts";
+import { heldScope } from "../testing/scope.ts";
 import {
   containerLocations,
   containerNamesLike,

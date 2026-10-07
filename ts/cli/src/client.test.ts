@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import { runClient } from "./client.ts";
-import { closedPort, type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { closedPort } from "../../back/src/testing/http.ts";
 
 const MAIN = "main-" + "t0ken";
 const AGENT = "agent-" + "t0ken";

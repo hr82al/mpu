@@ -16,7 +16,7 @@ import {
   withPolicyFile,
 } from "../line/testconsent.ts";
 import { GRAMMAR } from "../messages/mod.ts";
-import { heldScope } from "../exec/testscope.ts";
+import { heldScope } from "../testing/scope.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lokiBody, withFakeLoki } from "./testloki.ts";
 

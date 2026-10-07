@@ -6,8 +6,8 @@
 
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { type AddressInfo, createServer } from "node:net";
 import { beforeAll, describe, expect, it } from "vitest";
+import { closedPort } from "../../back/src/testing/http.ts";
 import {
   askBack,
   complete,
@@ -206,13 +206,7 @@ it("askBack: живой back — ответ complete:, по его дереву"
 
 it("askBack: back не запущен — нет ответа, причина — отказ соединения", async () => {
   // Порт от ОС, слушатель закрыт до запроса: соединение отказывается.
-  const listener = createServer();
-  await new Promise<void>((resolve) =>
-    listener.listen(0, "127.0.0.1", resolve)
-  );
-  // Слушает TCP: `address()` — `AddressInfo`.
-  const { port } = listener.address() as AddressInfo;
-  await new Promise((resolve) => listener.close(resolve));
+  const port = await closedPort();
   const started = performance.now();
   const choices = await askBack("ki", {
     base: `http://127.0.0.1:${port}`,

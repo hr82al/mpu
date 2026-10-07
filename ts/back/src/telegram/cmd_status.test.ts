@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import type { CacheDb, Command, CommandIo } from "../command/mod.ts";
 import { VerbatimUsageError } from "../command/mod.ts";
 import { startFakeKaiten } from "../kaiten/testing.ts";
@@ -28,11 +29,6 @@ const FAKED: Array<
   "setInterval",
   "clearInterval",
 ];
-
-// `using FakeTime` снимал подмену в конце теста.
-afterEach(() => {
-  vi.useRealTimers();
-});
 
 async function golden(name: string): Promise<string> {
   return await readFile(
@@ -86,7 +82,7 @@ function logged(
 }
 
 it("--dry-run --no-live: пустой журнал — отчёт без записей", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const st = await stand();
   try {
     expect(await output(st.io, ["--dry-run", "--no-live"])).toStrictEqual(
@@ -100,7 +96,7 @@ it("--dry-run --no-live: пустой журнал — отчёт без зап�
 });
 
 it("--dry-run --no-live: журнал за сегодня — отчёт с записями", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const st = await stand({ KITEN_BASE_URL: "https://kaiten.example/" });
   try {
     {
@@ -168,7 +164,7 @@ it("адресат не задан — отказ до сети и до кэш-�
 });
 
 it("--dry-run адресата не требует", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const st = await stand();
   try {
     expect(
@@ -180,7 +176,7 @@ it("--dry-run адресата не требует", async () => {
 });
 
 it("живой опрос без ключа Kaiten: предупреждение, отчёт на журнале", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const st = await stand();
   try {
     expect(await output(st.io, ["--dry-run"])).toStrictEqual(
@@ -246,7 +242,7 @@ function envOf(env: Record<string, string>): CommandIo["envFile"] {
 }
 
 it("живой опрос: запросы Kaiten и запись в отчёте", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const fake = startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const body: unknown = {
@@ -304,7 +300,7 @@ it("живой опрос: запросы Kaiten и запись в отчёте
 });
 
 it("отказ Kaiten: предупреждение и отчёт на журнале", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const fake = startFakeKaiten(() =>
     new Response("нет доступа", { status: 401 })
   );
@@ -330,7 +326,7 @@ it("отказ Kaiten: предупреждение и отчёт на журн�
 });
 
 it("история карточки недоступна: карточка не в отчёте", async () => {
-  vi.useFakeTimers({ now: NOW_MS, toFake: FAKED });
+  fakeTimers({ now: NOW_MS, toFake: FAKED });
   const fake = startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === "/api/latest/users/current") {

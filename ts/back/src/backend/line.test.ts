@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import type { ServerFrame } from "../frames/mod.ts";
 import { OWNER } from "./caller.ts";
 import { AGENT_DOOR, HUMAN_DOOR } from "./door.ts";
@@ -117,18 +118,14 @@ it("кадром: ответ канала первым — чат снят, ег
 
 describe("срок и закрытие строки — чат истёк", () => {
   it("срок ответа", async () => {
-    vi.useFakeTimers();
-    try {
-      const { line } = asked(FRAMES);
-      const { rival, told } = chat();
-      line.question("выполнить mpu x? [y/N] ", "line", rival);
-      const answer = line.answer();
-      await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
-      expect(await answer).toStrictEqual(undefined);
-      expect(told).toStrictEqual(["спрошен", "истёк"]);
-    } finally {
-      vi.useRealTimers();
-    }
+    fakeTimers();
+    const { line } = asked(FRAMES);
+    const { rival, told } = chat();
+    line.question("выполнить mpu x? [y/N] ", "line", rival);
+    const answer = line.answer();
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
+    expect(await answer).toStrictEqual(undefined);
+    expect(told).toStrictEqual(["спрошен", "истёк"]);
   });
   it("строка закрыта, пока ждёт", async () => {
     const { line } = asked(FRAMES);

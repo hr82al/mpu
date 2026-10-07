@@ -6,15 +6,8 @@
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  afterAll,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { fakeTimers } from "../testing/scope.ts";
 import { rejected } from "../testing/thrown.ts";
 import {
   type Answer,
@@ -256,10 +249,7 @@ describe("исполнитель: смерть без итога — по отм
 });
 
 it("исполнитель: остановка строки — stop, через 5 с SIGTERM, ещё через 5 с SIGKILL", async () => {
-  vi.useFakeTimers();
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
+  fakeTimers();
   const script = new ScriptedWorker(1, { stubborn: true });
   const worker = lineWorker(script);
   const stopping = new AbortController();
@@ -283,10 +273,7 @@ it("исполнитель: остановка строки — stop, через
 });
 
 it("исполнитель: остановленный кончился сам — сигналов нет", async () => {
-  vi.useFakeTimers();
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
+  fakeTimers();
   const script = new ScriptedWorker(1);
   const worker = lineWorker(script);
   const stopping = new AbortController();

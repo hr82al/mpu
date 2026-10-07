@@ -18,6 +18,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
+import { plainRows } from "../testing/cache.ts";
 import {
   type Command,
   type CommandIo,
@@ -195,10 +196,8 @@ function rows(
 ): readonly Record<string, unknown>[] {
   using db = st.db();
   db.bootstrap();
-  // Строки драйвера — записи без прототипа: `toStrictEqual` сверяет и тип,
-  // поэтому они копируются в обычные записи (данные — те же).
-  const found = db.query(sql) as unknown as readonly Record<string, unknown>[];
-  return found.map((row) => ({ ...row }));
+  // Строки драйвера — записи без прототипа: сверяются копии (`plainRows`).
+  return plainRows(db.query(sql));
 }
 
 /** Строка дорожки от прошлого прогрева: её судьбу проверяет scoped-замена. */
