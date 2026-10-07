@@ -1,0 +1,55 @@
+{
+  "name": "@mpu/telegram",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
+    }
+  },
+  "scripts": {
+    "prepare": "bun scripts/gen-wasm-modules.ts",
+    "gen:wasm": "bun scripts/gen-wasm-modules.ts",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test:bun": "bun --bun vitest run",
+    "test:node": "node node_modules/vitest/vitest.mjs run",
+    "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
+    "build": "rm -rf dist && bun run gen:wasm && bun build index.ts session.ts --target node --packages external --splitting --outdir dist && tsc -p tsconfig.build.json",
+    "release": "bun run build && bun pm pack --destination release",
+    "check:release": "bun run build && sh -c 'd=$(mktemp -d) && bun pm pack --destination \"$d\" >/dev/null && f=$(basename \"$d\"/*.tgz) && cmp -s \"$d/$f\" \"release/$f\"; r=$?; rm -rf \"$d\"; [ $r = 0 ] || { echo \"release/$f не совпадает с исходниками — bun run release и закоммить архив\" >&2; exit 1; }'",
+    "check:lazy": "sh -c 'if grep -l @mtcute dist/index*.js; then echo \"лёгкий вход @mpu/telegram тянет @mtcute — клиент MTProto только за ./session\" >&2; exit 1; fi'",
+    "check:binary": "sh -c 'd=$(mktemp -d) && bun build --compile scripts/crypto-probe.ts --outfile \"$d/probe\" >/dev/null && (cd \"$d\" && ./probe); r=$?; rm -rf \"$d\"; exit $r'",
+    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run check:release && bun run check:lazy && bun run check:binary"
+  },
+  "dependencies": {
+    "@mtcute/convert": "0.31.0",
+    "@mtcute/markdown-parser": "0.31.0",
+    "@mtcute/node": "0.31.0",
+    "@mtcute/wasm": "0.31.0"
+  },
+  "peerDependencies": {
+    "@mpu/http": "0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@mpu/http": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",
+    "@mpu/testing": "file:../testing/release/mpu-testing-0.1.0.tgz",
+    "@types/node": "24.19.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

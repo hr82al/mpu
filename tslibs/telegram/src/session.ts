@@ -1,0 +1,355 @@
+/**
+ * Живой сеанс MTProto (`platform/telegram-mtproto.md`):
+ * единственное место, знающее про клиент Telegram.
+ *
+ * Модуль подгружается лениво из команды: крипта MTProto и её wasm не
+ * должны попадать в старт каждого вызова `mpu`. Без сети проверены вход
+ * (`session.test.ts`, `connection.test.ts`) и граница порта — отказ клиента
+ * на каждом методе (`session_port.test.ts`); сами операции против живого
+ * Telegram тестами не покрыты: сеть в тестах запрещена.
+ */
+
+import { convertFromTelethonSession } from "@mtcute/convert";
+import {
+  InputMedia,
+  MemoryStorage,
+  proxyTransportFromUrl,
+  TelegramClient,
+  tl,
+} from "@mtcute/node";
+import type { Chat, Message, User } from "@mtcute/node";
+import { md } from "@mtcute/markdown-parser";
+import { markedId, type RawChat } from "./chat.ts";
+import { clientRefusal } from "./client_refusal.ts";
+import type { TelegramConfig } from "./config.ts";
+import {
+  answeredWithin,
+  connectWithin,
+  SESSION_ANSWER_LIMIT_MS,
+} from "./connection.ts";
+import { telegramCrypto } from "./crypto.ts";
+import { configError, cryptoFailure, CryptoInitError } from "./errors.ts";
+import type { ResolvablePeer } from "./peer.ts";
+import { telegramPlatform } from "./platform.ts";
+import { proxyUrl } from "./proxy.ts";
+import { type Download, mediaFile } from "./media_file.ts";
+import type { RawMessage } from "./message.ts";
+import { type FileClient, noMessage } from "./message_file.ts";
+import { chatPeerType, chatsFromSearch } from "./search_reply.ts";
+import type { SearchClient } from "./search.ts";
+import type {
+  ClientMessage,
+  PeerRef,
+  TelegramClient as CommandClient,
+} from "./client.ts";
+
+/** Открытый сеанс: клиент отправки, поиска и скачивания и его закрытие. */
+export interface TelegramSession
+  extends CommandClient,
+    SearchClient,
+    FileClient {
+  /** Закрывает соединение; зовётся в любом исходе вызова. */
+  readonly close: () => Promise<void>;
+}
+
+/**
+ * Открывает сеанс: клиент в памяти, строка сессии из env-файла, прокси —
+ * если задан. Хранилище только в памяти: строка сессии разделяется с
+ * прежней реализацией и переписываться не должна.
+ *
+ * Вернувшийся сеанс уже авторизован и знает собственную учётную запись:
+ * авторизация проверяется до операции, а без знания о себе не резолвится
+ * адресат `me` (там же, «Инварианты» и «Резолв адресата»).
+ */
+export async function openSession(
+  config: TelegramConfig,
+): Promise<TelegramSession> {
+  const client = new TelegramClient({
+    apiId: config.apiId,
+    apiHash: config.apiHash,
+    storage: new MemoryStorage(),
+    // Wasm криптографии — из собранной программы, не из сети (`crypto.ts`).
+    crypto: telegramCrypto(),
+    // Логи клиента — в stderr: stdout подкоманды — данные (`platform.ts`).
+    platform: telegramPlatform(),
+    ...(config.proxy === undefined
+      ? {}
+      : { transport: proxyTransportFromUrl(proxyUrl(config.proxy)) }),
+    disableUpdates: true,
+  });
+  const self = await enter(client, config.session);
+  // Отказ оформляется по ходу итерации, как у глобального поиска: части
+  // файла приходят по мере чтения, и обрыв случается посреди потока.
+  const download: Download = async function* (location) {
+    try {
+      yield* client.downloadAsIterable(location);
+    } catch (err) {
+      throw clientRefusal(err);
+    }
+  };
+  // Граница порта: каждый метод, зовущий клиента, отдаёт отказ клиента
+  // строкой слоя, а прочее — тем же объектом. Команды поверх порта ошибок
+  // не переоформляют (спека, «Что считается отказом Telegram / слоя
+  // клиента»).
+  return {
+    resolve: (peer: ResolvablePeer) =>
+      refusing(async () => {
+        const ref = await client.resolvePeer(peerId(peer));
+        return { ref, id: refId(ref, self) };
+      }),
+    sendText: (to, text, markdown) =>
+      refusing(async () =>
+        message(await client.sendText(inputPeer(to), body(text, markdown))),
+      ),
+    sendDocuments: (to, documents, markdown) =>
+      refusing(async () => {
+        const medias = documents.map((document) =>
+          InputMedia.document(document.bytes, {
+            fileName: document.name,
+            ...(document.caption === undefined
+              ? {}
+              : { caption: body(document.caption, markdown) }),
+          }),
+        );
+        const peer = inputPeer(to);
+        const sent =
+          medias.length === 1
+            ? [await client.sendMedia(peer, medias[0])]
+            : await client.sendMediaGroup(peer, medias);
+        return sent.map(message);
+      }),
+    listDialogs: (limit) =>
+      refusing(async () => {
+        const found: RawChat[] = [];
+        for await (const dialog of client.iterDialogs({ limit })) {
+          found.push(peerChat(dialog.peer));
+        }
+        return found;
+      }),
+    searchChats: (query, limit) =>
+      refusing(async () =>
+        chatsFromSearch(
+          await client.call({ _: "contacts.search", q: query, limit }),
+        ),
+      ),
+    // Страницы гоняет итератор клиента: разовый вызов поиска отдаёт одну
+    // страницу, и `--limit` больше неё молча недобирал бы выдачу.
+    searchInChat: ({ chat, query, from, limit }) =>
+      refusing(async () => {
+        const found: RawMessage[] = [];
+        for await (const message of client.iterSearchMessages({
+          chatId: inputPeer(chat),
+          query,
+          limit,
+          ...(from === null ? {} : { fromUser: inputPeer(from) }),
+        })) {
+          found.push(rawMessage(message, download));
+        }
+        return found;
+      }),
+    // Генератор оформляет отказ сам: страницы приходят по мере итерации, и
+    // обёртка вокруг его создания отказа итерации не увидела бы.
+    searchGlobal: async function* (query: string) {
+      try {
+        for await (const found of client.iterSearchGlobal({ query })) {
+          yield rawMessage(found, download);
+        }
+      } catch (err) {
+        throw clientRefusal(err);
+      }
+    },
+    // Нет сообщения — `null` в ответе клиента (не было или удалено).
+    messageFile: (chat, id) =>
+      refusing(async () => {
+        const [found] = await client.getMessages(inputPeer(chat), [id]);
+        return found === null
+          ? noMessage(id)
+          : mediaFile(id, found.media, download);
+      }),
+    close: () => client.destroy(),
+  };
+}
+
+/** Обращение к клиенту на границе порта: отказ клиента — строкой слоя. */
+async function refusing<T>(body: () => Promise<T>): Promise<T> {
+  try {
+    return await body();
+  } catch (err) {
+    throw clientRefusal(err);
+  }
+}
+
+/**
+ * Вход в сеанс: строка сессии, соединение и проверка авторизации. Отказ
+ * на любом шаге гасит клиента — иначе после него остаются хранилище и
+ * открытые ресурсы, а закрывать сеанс, которого вызывающий не получил,
+ * ему нечем.
+ *
+ * Возвращает собственный идентификатор: адресата `me` клиент опознаёт
+ * ссылкой без идентификатора, а команде он нужен числом.
+ */
+async function enter(client: TelegramClient, session: string): Promise<number> {
+  try {
+    await importSession(client, session);
+    await connectWithin(client);
+    // Отказ здесь — либо отозванная сессия (её импорт не отличает от
+    // годной), либо отказ Telegram; в обоих случаях он обязан прийти до
+    // операции и своим текстом, а не выдать себя за ненайденный чат.
+    // Ответ на этот запрос — первый ответ после соединения, и он ограничен.
+    return (
+      await answeredWithin(client, SESSION_ANSWER_LIMIT_MS, () =>
+        client.getMe(),
+      )
+    ).id;
+  } catch (err) {
+    await client.destroy();
+    throw entryFailure(err);
+  }
+}
+
+/**
+ * Строка сессии приходит в формате прежней реализации, и клиент её как
+ * есть не принимает — она переводится конвертером. Не принятая строка —
+ * то же, что её отсутствие: вход не выполнен.
+ *
+ * Импорт заодно поднимает криптографию клиента, и её сбой — не отказ
+ * строки: совет пройти вход здесь вреден, вход отзывает действующую
+ * сессию («Конфигурация» спеки). Различение — по типу отказа.
+ */
+async function importSession(
+  client: TelegramClient,
+  session: string,
+): Promise<void> {
+  try {
+    await client.importSession(convertFromTelethonSession(session));
+  } catch (err) {
+    throw err instanceof CryptoInitError
+      ? cryptoFailure(err)
+      : notAuthorized(err);
+  }
+}
+
+/**
+ * Отказ входа. Отказы авторизации Telegram называет своими кодами
+ * (`AUTH_KEY_*`, `SESSION_*`, `USER_DEACTIVATED*`) — им положен текст
+ * про вход; прочий отказ клиента — строкой слоя, уже оформленный отказ
+ * (импорт строки, пределы) — как есть, а дефект своего кода — тем же
+ * объектом (`client_refusal.ts`).
+ */
+function entryFailure(err: unknown): unknown {
+  const unauthorized =
+    err instanceof tl.RpcError &&
+    /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(err.text);
+  return unauthorized ? notAuthorized(err) : clientRefusal(err);
+}
+
+function notAuthorized(cause: unknown): Error {
+  return configError("не авторизован; запусти `mpu init`", { cause });
+}
+
+/**
+ * Адресат в форме, понятной клиенту. Названия чата здесь не бывает:
+ * его резолвит поиском `send.ts` — Telegram по названию не резолвит.
+ */
+function peerId(peer: ResolvablePeer): string | number {
+  switch (peer.kind) {
+    case "me":
+      return "me";
+    case "id":
+      return peer.id;
+    case "name":
+      return peer.name;
+    default: {
+      const never: never = peer;
+      throw new TypeError(`адресат не резолвится напрямую: ${String(never)}`);
+    }
+  }
+}
+
+/**
+ * Чат из собеседника диалога. Сырой идентификатор берётся до
+ * маркировки: накладывает её команда (`chat.ts`), и наложить дважды
+ * значило бы напечатать чужой чат.
+ */
+function peerChat(peer: User | Chat): RawChat {
+  if (peer.type === "user") {
+    return {
+      peerType: peer.isBot ? "bot" : "user",
+      rawId: peer.id,
+      title: peer.displayName,
+      username: peer.username,
+    };
+  }
+  return {
+    peerType: chatPeerType(peer.raw),
+    rawId: peer.raw.id,
+    title: peer.title,
+    username: peer.username,
+  };
+}
+
+/**
+ * Маркированный id опознанного адресата. Собственный чат клиент
+ * возвращает ссылкой без идентификатора, поэтому его подставляет сеанс:
+ * он узнал себя при входе.
+ */
+function refId(ref: { readonly _: string }, self: number): number {
+  if (ref._ === "inputPeerSelf") return self;
+  if ("userId" in ref) return Number(ref.userId);
+  if ("chatId" in ref) return markedId("chat", Number(ref.chatId));
+  if ("channelId" in ref) return markedId("channel", Number(ref.channelId));
+  throw configError(`Telegram вернул адресата без идентификатора: ${ref._}`);
+}
+
+/**
+ * Сообщение в форме, которую знает поиск. Ссылку строит команда
+ * (`message.ts`): у клиента она бросает исключение на чатах без
+ * публичных ссылок — на первой же личной переписке в выдаче.
+ */
+function rawMessage(found: Message, download: Download): RawMessage {
+  return {
+    id: found.id,
+    chat: peerChat(found.chat),
+    sender: sender(found),
+    date: found.date,
+    text: found.text,
+    entities: found.entities.map((entity) => entity.raw),
+    file: mediaFile(found.id, found.media, download),
+  };
+}
+
+/**
+ * Отправитель сообщения. Автора нет только у анонимного админа и у
+ * поста от имени канала: клиент подставляет вместо него чат. В личной
+ * переписке автор отдельным полем не приходит, но известен — им и
+ * остаётся собеседник.
+ */
+function sender(found: Message): RawChat | null {
+  const raw = found.raw;
+  if (!raw.fromId && raw.peerId._ !== "peerUser") return null;
+  return peerChat(found.sender);
+}
+
+/**
+ * Разворачивает обёртку адресата. Приведение здесь безопасно и
+ * единственно возможно: в `ref` кладёт значение `resolve` этого же
+ * модуля — ровно то, что вернул клиент, — а тип отправки о клиенте
+ * не знает и знать не должен.
+ */
+function inputPeer(to: PeerRef): Parameters<TelegramClient["sendText"]>[0] {
+  return to.ref as Parameters<TelegramClient["sendText"]>[0];
+}
+
+/** Разметка Markdown — только по флагу; без него текст уходит как есть. */
+function body(text: string, markdown: boolean): string | ReturnType<typeof md> {
+  return markdown ? md(text) : text;
+}
+
+/** Сообщение клиента в форме, которую знает отправка. */
+function message(sent: {
+  readonly id: number;
+  readonly chat: { readonly id: number };
+  readonly date: Date;
+}): ClientMessage {
+  return { id: sent.id, chatId: sent.chat.id, date: sent.date };
+}

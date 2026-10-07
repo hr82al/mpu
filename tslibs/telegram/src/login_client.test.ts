@@ -1,0 +1,420 @@
+/**
+ * Что в живом входе проверяемо без сети: формат строки сессии, которую он
+ * записывает, и отказы без сети — сбой криптографии и отказ, не
+ * относящийся к ней (соединение подменено отказом, клиент закрыт во время
+ * попытки).
+ *
+ * `TELEGRAM_SESSION` — внешняя граница (`platform/telegram-mtproto.md`):
+ * ту же строку читают обе реализации, и наш сеанс переводит её
+ * `convertFromTelethonSession` (`session.ts`). Записать туда родной
+ * формат клиента значило бы сломать после успешного входа всё
+ * семейство разом — а увидеть это можно было бы только живым входом,
+ * который отзывает сессию владельца. Поэтому сверка здесь, на паре
+ * конвертеров, а не там.
+ */
+
+import { Socket } from "node:net";
+import process from "node:process";
+import {
+  convertFromTelethonSession,
+  serializeTelethonSession,
+} from "@mtcute/convert";
+import { BaseTelegramClient, TelegramClient, tl } from "@mtcute/node";
+import { __getWasm } from "@mtcute/wasm";
+import { describe, expect, it, vi } from "vitest";
+import { TelegramError } from "./errors.ts";
+import { rejected } from "@mpu/testing/thrown";
+import { openLoginClient, sharedSessionString } from "./login_client.ts";
+
+/** Синтетическая сессия: ключ нулевой, адрес — тестовый DC Telegram. */
+const TELETHON = serializeTelethonSession({
+  dcId: 2,
+  ipAddress: "149.154.167.51",
+  ipv6: false,
+  port: 443,
+  authKey: new Uint8Array(256),
+});
+
+/**
+ * Запоминает методы прототипа клиента перед подменой и отдаёт их
+ * восстановление: метод, лежавший выше по цепочке, возвращается снятием
+ * подмены, а не записью копии — иначе после теста на прототипе остаются
+ * собственные свойства.
+ */
+function saveMethods(proto: object, names: readonly string[]): () => void {
+  const saved = names.map((name) => ({
+    name,
+    own: Object.hasOwn(proto, name),
+    real: Reflect.get(proto, name) as unknown,
+  }));
+  return () => {
+    for (const { name, own, real } of saved) {
+      if (own) Reflect.set(proto, name, real);
+      else Reflect.deleteProperty(proto, name);
+    }
+  };
+}
+
+it("вход пишет строку в формате прежней реализации, а не своём", () => {
+  // Читатель ждёт формат telethon: то, что он разбирает, вход и обязан
+  // записывать. Мутация «вернуть экспорт клиента как есть» краснеет
+  // здесь, а не на живом входе.
+  const asRead = convertFromTelethonSession(TELETHON);
+  expect(sharedSessionString(asRead)).toBe(TELETHON);
+});
+
+it("записанное читается тем же путём, что и в сеансе", () => {
+  // Круг замкнут: строка, которую вход положит в env-файл, проходит
+  // ровно тот конвертер, которым её берёт `session.ts`.
+  const written = sharedSessionString(convertFromTelethonSession(TELETHON));
+  const parsed = convertFromTelethonSession(written);
+  expect(parsed.primaryDcs.main.id).toBe(2);
+  expect(parsed.authKey.length).toBe(256);
+});
+
+it("вход до сети: сбой криптографии печатается текстом спеки, а не обёрткой операции", async () => {
+  // `platform/telegram-mtproto.md`, «Конфигурация»: правило одно для всех
+  // подкоманд, включая вход. Криптография поднимается до соединения, и
+  // живой вход — с отзывом сессии — сюда не доходит.
+  //
+  // Байты модуля встроены, читать нечего: сбой подделывается в
+  // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
+  // лишь пока модуль не поднят — до этого случая его не поднимает никто.
+  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
+    undefined,
+  );
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  const realModule = WebAssembly.Module;
+  try {
+    Reflect.set(
+      WebAssembly,
+      "Module",
+      // Классом, а не стрелкой: `initSync` зовёт модуль через `new`.
+      class {
+        constructor() {
+          throw new Error("нет встроенного модуля");
+        }
+      },
+    );
+    const err = await rejected(
+      () =>
+        client.signIn("+70000000000", {
+          ask: () => Promise.resolve(undefined),
+          askSecret: () => Promise.resolve(undefined),
+          progress: () => {},
+        }),
+      TelegramError,
+    );
+    expect(err.message).toBe(
+      "telegram: криптография клиента не поднялась: нет встроенного модуля",
+    );
+  } finally {
+    Reflect.set(WebAssembly, "Module", realModule);
+    await client.close();
+  }
+});
+
+it("вход: отказ, не относящийся к криптографии, не выдаётся за неё", async () => {
+  // Криптография поднимается настоящая, а соединение с узлом отказывает:
+  // подменённый `connect` сокета отмечает попытку и отказывает, наружу не
+  // уходит ничего. Клиент на отказ соединения переподключается, пока не
+  // выйдет предел соединения (20 с по поддельным часам), — его отказ и есть
+  // отказ, не относящийся к криптографии.
+  vi.useFakeTimers();
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  const connecting = Promise.withResolvers<void>();
+  const realConnect = Socket.prototype.connect;
+  try {
+    // Отказ — событием на следующем обороте, как у настоящего сокета:
+    // слушатель `error` клиент вешает уже после вызова `connect`.
+    Reflect.set(Socket.prototype, "connect", function (this: Socket) {
+      connecting.resolve();
+      process.nextTick(() =>
+        this.destroy(new Error("соединение в тесте запрещено")),
+      );
+      return this;
+    });
+    const signing = client
+      .signIn("+70000000000", {
+        ask: () => Promise.resolve(undefined),
+        askSecret: () => Promise.resolve(undefined),
+        progress: () => {},
+      })
+      .then(
+        () => "вошёл",
+        (err: unknown) => err,
+      );
+    // Гонка, а не одно ожидание соединения: откажи вход раньше попытки,
+    // тест покраснел бы на проверках ниже, а не завис.
+    await Promise.race([connecting.promise, signing]);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const outcome = await signing;
+    expect(outcome instanceof TelegramError, String(outcome)).toBe(true);
+    const text = outcome instanceof Error ? outcome.message : String(outcome);
+    expect(text.startsWith("telegram: "), text).toBe(true);
+    expect(text.includes("криптография"), text).toBe(false);
+  } finally {
+    Reflect.set(Socket.prototype, "connect", realConnect);
+    vi.useRealTimers();
+    await client.close();
+  }
+});
+
+it("вход: дефект внутри входа уходит из signIn тем же объектом", async () => {
+  // Место вызова `clientRefusal`: подменить его переоформлением любого
+  // отказа — и дефект своего кода станет «пропущено» (инвариант 3).
+  // Соединение и сам вход подменены, сети нет.
+  const proto = TelegramClient.prototype;
+  const restore = saveMethods(proto, ["connect", "start"]);
+  const defect = new TypeError("дефект внутри входа");
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  try {
+    Reflect.set(proto, "connect", function (this: TelegramClient) {
+      this.onConnectionState.emit("connected");
+      return Promise.resolve();
+    });
+    Reflect.set(proto, "start", () => Promise.reject(defect));
+    const err = await rejected(
+      () =>
+        client.signIn("+70000000000", {
+          ask: () => Promise.resolve(undefined),
+          askSecret: () => Promise.resolve(undefined),
+          progress: () => {},
+        }),
+      TypeError,
+    );
+    expect(err).toBe(defect);
+  } finally {
+    restore();
+    await client.close();
+  }
+});
+
+/** Вопросы человеку, которые `start` клиента получает от входа. */
+interface HumanQuestions {
+  readonly code: () => Promise<string>;
+  readonly password: () => Promise<string>;
+}
+
+describe("вход: ожидание человека под предел первого ответа не попадает", () => {
+  // Спека: предел — на первый ответ входа до вопроса; код и пароль второго
+  // фактора человек набирает сколько угодно. Двойник отвечает через 70 с
+  // поддельного времени — дольше предела входа (60 с): отказа нет, вход
+  // завершается.
+  const cases = [
+    {
+      name: "код",
+      question: (params: HumanQuestions) => params.code(),
+    },
+    {
+      name: "пароль второго фактора без кода",
+      question: (params: HumanQuestions) => params.password(),
+    },
+  ];
+  for (const { name, question } of cases) {
+    it(name, async () => {
+      vi.useFakeTimers();
+      const proto = TelegramClient.prototype;
+      const restore = saveMethods(proto, ["connect", "start", "exportSession"]);
+      const asked = Promise.withResolvers<void>();
+      const client = openLoginClient(
+        { apiId: "1", apiHash: "проба" },
+        undefined,
+      );
+      try {
+        Reflect.set(proto, "connect", function (this: TelegramClient) {
+          this.onConnectionState.emit("connected");
+          return Promise.resolve();
+        });
+        Reflect.set(proto, "start", async (params: HumanQuestions) => {
+          await question(params);
+          return {};
+        });
+        Reflect.set(proto, "exportSession", () =>
+          Promise.resolve(convertFromTelethonSession(TELETHON)),
+        );
+        const answerLater = () => {
+          asked.resolve();
+          return new Promise<string>((resolve) =>
+            setTimeout(() => resolve("ответ"), 70_000),
+          );
+        };
+        let settled = false;
+        const signing = client
+          .signIn("+70000000000", {
+            ask: answerLater,
+            askSecret: answerLater,
+            progress: () => {},
+          })
+          .then(
+            (session) => session,
+            (err: unknown) => err,
+          )
+          .finally(() => {
+            settled = true;
+          });
+        await Promise.race([asked.promise, signing]);
+        await vi.advanceTimersByTimeAsync(70_000);
+        for (let turn = 0; turn < 20 && !settled; turn++) {
+          await Promise.resolve();
+        }
+        expect(settled, "вход не завершился после ответа человека").toBe(true);
+        expect(await signing).toBe(TELETHON);
+      } finally {
+        restore();
+        vi.useRealTimers();
+        await client.close();
+      }
+    });
+  }
+});
+
+describe("вход: сообщения клиента о ходе входа — строками хода, не в stdout", () => {
+  // «stdout входа» (`telegram-login.md`, инвариант 3): без обработчиков
+  // `start` библиотеки печатает «The confirmation code has been sent via …»
+  // и «Invalid code…» прямым `console.log`, мимо платформы клиента.
+  // Исполняется настоящий `start`; подменены только соединение и запросы к
+  // Telegram на внутреннем клиенте.
+  const cases = [
+    {
+      // Первый код не подошёл, второго человек не ввёл.
+      name: "код отправлен по SMS, первый не подошёл",
+      sentCodeType: { _: "auth.sentCodeTypeSms", length: 5 },
+      refusal: "PHONE_CODE_EMPTY",
+      progress: [
+        "# telegram: код подтверждения отправлен (sms)",
+        "# telegram: код не подошёл, попробуй ещё раз",
+      ],
+      questions: 2,
+    },
+    {
+      // Без обработчика библиотека отказывает сама; обработчик этот отказ
+      // снимает и обязан его повторить — иначе вход спросил бы код, который
+      // не придёт.
+      name: "нужна настройка почты — отказ, кода не спрашивают",
+      sentCodeType: { _: "auth.sentCodeTypeSetUpEmailRequired" },
+      refusal: "Email login setup is required to sign in",
+      progress: [],
+      questions: 0,
+    },
+  ];
+  for (const { name, sentCodeType, refusal, progress, questions } of cases) {
+    it(name, async () => {
+      const restoreClient = saveMethods(TelegramClient.prototype, ["connect"]);
+      const restoreBase = saveMethods(BaseTelegramClient.prototype, ["call"]);
+      const printed: unknown[][] = [];
+      const realLog = console.log;
+      const lines: string[] = [];
+      const answers = ["12345"];
+      let asked = 0;
+      const client = openLoginClient(
+        { apiId: "1", apiHash: "проба" },
+        undefined,
+      );
+      try {
+        console.log = (...args: unknown[]) => void printed.push(args);
+        Reflect.set(
+          TelegramClient.prototype,
+          "connect",
+          function (this: TelegramClient) {
+            this.onConnectionState.emit("connected");
+            return Promise.resolve();
+          },
+        );
+        Reflect.set(
+          BaseTelegramClient.prototype,
+          "call",
+          (request: { readonly _: string }) => {
+            switch (request._) {
+              case "users.getUsers":
+                return Promise.reject(
+                  new tl.RpcError(401, "AUTH_KEY_UNREGISTERED"),
+                );
+              case "auth.sendCode":
+                return Promise.resolve({
+                  _: "auth.sentCode",
+                  type: sentCodeType,
+                  phoneCodeHash: "хеш",
+                });
+              case "auth.signIn":
+                return Promise.reject(
+                  new tl.RpcError(400, "PHONE_CODE_INVALID"),
+                );
+              default:
+                return Promise.reject(
+                  new Error(`неожиданный запрос ${request._}`),
+                );
+            }
+          },
+        );
+        const err = await rejected(
+          () =>
+            client.signIn("+70000000000", {
+              ask: () => {
+                asked++;
+                return Promise.resolve(answers.shift());
+              },
+              askSecret: () => Promise.resolve(undefined),
+              progress: (line) => void lines.push(line),
+            }),
+          TelegramError,
+        );
+        expect(err.message.includes(refusal), err.message).toBe(true);
+        expect(printed, "библиотека писала в stdout").toStrictEqual([]);
+        expect(lines, "строки хода").toStrictEqual(progress);
+        expect(asked, "число вопросов кода").toBe(questions);
+      } finally {
+        console.log = realLog;
+        restoreBase();
+        restoreClient();
+        await client.close();
+      }
+    });
+  }
+});
+
+it("вход: неверный пароль и неверный код — каждый своей строкой хода", async () => {
+  // Настоящий путь неверного пароля идёт через SRP-расчёт перед
+  // `auth.checkPassword`, поэтому здесь `start` подменён: он зовёт
+  // обработчик неверного ввода в том порядке, что и библиотека, — сначала
+  // цикл кода, затем, после `SESSION_PASSWORD_NEEDED`, цикл пароля.
+  const proto = TelegramClient.prototype;
+  const restore = saveMethods(proto, ["connect", "start", "exportSession"]);
+  const lines: string[] = [];
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  try {
+    Reflect.set(proto, "connect", function (this: TelegramClient) {
+      this.onConnectionState.emit("connected");
+      return Promise.resolve();
+    });
+    Reflect.set(
+      proto,
+      "start",
+      async (params: {
+        readonly invalidCodeCallback: (
+          type: "code" | "password",
+        ) => Promise<void> | void;
+      }) => {
+        await params.invalidCodeCallback("code");
+        await params.invalidCodeCallback("password");
+        return {};
+      },
+    );
+    Reflect.set(proto, "exportSession", () =>
+      Promise.resolve(convertFromTelethonSession(TELETHON)),
+    );
+    const session = await client.signIn("+70000000000", {
+      ask: () => Promise.resolve(undefined),
+      askSecret: () => Promise.resolve(undefined),
+      progress: (line) => void lines.push(line),
+    });
+    expect(session).toBe(TELETHON);
+    expect(lines).toStrictEqual([
+      "# telegram: код не подошёл, попробуй ещё раз",
+      "# telegram: пароль не подошёл, попробуй ещё раз",
+    ]);
+  } finally {
+    restore();
+    await client.close();
+  }
+});

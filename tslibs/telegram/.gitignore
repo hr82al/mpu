@@ -1,0 +1,5 @@
+node_modules
+dist
+.tmp
+# Байты wasm криптографии: порождаются из node_modules (scripts/gen-wasm-modules.ts)
+src/wasm_modules.ts

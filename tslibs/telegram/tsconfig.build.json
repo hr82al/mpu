@@ -1,0 +1,14 @@
+{
+  // Объявления типов поверхности: только граф `index.ts`, без тестов и их
+  // помощников. Пути в `.d.ts` остаются с `.ts` — `tsc` потребителя находит
+  // по ним соседние `.d.ts` (проверено `tsc` в `ts/`).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": [],
+  "files": ["index.ts", "session.ts"]
+}
