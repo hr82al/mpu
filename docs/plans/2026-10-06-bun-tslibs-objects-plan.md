@@ -228,6 +228,18 @@ API: `kaiten`, `gitlab`, `sheet`, `dates`), затем слой платформ
 архив ставит `bun install`, Deno читает `node_modules` (`nodeModulesDir:
 "manual"`): `deno install` архив `file:…tgz` не распаковывает (проба).
 
+**Находки 2026-10-07 (копия `ts/` с `main`, `mp/tmp/manual-probe`):** Deno как
+потребитель локального пакета требует обходов: `auto` — «Importing npm
+packages via a file: specifier is only supported with
+--node-modules-dir=manual»; `manual` — `bun install` не ставит npm-зависимости
+JSR-пакетов (`@mtcute/core` → `@fuman/utils`), нужен ещё `deno install`, который
+переписывает раскладку `node_modules`; отдельно `@types/node`; после этого
+`deno check` не видит подпути `@modelcontextprotocol/sdk/*` (14 ошибок
+TS2307). Vitest при этом зелёный (модули разрешает Vite). Профиль песочницы
+исполнителя: `bun` нет, `node` — системный v20.19.2 (mise-каталоги
+`installs/bun`, `installs/node` закрыты `denyRead /home/user`), кэш `bun` — в
+`~/.bun`. Спеки H1, T1 — в черновик до решения о порядке.
+
 Протокол получателя (самоописание `about`, конверт Proxy, файл интерфейса,
 тесты соответствия) — `docs/2026-10-06-tslibs-receiver-protocol-design.md`
 (согласован владельцем 2026-10-06).
