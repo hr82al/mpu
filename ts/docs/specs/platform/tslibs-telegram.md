@@ -1,6 +1,6 @@
 # Порция T1 — Telegram (MTProto и Bot API) библиотекой `tslibs/telegram`
 
-Статус: черновик (2026-10-07) — к реализации после E4; гибрид владельца 2026-10-07: TS-домены — пакеты `tslibs/<домен>` в монолите, вынос наружу — на Go (план, «Схема „душитель“»).
+Статус: к реализации после H1 (2026-10-07). Клиент уже на `@mtcute/node`, криптография — модулем `wasm_modules.ts`, тесты на Vitest (порция E3) — T1 выносит домен в пакет `tslibs/telegram`, зависящий от `@mpu/http`. Гибрид владельца 2026-10-07: TS-домены — пакеты в монолите.
 H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; поведение
 команд — `platform/telegram-mtproto.md` и спеки `telegram-*` (не меняется).
 План — этапы 3 и 4 одной порцией: домен уходит с `Deno.*` и выносится.
@@ -33,7 +33,7 @@ H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; 
 `cmd_file.ts`, а `errors.ts` — слой команд) проектирует исполнитель —
 `.tmp/design-T1.md` до кода.
 
-Факты распутывания (снято с `main` 2026-10-07): без зависимостей от слоя
+Факты распутывания (снято с `main` до E3, 2026-10-07; пересверить на `main` перед порцией): без зависимостей от слоя
 команд — `chat`, `client`, `crypto`, `inbox`, `lookup`, `markdown`,
 `media_file`, `message`, `message_file`, `peer`, `platform`, `search_reply`,
 `send`, `search` (через `resolve`, `search_plan`); с зависимостью —
