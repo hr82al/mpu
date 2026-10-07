@@ -17,7 +17,8 @@
   "env": {
     "DENO_DIR": "/home/user/mr/mp/wt/mpu/.deno",
     "TMPDIR": "/home/user/mr/mp/wt/mpu/.tmp",
-    "DENO_NO_UPDATE_CHECK": "1"
+    "DENO_NO_UPDATE_CHECK": "1",
+    "BUN_INSTALL_CACHE_DIR": "/home/user/mr/mp/wt/mpu/.bun-cache"
   },
   "hooks": {
     "PreToolUse": [
@@ -159,7 +160,9 @@
         "/home/user/.deno",
         "/home/user/.local/share/mise/installs/deno",
         "/home/user/.gitconfig",
-        "/home/user/.config/git"
+        "/home/user/.config/git",
+        "/home/user/.local/share/mise/installs/bun",
+        "/home/user/.local/share/mise/installs/node"
       ],
       "allowWrite": [
         "/home/user/mr/mp/wt/mpu"
