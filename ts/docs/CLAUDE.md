@@ -67,12 +67,12 @@ CLAUDE.md: всё, что нужно для реализации команды,
 Из каталога `ts/`:
 
 ```bash
-deno task handoff status              # что лежит: постановка или отчёт, сколько строк
-deno task handoff read                # содержимое как есть
-deno task handoff post <файл|->       # положить постановку (спецификатор)
-deno task handoff report <файл|->     # положить отчёт (изолированная сессия)
-deno task handoff wait task [сек]     # ждать постановку и напечатать её
-deno task handoff wait report [сек]   # ждать отчёт
+bun run handoff status              # что лежит: постановка или отчёт, сколько строк
+bun run handoff read                # содержимое как есть
+bun run handoff post <файл|->       # положить постановку (спецификатор)
+bun run handoff report <файл|->     # положить отчёт (изолированная сессия)
+bun run handoff wait task [сек]     # ждать постановку и напечатать её
+bun run handoff wait report [сек]   # ждать отчёт
 ```
 
 **Ожидание ставит каждая роль сама, сразу после своей записи в ячейку.** Это
