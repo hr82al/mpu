@@ -9,7 +9,7 @@ import { serveMcp } from "./server.ts";
 /** Порт по умолчанию: следующий за `mpu-back` (7338). */
 export const DEFAULT_MCP_PORT = 7339;
 
-const USAGE = "mpu-mcp: использование: deno task mcp [--port <число>]\n";
+const USAGE = "mpu-mcp: использование: bun run mcp [--port <число>]\n";
 
 /** Файл токена: чтение и создание. */
 export interface TokenFile {

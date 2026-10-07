@@ -20,7 +20,7 @@ import type { Launcher, Markers } from "../worker/mod.ts";
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
 
 const USAGE =
-  "mpu-back: использование: deno task back [--port <число>] " +
+  "mpu-back: использование: bun run back [--port <число>] " +
   "[--lines <число>] [--worker <путь>]\n";
 
 /** Отказ запуска: предел строк назван, но негоден (`--lines 0`). */
