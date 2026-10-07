@@ -1,7 +1,7 @@
 /**
  * Оснастка прогонов `ts/install.sh`
  * (`platform/supervisor-install.md`, `platform/cutover.md`): всё во
- * временных каталогах, сборка — поддельным `deno` (`MPU_DENO`), служба —
+ * временных каталогах, сборка — поддельным `bun` (`MPU_BUN`), служба —
  * поддельным `systemctl`, каталог настроек nu — поддельным `nu`
  * (`MPU_NU`), проверки против серверов, поднятых тестом.
  * Настоящие `~/.local/bin`, служба пользователя, `systemctl` и файлы
@@ -20,8 +20,13 @@ import { text } from "node:stream/consumers";
 
 export const ROOT = new URL("../../", import.meta.url).pathname;
 
-const FAKE_DENO = `#!/bin/bash
-# Поддельная сборка: исполняемый скрипт с --version и version.
+const FAKE_BUN = `#!/bin/bash
+# Поддельная сборка: исполняемый скрипт с --version и version. Зовут её
+# только скриптом package.json: \`bun run compile:<часть>\`.
+if [[ $1 != run || $2 != compile:* ]]; then
+  echo "error: ждали bun run compile:<часть>, пришло: $*" >&2
+  exit 1
+fi
 part=\${2#compile:}
 if [[ \${FAKE_FAIL:-} == "$part" ]]; then
   echo "error: сборка сломана" >&2
@@ -163,7 +168,7 @@ export async function withPlace(body: (place: Place) => Promise<void>) {
   const back = await fakePart(`${dir}/back`, 100, { version: "0.1.0" });
   const mcp = await fakePart(`${dir}/mcp`, 200, {});
   try {
-    await writeFile(`${dir}/deno`, FAKE_DENO, { mode: 0o755 });
+    await writeFile(`${dir}/bun`, FAKE_BUN, { mode: 0o755 });
     await writeFile(`${dir}/systemctl`, FAKE_SYSTEMCTL, { mode: 0o755 });
     await writeFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
     await writeFile(`${dir}/nu`, FAKE_NU, { mode: 0o755 });
@@ -216,7 +221,7 @@ export async function runScript(
       MPU_BIN_DIR: place.bin,
       MPU_UNIT_DIR: place.unit,
       MPU_SYSTEMCTL: `${place.dir}/systemctl`,
-      MPU_DENO: `${place.dir}/deno`,
+      MPU_BUN: `${place.dir}/bun`,
       MPU_CLAUDE: `${place.dir}/claude`,
       // Настоящий nu запускающего тестам не виден: без подмены исход
       // зависел бы от того, стоит ли nu на машине.

@@ -13,9 +13,9 @@
 #
 #   ./install.sh [--only back,worker,mcp,cli,supervisor,task,complete,web] [--check]
 #
-# Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
-# здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
-# MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_DENO, MPU_BACK_URL, MPU_MCP_URL,
+# Состав сборки — только в скриптах compile:* package.json (bun run);
+# здесь его нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
+# MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_BUN, MPU_BACK_URL, MPU_MCP_URL,
 # MPU_WEB_DIR, MPU_CLAUDE, MPU_NU.
 set -uo pipefail
 
@@ -27,7 +27,7 @@ bin_dir=${MPU_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
 web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
 systemctl=${MPU_SYSTEMCTL:-systemctl}
-deno=${MPU_DENO:-deno}
+bun=${MPU_BUN:-bun}
 nu=${MPU_NU:-nu}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
 mcp_url=${MPU_MCP_URL:-http://127.0.0.1:7339}
@@ -115,7 +115,7 @@ old_digest() {
 declare -A version
 for part in "${parts[@]}"; do
   program=$(program_of "$part")
-  if ! log=$(cd "$here" && MPU_OUT="$work/$program" "$deno" task "compile:$part" 2>&1); then
+  if ! log=$(cd "$here" && MPU_OUT="$work/$program" "$bun" run "compile:$part" 2>&1); then
     fail "сборка $part" "$(tail -n 1 <<<"$log")"
   fi
   if [[ $part == web ]]; then
