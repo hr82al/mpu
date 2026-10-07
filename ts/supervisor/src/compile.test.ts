@@ -20,9 +20,6 @@ const INCLUDED = [
   "back/src/telegram/mtcute-simd.wasm",
 ];
 
-/** Сборка идёт дольше умолчания Vitest (5 с); у `deno test` срока не было. */
-const BUILD_MS = 300_000;
-
 /** Код выхода и вывод программы; окружение — родителя плюс `env`. */
 async function output(
   command: string,
@@ -93,4 +90,4 @@ it("compile:back — --version и встроенные воркер и .wasm", a
   } finally {
     await rm(dir, { recursive: true });
   }
-}, BUILD_MS);
+});
