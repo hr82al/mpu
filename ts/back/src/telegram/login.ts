@@ -20,7 +20,7 @@ import {
   VerbatimError,
   VerbatimUsageError,
 } from "../command/mod.ts";
-import { firstLine } from "../http/mod.ts";
+import { firstLine } from "@mpu/http";
 
 /** Ключи env-файла, которыми распоряжается вход. */
 export const SESSION_KEY = "TELEGRAM_SESSION";

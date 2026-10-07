@@ -675,13 +675,11 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   библиотека держит строку сессии и api-hash и несёт бинарный wasm, её
   обновление — смена того, кому доверен секрет. При бампе пересобирается
   `wasm_modules.ts` (сверяет `crypto.test.ts`).
-- `https-proxy-agent` — прокси для `node:https` в общем HTTP-транспорте
-  (`back/src/http/route.ts`): туннель CONNECT одинаково под Bun, Deno и Node
-  (проба этапа 2; `undici` под Bun подменяется и ломается).
-- `socks-proxy-agent` — прокси `socks5`/`socks5h` в том же транспорте: Bot API
-  обещает эти схемы (`docs/specs/telegram-log.md`), а прежний клиент Deno их
-  понимал (решение владельца 2026-10-07). Версия 8.x — на той же `agent-base` 7,
-  что у `https-proxy-agent`.
+- `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
+  Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
+  архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
+  (`https-proxy-agent`, `socks-proxy-agent`) — её зависимости; их «зачем» — в
+  `tslibs/http/CLAUDE.md`.
 - `@hono/node-server` — сервер Hono на `node:http` для `mpu-back` и `mpu-mcp`
   вместо сервера Deno (`platform/node-runtime.md`, E1): проба этапа 2 —
   одинаково под Bun, Node и Deno; зависимостей, кроме `hono` (peer), нет.

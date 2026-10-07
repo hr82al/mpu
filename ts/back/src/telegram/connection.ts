@@ -11,7 +11,7 @@
 
 import type { ConnectionState, TelegramClient } from "@mtcute/node";
 import type { VerbatimError } from "../command/mod.ts";
-import { firstLine } from "../http/mod.ts";
+import { firstLine } from "@mpu/http";
 import { configError } from "./errors.ts";
 
 /** Предел соединения с узлом Telegram по спеке — 20 с. */

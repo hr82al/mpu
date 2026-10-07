@@ -1,19 +1,12 @@
 /**
- * Общая часть HTTP-вызовов внешних систем: один GET под двумя
- * пределами времени и причина отказа одной строкой. Шов один на трёх
- * клиентов — Portainer (`../portainer/mod.ts`), Loki (`../loki/mod.ts`)
- * и Kaiten (`../kaiten/mod.ts`), — поэтому пределы и отмена живут
- * здесь, а не переписываются в каждом.
+ * Вызов HTTP внешней системы: один запрос под двумя пределами времени,
+ * переходы по редиректам и причина отказа одной строкой. Шов один на всех
+ * клиентов mpu (Portainer, Loki, Kaiten, GitLab, Telegram и другие), поэтому
+ * пределы и отмена живут здесь, а не переписываются в каждом.
  *
  * О самих протоколах модуль не знает: заголовки запроса, разбор тела и
- * трактовка кода ответа — дело клиента.
- *
- * Модуль вынесен из `src/init/`: это платформенный атом транспорта
- * (`docs/specs/platform/loki-http.md`), а не часть команды init, и с
- * появлением второго потребителя (`update`) импорт мимо `mod.ts`
- * нарушил бы границу модулей. Здесь же — сборка тела
- * `multipart/form-data` (`./multipart.ts`): формат общий, а клиентов,
- * посылающих файлы, уже два.
+ * трактовка кода ответа — дело клиента. Маршрут (напрямую или через
+ * прокси) выбирает `./route.ts`; поверхность библиотеки — `../index.ts`.
  */
 
 import { Buffer } from "node:buffer";
@@ -26,17 +19,6 @@ import {
   routeOf,
   UnusableProxyError,
 } from "./route.ts";
-
-// Сборщик тела `multipart/form-data` — часть поверхности транспорта:
-// потребителей у него двое (вызовы Kaiten с файлами и `sendDocument`
-// Bot API), а внутренности модуля мимо `mod.ts` не импортируются.
-export { withoutCredentials } from "./credentials.ts";
-export type { ProxyEnv } from "./route.ts";
-export {
-  buildMultipartBody,
-  type MultipartBody,
-  type MultipartPart,
-} from "./multipart.ts";
 
 /** Предел ожидания заголовков ответа; число видно в `--help` init. */
 export const HEADERS_TIMEOUT_MS = 3_000;
@@ -544,6 +526,7 @@ function collect(
   // `IncomingMessage` общий для клиента и сервера (у серверного запроса его
   // нет); здесь ответ всегда клиентский, и к событию `response` статус уже
   // разобран.
+  // biome-ignore lint/style/noNonNullAssertion: инвариант — комментарий выше
   const status = res.statusCode!;
   const location = single(res.headers.location);
   if (!isRedirect(status, location)) call.onHeaders();

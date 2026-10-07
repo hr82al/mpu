@@ -36,6 +36,7 @@
   "dependencies": {
     "@hono/node-server": "1.19.5",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
     "@mtcute/convert": "0.31.0",
     "@mtcute/markdown-parser": "0.31.0",
     "@mtcute/node": "0.31.0",
@@ -44,12 +45,10 @@
     "@tanstack/react-router": "1.170.38",
     "fastest-levenshtein": "1.0.16",
     "hono": "4.12.33",
-    "https-proxy-agent": "7.0.6",
     "pg": "8.22.0",
     "proper-lockfile": "4.1.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "socks-proxy-agent": "8.0.5",
     "typescript": "5.9.3",
     "ws": "8.18.3",
     "zod": "4.4.3"

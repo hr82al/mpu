@@ -9,7 +9,7 @@
 
 import { DomainError } from "../command/mod.ts";
 import type { EnvKeys } from "./config.ts";
-import { withoutCredentials } from "../http/mod.ts";
+import { withoutCredentials } from "@mpu/http";
 import { configError } from "./errors.ts";
 
 /** Разобранная конфигурация бота. */
@@ -22,7 +22,7 @@ export interface BotConfig {
   /**
    * Прокси до `api.telegram.org`; не задан ни одним источником — поля
    * нет. Хранится строкой-URL, а не разобранным видом: транспорту HTTP
-   * нужен именно URL (`../http/mod.ts`, `proxy`), тогда как разбор в
+   * нужен именно URL (`@mpu/http`, `proxy`), тогда как разбор в
    * `./proxy.ts` служит транспорту MTProto и описывает другой набор
    * схем.
    */
@@ -38,7 +38,7 @@ export interface BotConfig {
 const PROXY_KEYS = ["TELEGRAM_PROXY", "HTTPS_PROXY", "https_proxy"] as const;
 
 /**
- * Схемы, которые понимает транспорт HTTP (`../http/route.ts`). Список уже,
+ * Схемы, которые понимает транспорт HTTP (`@mpu/http`). Список уже,
  * чем у MTProto: `socks4`/`socks4a` транспорт не принимает, и знать об этом
  * лучше до сети — иначе отказ пришёл бы безымянным.
  */

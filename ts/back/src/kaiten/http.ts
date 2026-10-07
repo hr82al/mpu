@@ -5,7 +5,7 @@
  * знает — перечни вызовов лежат в каталогах внешней границы
  * (`platform/kaiten-api-*.md`).
  *
- * Ниже транспорта — общий `httpSend` (`../http/mod.ts`): пределы времени
+ * Ниже транспорта — общий `httpSend` (`@mpu/http`): пределы времени
  * одного вызова и причина сетевого отказа одной строкой там уже решены;
  * здесь — только трактовка протокола Kaiten.
  *
@@ -20,7 +20,7 @@ import {
   httpSend,
   type MultipartPart,
   type RequestTimeouts,
-} from "../http/mod.ts";
+} from "@mpu/http";
 
 /**
  * Пределы времени каждого вызова Kaiten (`kaiten-http.md`, «Запрос»):
@@ -224,7 +224,7 @@ export async function kaitenCall(
       });
     } catch (err) {
       // `httpSend` бросает только `HttpCallError` — сообщение уже одной
-      // строкой (её собственный инвариант, `../http/mod.ts`), поэтому
+      // строкой (её собственный инвариант, `@mpu/http`), поэтому
       // переносится как есть, без повторного прогона через `firstLine`.
       if (!(err instanceof HttpCallError)) throw err;
       throw new KaitenError(err.message, { cause: err });

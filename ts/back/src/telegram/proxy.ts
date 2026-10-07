@@ -6,7 +6,7 @@
  * в env-файлах операторов (там же, «Известные отклонения»).
  */
 
-import { withoutCredentials } from "../http/mod.ts";
+import { withoutCredentials } from "@mpu/http";
 import { configError } from "./errors.ts";
 
 /** Вид туннеля: схема URL после приведения синонимов. */

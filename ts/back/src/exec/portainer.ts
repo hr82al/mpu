@@ -10,7 +10,7 @@
  */
 
 import process from "node:process";
-import { type HttpResponse, httpSend, type SendOptions } from "../http/mod.ts";
+import { type HttpResponse, httpSend, type SendOptions } from "@mpu/http";
 import type { RemoteOutput } from "../command/mod.ts";
 import { DomainError } from "../command/mod.ts";
 import { quoteArg, shellCommand } from "./shell.ts";

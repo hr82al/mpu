@@ -5,9 +5,9 @@
  */
 
 import { expect, it } from "vitest";
-import { serveFetch } from "../testing/http.ts";
-import { rejected } from "../testing/thrown.ts";
-import { HttpCallError, httpSend } from "./mod.ts";
+import { serveFetch } from "./testing/serve.ts";
+import { rejected } from "./testing/thrown.ts";
+import { HttpCallError, httpSend } from "../index.ts";
 
 /** Сервер, который не отвечает, пока тест его не отпустит. */
 async function withSilentServer(

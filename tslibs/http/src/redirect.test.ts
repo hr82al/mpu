@@ -7,9 +7,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "../testing/http.ts";
-import { rejected } from "../testing/thrown.ts";
-import { HttpCallError, httpGet, httpSend } from "./mod.ts";
+import { type FakeHttp, serveFetch } from "./testing/serve.ts";
+import { rejected } from "./testing/thrown.ts";
+import { HttpCallError, httpGet, httpSend } from "../index.ts";
 
 const TIMEOUTS = { headersTimeoutMs: 2000, totalTimeoutMs: 5000 };
 

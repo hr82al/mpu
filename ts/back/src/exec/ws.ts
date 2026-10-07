@@ -8,7 +8,7 @@
  * `X-API-Key` в рукопожатие и не умеет отправлять ping. Сокет берётся
  * через `node:net`/`node:tls` — у Deno нет способа отключить проверку
  * сертификата (`PORTAINER_VERIFY_TLS`), а у `node:tls` он есть; тем же
- * путём ходит и HTTP-клиент (`../http/mod.ts`).
+ * путём ходит и HTTP-клиент (`@mpu/http`).
  */
 
 import { connect as netConnect, isIP } from "node:net";

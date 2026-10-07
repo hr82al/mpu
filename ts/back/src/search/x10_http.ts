@@ -4,13 +4,13 @@
  * и единая форма отказа. Ни одного вызова по имени файл не знает — их
  * перечень лежит рядом, в `./x10.ts`.
  *
- * Ниже — общий `httpSend` (`../http/mod.ts`): пределы времени и причина
+ * Ниже — общий `httpSend` (`@mpu/http`): пределы времени и причина
  * сетевого отказа одной строкой решены там; здесь только трактовка
  * протокола 10X.
  */
 
 import { DomainError } from "../command/mod.ts";
-import { HttpCallError, httpSend } from "../http/mod.ts";
+import { HttpCallError, httpSend } from "@mpu/http";
 
 /** Дефолт базового URL, когда ни одна переменная не задана (спека). */
 const DEFAULT_BASE_URL = "https://app.system10x.ru/api";

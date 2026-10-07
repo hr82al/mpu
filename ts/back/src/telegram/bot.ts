@@ -2,7 +2,7 @@
  * Отправка в личного бота по Bot API (`docs/specs/telegram-log.md`).
  *
  * Bot API — JSON поверх HTTP, поэтому клиента протокола здесь нет:
- * транспорт общий с прочими внешними системами (`../http/mod.ts`) — от
+ * транспорт общий с прочими внешними системами (`@mpu/http`) — от
  * него два предела времени и причина отказа одной строкой. MTProto
  * (`./session.ts`) не задействован: другой протокол и другая модель
  * доступа, и команда не должна платить за крипту MTProto.
@@ -12,7 +12,7 @@
  * написавшему боту (спека, «CLI-контракт»).
  */
 
-import { buildMultipartBody, type MultipartPart } from "../http/mod.ts";
+import { buildMultipartBody, type MultipartPart } from "@mpu/http";
 import type { Attachment } from "./attachment.ts";
 import type { BotConfig } from "./bot_config.ts";
 import {
@@ -103,7 +103,7 @@ function botCall(chatId: number, message: BotMessage): BotCall {
       };
     case "document": {
       // Граница генерируется на запрос — как у Kaiten, второго
-      // потребителя того же сборщика (`../http/multipart.ts`).
+      // потребителя того же сборщика (`@mpu/http`).
       const built = buildMultipartBody(
         documentParts(chatId, message.caption, message.file),
         `mpu-${crypto.randomUUID()}`,

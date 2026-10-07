@@ -12,7 +12,7 @@
  */
 
 import type { CacheDb } from "../command/mod.ts";
-import { firstLine } from "../http/mod.ts";
+import { firstLine } from "@mpu/http";
 import {
   type ClientRow,
   type PgRow,

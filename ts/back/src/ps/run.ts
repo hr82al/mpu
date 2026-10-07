@@ -18,7 +18,7 @@ import {
   listContainers,
   PortainerError,
 } from "../portainer/mod.ts";
-import type { RequestTimeouts } from "../http/mod.ts";
+import type { RequestTimeouts } from "@mpu/http";
 import { type CacheReader, resolveSelector } from "../selector/mod.ts";
 
 /**

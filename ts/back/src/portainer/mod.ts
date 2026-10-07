@@ -4,7 +4,7 @@
  * контейнеров внутри одного из них и снимок логов контейнера. Модуль не
  * знает о командах, кэш-БД или конфигурации — только о протоколе
  * Portainer/Docker и о том, как назвать его отказ. Пределы времени и
- * транспорт — общие для клиентов Portainer, Loki и Kaiten (`../http/mod.ts`).
+ * транспорт — общие для клиентов Portainer, Loki и Kaiten (`@mpu/http`).
  *
  * Модуль вынесен из `src/init/`: со вторым потребителем (`logs`) это
  * платформенная граница, а не часть команды init, и импорт мимо
@@ -18,7 +18,7 @@ import {
   httpGet,
   httpGetBytes,
   type RequestTimeouts,
-} from "../http/mod.ts";
+} from "@mpu/http";
 
 /** Environment Portainer: пара (base_url, id) адресует Docker API сервера. */
 export interface PortainerEndpoint {
@@ -61,7 +61,7 @@ export interface PortainerAccess {
 /**
  * Сбой обращения к Portainer API: сеть, таймаут одного из двух
  * пределов, HTTP-код вне 2xx. Причина — всегда одной строкой (вердикт
- * fix спеки; одной строкой её делает `../http/mod.ts`).
+ * fix спеки; одной строкой её делает `@mpu/http`).
  */
 export class PortainerError extends Error {
   override name = "PortainerError";

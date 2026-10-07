@@ -11,7 +11,7 @@
  * состав прогрева и бюджет шага целиком (обход досок в частях 2–3).
  */
 
-import type { RequestTimeouts } from "../http/mod.ts";
+import type { RequestTimeouts } from "@mpu/http";
 import type { CacheDb } from "../command/mod.ts";
 import {
   KAITEN_TIMEOUTS,

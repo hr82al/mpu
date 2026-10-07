@@ -14,11 +14,7 @@ import {
   defineCommand,
   DomainError,
 } from "../command/mod.ts";
-import {
-  DEFAULT_TIMEOUTS,
-  firstLine,
-  type RequestTimeouts,
-} from "../http/mod.ts";
+import { DEFAULT_TIMEOUTS, firstLine, type RequestTimeouts } from "@mpu/http";
 import {
   collectLokiSeries,
   requireLokiAccess,

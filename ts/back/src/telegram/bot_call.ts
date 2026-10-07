@@ -12,7 +12,7 @@ import {
   HttpCallError,
   httpSend,
   type RequestTimeouts,
-} from "../http/mod.ts";
+} from "@mpu/http";
 
 /** Адрес Bot API; параметром — чтобы тест ходил на петлю, а не наружу. */
 export const TELEGRAM_API_BASE = "https://api.telegram.org";

@@ -8,7 +8,7 @@
  * у долгого опроса предел вызова — срок опроса плюс 10 с.
  */
 
-import type { RequestTimeouts } from "../http/mod.ts";
+import type { RequestTimeouts } from "@mpu/http";
 import {
   BOT_TIMEOUTS,
   BotCallError,

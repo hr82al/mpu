@@ -1,0 +1,34 @@
+{
+  "name": "@mpu/http",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test:bun": "bun --bun vitest run",
+    "test:node": "node node_modules/vitest/vitest.mjs run",
+    "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
+    "build": "rm -rf dist && bun build index.ts --target node --packages external --outfile dist/index.js && tsc -p tsconfig.build.json",
+    "release": "bun run build && bun pm pack --destination release",
+    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run build"
+  },
+  "dependencies": {
+    "https-proxy-agent": "7.0.6",
+    "socks-proxy-agent": "8.0.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

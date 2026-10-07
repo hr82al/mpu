@@ -31,7 +31,7 @@ import {
   HEADERS_TIMEOUT_MS,
   type RequestTimeouts,
   TOTAL_TIMEOUT_MS,
-} from "../http/mod.ts";
+} from "@mpu/http";
 import {
   listContainers,
   listEndpoints,
@@ -951,7 +951,7 @@ export function requirePortainerAccess(
   return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey, verifyTls };
 }
 
-/** Причина ошибки одной строкой (вердикт fix спеки — см. `../http/mod.ts`). */
+/** Причина ошибки одной строкой (вердикт fix спеки — см. `@mpu/http`). */
 function reasonOf(err: unknown): string {
   return firstLine(err instanceof Error ? err.message : String(err));
 }

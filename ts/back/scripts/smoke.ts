@@ -37,7 +37,7 @@ import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { VERSION } from "../src/version.ts";
 import { GRAMMAR } from "../src/messages/mod.ts";
-import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
+import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "@mpu/http";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";

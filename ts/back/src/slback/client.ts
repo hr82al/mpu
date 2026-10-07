@@ -8,7 +8,7 @@
  * транспорта (`api.md`).
  */
 
-import { httpSend } from "../http/mod.ts";
+import { httpSend } from "@mpu/http";
 
 /**
  * Предел всего вызова. Один, а не пара «заголовки/всё»: спека атома

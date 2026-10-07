@@ -2,7 +2,7 @@
  * Транспорт GitLab MR API (`platform/gitlab-api.md`, «HTTP-клиент»):
  * адрес, заголовки, пределы времени, пагинация и форма отказа.
  *
- * Ниже — общий `httpSend` (`../http/mod.ts`): отмена по двум пределам
+ * Ниже — общий `httpSend` (`@mpu/http`): отмена по двум пределам
  * и причина сетевого сбоя одной строкой решены там. Здесь только
  * трактовка протокола GitLab: что считается отказом и как выглядит
  * его текст.
@@ -12,7 +12,7 @@
  * достучаться до внутреннего GitLab через внешний прокси.
  */
 
-import { HttpCallError, httpSend, type RequestTimeouts } from "../http/mod.ts";
+import { HttpCallError, httpSend, type RequestTimeouts } from "@mpu/http";
 import type { RawObject } from "./model.ts";
 
 /** Дефолт `GITLAB_BASE_URL`, когда ключ не задан (спека). */

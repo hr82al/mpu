@@ -7,7 +7,7 @@
  * протоколе Loki и о таблицах кэша `loki_hosts`/`loki_services_by_host`
  * (`platform/store.md`), в которые пишет.
  *
- * Транспорт — общий `httpGet` (`../http/mod.ts`): пределы времени одного
+ * Транспорт — общий `httpGet` (`@mpu/http`): пределы времени одного
  * вызова и причина отказа одной строкой там уже решены, здесь — только
  * трактовка протокола Loki.
  *
@@ -22,7 +22,7 @@ import {
   httpGet,
   type HttpResponse,
   type RequestTimeouts,
-} from "../http/mod.ts";
+} from "@mpu/http";
 import type { CacheDb } from "../command/mod.ts";
 
 /** Путь series API относительно `baseUrl`. */
