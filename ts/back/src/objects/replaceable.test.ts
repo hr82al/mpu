@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { expect, it } from "vitest";
 import {
   DATA,
   type Doc,
@@ -52,7 +52,7 @@ async function writeModule(
   return new URL(`file://${path}`);
 }
 
-Deno.test("новая версия метода отвечает следующему сообщению", async () => {
+it("новая версия метода отвечает следующему сообщению", async () => {
   const dir = await Deno.makeTempDir();
   try {
     const ping = await Replaceable.load(
@@ -72,16 +72,16 @@ Deno.test("новая версия метода отвечает следующ�
       new Probe(),
     );
 
-    assertEquals(await runChain(["probe", "ping"], root), {
+    expect(await runChain(["probe", "ping"], root)).toStrictEqual({
       path: ["probe", "ping"],
       value: "A",
     });
     await ping.use(await writeModule(dir, "b.ts", "B"));
-    assertEquals(await runChain(["probe", "ping"], root), {
+    expect(await runChain(["probe", "ping"], root)).toStrictEqual({
       path: ["probe", "ping"],
       value: "B",
     });
-    assertEquals(await runChain(["probe", "calls"], root), {
+    expect(await runChain(["probe", "calls"], root)).toStrictEqual({
       path: ["probe", "calls"],
       value: 2,
     });

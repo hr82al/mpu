@@ -28,6 +28,13 @@
   // 2026-09-18 (порция 148); размеры собранных программ до и после — в
   // отчёте порции.
   "nodeModulesDir": "auto",
+  // Раннер выбирается именем файла (`docs/specs/platform/vitest.md`,
+  // [D.1]): `*_test.ts` — `deno test`, `*.test.ts` — корневой Vitest
+  // (`vitest.config.ts`), `*.test.tsx` и прочие тесты фронта — его
+  // `web:test`. По умолчанию `deno test` берёт и `*.test.ts(x)`.
+  "test": {
+    "exclude": ["**/*.test.ts", "**/*.test.tsx"]
+  },
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
@@ -197,6 +204,12 @@
     //     (`/bin/sh`, `/usr/bin/cat`) и
     //     `supervisor/src/watchdog_live_test.ts` (`ps`, `cat`, `kill`).
     "test": "deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=/bin/echo,/bin/false,/bin/net-takogo-binarya,deno,/bin/bash,/bin/sh,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill",
+    // Тесты `*.test.ts` (Vitest, `vitest.config.ts`) под Deno. Пакет — тот,
+    // что поставлен из `package.json` в `node_modules`: версия названа там
+    // одна, а `npm:vitest` без версии держал бы её только `deno.lock`.
+    // Прав Deno тесты не воспроизводят (решение владельца 2026-10-07),
+    // отсюда `-A`. Покрытие — `--coverage` (istanbul).
+    "vitest": "deno run -A node_modules/vitest/vitest.mjs run",
     // Права зашиваются в бинарь при сборке. Они — гигиена, а не барьер
     // (см. CLAUDE.md, «Права Deno»): фиксируют, куда команда вправе
     // тянуться, и делают расширение заметным. По строке на право:

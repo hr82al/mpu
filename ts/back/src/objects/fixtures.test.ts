@@ -3,7 +3,7 @@
  * спецификаций байт-в-байт.
  */
 
-import { assertEquals } from "@std/assert";
+import { describe, expect, it } from "vitest";
 
 const FIXTURES: readonly string[] = [
   "cases.json",
@@ -25,21 +25,20 @@ const channelDir = new URL(
 );
 const copyDir = new URL("testdata/objects/", import.meta.url);
 
-Deno.test("копии эталонов объектов совпадают с каналом", async (t) => {
+describe("копии эталонов объектов совпадают с каналом", () => {
   for (const name of FIXTURES) {
-    await t.step(name, async () => {
-      assertEquals(
-        await Deno.readTextFile(new URL(name, copyDir)),
+    it(name, async () => {
+      expect(await Deno.readTextFile(new URL(name, copyDir))).toStrictEqual(
         await Deno.readTextFile(new URL(name, channelDir)),
       );
     });
   }
 });
 
-Deno.test("в testdata объектов нет копий, которых нет в канале", async () => {
+it("в testdata объектов нет копий, которых нет в канале", async () => {
   const copied: string[] = [];
   for await (const entry of Deno.readDir(copyDir)) {
     copied.push(entry.name);
   }
-  assertEquals(copied.sort(), [...FIXTURES].sort());
+  expect(copied.sort()).toStrictEqual([...FIXTURES].sort());
 });

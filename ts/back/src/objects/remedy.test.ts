@@ -3,7 +3,7 @@
  * строка с ней вместо непонятого слова; иначе подсказать нечего.
  */
 
-import { assertEquals } from "@std/assert";
+import { describe, expect, it } from "vitest";
 import type { Scene } from "./protocol.ts";
 import { nearestOf } from "./remedy.ts";
 
@@ -12,7 +12,7 @@ function scene(line: readonly string[], start: number, end: number): Scene {
   return { address: "mpu", taken: [], line, start, end };
 }
 
-Deno.test("ближайшее вместо непонятого: слова и случаи без подсказки", async (t) => {
+describe("ближайшее вместо непонятого: слова и случаи без подсказки", () => {
   const cases: readonly {
     readonly name: string;
     readonly selector: string;
@@ -57,9 +57,9 @@ Deno.test("ближайшее вместо непонятого: слова и �
     },
   ];
   for (const c of cases) {
-    await t.step(c.name, () => {
+    it(c.name, () => {
       const hint = nearestOf(c.selector, c.candidates).hint(c.at);
-      assertEquals([hint.words(), hint.said()], [c.words, ""]);
+      expect([hint.words(), hint.said()]).toStrictEqual([c.words, ""]);
     });
   }
 });

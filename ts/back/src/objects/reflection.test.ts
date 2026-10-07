@@ -4,7 +4,7 @@
  * справки берутся селекторы, по каждому — шаг вглубь.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, expect, it } from "vitest";
 import { GRAMMAR } from "../messages/mod.ts";
 import { type Call, runChain } from "./mod.ts";
 import { testTree } from "./testtree.ts";
@@ -71,13 +71,12 @@ async function visit(
   visited.push(words.join(" "));
   const listed = messages(await textOf(root, sending(words, "--help")));
   assert("value" in own);
-  assertEquals(
+  expect(
     JSON.parse(String(own.value)).map((line: { selector: string }) =>
       line.selector
     ),
-    listed.filter((s) => !s.startsWith("<")),
     words.join(" "),
-  );
+  ).toStrictEqual(listed.filter((s) => !s.startsWith("<")));
   // Закрытые данные — форматы и отбор: сверены, отбор вглубь не обходится.
   if (listed.includes("json")) return;
   for (const selector of listed) {
@@ -85,10 +84,10 @@ async function visit(
   }
 }
 
-Deno.test("messages каждого объекта совпадает с его справкой", async () => {
+it("messages каждого объекта совпадает с его справкой", async () => {
   const visited: string[] = [];
   await visit(testTree().root, [], visited);
-  assertEquals(visited, [
+  expect(visited).toStrictEqual([
     "",
     "kiten",
     "kiten card",

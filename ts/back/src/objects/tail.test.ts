@@ -4,7 +4,7 @@
  * справки»).
  */
 
-import { assertEquals } from "@std/assert";
+import { describe, expect, it } from "vitest";
 import {
   DATA,
   type Doc,
@@ -58,7 +58,7 @@ async function chain(words: readonly string[]) {
   return { outcome: said(outcome), runs: runs.count() };
 }
 
-Deno.test("хвост и конец строки", async (t) => {
+describe("хвост и конец строки", () => {
   const cases: readonly {
     readonly words: readonly string[];
     readonly outcome: unknown;
@@ -117,8 +117,8 @@ Deno.test("хвост и конец строки", async (t) => {
     },
   ];
   for (const c of cases) {
-    await t.step(c.words.join(" "), async () => {
-      assertEquals(await chain(c.words), {
+    it(c.words.join(" "), async () => {
+      expect(await chain(c.words)).toStrictEqual({
         outcome: c.outcome,
         runs: c.runs,
       });

@@ -4,7 +4,7 @@
  * Цепочка идёт от данных как от начала строки.
  */
 
-import { assertEquals } from "@std/assert";
+import { describe, expect, it } from "vitest";
 import { GRAMMAR } from "../messages/mod.ts";
 import { runChain } from "./chain.ts";
 import { collectionOf, resultData, SELECTABLE } from "./data.ts";
@@ -30,7 +30,7 @@ const ROWS = [
   { id: 2, name: "B", tags: [], size: 10, note: "n" },
 ];
 
-Deno.test("виды данных: сообщения, текст и JSON", async (t) => {
+describe("виды данных: сообщения, текст и JSON", () => {
   const cases: readonly (readonly [unknown, readonly string[], Outcome])[] = [
     [ROWS, ["first"], {
       path: [],
@@ -72,13 +72,13 @@ Deno.test("виды данных: сообщения, текст и JSON", async
     }],
   ];
   for (const [value, words, outcome] of cases) {
-    await t.step(words.join(" "), async () => {
-      assertEquals(await over(value, words), outcome);
+    it(words.join(" "), async () => {
+      expect(await over(value, words)).toStrictEqual(outcome);
     });
   }
 });
 
-Deno.test("виды данных: отказы", async (t) => {
+describe("виды данных: отказы", () => {
   const cases: readonly (readonly [unknown, readonly string[], string])[] = [
     [ROWS, ["nope"], "mpu: коллекция не понимает nope"],
     [ROWS, ["sise"], "mpu: коллекция не понимает sise; ближайшие: size"],
@@ -103,26 +103,24 @@ Deno.test("виды данных: отказы", async (t) => {
     ],
   ];
   for (const [value, words, error] of cases) {
-    await t.step(words.join(" "), async () => {
-      assertEquals(said(await over(value, words)), { error, code: 2 });
+    it(words.join(" "), async () => {
+      expect(said(await over(value, words))).toStrictEqual({ error, code: 2 });
     });
   }
 });
 
-Deno.test("данные отвечают протоколом отражения", async () => {
+it("данные отвечают протоколом отражения", async () => {
   const outcome = await over(ROWS, ["first", "messages", END, "json"]);
   const lines = JSON.parse(String((outcome as { value: string }).value));
-  assertEquals(
-    lines.map((line: { selector: string }) => line.selector),
-    ["id", "name", "note", "pick:", "size", "tags"],
-  );
-  assertEquals(await over(ROWS, ["understands:", "size"]), {
+  expect(lines.map((line: { selector: string }) => line.selector))
+    .toStrictEqual(["id", "name", "note", "pick:", "size", "tags"]);
+  expect(await over(ROWS, ["understands:", "size"])).toStrictEqual({
     path: ["understands:"],
     value: "true\n",
   });
 });
 
-Deno.test("коллекция с видом источника: его текст над отобранным", async () => {
+it("коллекция с видом источника: его текст над отобранным", async () => {
   const origin = new AsideCall(
     "mpu",
     { purpose: "данные", help: "Данные." },
@@ -132,11 +130,11 @@ Deno.test("коллекция с видом источника: его текс�
         text: (items) => `${items.length} строк\n`,
       }),
   );
-  assertEquals(await runChain(["first:", "1"], origin), {
+  expect(await runChain(["first:", "1"], origin)).toStrictEqual({
     path: [],
     value: "1 строк\n",
   });
-  assertEquals(await runChain(["pick:", "id"], origin), {
+  expect(await runChain(["pick:", "id"], origin)).toStrictEqual({
     path: [],
     value: "1\n2\n",
   });
