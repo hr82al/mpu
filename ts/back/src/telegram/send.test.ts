@@ -1,5 +1,5 @@
-import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
-import { MtPeerNotFoundError, tl } from "@mtcute/deno";
+import { describe, expect, it } from "vitest";
+import { MtPeerNotFoundError, tl } from "@mtcute/node";
 import { VerbatimError } from "../command/mod.ts";
 import { clientRefusal } from "./client_refusal.ts";
 import { configError } from "./errors.ts";
@@ -7,6 +7,7 @@ import type { Peer } from "./peer.ts";
 import type { ClientMessage, PeerRef, TelegramClient } from "./client.ts";
 import type { RawChat } from "./chat.ts";
 import { sendMessage, type SendPlan } from "./send.ts";
+import { rejected } from "../testing/thrown.ts";
 
 /**
  * Отказ клиента в том виде, в каком его отдаёт порт сеанса: двойник порта
@@ -99,27 +100,27 @@ function message(
   return { id, chatId: 100000001, date: AT, ...patch };
 }
 
-Deno.test("текст уходит одним сообщением", async () => {
+it("текст уходит одним сообщением", async () => {
   const { client, seen } = stand([message(5000001)]);
-  assertEquals(await sendMessage(client, plan()), {
+  expect(await sendMessage(client, plan())).toStrictEqual({
     id: 5000001,
     chatId: 100000001,
     date: "2026-08-16T08:04:09+00:00",
   });
-  assertEquals(seen.texts, ["привет"]);
-  assertEquals(seen.documents, []);
+  expect(seen.texts).toStrictEqual(["привет"]);
+  expect(seen.documents).toStrictEqual([]);
 });
 
-Deno.test("адресат резолвится один раз и до отправки", async () => {
+it("адресат резолвится один раз и до отправки", async () => {
   const { client, seen } = stand([message(5000001)]);
   await sendMessage(
     client,
     plan({ target: "@durov", peer: { kind: "name", name: "durov" } }),
   );
-  assertEquals(seen.calls, ["resolve:name", "sendText"]);
+  expect(seen.calls).toStrictEqual(["resolve:name", "sendText"]);
 });
 
-Deno.test("вложения уходят одним альбомом, подпись — у последнего", async () => {
+it("вложения уходят одним альбомом, подпись — у последнего", async () => {
   const { client, seen } = stand([message(5000003), message(5000004)]);
   const sent = await sendMessage(
     client,
@@ -131,15 +132,15 @@ Deno.test("вложения уходят одним альбомом, подпи
       ],
     }),
   );
-  assertEquals(sent.id, 5000004);
-  assertEquals(seen.calls, ["resolve:me", "sendDocuments"]);
-  assertEquals(seen.documents, [["a.txt", "b.txt"]]);
+  expect(sent.id).toStrictEqual(5000004);
+  expect(seen.calls).toStrictEqual(["resolve:me", "sendDocuments"]);
+  expect(seen.documents).toStrictEqual([["a.txt", "b.txt"]]);
   // Подпись несёт последнее вложение, у прочих её нет вовсе.
-  assertEquals(seen.captions, [[undefined, "подпись"]]);
-  assertEquals(seen.texts, []);
+  expect(seen.captions).toStrictEqual([[undefined, "подпись"]]);
+  expect(seen.texts).toStrictEqual([]);
 });
 
-Deno.test("пустой текст — вложение без подписи", async () => {
+it("пустой текст — вложение без подписи", async () => {
   const { client, seen } = stand([message(5000002)]);
   await sendMessage(
     client,
@@ -148,16 +149,16 @@ Deno.test("пустой текст — вложение без подписи", 
       attachments: [{ name: "a.txt", bytes: new Uint8Array([1]) }],
     }),
   );
-  assertEquals(seen.captions, [[undefined]]);
+  expect(seen.captions).toStrictEqual([[undefined]]);
 });
 
-Deno.test("--md действует и на текст, и на подпись", async (t) => {
-  await t.step("текст", async () => {
+describe("--md действует и на текст, и на подпись", () => {
+  it("текст", async () => {
     const { client, seen } = stand([message(5000001)]);
     await sendMessage(client, plan({ markdown: true }));
-    assertEquals(seen.markdown, [true]);
+    expect(seen.markdown).toStrictEqual([true]);
   });
-  await t.step("подпись", async () => {
+  it("подпись", async () => {
     const { client, seen } = stand([message(5000002)]);
     await sendMessage(
       client,
@@ -166,28 +167,27 @@ Deno.test("--md действует и на текст, и на подпись", 
         attachments: [{ name: "a.txt", bytes: new Uint8Array([1]) }],
       }),
     );
-    assertEquals(seen.markdown, [true]);
+    expect(seen.markdown).toStrictEqual([true]);
   });
 });
 
-Deno.test("времени Telegram не сообщил — date остаётся null", async () => {
+it("времени Telegram не сообщил — date остаётся null", async () => {
   const { client } = stand([message(5000001, { date: null })]);
-  assertEquals((await sendMessage(client, plan())).date, null);
+  expect((await sendMessage(client, plan())).date).toStrictEqual(null);
 });
 
-Deno.test("идентификатора чата нет — отказ операции, а не ноль", async () => {
+it("идентификатора чата нет — отказ операции, а не ноль", async () => {
   const { client } = stand([message(5000001, { chatId: null })]);
-  const err = await assertRejects(
+  const err = await rejected(
     () => sendMessage(client, plan()),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: Telegram не сообщил идентификатор чата",
   );
 });
 
-Deno.test("адресат-название ищется поиском, а не резолвится напрямую", async () => {
+it("адресат-название ищется поиском, а не резолвится напрямую", async () => {
   const { client, seen } = stand([message(5000001)], undefined, [
     { peerType: "supergroup", rawId: 3, title: "Команда", username: null },
   ]);
@@ -195,14 +195,14 @@ Deno.test("адресат-название ищется поиском, а не 
     client,
     plan({ target: "Команда", peer: { kind: "title", title: "Команда" } }),
   );
-  assertEquals(seen.calls, [
+  expect(seen.calls).toStrictEqual([
     "searchChats:Команда",
     "resolve:id",
     "sendText",
   ]);
 });
 
-Deno.test("имени такого нет — вторая попытка ищет чат по названию", async () => {
+it("имени такого нет — вторая попытка ищет чат по названию", async () => {
   // Латинская строка без пробелов («news», «DEV») — обычное название
   // чата, и до поиска она обязана дойти.
   const { client, seen } = stand([message(5000001)], {
@@ -215,8 +215,8 @@ Deno.test("имени такого нет — вторая попытка ище
     client,
     plan({ target: "news", peer: { kind: "guess", name: "news" } }),
   );
-  assertEquals(sent.id, 5000001);
-  assertEquals(seen.calls, [
+  expect(sent.id).toStrictEqual(5000001);
+  expect(seen.calls).toStrictEqual([
     "resolve:name",
     "searchChats:news",
     "resolve:id",
@@ -224,7 +224,7 @@ Deno.test("имени такого нет — вторая попытка ище
   ]);
 });
 
-Deno.test("несколько чатов с таким названием — отказ со списком", async () => {
+it("несколько чатов с таким названием — отказ со списком", async () => {
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:name",
     err: refused(new MtPeerNotFoundError("Peer with username news not found")),
@@ -232,7 +232,7 @@ Deno.test("несколько чатов с таким названием — о
     { peerType: "supergroup", rawId: 3, title: "news рынка", username: null },
     { peerType: "channel", rawId: 4, title: "news дня", username: null },
   ]);
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -240,23 +240,22 @@ Deno.test("несколько чатов с таким названием — о
       ),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: под название 'news' подходит несколько чатов: " +
       "'news рынка' → id -1000000000003; 'news дня' → id -1000000000004; " +
       "попробуй: указать адресата по id или @username",
   );
-  assertEquals(seen.calls, ["resolve:name", "searchChats:news"]);
+  expect(seen.calls).toStrictEqual(["resolve:name", "searchChats:news"]);
 });
 
-Deno.test("объявленное имя второй попытки не получает", async () => {
+it("объявленное имя второй попытки не получает", async () => {
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:name",
     err: refused(new MtPeerNotFoundError("Peer with username durov not found")),
   }, [
     { peerType: "supergroup", rawId: 3, title: "durov", username: null },
   ]);
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -266,14 +265,13 @@ Deno.test("объявленное имя второй попытки не пол
   );
   // Пользователь сам сказал, что это имя, — искать чат с таким названием
   // не за чем.
-  assertEquals(seen.calls, ["resolve:name"]);
-  assertEquals(
+  expect(seen.calls).toStrictEqual(["resolve:name"]);
+  expect(
     err.message.startsWith("telegram: не удалось найти чат '@durov'"),
-    true,
-  );
+  ).toStrictEqual(true);
 });
 
-Deno.test("своё оформление отказа резолва без причины — само себе причина", async () => {
+it("своё оформление отказа резолва без причины — само себе причина", async () => {
   // Порт отдаёт строку слоя без исходного отказа клиента, когда отказ
   // оформил сам сеанс (адресат без идентификатора): причиной «не удалось
   // найти» становится она сама, а не пустота.
@@ -284,7 +282,7 @@ Deno.test("своё оформление отказа резолва без пр
     on: "resolve:name",
     err: own,
   });
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -292,17 +290,16 @@ Deno.test("своё оформление отказа резолва без пр
       ),
     VerbatimError,
   );
-  assertStrictEquals(err.cause, own);
-  assertEquals(
+  expect(err.cause).toBe(own);
+  expect(
     err.message.includes("Telegram вернул адресата без идентификатора"),
-    true,
     err.message,
-  );
+  ).toStrictEqual(true);
 });
 
-Deno.test("название без совпадений — отказ поиска, а не отправка", async () => {
+it("название без совпадений — отказ поиска, а не отправка", async () => {
   const { client, seen } = stand([message(5000001)], undefined, []);
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -310,22 +307,21 @@ Deno.test("название без совпадений — отказ поис�
       ),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: не удалось найти чат 'Команда': совпадений нет; " +
       "попробуй: mpu telegram ls 'Команда' и укажи id или @username",
   );
-  assertEquals(seen.calls, ["searchChats:Команда"]);
+  expect(seen.calls).toStrictEqual(["searchChats:Команда"]);
 });
 
-Deno.test("ни имени, ни чата с таким названием — отказ поиска", async () => {
+it("ни имени, ни чата с таким названием — отказ поиска", async () => {
   // То, что увидит пользователь живьём: первая попытка отказала,
   // вторая ничего не нашла.
   const { client, seen } = stand([], {
     on: "resolve:name",
     err: refused(new MtPeerNotFoundError("Peer with username news not found")),
   }, []);
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -333,20 +329,18 @@ Deno.test("ни имени, ни чата с таким названием — �
       ),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: не удалось найти чат 'news': совпадений нет; " +
       "попробуй: mpu telegram ls 'news' и укажи id или @username",
   );
-  assertEquals(seen.calls, ["resolve:name", "searchChats:news"]);
+  expect(seen.calls).toStrictEqual(["resolve:name", "searchChats:news"]);
   // Отказ первой попытки не показывается, но и не теряется.
-  assertEquals(
-    (err.cause as Error).message,
+  expect((err.cause as Error).message).toStrictEqual(
     "Peer with username news not found",
   );
 });
 
-Deno.test("имя нашлось — второй попытки не делается", async () => {
+it("имя нашлось — второй попытки не делается", async () => {
   const { client, seen } = stand([message(5000001)], undefined, [
     { peerType: "supergroup", rawId: 3, title: "durov", username: null },
   ]);
@@ -354,10 +348,10 @@ Deno.test("имя нашлось — второй попытки не делае
     client,
     plan({ target: "durov", peer: { kind: "guess", name: "durov" } }),
   );
-  assertEquals(seen.calls, ["resolve:name", "sendText"]);
+  expect(seen.calls).toStrictEqual(["resolve:name", "sendText"]);
 });
 
-Deno.test("отказ на найденном чате — отказ Telegram, не «не найден»", async () => {
+it("отказ на найденном чате — отказ Telegram, не «не найден»", async () => {
   const flood = refused(
     tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
   );
@@ -365,7 +359,7 @@ Deno.test("отказ на найденном чате — отказ Telegram, 
     on: "resolve:id",
     err: flood,
   }, [{ peerType: "supergroup", rawId: 3, title: "news", username: null }]);
-  const err = await assertRejects(
+  const err = await rejected(
     () =>
       sendMessage(
         client,
@@ -375,23 +369,23 @@ Deno.test("отказ на найденном чате — отказ Telegram, 
   );
   // Чат только что нашёлся, его id пришёл от сервера — значит это отказ
   // операции, а не ненайденный адресат.
-  assertEquals(err.message, "telegram: rate-limit, подожди 42s");
-  assertEquals(seen.calls, ["searchChats:news", "resolve:id"]);
+  expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
+  expect(seen.calls).toStrictEqual(["searchChats:news", "resolve:id"]);
 });
 
-Deno.test("отказ отправки не выдаётся за отказ адресата", async () => {
+it("отказ отправки не выдаётся за отказ адресата", async () => {
   const { client } = stand([], {
     on: "send",
     err: refused(new tl.RpcError(400, "MEDIA_EMPTY")),
   });
-  const err = await assertRejects(
+  const err = await rejected(
     () => sendMessage(client, plan()),
     VerbatimError,
   );
-  assertEquals(err.message, "telegram: RPC error: MEDIA_EMPTY");
+  expect(err.message).toStrictEqual("telegram: RPC error: MEDIA_EMPTY");
 });
 
-Deno.test("дефект клиента не выдаётся ни за отказ Telegram, ни за «не найден»", async (t) => {
+describe("дефект клиента не выдаётся ни за отказ Telegram, ни за «не найден»", () => {
   // Спека, «Что считается отказом Telegram / слоя клиента»: отказ клиента
   // оформляет порт сеанса; не оформленное портом — не отказ Telegram и
   // уходит тем же объектом (код 1 и исходный текст ставит точка входа).
@@ -427,22 +421,23 @@ Deno.test("дефект клиента не выдаётся ни за отка�
     },
   ];
   for (const { name, on, target, peer, found } of cases) {
-    await t.step(name, async () => {
+    it(name, async () => {
       const defect = new TypeError(`дефект: ${name}`);
       const { client } = stand(
         [message(5000001)],
         { on, err: defect },
         found,
       );
-      const err = await assertRejects(() =>
-        sendMessage(client, plan({ target, peer }))
+      const err = await rejected(
+        () => sendMessage(client, plan({ target, peer })),
+        Error,
       );
-      assertStrictEquals(err, defect);
+      expect(err).toBe(defect);
     });
   }
 });
 
-Deno.test("отказ двойника без Error уходит как есть", async () => {
+it("отказ двойника без Error уходит как есть", async () => {
   // Не-Error бросают редко: молча потерять такой отказ нельзя, а выдавать
   // его за отказ Telegram — тоже.
   const { client } = stand([], {
@@ -453,17 +448,17 @@ Deno.test("отказ двойника без Error уходит как есть
     () => "ушло",
     (err: unknown) => err,
   );
-  assertEquals(outcome, "странный отказ");
+  expect(outcome).toStrictEqual("странный отказ");
 });
 
-Deno.test("rate-limit сообщается со сроком ожидания", async () => {
+it("rate-limit сообщается со сроком ожидания", async () => {
   const flood = refused(
     tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
   );
   const { client } = stand([], { on: "send", err: flood });
-  const err = await assertRejects(
+  const err = await rejected(
     () => sendMessage(client, plan()),
     VerbatimError,
   );
-  assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+  expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
 });

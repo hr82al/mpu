@@ -4,26 +4,27 @@
  * установлено за 20 с — отказ текстом спеки, у входа — пропуск с тем же
  * текстом; сообщения библиотеки клиента в stdout не пишутся.
  *
- * Наружу не уходит ничего: `Deno.connect` подменён отказом либо соединение и
- * запросы клиента подменены на прототипе, а пределы (20 с, у входа 60 с)
- * отсчитывает `FakeTime`.
+ * Наружу не уходит ничего: `connect` сокета подменён отказом либо соединение
+ * и запросы клиента подменены на прототипе, а пределы (20 с, у входа 60 с)
+ * отсчитывают поддельные часы Vitest.
  * Переподключения клиента под поддельными часами редки (зонд разбора 132:
  * две попытки к 25 с), так что тишина за предел ничего не доказывает:
  * «клиент погашен» проверяется счётчиком `destroy`, а цикл переподключения
  * по настоящим часам держит smoke-проверка бинаря.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import { FakeTime } from "@std/testing/time";
-import { TelegramClient } from "@mtcute/deno";
+import { Socket } from "node:net";
+import process from "node:process";
+import { TelegramClient } from "@mtcute/node";
+import { describe, expect, it, vi } from "vitest";
 import { VerbatimError } from "../command/mod.ts";
 import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo, promptQueue } from "../testing/mod.ts";
 import { openSession } from "./session.ts";
 
-/** Причина отказа соединения, как её отдаёт Deno. */
-const REFUSAL = "Connection refused (os error 111)";
+/** Причина отказа соединения, как её отдаёт `node:net`. */
+const REFUSAL = "connect ECONNREFUSED 127.0.0.1:1";
 
 /** Строка отказа по спеке — предел назван в ней числом. */
 const LIMIT_TEXT = `telegram: нет соединения с Telegram за 20 с: ${REFUSAL}`;
@@ -44,16 +45,22 @@ function refuseConnections():
   & { readonly attempted: Promise<void> }
   & Disposable {
   const attempted = Promise.withResolvers<void>();
-  const realConnect = Deno.connect;
-  // `Reflect.set`: у `Deno.connect` три перегрузки, одна подмена на все в
-  // их тип не приводится.
-  Reflect.set(Deno, "connect", () => {
+  const realConnect = Socket.prototype.connect;
+  // `Reflect.set`: у `connect` сокета несколько перегрузок, одна подмена на
+  // все в их тип не приводится. Отказ — событием на следующем обороте, как
+  // у настоящего сокета: слушатель `error` клиент вешает после `connect`.
+  Reflect.set(Socket.prototype, "connect", function (this: Socket) {
     attempted.resolve();
-    return Promise.reject(new Deno.errors.ConnectionRefused(REFUSAL));
+    const refusal = Object.assign(new Error(REFUSAL), {
+      code: "ECONNREFUSED",
+    });
+    process.nextTick(() => this.destroy(refusal));
+    return this;
   });
   return {
     attempted: attempted.promise,
-    [Symbol.dispose]: () => void Reflect.set(Deno, "connect", realConnect),
+    [Symbol.dispose]: () =>
+      void Reflect.set(Socket.prototype, "connect", realConnect),
   };
 }
 
@@ -69,18 +76,16 @@ function captureClientLogs(): {
   const stderr: unknown[][] = [];
   const realLog = console.log;
   const realError = console.error;
-  const realLevel = Deno.env.get("MTCUTE_LOG_LEVEL");
   console.log = (...args: unknown[]) => void stdout.push(args);
   console.error = (...args: unknown[]) => void stderr.push(args);
-  Deno.env.set("MTCUTE_LOG_LEVEL", "5");
+  vi.stubEnv("MTCUTE_LOG_LEVEL", "5");
   return {
     stdout,
     stderr,
     [Symbol.dispose]: () => {
       console.log = realLog;
       console.error = realError;
-      if (realLevel === undefined) Deno.env.delete("MTCUTE_LOG_LEVEL");
-      else Deno.env.set("MTCUTE_LOG_LEVEL", realLevel);
+      vi.unstubAllEnvs();
     },
   };
 }
@@ -145,17 +150,16 @@ function run(
  * завершилась: без предела тест краснеет здесь, а не висит.
  */
 async function expireLimit(
-  time: FakeTime,
   operation: { readonly settled: () => boolean },
   limitMs = 20_000,
 ): Promise<void> {
   const seconds = limitMs / 1000;
-  await time.tickAsync(limitMs - 1);
-  await drain(time, operation);
-  assertEquals(operation.settled(), false, `отказ пришёл раньше ${seconds} с`);
-  await time.tickAsync(1);
-  await drain(time, operation);
-  assertEquals(operation.settled(), true, `за ${seconds} с отказа нет`);
+  await vi.advanceTimersByTimeAsync(limitMs - 1);
+  await drain(operation);
+  expect(operation.settled(), `отказ пришёл раньше ${seconds} с`).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  await drain(operation);
+  expect(operation.settled(), `за ${seconds} с отказа нет`).toBe(true);
 }
 
 /**
@@ -163,33 +167,33 @@ async function expireLimit(
  * завершением операции клиент ещё закрывается, и это несколько оборотов
  * микрозадач. Без этого проверка «раньше предела отказа нет» смотрела бы
  * до того, как отказ успел бы прийти, и молчала бы на слишком коротком
- * пределе.
+ * пределе. Оборот — сдвиг часов на ноль: он отдаёт ход циклу событий, и
+ * отказы сокета (`process.nextTick`) доходят тоже.
  */
 async function drain(
-  time: FakeTime,
   operation: { readonly settled: () => boolean },
 ): Promise<void> {
   for (let turn = 0; turn < 20 && !operation.settled(); turn++) {
-    await time.runMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
   }
 }
 
-Deno.test("сеанс: нет соединения за 20 с — отказ текстом спеки, ровно на пределе", async () => {
-  using time = new FakeTime();
+it("сеанс: нет соединения за 20 с — отказ текстом спеки, ровно на пределе", async () => {
+  using _time = fakeTime();
   using refused = refuseConnections();
   using _logs = captureClientLogs();
   const opening = track(
     openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
   );
   await Promise.race([refused.attempted, opening.done]);
-  await expireLimit(time, opening);
+  await expireLimit(opening);
   const outcome = await opening.done;
-  assertEquals(outcome instanceof VerbatimError, true, String(outcome));
-  assertEquals((outcome as VerbatimError).message, LIMIT_TEXT);
+  expect(outcome instanceof VerbatimError, String(outcome)).toBe(true);
+  expect((outcome as VerbatimError).message).toBe(LIMIT_TEXT);
 });
 
-Deno.test("mpu telegram ls: нет соединения — код 1 с текстом спеки, stdout без лога клиента", async () => {
-  using time = new FakeTime();
+it("mpu telegram ls: нет соединения — код 1 с текстом спеки, stdout без лога клиента", async () => {
+  using _time = fakeTime();
   using refused = refuseConnections();
   using logs = captureClientLogs();
   const ls = run(["telegram", "ls", "--limit", "1"], {
@@ -199,17 +203,17 @@ Deno.test("mpu telegram ls: нет соединения — код 1 с текс
   });
   const code = track(ls.code);
   await Promise.race([refused.attempted, code.done]);
-  await expireLimit(time, code);
-  assertEquals(await code.done, 1, ls.stderr.join(""));
-  assertStringIncludes(ls.stderr.join(""), LIMIT_TEXT);
-  assertEquals(ls.stdout, []);
+  await expireLimit(code);
+  expect(await code.done, ls.stderr.join("")).toBe(1);
+  expect(ls.stderr.join("")).toContain(LIMIT_TEXT);
+  expect(ls.stdout).toStrictEqual([]);
   // Библиотека писала — и не в stdout процесса.
-  assertEquals(logs.stdout, [], "лог клиента ушёл в stdout");
-  assertEquals(logs.stderr.length > 0, true, "лог клиента не писался вовсе");
+  expect(logs.stdout, "лог клиента ушёл в stdout").toStrictEqual([]);
+  expect(logs.stderr.length > 0, "лог клиента не писался вовсе").toBe(true);
 });
 
-Deno.test("mpu telegram login: нет соединения — пропуск с тем же текстом, код 0", async () => {
-  using time = new FakeTime();
+it("mpu telegram login: нет соединения — пропуск с тем же текстом, код 0", async () => {
+  using _time = fakeTime();
   using refused = refuseConnections();
   using _logs = captureClientLogs();
   const login = run(["telegram", "login"], {
@@ -218,12 +222,18 @@ Deno.test("mpu telegram login: нет соединения — пропуск с
   });
   const code = track(login.code);
   await Promise.race([refused.attempted, code.done]);
-  await expireLimit(time, code);
+  await expireLimit(code);
   const stderr = login.stderr.join("");
-  assertEquals(await code.done, 0, stderr);
-  assertStringIncludes(stderr, `# telegram: пропущено (${LIMIT_TEXT})\n`);
-  assertEquals(login.written, { TELEGRAM_PHONE: "+70001112233" });
+  expect(await code.done, stderr).toBe(0);
+  expect(stderr).toContain(`# telegram: пропущено (${LIMIT_TEXT})\n`);
+  expect(login.written).toStrictEqual({ TELEGRAM_PHONE: "+70001112233" });
 });
+
+/** Поддельные часы на время теста; снятие — возврат настоящих. */
+function fakeTime(): Disposable {
+  vi.useFakeTimers();
+  return { [Symbol.dispose]: () => void vi.useRealTimers() };
+}
 
 /**
  * Подменяет метод на прототипе клиента на время теста. Метод, лежавший
@@ -281,7 +291,7 @@ function silentRequest(
   };
 }
 
-Deno.test("сеанс: соединение есть, ответа нет за 20 с — отказ текстом спеки, клиент погашен", async (t) => {
+describe("сеанс: соединение есть, ответа нет за 20 с — отказ текстом спеки, клиент погашен", () => {
   const cases = [
     {
       name: "узел молчит — узел не ответил",
@@ -296,8 +306,8 @@ Deno.test("сеанс: соединение есть, ответа нет за 2
     },
   ];
   for (const { name, before, text } of cases) {
-    await t.step(name, async () => {
-      using time = new FakeTime();
+    it(name, async () => {
+      using _time = fakeTime();
       using _refused = refuseConnections();
       using _logs = captureClientLogs();
       using _connect = connectedAtOnce();
@@ -307,17 +317,17 @@ Deno.test("сеанс: соединение есть, ответа нет за 2
         openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
       );
       await Promise.race([silent.asked, opening.done]);
-      await expireLimit(time, opening);
+      await expireLimit(opening);
       const outcome = await opening.done;
-      assertEquals(outcome instanceof VerbatimError, true, String(outcome));
-      assertEquals((outcome as VerbatimError).message, text);
-      assertEquals(destroys.count(), 1, "клиент не погашен ровно раз");
+      expect(outcome instanceof VerbatimError, String(outcome)).toBe(true);
+      expect((outcome as VerbatimError).message).toBe(text);
+      expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
     });
   }
 });
 
-Deno.test("сеанс: отказ по пределу соединения — клиент погашен ровно раз", async () => {
-  using time = new FakeTime();
+it("сеанс: отказ по пределу соединения — клиент погашен ровно раз", async () => {
+  using _time = fakeTime();
   using refused = refuseConnections();
   using _logs = captureClientLogs();
   using destroys = countDestroys();
@@ -325,17 +335,17 @@ Deno.test("сеанс: отказ по пределу соединения — �
     openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
   );
   await Promise.race([refused.attempted, opening.done]);
-  await expireLimit(time, opening);
-  assertEquals(await opening.done instanceof VerbatimError, true);
-  assertEquals(destroys.count(), 1, "клиент не погашен ровно раз");
+  await expireLimit(opening);
+  expect(await opening.done instanceof VerbatimError).toBe(true);
+  expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
 });
 
-Deno.test("сеанс: успех — пределы и подписки сняты, таймеров от вызова нет", async () => {
+it("сеанс: успех — пределы и подписки сняты, таймеров от вызова нет", async () => {
   // Неснятый таймер предела ничем не проявляется: он лишь разрешает
   // обещание, которого никто не ждёт, а санитайзер теста таймеров не
   // считает. Поэтому признак — поддельные часы: после входа у них не
-  // остаётся ни одного запланированного таймера (`time.next()`).
-  using time = new FakeTime();
+  // остаётся ни одного запланированного таймера (`vi.getTimerCount()`).
+  using _time = fakeTime();
   using _refused = refuseConnections();
   using _logs = captureClientLogs();
   let entered: TelegramClient | undefined;
@@ -351,22 +361,21 @@ Deno.test("сеанс: успех — пределы и подписки сня�
     session: acceptedSession(),
   });
   try {
-    assertEquals(time.next(), false, "после входа остался таймер");
+    expect(vi.getTimerCount(), "после входа остался таймер").toBe(0);
     // Время за пределами обоих пределов: отказа нет, сеанс цел.
-    await time.tickAsync(40_000);
-    assertEquals(entered?.onError.length, 0, "подписка на ошибки не снята");
-    assertEquals(
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(entered?.onError.length, "подписка на ошибки не снята").toBe(0);
+    expect(
       entered?.onConnectionState.length,
-      0,
       "подписка на состояние не снята",
-    );
+    ).toBe(0);
   } finally {
     await session.close();
   }
 });
 
-Deno.test("mpu telegram login: соединение есть, ответа нет — пропуск с текстом спеки, код 0", async () => {
-  using time = new FakeTime();
+it("mpu telegram login: соединение есть, ответа нет — пропуск с текстом спеки, код 0", async () => {
+  using _time = fakeTime();
   using _refused = refuseConnections();
   using _logs = captureClientLogs();
   using _connect = connectedAtOnce();
@@ -379,14 +388,13 @@ Deno.test("mpu telegram login: соединение есть, ответа не�
   const code = track(login.code);
   await Promise.race([silent.asked, code.done]);
   // У входа предел первого ответа — 60 с (спека: смена DC и flood-wait).
-  await expireLimit(time, code, 60_000);
+  await expireLimit(code, 60_000);
   const stderr = login.stderr.join("");
-  assertEquals(await code.done, 0, stderr);
-  assertStringIncludes(
-    stderr,
+  expect(await code.done, stderr).toBe(0);
+  expect(stderr).toContain(
     "# telegram: пропущено (telegram: нет ответа от Telegram за 60 с: узел не ответил)\n",
   );
   // Рендер входа — пустой текст: запись есть, но stdout пуст.
-  assertEquals(login.stdout.join(""), "");
-  assertEquals(destroys.count(), 1, "клиент не погашен ровно раз");
+  expect(login.stdout.join("")).toBe("");
+  expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
 });

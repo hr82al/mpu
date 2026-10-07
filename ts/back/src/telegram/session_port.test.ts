@@ -2,7 +2,7 @@
  * Граница порта сеанса (`docs/specs/platform/telegram-mtproto.md`, «Что
  * считается отказом Telegram / слоя клиента»): каждый метод сеанса, который
  * зовёт клиента, отдаёт отказ клиента строкой слоя, а прочее — тем же
- * объектом. Сам классификатор проверен отдельно (`client_refusal_test.ts`);
+ * объектом. Сам классификатор проверен отдельно (`client_refusal.test.ts`);
  * здесь закреплено место его вызова — на каждом методе порта, при входе в
  * сеанс и у команды поверх порта.
  *
@@ -10,17 +10,16 @@
  * высокоуровневого клиента — именно их зовёт `session.ts`.
  */
 
-import {
-  assertEquals,
-  assertRejects,
-  assertStrictEquals,
-  assertStringIncludes,
-} from "@std/assert";
-import { Long, Message, PeersIndex, TelegramClient, tl } from "@mtcute/deno";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { Long, Message, PeersIndex, TelegramClient, tl } from "@mtcute/node";
 import { VerbatimError } from "../command/mod.ts";
 import type { EnvFile } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { rejected } from "../testing/thrown.ts";
 import type { PeerRef } from "./client.ts";
 import { Inbox } from "./inbox.ts";
 import { openSession, type TelegramSession } from "./session.ts";
@@ -165,12 +164,12 @@ const METHODS: readonly PortMethod[] = [
     iterates: true,
     call: async (session) => {
       using _found = stub("getMessages", () => Promise.resolve([DOCUMENT]));
-      const dir = await Deno.makeTempDir();
+      const dir = await mkdtemp(join(tmpdir(), "session-port-"));
       try {
         const file = await session.messageFile(PEER, 42);
         return await file.saveTo(new Inbox(dir), 42);
       } finally {
-        await Deno.remove(dir, { recursive: true });
+        await rm(dir, { recursive: true, force: true });
       }
     },
   },
@@ -200,9 +199,9 @@ function failing(
   };
 }
 
-Deno.test("порт сеанса: отказ клиента — строкой слоя, прочее — тем же объектом", async (t) => {
+describe("порт сеанса: отказ клиента — строкой слоя, прочее — тем же объектом", () => {
   for (const method of METHODS) {
-    await t.step(
+    it(
       `${method.name}: дефект своего кода — тот же объект`,
       async () => {
         using _connect = connectedAtOnce();
@@ -211,14 +210,14 @@ Deno.test("порт сеанса: отказ клиента — строкой �
         using _failing = stub(method.client, failing(method, defect));
         const session = await openSession(CONFIG);
         try {
-          const err = await assertRejects(() => method.call(session));
-          assertStrictEquals(err, defect);
+          const err = await rejected(() => method.call(session), Error);
+          expect(err).toBe(defect);
         } finally {
           await session.close();
         }
       },
     );
-    await t.step(
+    it(
       `${method.name}: rate-limit клиента — строкой слоя`,
       async () => {
         using _connect = connectedAtOnce();
@@ -226,11 +225,13 @@ Deno.test("порт сеанса: отказ клиента — строкой �
         using _failing = stub(method.client, failing(method, floodWait()));
         const session = await openSession(CONFIG);
         try {
-          const err = await assertRejects(
+          const err = await rejected(
             () => method.call(session),
             VerbatimError,
           );
-          assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+          expect(err.message).toStrictEqual(
+            "telegram: rate-limit, подожди 42s",
+          );
         } finally {
           await session.close();
         }
@@ -239,28 +240,30 @@ Deno.test("порт сеанса: отказ клиента — строкой �
   }
 });
 
-Deno.test("вход в сеанс: дефект своего кода при проверке себя — тот же объект", async (t) => {
-  await t.step("дефект — тот же объект, не RPC error", async () => {
+describe("вход в сеанс: дефект своего кода при проверке себя — тот же объект", () => {
+  it("дефект — тот же объект, не RPC error", async () => {
     using _connect = connectedAtOnce();
     const defect = new TypeError("дефект при проверке себя");
     using _getMe = stub("getMe", () => Promise.reject(defect));
-    const err = await assertRejects(() => openSession(CONFIG));
-    assertStrictEquals(err, defect);
+    const err = await rejected(() => openSession(CONFIG), Error);
+    expect(err).toBe(defect);
   });
-  await t.step("rate-limit клиента — строкой слоя", async () => {
+  it("rate-limit клиента — строкой слоя", async () => {
     using _connect = connectedAtOnce();
     using _getMe = stub("getMe", () => Promise.reject(floodWait()));
-    const err = await assertRejects(() => openSession(CONFIG), VerbatimError);
-    assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+    const err = await rejected(() => openSession(CONFIG), VerbatimError);
+    expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
   });
-  await t.step("отказ авторизации — «не авторизован»", async () => {
+  it("отказ авторизации — «не авторизован»", async () => {
     using _connect = connectedAtOnce();
     using _getMe = stub(
       "getMe",
       () => Promise.reject(new tl.RpcError(401, "AUTH_KEY_UNREGISTERED")),
     );
-    const err = await assertRejects(() => openSession(CONFIG), VerbatimError);
-    assertEquals(err.message, "telegram: не авторизован; запусти `mpu init`");
+    const err = await rejected(() => openSession(CONFIG), VerbatimError);
+    expect(err.message).toStrictEqual(
+      "telegram: не авторизован; запусти `mpu init`",
+    );
   });
 });
 
@@ -289,29 +292,33 @@ function runLs(): {
   return { code, stderr };
 }
 
-Deno.test("mpu telegram ls: дефект клиента — наружу тем же объектом, rate-limit — код 1", async (t) => {
-  const listDialogs = METHODS.find((method) => method.name === "listDialogs");
-  if (listDialogs === undefined) throw new TypeError("нет метода listDialogs");
-  await t.step("дефект — тот же объект из runCli", async () => {
+/** Метод порта `listDialogs`, на котором держится `mpu telegram ls`. */
+function listDialogsMethod(): PortMethod {
+  const found = METHODS.find((method) => method.name === "listDialogs");
+  if (found === undefined) throw new TypeError("нет метода listDialogs");
+  return found;
+}
+
+describe("mpu telegram ls: дефект клиента — наружу тем же объектом, rate-limit — код 1", () => {
+  it("дефект — тот же объект из runCli", async () => {
     using _connect = connectedAtOnce();
     using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
+    const listDialogs = listDialogsMethod();
     const defect = new TypeError("дефект списка диалогов");
     using _failing = stub(listDialogs.client, failing(listDialogs, defect));
-    const err = await assertRejects(() => runLs().code);
-    assertStrictEquals(err, defect);
+    const err = await rejected(() => runLs().code, Error);
+    expect(err).toBe(defect);
   });
-  await t.step("rate-limit — код 1 со сроком", async () => {
+  it("rate-limit — код 1 со сроком", async () => {
     using _connect = connectedAtOnce();
     using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
+    const listDialogs = listDialogsMethod();
     using _failing = stub(
       listDialogs.client,
       failing(listDialogs, floodWait()),
     );
     const ls = runLs();
-    assertEquals(await ls.code, 1);
-    assertStringIncludes(
-      ls.stderr.join(""),
-      "telegram: rate-limit, подожди 42s",
-    );
+    expect(await ls.code).toStrictEqual(1);
+    expect(ls.stderr.join("")).toContain("telegram: rate-limit, подожди 42s");
   });
 });

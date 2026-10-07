@@ -13,7 +13,7 @@
  * клиент MTProto — лениво, в сеансе.
  */
 
-import type { tl } from "@mtcute/deno";
+import type { tl } from "@mtcute/node";
 
 /** Правило экранирования символа видимого текста. */
 interface Escaping {

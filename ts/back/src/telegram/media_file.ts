@@ -14,7 +14,7 @@ import {
   type MessageMedia,
   Photo,
   RawDocument,
-} from "@mtcute/deno";
+} from "@mtcute/node";
 import {
   documentFile,
   type MessageFile,

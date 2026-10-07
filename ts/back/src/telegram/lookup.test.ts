@@ -1,5 +1,6 @@
-import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
-import { tl } from "@mtcute/deno";
+import { expect, it } from "vitest";
+import { tl } from "@mtcute/node";
+import { rejected } from "../testing/thrown.ts";
 import { VerbatimError } from "../command/mod.ts";
 import { clientRefusal } from "./client_refusal.ts";
 import type { RawChat } from "./chat.ts";
@@ -26,67 +27,61 @@ function search(
   };
 }
 
-Deno.test("ровно одно совпадение — это и есть адресат", async () => {
+it("ровно одно совпадение — это и есть адресат", async () => {
   const { client, asked } = search([chat(3, "Команда релиза")]);
-  assertEquals(await findChatByTitle(client, "Команда релиза", "чат"), {
+  expect(await findChatByTitle(client, "Команда релиза", "чат")).toStrictEqual({
     id: -1000000000003,
     title: "Команда релиза",
     kind: "group",
     username: null,
   });
   // Первые 50 кандидатов — тот же предел, что у `ls` по умолчанию.
-  assertEquals(asked, [["Команда релиза", 50]]);
+  expect(asked).toStrictEqual([["Команда релиза", 50]]);
 });
 
-Deno.test("сравнение без учёта регистра", async () => {
+it("сравнение без учёта регистра", async () => {
   const { client } = search([chat(3, "Команда Релиза")]);
-  assertEquals(
-    (await findChatByTitle(client, "команда релиза", "чат")).id,
-    -1000000000003,
-  );
+  expect((await findChatByTitle(client, "команда релиза", "чат")).id)
+    .toStrictEqual(-1000000000003);
 });
 
-Deno.test("точное совпадение старше подстрочных", async () => {
+it("точное совпадение старше подстрочных", async () => {
   const { client } = search([
     chat(1, "Команда релиза и поддержки"),
     chat(2, "Команда"),
     chat(3, "Команда разработки"),
   ]);
-  assertEquals(
-    (await findChatByTitle(client, "Команда", "чат")).id,
+  expect((await findChatByTitle(client, "Команда", "чат")).id).toStrictEqual(
     -1000000000002,
   );
 });
 
-Deno.test("подстрочное совпадение годится, когда точного нет", async () => {
+it("подстрочное совпадение годится, когда точного нет", async () => {
   const { client } = search([chat(2, "Команда релиза")]);
-  assertEquals(
-    (await findChatByTitle(client, "релиз", "чат")).id,
+  expect((await findChatByTitle(client, "релиз", "чат")).id).toStrictEqual(
     -1000000000002,
   );
 });
 
-Deno.test("повторы одного чата не делают выдачу неоднозначной", async () => {
+it("повторы одного чата не делают выдачу неоднозначной", async () => {
   // Контакты и глобальный каталог приходят одним ответом, и один и тот
   // же чат бывает в обоих списках.
   const { client } = search([chat(3, "Команда"), chat(3, "Команда")]);
-  assertEquals(
-    (await findChatByTitle(client, "Команда", "чат")).id,
+  expect((await findChatByTitle(client, "Команда", "чат")).id).toStrictEqual(
     -1000000000003,
   );
 });
 
-Deno.test("несколько чатов — отказ с перечислением кандидатов", async () => {
+it("несколько чатов — отказ с перечислением кандидатов", async () => {
   const { client } = search([
     chat(1, "Команда релиза"),
     chat(2, "Команда поддержки"),
   ]);
-  const err = await assertRejects(
+  const err = await rejected(
     () => findChatByTitle(client, "Команда", "чат"),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: под название 'Команда' подходит несколько чатов: " +
       "'Команда релиза' → id -1000000000001; " +
       "'Команда поддержки' → id -1000000000002; " +
@@ -94,50 +89,49 @@ Deno.test("несколько чатов — отказ с перечислен�
   );
 });
 
-Deno.test("ни одного чата — отказ с подсказкой ls", async () => {
+it("ни одного чата — отказ с подсказкой ls", async () => {
   const { client } = search([]);
-  const err = await assertRejects(
+  const err = await rejected(
     () => findChatByTitle(client, "Команда", "чат"),
     VerbatimError,
   );
-  assertEquals(
-    err.message,
+  expect(err.message).toStrictEqual(
     "telegram: не удалось найти чат 'Команда': совпадений нет; " +
       "попробуй: mpu telegram ls 'Команда' и укажи id или @username",
   );
 });
 
-Deno.test("отказ Telegram остаётся отказом Telegram", async () => {
+it("отказ Telegram остаётся отказом Telegram", async () => {
   // Двойник поиска стоит выше порта сеанса и отдаёт отказ в его форме.
   const flood = clientRefusal(
     tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
   );
   const client: ChatSearch = { searchChats: () => Promise.reject(flood) };
-  const err = await assertRejects(
+  const err = await rejected(
     () => findChatByTitle(client, "Команда", "чат"),
     VerbatimError,
   );
   // Срок ожидания не теряется и не выдаётся за ненайденный чат.
-  assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+  expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
 });
 
-Deno.test("дефект поиска — тот же объект, не отказ Telegram и не «не найден»", async () => {
+it("дефект поиска — тот же объект, не отказ Telegram и не «не найден»", async () => {
   const defect = new TypeError("дефект поиска");
   const client: ChatSearch = { searchChats: () => Promise.reject(defect) };
-  const err = await assertRejects(() =>
-    findChatByTitle(client, "Команда", "чат")
+  const err = await rejected(
+    () => findChatByTitle(client, "Команда", "чат"),
+    Error,
   );
-  assertStrictEquals(err, defect);
+  expect(err).toBe(defect);
 });
 
-Deno.test("предмет поиска называется в отказе", async () => {
+it("предмет поиска называется в отказе", async () => {
   const { client } = search([]);
-  const err = await assertRejects(
+  const err = await rejected(
     () => findChatByTitle(client, "Иван", "отправителя"),
     VerbatimError,
   );
-  assertEquals(
+  expect(
     err.message.startsWith("telegram: не удалось найти отправителя 'Иван'"),
-    true,
-  );
+  ).toStrictEqual(true);
 });

@@ -1,5 +1,5 @@
-import { assertEquals } from "@std/assert";
-import type { tl } from "@mtcute/deno";
+import { describe, expect, it } from "vitest";
+import type { tl } from "@mtcute/node";
 import { md } from "@mtcute/markdown-parser";
 import { markdown } from "./markdown.ts";
 
@@ -62,7 +62,7 @@ const GOLDEN: Case = {
   ],
 };
 
-/** Сценарии TM1–TM13 (кроме таблицы TM12 — она в `search_view_test.ts`). */
+/** Сценарии TM1–TM13 (кроме таблицы TM12 — она в `search_view.test.ts`). */
 const SCENARIOS: readonly (Case & { readonly markdown: string })[] = [
   {
     name: "TM1 без разметки",
@@ -226,38 +226,35 @@ function comparable(entities: readonly tl.TypeMessageEntity[]) {
     );
 }
 
-Deno.test("сценарии TM1: Markdown-строка выдачи", async (t) => {
+describe("сценарии TM1: Markdown-строка выдачи", () => {
   for (const scenario of SCENARIOS) {
-    await t.step(scenario.name, () => {
-      assertEquals(
-        markdown(scenario.text, scenario.entities),
+    it(scenario.name, () => {
+      expect(markdown(scenario.text, scenario.entities)).toStrictEqual(
         scenario.markdown,
       );
     });
   }
 });
 
-Deno.test("обратимость: разбор `send --md` даёт исходные текст и разметку", async (t) => {
+describe("обратимость: разбор `send --md` даёт исходные текст и разметку", () => {
   for (const sample of [...SCENARIOS, ...JOINTS]) {
-    await t.step(sample.name, () => {
+    it(sample.name, () => {
       const parsed = md(markdown(sample.text, sample.entities));
-      assertEquals(
-        { text: parsed.text, entities: comparable(parsed.entities ?? []) },
-        { text: sample.text, entities: comparable(sample.entities) },
-      );
+      expect({ text: parsed.text, entities: comparable(parsed.entities ?? []) })
+        .toStrictEqual({
+          text: sample.text,
+          entities: comparable(sample.entities),
+        });
     });
   }
 });
 
-Deno.test("сущность нулевой длины разметки не даёт", () => {
-  assertEquals(markdown("ab", [bold(1, 0)]), "ab");
+it("сущность нулевой длины разметки не даёт", () => {
+  expect(markdown("ab", [bold(1, 0)])).toStrictEqual("ab");
 });
 
-Deno.test("код: экранируются только косая и кавычка", () => {
-  assertEquals(
-    markdown("x **a** [b] `c` \\d > e", [
-      { _: "messageEntityCode", offset: 2, length: 20 },
-    ]),
-    "x `**a** [b] \\`c\\` \\\\d > e`",
-  );
+it("код: экранируются только косая и кавычка", () => {
+  expect(markdown("x **a** [b] `c` \\d > e", [
+    { _: "messageEntityCode", offset: 2, length: 20 },
+  ])).toStrictEqual("x `**a** [b] \\`c\\` \\\\d > e`");
 });

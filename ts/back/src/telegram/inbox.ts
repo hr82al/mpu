@@ -8,6 +8,7 @@
  * остаётся как был.
  */
 
+import { type FileHandle, mkdir, open, rename, rm } from "node:fs/promises";
 import { configError } from "./errors.ts";
 
 /** Каталог по умолчанию: `/tmp` уже в праве записи у CLI и сервера. */
@@ -38,19 +39,19 @@ export class Inbox {
     // правятся. `mode` режет umask, но 0700 он только сужает.
     await writing(
       path,
-      () => Deno.mkdir(this.#dir, { recursive: true, mode: 0o700 }),
+      () => mkdir(this.#dir, { recursive: true, mode: 0o700 }),
     );
     // Временное имя не содержит имени вложения: длинное имя плюс суффикс
     // упёрлось бы в предел длины имени файла раньше самого файла.
     const temp = `${this.#dir}/.part-${crypto.randomUUID()}`;
     try {
       const size = await pour(temp, path, bytes);
-      await writing(path, () => Deno.rename(temp, path));
+      await writing(path, () => rename(temp, path));
       return { path, size };
     } catch (err) {
       // Временного файла может уже не быть (не создан), а отказ его
       // удаления не важнее того, из-за которого удаляем.
-      await Deno.remove(temp).catch(() => {});
+      await rm(temp, { force: true }).catch(() => {});
       throw err;
     }
   }
@@ -62,26 +63,35 @@ async function pour(
   path: string,
   bytes: AsyncIterable<Uint8Array>,
 ): Promise<number> {
-  const file = await writing(
-    path,
-    () => Deno.open(temp, { write: true, createNew: true, mode: 0o600 }),
-  );
-  const writer = file.writable.getWriter();
+  // `wx` — только новый файл: временное имя чужим быть не должно.
+  const file = await writing(path, () => open(temp, "wx", 0o600));
   let size = 0;
   try {
     for await (const chunk of bytes) {
-      await writing(path, () => writer.write(chunk));
       // Величина — из записанного, а не из заявки Telegram ([D.3]).
-      size += chunk.byteLength;
+      size += await writing(path, () => writeAll(file, chunk));
     }
   } catch (err) {
     // Прерывание закрывает файл; его собственный отказ не важнее того,
     // из-за которого прерываем.
-    await writer.abort(err).catch(() => {});
+    await file.close().catch(() => {});
     throw err;
   }
-  await writing(path, () => writer.close());
+  await writing(path, () => file.close());
   return size;
+}
+
+/**
+ * Пишет кусок целиком; возвращает число записанных байт. `write` не
+ * обещает записать всё за раз — недописанный хвост дописывается.
+ */
+async function writeAll(file: FileHandle, chunk: Uint8Array): Promise<number> {
+  let written = 0;
+  while (written < chunk.byteLength) {
+    const { bytesWritten } = await file.write(chunk, written);
+    written += bytesWritten;
+  }
+  return written;
 }
 
 /** Операция файловой системы: её отказ — строкой слоя с путём файла. */

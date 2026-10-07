@@ -4,8 +4,8 @@
  *
  * Модуль подгружается лениво из команды: крипта MTProto и её wasm не
  * должны попадать в старт каждого вызова `mpu`. Без сети проверены вход
- * (`session_test.ts`, `connection_test.ts`) и граница порта — отказ клиента
- * на каждом методе (`session_port_test.ts`); сами операции против живого
+ * (`session.test.ts`, `connection.test.ts`) и граница порта — отказ клиента
+ * на каждом методе (`session_port.test.ts`); сами операции против живого
  * Telegram тестами не покрыты: сеть в тестах запрещена.
  */
 
@@ -16,8 +16,8 @@ import {
   proxyTransportFromUrl,
   TelegramClient,
   tl,
-} from "@mtcute/deno";
-import type { Chat, Message, User } from "@mtcute/deno";
+} from "@mtcute/node";
+import type { Chat, Message, User } from "@mtcute/node";
 import { md } from "@mtcute/markdown-parser";
 import { markedId, type RawChat } from "./chat.ts";
 import { clientRefusal } from "./client_refusal.ts";

@@ -9,16 +9,16 @@
  * устанавливается.
  */
 
-import { DenoPlatform } from "@mtcute/deno";
+import { NodePlatform } from "@mtcute/node";
 
 /** Имена уровней библиотеки: индекс — уровень, 0 — выключено. */
 const LEVEL_NAMES = ["", "ERR", "WRN", "INF", "DBG", "VRB"];
 
 /** Платформа клиента, пишущая логи библиотеки в stderr. */
-export function telegramPlatform(): DenoPlatform {
-  const platform = new DenoPlatform();
+export function telegramPlatform(): NodePlatform {
+  const platform = new NodePlatform();
   platform.log = (_color, level, tag, fmt, args) => {
-    // `console.error`, а не запись в `Deno.stderr`: свои подстановки
+    // `console.error`, а не запись в поток stderr: свои подстановки
     // (`%e`, `%j` и прочие) логгер библиотеки заменяет сам, а оставшиеся
     // стандартные (`%s`, `%d`) разбирает консоль.
     console.error(

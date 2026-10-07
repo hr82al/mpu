@@ -709,6 +709,34 @@ Node (у `coverage-v8` ветви расходятся).
   непонятого сообщения (`back/src/objects/nearest.ts`); заменил
   `@std/text/levenshtein-distance` (решение владельца 2026-10-07). Зависимостей
   у пакета нет.
+- `@mtcute/node` — клиент MTProto для семейства `mpu telegram`
+  (`docs/specs/platform/telegram-mtproto.md`): отправка от имени личного
+  аккаунта, шифрование, схема TL и транспорт с прокси
+  (socks4/socks5/http/https); заменил JSR `@mtcute/deno` (порция E3 этапа 3,
+  `platform/node-runtime.md`, [S.8]). Тянет `better-sqlite3` (нативный) — с
+  `MemoryStorage` он не загружается.
+- `@mtcute/convert` — строка сессии в формате прежней реализации: клиент её как
+  есть не принимает, конвертер переводит в вид для `importSession`; без него
+  переезд потребовал бы повторного входа оператора.
+- `@mtcute/markdown-parser` — флаг `--md`: `[текст](url)` становится
+  сущностью-ссылкой, а не остаётся текстом.
+- `@mtcute/wasm` — транзитивный из дерева выше, назван поимённо ради `initSync`:
+  штатная инициализация берёт wasm по адресу рядом с пакетом, а у собранной
+  программы его там нет; байты приходят модулем
+  `back/src/telegram/wasm_modules.ts`. Экземпляр один на граф — тот, которым
+  шифрует `@mtcute/node`.
+
+  Четыре `@mtcute/*` — строго одной версии и бампятся ОТДЕЛЬНОЙ порцией:
+  библиотека держит строку сессии и api-hash и несёт бинарный wasm, её
+  обновление — смена того, кому доверен секрет. При бампе пересобирается
+  `wasm_modules.ts` (сверяет `crypto.test.ts`).
+- `https-proxy-agent` — прокси для `node:https` в общем HTTP-транспорте
+  (`back/src/http/route.ts`): туннель CONNECT одинаково под Bun, Deno и Node
+  (проба этапа 2; `undici` под Bun подменяется и ломается).
+- `socks-proxy-agent` — прокси `socks5`/`socks5h` в том же транспорте: Bot API
+  обещает эти схемы (`docs/specs/telegram-log.md`), а прежний клиент Deno их
+  понимал (решение владельца 2026-10-07). Версия 8.x — на той же `agent-base` 7,
+  что у `https-proxy-agent`.
 
 - `vitest` — раннер тестов `*.test.ts`, одинаковый под Bun, Deno и Node
   (`platform/vitest.md`); задача `deno task vitest`. Версия совпадает с записью

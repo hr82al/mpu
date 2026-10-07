@@ -8,7 +8,7 @@
  * команда, а не протокол.
  */
 
-import type { tl } from "@mtcute/deno";
+import type { tl } from "@mtcute/node";
 import { markedId, type RawChat } from "./chat.ts";
 import { markdown } from "./markdown.ts";
 import type { ListedFile, MessageFile } from "./message_file.ts";

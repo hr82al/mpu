@@ -5,10 +5,12 @@
  * запускается: оба случая отказывают до сети.
  */
 
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import { __getWasm } from "@mtcute/wasm";
+import { describe, expect, it } from "vitest";
 import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo, promptQueue } from "../testing/mod.ts";
+import { rejected } from "../testing/thrown.ts";
 import { telegramLoginCommand } from "./cmd_login.ts";
 
 /** Что меняет прогон команды относительно обычного. */
@@ -57,69 +59,72 @@ async function login(
   return { code, stderr: err.join(""), written };
 }
 
-Deno.test("mpu telegram login: сбой самого входа — пропущено с причиной и код 0", async (t) => {
-  await t.step("сбой криптографии — причина текстом спеки", async () => {
-    const realReadFile = Deno.readFile;
+describe("mpu telegram login: сбой самого входа — пропущено с причиной и код 0", () => {
+  it("сбой криптографии — причина текстом спеки", async () => {
+    // Байты модуля встроены, читать нечего: сбой подделывается в
+    // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
+    // лишь пока модуль не поднят: у поднятого `initSync` — пустой вызов.
+    expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
+      .toBe(undefined);
+    const real = WebAssembly.Module;
+    Reflect.set(WebAssembly, "Module", function () {
+      throw new Error("нет встроенного модуля");
+    });
     try {
-      Deno.readFile = () =>
-        Promise.reject(new Deno.errors.NotFound("нет встроенного модуля"));
       const { code, stderr, written } = await login();
-      assertEquals(code, 0, stderr);
-      assertStringIncludes(
-        stderr,
+      expect(code, stderr).toBe(0);
+      expect(stderr).toContain(
         "# telegram: пропущено (telegram: криптография клиента не поднялась: нет встроенного модуля)\n",
       );
       // Инвариант 2: сессии нет, введённый телефон переживает отказ.
-      assertEquals(written, { TELEGRAM_PHONE: "+70001112233" });
+      expect(written).toStrictEqual({ TELEGRAM_PHONE: "+70001112233" });
     } finally {
-      Deno.readFile = realReadFile;
+      Reflect.set(WebAssembly, "Module", real);
     }
   });
 
-  await t.step("битый прокси — причина текстом слоя", async () => {
+  it("битый прокси — причина текстом слоя", async () => {
     const { code, stderr, written } = await login({
       extra: { TELEGRAM_PROXY: "ftp://127.0.0.1:1" },
     });
-    assertEquals(code, 0, stderr);
-    assertStringIncludes(
-      stderr,
+    expect(code, stderr).toBe(0);
+    expect(stderr).toContain(
       "# telegram: пропущено (telegram: неподдерживаемая схема прокси 'ftp'",
     );
-    assertEquals(stderr.includes("криптография"), false, stderr);
-    assertEquals(written, { TELEGRAM_PHONE: "+70001112233" });
+    expect(stderr.includes("криптография"), stderr).toBe(false);
+    expect(written).toStrictEqual({ TELEGRAM_PHONE: "+70001112233" });
   });
 });
 
-Deno.test("mpu telegram login: дефект кода — не пропуск, а исходная ошибка наружу", async () => {
+it("mpu telegram login: дефект кода — не пропуск, а исходная ошибка наружу", async () => {
   // Сборка клиента читает прокси из env-файла; дефект там — не отказ
   // Telegram (инвариант 3, «Что считается сбоем самого входа»). Команда не
   // оформляет его и не пропускает: ошибка уходит из `runCli` как есть, а
   // код 1 и строку `mpu: unexpected error` ставит точка входа (`main.ts`).
   const stderr: string[] = [];
-  await assertRejects(
+  await rejected(
     () => login({ broken: "TELEGRAM_PROXY", stderr }),
     TypeError,
     "дефект чтения TELEGRAM_PROXY",
   );
   const printed = stderr.join("");
-  assertEquals(printed.includes("пропущено"), false, printed);
-  assertEquals(printed.includes("RPC error"), false, printed);
+  expect(printed.includes("пропущено"), printed).toBe(false);
+  expect(printed.includes("RPC error"), printed).toBe(false);
 });
 
-Deno.test("mpu telegram login: неверный вызов — код 2", async () => {
+it("mpu telegram login: неверный вызов — код 2", async () => {
   const { code, written } = await login({ argv: ["telegram", "login", "--x"] });
-  assertEquals(code, 2);
-  assertEquals(written, {});
+  expect(code).toBe(2);
+  expect(written).toStrictEqual({});
 });
 
-Deno.test("справка mpu telegram login называет все три кода выхода", () => {
+it("справка mpu telegram login называет все три кода выхода", () => {
   // Коды — часть контракта (`telegram-login.md`, инвариант 3): абзац
   // держится дословно, иначе справка молча разойдётся с поведением.
   const exit = telegramLoginCommand.help.slice(
     telegramLoginCommand.help.indexOf("Exit:"),
   );
-  assertEquals(
-    exit,
+  expect(exit).toBe(
     "Exit: 0 — успех и любой пропуск, в том числе сбой самого входа; 2 —\n" +
       "неверный вызов (лишняя опция); 1 — сбой вне сценария: дефект\n" +
       "программы, отказ терминала, записи env-файла или закрытия клиента.",

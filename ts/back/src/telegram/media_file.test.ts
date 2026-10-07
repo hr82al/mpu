@@ -5,8 +5,11 @@
  * команда. Форма живьём не снята (`telegram-file.md`, «Golden-примеры»).
  */
 
-import { assertEquals } from "@std/assert";
-import { Long, Message, PeersIndex, type tl } from "@mtcute/deno";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { Long, Message, PeersIndex, type tl } from "@mtcute/node";
 import { Inbox } from "./inbox.ts";
 import { mediaFile } from "./media_file.ts";
 
@@ -72,7 +75,7 @@ const nowhere = () => {
   throw new Error("скачивание не ожидается");
 };
 
-Deno.test("вид медиа клиента → описание вложения", async (t) => {
+describe("вид медиа клиента → описание вложения", () => {
   const cases = [
     {
       name: "документ с именем (F1)",
@@ -104,17 +107,15 @@ Deno.test("вид медиа клиента → описание вложени�
     { name: "геоточка", message: message(50, GEO), listed: null },
   ];
   for (const { name, message, listed } of cases) {
-    await t.step(name, () => {
-      assertEquals(
-        mediaFile(message.id, message.media, nowhere).listed(),
-        listed,
-      );
+    it(name, () => {
+      expect(mediaFile(message.id, message.media, nowhere).listed())
+        .toStrictEqual(listed);
     });
   }
 });
 
-Deno.test("байты вложения просит у клиента по самому медиа", async () => {
-  const dir = await Deno.makeTempDir();
+it("байты вложения просит у клиента по самому медиа", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "media-file-"));
   try {
     const found = message(
       42,
@@ -129,9 +130,9 @@ Deno.test("байты вложения просит у клиента по са�
       yield new TextEncoder().encode("тело");
     });
     const saved = await file.saveTo(new Inbox(dir), -1000000000101);
-    assertEquals(asked, [found.media]);
-    assertEquals(await Deno.readTextFile(saved.path), "тело");
+    expect(asked).toStrictEqual([found.media]);
+    expect(await readFile(saved.path, "utf8")).toStrictEqual("тело");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true, force: true });
   }
 });

@@ -8,7 +8,7 @@
  * каждой команды тянул бы клиент с модулем криптографии.
  */
 
-import { MtcuteError, tl } from "@mtcute/deno";
+import { MtcuteError, tl } from "@mtcute/node";
 import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
 import { CryptoInitError, layerFailure } from "./errors.ts";
 

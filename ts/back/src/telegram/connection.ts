@@ -9,7 +9,7 @@
  * вызова не остаётся (там же).
  */
 
-import type { ConnectionState, TelegramClient } from "@mtcute/deno";
+import type { ConnectionState, TelegramClient } from "@mtcute/node";
 import type { VerbatimError } from "../command/mod.ts";
 import { firstLine } from "../http/mod.ts";
 import { configError } from "./errors.ts";

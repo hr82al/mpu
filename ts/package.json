@@ -3,8 +3,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@mtcute/convert": "0.31.0",
+    "@mtcute/markdown-parser": "0.31.0",
+    "@mtcute/node": "0.31.0",
+    "@mtcute/wasm": "0.31.0",
     "fastest-levenshtein": "1.0.16",
     "hono": "4.12.33",
+    "https-proxy-agent": "7.0.6",
+    "socks-proxy-agent": "8.0.5",
     "zod": "4.4.3"
   },
   "devDependencies": {

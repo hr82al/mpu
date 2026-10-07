@@ -11,7 +11,7 @@
  * Telegram и **отзывает действующую сессию владельца**: прогон «до
  * конца» сломал бы рабочий доступ. Проверены ветки сценария
  * (`login.ts` с двойником), формат записываемой строки сессии и отказы
- * без сети (`login_client_test.ts`): сбой криптографии и отказ, не
+ * без сети (`login_client.test.ts`): сбой криптографии и отказ, не
  * относящийся к ней, — соединение подменено отказом, клиент закрыт во
  * время попытки;
  * поведение самой библиотеки при входе не проверено ничем, и в отчёте
@@ -24,7 +24,7 @@ import {
   MtcuteError,
   proxyTransportFromUrl,
   TelegramClient,
-} from "@mtcute/deno";
+} from "@mtcute/node";
 import { clientRefusal } from "./client_refusal.ts";
 import {
   answeredWithin,

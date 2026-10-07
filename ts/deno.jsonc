@@ -123,41 +123,14 @@
     // лениво, динамическим импортом на
     // ветке самого разбора: пакет весит десяток мегабайт, а старт
     // процесса — доказанная ценность `mpu`.
-    "typescript": "npm:typescript@5.9.3",
-    // Клиент MTProto для `mpu telegram send` (`docs/specs/telegram-send.md`,
-    // `platform/telegram-mtproto.md`): отправка от имени личного аккаунта,
-    // не бота. Своими руками это шифрование MTProto, схема TL и транспорт
-    // с прокси; в стандартной библиотеке Deno ничего этого нет.
-    //   `@mtcute/deno`             — клиент и транспорт под Deno, включая
-    //     разбор URL прокси (socks4/socks5/http/https);
-    //   `@mtcute/convert`          — строка сессии в формате прежней
-    //     реализации клиентом не принимается как есть; конвертер переводит
-    //     её в вид, который берёт `importSession`. Без него переезд
-    //     потребовал бы повторного входа оператора, а спека требует
-    //     принимать записанную строку и не переписывать её;
-    //   `@mtcute/markdown-parser`  — флаг `--md`: `[текст](url)` обязан
-    //     стать сущностью-ссылкой, а не остаться текстом.
-    // Транзитивное дерево, которое тянут эти три: jsr — `@mtcute/core`,
-    // `@mtcute/file-id`, `@mtcute/html-parser`, `@mtcute/tl-runtime`,
-    // `@mtcute/wasm`, `@fuman/deno`, `@fuman/io`, `@fuman/net`,
-    // `@fuman/utils`, `@std/io`; npm — `htmlparser2` с семейством
-    // `domhandler`/`domutils`/`dom-serializer`/`domelementtype`/`entities`
-    // и `long`. Семейство htmlparser тянет ядро, а не парсер HTML:
-    // отцепить его, отказавшись от html-разметки, нельзя — проверено.
-    // Версия зафиксирована точно, без «^», и бампится ОТДЕЛЬНОЙ порцией:
-    // библиотека держит в руках строку сессии и api-hash, у неё есть
-    // бинарный wasm-модуль, поэтому её обновление — смена того, кому
-    // доверен секрет, а не рутинная правка версии.
-    "@mtcute/deno": "jsr:@mtcute/deno@0.31.0",
-    "@mtcute/convert": "jsr:@mtcute/convert@0.31.0",
-    "@mtcute/markdown-parser": "jsr:@mtcute/markdown-parser@0.31.0",
-    // `@mtcute/wasm` — не новый пакет, а транзитивный из дерева выше,
-    // названный поимённо ради `initSync`: штатная инициализация
-    // криптографии скачивает свой wasm по `import.meta.url`, у собранной
-    // программы это `jsr.io` (`back/src/telegram/crypto.ts`). Модуль один на
-    // граф — тот же экземпляр, которым шифрует `@mtcute/deno`. Версия —
-    // строго вровень с тремя выше.
-    "@mtcute/wasm": "jsr:@mtcute/wasm@0.31.0"
+    "typescript": "npm:typescript@5.9.3"
+    // Клиент MTProto (`@mtcute/*`) — npm-пакеты из `package.json`, «зачем»
+    // у них в `ts/CLAUDE.md`, «Зависимости» (порция E3 этапа 3,
+    // `docs/specs/platform/node-runtime.md`). Строк JSR здесь нет намеренно:
+    // карта `imports` старше `package.json`, и оставшаяся JSR-запись дала
+    // бы в графе второй `@mtcute/wasm` (криптография инициализировала бы
+    // не тот экземпляр) и второй `@mtcute/core` (`instanceof MtcuteError`
+    // молчал бы на ошибках клиента).
   },
   "tasks": {
     // `deno test` исполняет только 15 файлов `*_test.ts`, оставленных до
@@ -322,7 +295,7 @@
     // исключён из форматирования и сверяется байт-в-байт.
     "tools:snapshot": "deno run --allow-read --allow-write=back/src/mcp/testdata/tools-ro.json,back/src/mcp/testdata/tools-rw.json back/scripts/gen-tool-snapshots.ts",
     //   MTCUTE_LOG_LEVEL                 клиент MTProto читает уровень
-    //     своего лога при создании (`@mtcute/deno` — см. `imports`), до
+    //     своего лога при создании (`@mtcute/node`, `package.json`), до
     //     первого обращения к сети; без права `mpu telegram send`
     //     падает на каждом вызове с «Requires env access». Имя одно и
     //     задаётся библиотекой; smoke-проверка «ленивый клиент MTProto
@@ -398,10 +371,11 @@
     // нескольким репозиториям (замер 2026-09-09; проверка smoke «code:
     // разбор дерева…» краснеет без неё).
     // Так же — `--include back/src/telegram/mtcute.wasm` и
-    // `mtcute-simd.wasm`: wasm криптографии Telegram читается по
-    // `import.meta.url` (`back/src/telegram/crypto.ts`), и без этих строк
-    // собранный бинарь не откроет сеанс ни при каком окружении (проверка
-    // smoke «telegram: криптография без сети…» краснеет без них).
+    // `mtcute-simd.wasm`. Код их больше не читает: байты лежат модулем
+    // (`back/src/telegram/wasm_modules.ts`, порция E3 этапа 3) и входят в
+    // граф импортов, как любой код. Строки держит литерал сборки в
+    // `supervisor/src/tasks.test.ts` и `compile.test.ts`; снимаются вместе
+    // с `deno compile` (порция E4).
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `compile:back` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

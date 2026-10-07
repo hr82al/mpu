@@ -5,12 +5,13 @@
  * (`platform/telegram-mtproto.md`, «Конфигурация»). До сети дело не доходит.
  */
 
-import { assertEquals } from "@std/assert";
+import { __getWasm } from "@mtcute/wasm";
+import { expect, it } from "vitest";
 import type { EnvFile } from "../command/mod.ts";
 import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
 import { runTelegramLogin } from "./telegram.ts";
 
-Deno.test("вход при init: сбой криптографии — пропуск с текстом спеки", async () => {
+it("вход при init: сбой криптографии — пропуск с текстом спеки", async () => {
   // Ключи и телефон уже в env-файле: вопросов человеку нет, и сценарий
   // сразу доходит до клиента входа.
   const keys: Readonly<Record<string, string>> = {
@@ -25,22 +26,30 @@ Deno.test("вход при init: сбой криптографии — проп�
     values: () => ({ ...keys }),
   };
   const progress: string[] = [];
-  const realReadFile = Deno.readFile;
-  Deno.readFile = () =>
-    Promise.reject(new Deno.errors.NotFound("нет встроенного модуля"));
+  // Сбой «модуль не поднялся» — отказ `new WebAssembly.Module` в `initSync`
+  // пакета `@mtcute/wasm`. После первой удачной инициализации `initSync`
+  // ничего не делает, поэтому подмена действует лишь пока модуль не
+  // поднят: это проверяется до неё, иначе случай ничего не проверит.
+  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
+    .toBe(undefined);
+  const realModule = WebAssembly.Module;
+  Reflect.set(WebAssembly, "Module", function () {
+    throw new Error("нет встроенного модуля");
+  });
+  let reason: string | null;
   try {
-    const reason = await runTelegramLogin(makeFakeIo({
+    reason = await runTelegramLogin(makeFakeIo({
       envFile,
       // Человек за терминалом есть, но отвечает пустым: вход дойдёт до
       // ленивой загрузки криптографии, а она и проверяется.
       prompt: promptAnswering({ line: "", secret: "" }),
       progress: (line) => void progress.push(line),
     }));
-    const text =
-      "telegram: криптография клиента не поднялась: нет встроенного модуля";
-    assertEquals(reason, text);
-    assertEquals(progress.at(-1), `# telegram: пропущено (${text})`);
   } finally {
-    Deno.readFile = realReadFile;
+    Reflect.set(WebAssembly, "Module", realModule);
   }
+  const text =
+    "telegram: криптография клиента не поднялась: нет встроенного модуля";
+  expect(reason).toStrictEqual(text);
+  expect(progress.at(-1)).toStrictEqual(`# telegram: пропущено (${text})`);
 });

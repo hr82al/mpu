@@ -13,14 +13,17 @@
  * конвертеров, а не там.
  */
 
-import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
-import { FakeTime } from "@std/testing/time";
-import { VerbatimError } from "../command/mod.ts";
+import { Socket } from "node:net";
+import process from "node:process";
 import {
   convertFromTelethonSession,
   serializeTelethonSession,
 } from "@mtcute/convert";
-import { BaseTelegramClient, TelegramClient, tl } from "@mtcute/deno";
+import { BaseTelegramClient, TelegramClient, tl } from "@mtcute/node";
+import { __getWasm } from "@mtcute/wasm";
+import { describe, expect, it, vi } from "vitest";
+import { VerbatimError } from "../command/mod.ts";
+import { rejected } from "../testing/thrown.ts";
 import { openLoginClient, sharedSessionString } from "./login_client.ts";
 
 /** Синтетическая сессия: ключ нулевой, адрес — тестовый DC Telegram. */
@@ -52,33 +55,40 @@ function saveMethods(proto: object, names: readonly string[]): () => void {
   };
 }
 
-Deno.test("вход пишет строку в формате прежней реализации, а не своём", () => {
+it("вход пишет строку в формате прежней реализации, а не своём", () => {
   // Читатель ждёт формат telethon: то, что он разбирает, вход и обязан
   // записывать. Мутация «вернуть экспорт клиента как есть» краснеет
   // здесь, а не на живом входе.
   const asRead = convertFromTelethonSession(TELETHON);
-  assertEquals(sharedSessionString(asRead), TELETHON);
+  expect(sharedSessionString(asRead)).toBe(TELETHON);
 });
 
-Deno.test("записанное читается тем же путём, что и в сеансе", () => {
+it("записанное читается тем же путём, что и в сеансе", () => {
   // Круг замкнут: строка, которую вход положит в env-файл, проходит
   // ровно тот конвертер, которым её берёт `session.ts`.
   const written = sharedSessionString(convertFromTelethonSession(TELETHON));
   const parsed = convertFromTelethonSession(written);
-  assertEquals(parsed.primaryDcs.main.id, 2);
-  assertEquals(parsed.authKey.length, 256);
+  expect(parsed.primaryDcs.main.id).toBe(2);
+  expect(parsed.authKey.length).toBe(256);
 });
 
-Deno.test("вход до сети: сбой криптографии печатается текстом спеки, а не обёрткой операции", async () => {
+it("вход до сети: сбой криптографии печатается текстом спеки, а не обёрткой операции", async () => {
   // `platform/telegram-mtproto.md`, «Конфигурация»: правило одно для всех
   // подкоманд, включая вход. Криптография поднимается до соединения, и
   // живой вход — с отзывом сессии — сюда не доходит.
+  //
+  // Байты модуля встроены, читать нечего: сбой подделывается в
+  // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
+  // лишь пока модуль не поднят — до этого случая его не поднимает никто.
+  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
+    .toBe(undefined);
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
-  const realReadFile = Deno.readFile;
+  const realModule = WebAssembly.Module;
   try {
-    Deno.readFile = () =>
-      Promise.reject(new Deno.errors.NotFound("нет встроенного модуля"));
-    const err = await assertRejects(
+    Reflect.set(WebAssembly, "Module", function () {
+      throw new Error("нет встроенного модуля");
+    });
+    const err = await rejected(
       () =>
         client.signIn("+70000000000", {
           ask: () => Promise.resolve(undefined),
@@ -87,35 +97,34 @@ Deno.test("вход до сети: сбой криптографии печат�
         }),
       VerbatimError,
     );
-    assertEquals(
-      err.message,
+    expect(err.message).toBe(
       "telegram: криптография клиента не поднялась: нет встроенного модуля",
     );
   } finally {
-    Deno.readFile = realReadFile;
+    Reflect.set(WebAssembly, "Module", realModule);
     await client.close();
   }
 });
 
-Deno.test("вход: отказ, не относящийся к криптографии, не выдаётся за неё", async () => {
+it("вход: отказ, не относящийся к криптографии, не выдаётся за неё", async () => {
   // Криптография поднимается настоящая, а соединение с узлом отказывает:
-  // подменённый `Deno.connect` отмечает попытку и отказывает, наружу не
+  // подменённый `connect` сокета отмечает попытку и отказывает, наружу не
   // уходит ничего. Клиент на отказ соединения переподключается, пока не
   // выйдет предел соединения (20 с по поддельным часам), — его отказ и есть
   // отказ, не относящийся к криптографии.
-  using time = new FakeTime();
+  vi.useFakeTimers();
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
   const connecting = Promise.withResolvers<void>();
-  const realConnect = Deno.connect;
+  const realConnect = Socket.prototype.connect;
   try {
-    // `Reflect.set`, а не присваивание: у `Deno.connect` три перегрузки, и
-    // подмена, отвечающая на все одним отказом, в их тип не приводится без
-    // двойного приведения.
-    Reflect.set(Deno, "connect", () => {
+    // Отказ — событием на следующем обороте, как у настоящего сокета:
+    // слушатель `error` клиент вешает уже после вызова `connect`.
+    Reflect.set(Socket.prototype, "connect", function (this: Socket) {
       connecting.resolve();
-      return Promise.reject(
-        new Deno.errors.NotCapable("соединение в тесте запрещено"),
+      process.nextTick(() =>
+        this.destroy(new Error("соединение в тесте запрещено"))
       );
+      return this;
     });
     const signing = client.signIn("+70000000000", {
       ask: () => Promise.resolve(undefined),
@@ -128,19 +137,20 @@ Deno.test("вход: отказ, не относящийся к криптогр
     // Гонка, а не одно ожидание соединения: откажи вход раньше попытки,
     // тест покраснел бы на проверках ниже, а не завис.
     await Promise.race([connecting.promise, signing]);
-    await time.tickAsync(20_000);
+    await vi.advanceTimersByTimeAsync(20_000);
     const outcome = await signing;
-    assertEquals(outcome instanceof VerbatimError, true, String(outcome));
+    expect(outcome instanceof VerbatimError, String(outcome)).toBe(true);
     const text = outcome instanceof Error ? outcome.message : String(outcome);
-    assertEquals(text.startsWith("telegram: "), true, text);
-    assertEquals(text.includes("криптография"), false, text);
+    expect(text.startsWith("telegram: "), text).toBe(true);
+    expect(text.includes("криптография"), text).toBe(false);
   } finally {
-    Reflect.set(Deno, "connect", realConnect);
+    Reflect.set(Socket.prototype, "connect", realConnect);
+    vi.useRealTimers();
     await client.close();
   }
 });
 
-Deno.test("вход: дефект внутри входа уходит из signIn тем же объектом", async () => {
+it("вход: дефект внутри входа уходит из signIn тем же объектом", async () => {
   // Место вызова `clientRefusal`: подменить его переоформлением любого
   // отказа — и дефект своего кода станет «пропущено» (инвариант 3).
   // Соединение и сам вход подменены, сети нет.
@@ -154,14 +164,16 @@ Deno.test("вход: дефект внутри входа уходит из sign
       return Promise.resolve();
     });
     Reflect.set(proto, "start", () => Promise.reject(defect));
-    const err = await assertRejects(() =>
-      client.signIn("+70000000000", {
-        ask: () => Promise.resolve(undefined),
-        askSecret: () => Promise.resolve(undefined),
-        progress: () => {},
-      })
+    const err = await rejected(
+      () =>
+        client.signIn("+70000000000", {
+          ask: () => Promise.resolve(undefined),
+          askSecret: () => Promise.resolve(undefined),
+          progress: () => {},
+        }),
+      TypeError,
     );
-    assertStrictEquals(err, defect);
+    expect(err).toBe(defect);
   } finally {
     restore();
     await client.close();
@@ -174,7 +186,7 @@ interface HumanQuestions {
   readonly password: () => Promise<string>;
 }
 
-Deno.test("вход: ожидание человека под предел первого ответа не попадает", async (t) => {
+describe("вход: ожидание человека под предел первого ответа не попадает", () => {
   // Спека: предел — на первый ответ входа до вопроса; код и пароль второго
   // фактора человек набирает сколько угодно. Двойник отвечает через 70 с
   // поддельного времени — дольше предела входа (60 с): отказа нет, вход
@@ -190,8 +202,8 @@ Deno.test("вход: ожидание человека под предел пе�
     },
   ];
   for (const { name, question } of cases) {
-    await t.step(name, async () => {
-      using time = new FakeTime();
+    it(name, async () => {
+      vi.useFakeTimers();
       const proto = TelegramClient.prototype;
       const restore = saveMethods(proto, ["connect", "start", "exportSession"]);
       const asked = Promise.withResolvers<void>();
@@ -231,21 +243,22 @@ Deno.test("вход: ожидание человека под предел пе�
           settled = true;
         });
         await Promise.race([asked.promise, signing]);
-        await time.tickAsync(70_000);
+        await vi.advanceTimersByTimeAsync(70_000);
         for (let turn = 0; turn < 20 && !settled; turn++) {
-          await time.runMicrotasks();
+          await Promise.resolve();
         }
-        assertEquals(settled, true, "вход не завершился после ответа человека");
-        assertEquals(await signing, TELETHON);
+        expect(settled, "вход не завершился после ответа человека").toBe(true);
+        expect(await signing).toBe(TELETHON);
       } finally {
         restore();
+        vi.useRealTimers();
         await client.close();
       }
     });
   }
 });
 
-Deno.test("вход: сообщения клиента о ходе входа — строками хода, не в stdout", async (t) => {
+describe("вход: сообщения клиента о ходе входа — строками хода, не в stdout", () => {
   // «stdout входа» (`telegram-login.md`, инвариант 3): без обработчиков
   // `start` библиотеки печатает «The confirmation code has been sent via …»
   // и «Invalid code…» прямым `console.log`, мимо платформы клиента.
@@ -275,7 +288,7 @@ Deno.test("вход: сообщения клиента о ходе входа �
     },
   ];
   for (const { name, sentCodeType, refusal, progress, questions } of cases) {
-    await t.step(name, async () => {
+    it(name, async () => {
       const restoreClient = saveMethods(TelegramClient.prototype, ["connect"]);
       const restoreBase = saveMethods(BaseTelegramClient.prototype, ["call"]);
       const printed: unknown[][] = [];
@@ -323,7 +336,7 @@ Deno.test("вход: сообщения клиента о ходе входа �
             }
           },
         );
-        const err = await assertRejects(
+        const err = await rejected(
           () =>
             client.signIn("+70000000000", {
               ask: () => {
@@ -335,10 +348,10 @@ Deno.test("вход: сообщения клиента о ходе входа �
             }),
           VerbatimError,
         );
-        assertEquals(err.message.includes(refusal), true, err.message);
-        assertEquals(printed, [], "библиотека писала в stdout");
-        assertEquals(lines, progress, "строки хода");
-        assertEquals(asked, questions, "число вопросов кода");
+        expect(err.message.includes(refusal), err.message).toBe(true);
+        expect(printed, "библиотека писала в stdout").toStrictEqual([]);
+        expect(lines, "строки хода").toStrictEqual(progress);
+        expect(asked, "число вопросов кода").toBe(questions);
       } finally {
         console.log = realLog;
         restoreBase();
@@ -349,7 +362,7 @@ Deno.test("вход: сообщения клиента о ходе входа �
   }
 });
 
-Deno.test("вход: неверный пароль и неверный код — каждый своей строкой хода", async () => {
+it("вход: неверный пароль и неверный код — каждый своей строкой хода", async () => {
   // Настоящий путь неверного пароля идёт через SRP-расчёт перед
   // `auth.checkPassword`, поэтому здесь `start` подменён: он зовёт
   // обработчик неверного ввода в том порядке, что и библиотека, — сначала
@@ -386,8 +399,8 @@ Deno.test("вход: неверный пароль и неверный код �
       askSecret: () => Promise.resolve(undefined),
       progress: (line) => void lines.push(line),
     });
-    assertEquals(session, TELETHON);
-    assertEquals(lines, [
+    expect(session).toBe(TELETHON);
+    expect(lines).toStrictEqual([
       "# telegram: код не подошёл, попробуй ещё раз",
       "# telegram: пароль не подошёл, попробуй ещё раз",
     ]);

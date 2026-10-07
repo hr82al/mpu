@@ -1,5 +1,7 @@
-import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
-import { tl } from "@mtcute/deno";
+import { readFile } from "node:fs/promises";
+import { describe, expect, it } from "vitest";
+import { tl } from "@mtcute/node";
+import { rejected } from "../testing/thrown.ts";
 import { VerbatimError } from "../command/mod.ts";
 import { clientRefusal } from "./client_refusal.ts";
 import type { PeerRef } from "./client.ts";
@@ -69,50 +71,56 @@ function notOccupied(): unknown {
   return clientRefusal(new tl.RpcError(400, "USERNAME_NOT_OCCUPIED"));
 }
 
-Deno.test("дефект клиента в поиске — тот же объект, не отказ Telegram", async (t) => {
-  await t.step("глобальный поиск", async () => {
+describe("дефект клиента в поиске — тот же объект, не отказ Telegram", () => {
+  it("глобальный поиск", async () => {
     const defect = new TypeError("дефект глобального поиска");
-    const err = await assertRejects(() =>
-      findMessages(
-        client({
-          // deno-lint-ignore require-yield
-          searchGlobal: async function* () {
-            throw defect;
-          },
-        }),
-        plan(),
-      )
+    const err = await rejected(
+      () =>
+        findMessages(
+          client({
+            // deno-lint-ignore require-yield
+            searchGlobal: async function* () {
+              throw defect;
+            },
+          }),
+          plan(),
+        ),
+      Error,
     );
-    assertStrictEquals(err, defect);
+    expect(err).toBe(defect);
   });
-  await t.step("скан глобального поиска с --from", async () => {
+  it("скан глобального поиска с --from", async () => {
     const defect = new TypeError("дефект скана");
-    const err = await assertRejects(() =>
-      findMessages(
-        client({
-          // deno-lint-ignore require-yield
-          searchGlobal: async function* () {
-            throw defect;
-          },
-        }),
-        plan({ from: target("500001") }),
-      )
+    const err = await rejected(
+      () =>
+        findMessages(
+          client({
+            // deno-lint-ignore require-yield
+            searchGlobal: async function* () {
+              throw defect;
+            },
+          }),
+          plan({ from: target("500001") }),
+        ),
+      Error,
     );
-    assertStrictEquals(err, defect);
+    expect(err).toBe(defect);
   });
-  await t.step("поиск в чате", async () => {
+  it("поиск в чате", async () => {
     const defect = new TypeError("дефект поиска в чате");
-    const err = await assertRejects(() =>
-      findMessages(
-        client({ searchInChat: () => Promise.reject(defect) }),
-        plan({ chat: target("-1000000000101") }),
-      )
+    const err = await rejected(
+      () =>
+        findMessages(
+          client({ searchInChat: () => Promise.reject(defect) }),
+          plan({ chat: target("-1000000000101") }),
+        ),
+      Error,
     );
-    assertStrictEquals(err, defect);
+    expect(err).toBe(defect);
   });
 });
 
-Deno.test("поиск внутри чата: адресаты уходят на сервер", async () => {
+it("поиск внутри чата: адресаты уходят на сервер", async () => {
   const seen: SearchInChat[] = [];
   const found = await findMessages(
     client({
@@ -123,16 +131,16 @@ Deno.test("поиск внутри чата: адресаты уходят на 
     }),
     plan({ chat: target("-1000000000101"), from: target("@ivan"), limit: 20 }),
   );
-  assertEquals(seen.length, 1);
-  assertEquals(seen[0].query, "выгрузка");
-  assertEquals(seen[0].limit, 20);
-  assertEquals(seen[0].chat.id, -1000000000101);
-  assertEquals(seen[0].from?.ref, { kind: "name", name: "ivan" });
-  assertEquals(found.messages.map((message) => message.id), [4821]);
-  assertEquals(found.scanCapped, false);
+  expect(seen.length).toStrictEqual(1);
+  expect(seen[0].query).toStrictEqual("выгрузка");
+  expect(seen[0].limit).toStrictEqual(20);
+  expect(seen[0].chat.id).toStrictEqual(-1000000000101);
+  expect(seen[0].from?.ref).toStrictEqual({ kind: "name", name: "ivan" });
+  expect(found.messages.map((message) => message.id)).toStrictEqual([4821]);
+  expect(found.scanCapped).toStrictEqual(false);
 });
 
-Deno.test("история чата: пустой запрос уходит как есть", async () => {
+it("история чата: пустой запрос уходит как есть", async () => {
   const seen: SearchInChat[] = [];
   await findMessages(
     client({
@@ -143,11 +151,11 @@ Deno.test("история чата: пустой запрос уходит ка�
     }),
     plan({ query: "", chat: target("me") }),
   );
-  assertEquals(seen[0].query, "");
-  assertEquals(seen[0].from, null);
+  expect(seen[0].query).toStrictEqual("");
+  expect(seen[0].from).toStrictEqual(null);
 });
 
-Deno.test("глобальный поиск без --from: берётся не больше --limit", async () => {
+it("глобальный поиск без --from: берётся не больше --limit", async () => {
   let taken = 0;
   const found = await findMessages(
     client({
@@ -160,13 +168,13 @@ Deno.test("глобальный поиск без --from: берётся не б
     }),
     plan({ limit: 3 }),
   );
-  assertEquals(found.messages.map((message) => message.id), [1, 2, 3]);
-  assertEquals(found.scanCapped, false);
+  expect(found.messages.map((message) => message.id)).toStrictEqual([1, 2, 3]);
+  expect(found.scanCapped).toStrictEqual(false);
   // Выдача просматривается лениво: лишние страницы не вычерпываются.
-  assertEquals(taken, 3);
+  expect(taken).toStrictEqual(3);
 });
 
-Deno.test("глобальный поиск с --from: фильтр на стороне команды", async () => {
+it("глобальный поиск с --from: фильтр на стороне команды", async () => {
   const found = await findMessages(
     client({
       searchGlobal: async function* () {
@@ -178,11 +186,11 @@ Deno.test("глобальный поиск с --from: фильтр на стор
     }),
     plan({ from: target("500001") }),
   );
-  assertEquals(found.messages.map((message) => message.id), [1, 4]);
-  assertEquals(found.scanCapped, false);
+  expect(found.messages.map((message) => message.id)).toStrictEqual([1, 4]);
+  expect(found.scanCapped).toStrictEqual(false);
 });
 
-Deno.test("потолок скана: предупреждение только при недоборе", async (t) => {
+describe("потолок скана: предупреждение только при недоборе", () => {
   const search = (matchEvery: number) =>
     async function* () {
       for (let id = 1; id <= SCAN_CAP + 10; id += 1) {
@@ -191,23 +199,23 @@ Deno.test("потолок скана: предупреждение только 
         );
       }
     };
-  await t.step("совпадений меньше --limit — скан остановлен", async () => {
+  it("совпадений меньше --limit — скан остановлен", async () => {
     const found = await findMessages(
       client({ searchGlobal: search(500) }),
       plan({ from: target("500001"), limit: 50 }),
     );
-    assertEquals(found.messages.length, 2);
-    assertEquals(found.scanCapped, true);
+    expect(found.messages.length).toStrictEqual(2);
+    expect(found.scanCapped).toStrictEqual(true);
   });
-  await t.step("совпадений набралось — потолка не было", async () => {
+  it("совпадений набралось — потолка не было", async () => {
     const found = await findMessages(
       client({ searchGlobal: search(2) }),
       plan({ from: target("500001"), limit: 50 }),
     );
-    assertEquals(found.messages.length, 50);
-    assertEquals(found.scanCapped, false);
+    expect(found.messages.length).toStrictEqual(50);
+    expect(found.scanCapped).toStrictEqual(false);
   });
-  await t.step("выдача иссякла раньше потолка — молчание", async () => {
+  it("выдача иссякла раньше потолка — молчание", async () => {
     const found = await findMessages(
       client({
         searchGlobal: async function* () {
@@ -216,40 +224,38 @@ Deno.test("потолок скана: предупреждение только 
       }),
       plan({ from: target("500001"), limit: 50 }),
     );
-    assertEquals(found.messages.length, 1);
-    assertEquals(found.scanCapped, false);
+    expect(found.messages.length).toStrictEqual(1);
+    expect(found.scanCapped).toStrictEqual(false);
   });
 });
 
-Deno.test("строка предупреждения совпадает с голденом", async () => {
-  assertEquals(
-    `${SCAN_CAP_WARNING}\n`,
-    await Deno.readTextFile(
+it("строка предупреждения совпадает с голденом", async () => {
+  expect(`${SCAN_CAP_WARNING}\n`).toStrictEqual(
+    await readFile(
       new URL(
         "./testdata/telegram-search/warn-scan-cap-stderr.txt",
         import.meta.url,
       ),
+      "utf8",
     ),
   );
 });
 
-Deno.test("отказ резолва называет свой предмет", async (t) => {
+describe("отказ резолва называет свой предмет", () => {
   const failing = client({
     resolve: () => Promise.reject(notOccupied()),
     searchChats: () => Promise.resolve([]),
   });
-  await t.step("--chat — чат", async () => {
-    const err = await assertRejects(
+  it("--chat — чат", async () => {
+    const err = await rejected(
       () => findMessages(failing, plan({ chat: target("Команда") })),
       VerbatimError,
     );
-    assertEquals(
-      err.message.startsWith("telegram: не удалось найти чат"),
-      true,
-    );
+    expect(err.message.startsWith("telegram: не удалось найти чат"))
+      .toStrictEqual(true);
   });
-  await t.step("--from — отправителя", async () => {
-    const err = await assertRejects(
+  it("--from — отправителя", async () => {
+    const err = await rejected(
       () =>
         findMessages(
           client({
@@ -264,8 +270,7 @@ Deno.test("отказ резолва называет свой предмет", 
         ),
       VerbatimError,
     );
-    assertEquals(
-      err.message,
+    expect(err.message).toStrictEqual(
       "telegram: не удалось найти отправителя 'Иван': совпадений нет; " +
         "попробуй: mpu telegram ls 'Иван' и укажи id или @username",
     );
