@@ -4,12 +4,13 @@
  * клиент приносит ядру. Сервер из `back/` поднимается только тестом.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { STOP } from "../../back/src/frames/mod.ts";
 import { withBack } from "../../back/src/backend/testback.ts";
 import { FakeBot, fakeQuestions } from "../../back/src/botquestions/testbot.ts";
 import { runClient } from "./client.ts";
-import { testEnv } from "./testkit.ts";
+import { closedPort, testEnv } from "./testkit.ts";
 
 /** Что увидел вызывающий клиента. */
 interface Seen {
@@ -35,11 +36,12 @@ async function viaClient(
 /** Живой payload `Stop` с транскриптом, которого нет. */
 async function stopPayload(message: string): Promise<string> {
   const live = JSON.parse(
-    await Deno.readTextFile(
+    await readFile(
       new URL(
         "../../back/src/claudehook/testdata/stop/live-stop.json",
         import.meta.url,
       ),
+      "utf8",
     ),
   );
   return JSON.stringify({
@@ -53,16 +55,14 @@ const SESSION = {
   CLAUDE_CODE_MESSAGING_SOCKET: "/run/user/1000/cc-socks/4242.sock",
 };
 
-Deno.test("сервер строк не отвечает — без вопроса, код 0", async () => {
-  const closed = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-  const base = `http://127.0.0.1:${(closed.addr as Deno.NetAddr).port}`;
-  closed.close();
+it("сервер строк не отвечает — без вопроса, код 0", async () => {
+  const base = `http://127.0.0.1:${await closedPort()}`;
   const seen = await viaClient(STOP.words, {
     base,
     main: "t",
     stdin: await stopPayload("Готово."),
   });
-  assertEquals([seen.code, seen.stdout], [0, ""]);
+  expect([seen.code, seen.stdout]).toStrictEqual([0, ""]);
   assert(
     seen.stderr.startsWith(
       "mpu claude-hook stop: без вопроса — сервер mpu не отвечает: ",
@@ -71,19 +71,22 @@ Deno.test("сервер строк не отвечает — без вопрос
   );
 });
 
-Deno.test("R2a-13 через клиент: бот не настроен — без вопроса, код 0", () =>
+it("R2a-13 через клиент: бот не настроен — без вопроса, код 0", () =>
   withBack(async (back) => {
-    assertEquals(
+    expect(
       await viaClient(STOP.words, {
         base: back.url,
         main: back.token,
         stdin: await stopPayload("Готово."),
       }),
-      { code: 0, stdout: "", stderr: STOP.undecided("бот не настроен") },
-    );
+    ).toStrictEqual({
+      code: 0,
+      stdout: "",
+      stderr: STOP.undecided("бот не настроен"),
+    });
   }));
 
-Deno.test("R2a-1, R2a-9 через клиент: тишина и код 0; ключ сессии дошёл до ядра", async () => {
+it("R2a-1, R2a-9 через клиент: тишина и код 0; ключ сессии дошёл до ядра", async () => {
   const bot = new FakeBot();
   await withBack(async (back) => {
     const ask = async (message: string) =>
@@ -93,7 +96,7 @@ Deno.test("R2a-1, R2a-9 через клиент: тишина и код 0; кл�
         stdin: await stopPayload(message),
         values: SESSION,
       });
-    assertEquals(await ask("Вы выбрали: Пн."), {
+    expect(await ask("Вы выбрали: Пн.")).toStrictEqual({
       code: 0,
       stdout: "",
       stderr: "",
@@ -101,21 +104,18 @@ Deno.test("R2a-1, R2a-9 через клиент: тишина и код 0; кл�
     await ask("Какой размер?");
     await bot.called(3);
     // Второй конец хода той же сессии снял первый — ключ принёс клиент.
-    assertEquals(
-      bot.calls[1].text.split("\n").at(-1),
-      "✅ решено в терминале",
-    );
-    assertEquals(bot.calls[2].method, "send");
+    expect(bot.calls[1].text.split("\n").at(-1)).toBe("✅ решено в терминале");
+    expect(bot.calls[2].method).toBe("send");
   }, { questions: fakeQuestions(bot) });
 });
 
-Deno.test("R2a-12: справка — однострока, код 0", () =>
+it("R2a-12: справка — однострока, код 0", () =>
   withBack(async (back) => {
     const seen = await viaClient([...STOP.words, "help"], {
       base: back.url,
       main: back.token,
     });
-    assertEquals([seen.code, seen.stderr], [0, ""]);
+    expect([seen.code, seen.stderr]).toStrictEqual([0, ""]);
     assert(
       seen.stdout.includes(
         "Как сообщить владельцу в Telegram, что сессия Claude Code ждёт ввода?",

@@ -5,7 +5,8 @@
  * `back/` (поднимается только тестом), бот — фейк, часы повтора — теста.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { STOP, VERSION } from "../../back/src/frames/mod.ts";
 import {
   type TestBack,
@@ -19,7 +20,7 @@ import {
 } from "../../back/src/botquestions/testbot.ts";
 import { type ChannelEnv, runChannel } from "./channel/mod.ts";
 import { runClient } from "./client.ts";
-import { testEnv } from "./testkit.ts";
+import { closedPort, testEnv } from "./testkit.ts";
 
 const KEY = "/run/user/1000/cc-socks/42.sock";
 
@@ -32,7 +33,7 @@ const testdata = (name: string) =>
 
 /** Живой обмен: сообщения Claude Code по порядку. */
 async function liveIn(): Promise<readonly string[]> {
-  const text = await Deno.readTextFile(testdata("live-channel-exchange.jsonl"));
+  const text = await readFile(testdata("live-channel-exchange.jsonl"), "utf8");
   return text.split("\n").filter((line) => line !== "")
     .map((line) => JSON.parse(line).in)
     .filter((message) => message !== null)
@@ -136,13 +137,13 @@ function answerTo(out: readonly string[], id: unknown): unknown {
   return line === undefined ? undefined : JSON.parse(line);
 }
 
-Deno.test("R2b-1: живой обмен — initialize с каналом, tools/list пуст, прочее — пустой результат", async () => {
+it("R2b-1: живой обмен — initialize с каналом, tools/list пуст, прочее — пустой результат", async () => {
   const stand = channel("http://127.0.0.1:1", "t");
   const live = await liveIn();
   for (const line of live) stand.input.push(line);
   stand.input.end();
-  assertEquals(await stand.code, 0);
-  assertEquals(answerTo(stand.out, 0), {
+  expect(await stand.code).toBe(0);
+  expect(answerTo(stand.out, 0)).toStrictEqual({
     jsonrpc: "2.0",
     id: 0,
     result: {
@@ -152,51 +153,50 @@ Deno.test("R2b-1: живой обмен — initialize с каналом, tools/
       instructions: INSTRUCTIONS,
     },
   });
-  assertEquals(answerTo(stand.out, 1), {
+  expect(answerTo(stand.out, 1)).toStrictEqual({
     jsonrpc: "2.0",
     id: 1,
     result: { tools: [] },
   });
-  assertEquals(answerTo(stand.out, "server-discover-probe-1"), {
+  expect(answerTo(stand.out, "server-discover-probe-1")).toStrictEqual({
     jsonrpc: "2.0",
     id: "server-discover-probe-1",
     result: {},
   });
   // Уведомлениям ответа нет: три запроса — три строки.
-  assertEquals(stand.out.length, 3);
+  expect(stand.out.length).toBe(3);
 });
 
-Deno.test("R2b-2: без CLAUDE_CODE_MESSAGING_SOCKET — код 1, строка спеки", async () => {
+it("R2b-2: без CLAUDE_CODE_MESSAGING_SOCKET — код 1, строка спеки", async () => {
   const stand = channel("http://127.0.0.1:1", "t", { key: undefined });
   stand.input.end();
-  assertEquals(await stand.code, 1);
-  assertEquals(stand.err, [
+  expect(await stand.code).toBe(1);
+  expect(stand.err).toStrictEqual([
     "mpu claude-channel: нет CLAUDE_CODE_MESSAGING_SOCKET — команду запускает Claude Code\n",
   ]);
 });
 
-Deno.test("R2b-5: ядро недоступно — ответы Claude Code без ожидания, повтор через 5 с, EOF — выход 0", async () => {
-  const closed = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-  const base = `http://127.0.0.1:${(closed.addr as Deno.NetAddr).port}`;
-  closed.close();
+it("R2b-5: ядро недоступно — ответы Claude Code без ожидания, повтор через 5 с, EOF — выход 0", async () => {
+  const base = `http://127.0.0.1:${await closedPort()}`;
   const stand = channel(base, "t");
   const live = await liveIn();
   for (const line of live) stand.input.push(line);
   await stand.said("mpu claude-channel: ядро недоступно или нет токена");
-  assertEquals(stand.out.length, 3);
-  assertEquals(stand.pauses, [5000]);
+  expect(stand.out.length).toBe(3);
+  expect(stand.pauses).toStrictEqual([5000]);
   stand.input.end();
-  assertEquals(await stand.code, 0);
+  expect(await stand.code).toBe(0);
 });
 
 /** Строка `Stop` сессии `KEY` через тонкий клиент. */
 async function stop(back: TestBack, message: string): Promise<void> {
   const live = JSON.parse(
-    await Deno.readTextFile(
+    await readFile(
       new URL(
         "../../back/src/claudehook/testdata/stop/live-stop.json",
         import.meta.url,
       ),
+      "utf8",
     ),
   );
   const run = testEnv({
@@ -209,7 +209,7 @@ async function stop(back: TestBack, message: string): Promise<void> {
     }),
     values: { CLAUDE_CODE_MESSAGING_SOCKET: KEY },
   });
-  assertEquals(await runClient(STOP.words, run.env), 0);
+  expect(await runClient(STOP.words, run.env)).toBe(0);
 }
 
 /** Канал зарегистрирован в ядре `back`. */
@@ -222,41 +222,40 @@ async function registered(back: TestBack, over: Partial<ChannelEnv> = {}) {
 
 const HEAD = "💬 ozon\nКакой цвет?";
 
-Deno.test("R2b-3: сессия с каналом — «Позже» · «Пропустить»; «Синий» — ровно уведомление в stdout, «✅ Синий — из чата»", async () => {
+it("R2b-3: сессия с каналом — «Позже» · «Пропустить»; «Синий» — ровно уведомление в stdout, «✅ Синий — из чата»", async () => {
   const bot = new FakeBot();
   await withBack(async (back) => {
     const stand = await registered(back);
     await stop(back, "Какой цвет?");
     await bot.called(1);
-    assertEquals(bot.calls[0].text, HEAD);
-    assertEquals(bot.calls[0].buttons, [["Позже", "Пропустить"]]);
+    expect(bot.calls[0].text).toStrictEqual(HEAD);
+    expect(bot.calls[0].buttons).toStrictEqual([["Позже", "Пропустить"]]);
     bot.deliver([textUpdate(1, 111, "Синий", 1)]);
     await bot.called(2);
-    assertEquals(
-      stand.out.at(-1),
+    expect(stand.out.at(-1)).toBe(
       '{"jsonrpc":"2.0","method":"notifications/claude/channel","params":{"content":"Синий","meta":{"user":"telegram"}}}\n',
     );
-    assertEquals(bot.calls[1].text, `${HEAD}\n✅ Синий — из чата`);
+    expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n✅ Синий — из чата`);
     stand.input.end();
-    assertEquals(await stand.code, 0);
+    expect(await stand.code).toBe(0);
   }, { questions: fakeQuestions(bot) });
 });
 
-Deno.test("R2b-4: stdin закрыт при активном «ждёт ввода» — «⌛ сессия закрыта», канал вышел с 0", async () => {
+it("R2b-4: stdin закрыт при активном «ждёт ввода» — «⌛ сессия закрыта», канал вышел с 0", async () => {
   const bot = new FakeBot();
   await withBack(async (back) => {
     const stand = await registered(back);
     await stop(back, "Какой цвет?");
     await bot.called(1);
     stand.input.end();
-    assertEquals(await stand.code, 0);
+    expect(await stand.code).toBe(0);
     await bot.called(2);
-    assertEquals(bot.calls[1].text, `${HEAD}\n⌛ сессия закрыта`);
-    assertEquals(bot.calls[1].buttons, []);
+    expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
+    expect(bot.calls[1].buttons).toStrictEqual([]);
   }, { questions: fakeQuestions(bot) });
 });
 
-Deno.test("R2b-7: запись в stdout не удалась — «не доставлено: сессия без канала», вопрос активен", async () => {
+it("R2b-7: запись в stdout не удалась — «не доставлено: сессия без канала», вопрос активен", async () => {
   const bot = new FakeBot();
   await withBack(async (back) => {
     const stand = await registered(back, {
@@ -269,37 +268,38 @@ Deno.test("R2b-7: запись в stdout не удалась — «не дост
     await bot.called(1);
     bot.deliver([textUpdate(1, 111, "Синий", 1)]);
     await bot.called(2);
-    assertEquals(bot.calls[1].text, "не доставлено: сессия без канала");
+    expect(bot.calls[1].text).toBe("не доставлено: сессия без канала");
     assert(stand.err.some((line) => line.includes("запись не удалась")));
     stand.input.end();
-    assertEquals(await stand.code, 0);
+    expect(await stand.code).toBe(0);
     // Вопрос активен до конца сессии: исход — по закрытию канала.
     await bot.called(3);
-    assertEquals(bot.calls[2].text, `${HEAD}\n⌛ сессия закрыта`);
+    expect(bot.calls[2].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
   }, { questions: fakeQuestions(bot) });
 });
 
-Deno.test("копия живого обмена совпадает с каналом спецификаций", async () => {
-  assertEquals(
-    await Deno.readTextFile(testdata("live-channel-exchange.jsonl")),
-    await Deno.readTextFile(
-      new URL(
-        "../../docs/specs/fixtures/telegram-relay/r2/live-channel-exchange.jsonl",
-        import.meta.url,
+it("копия живого обмена совпадает с каналом спецификаций", async () => {
+  expect(await readFile(testdata("live-channel-exchange.jsonl"), "utf8"))
+    .toStrictEqual(
+      await readFile(
+        new URL(
+          "../../docs/specs/fixtures/telegram-relay/r2/live-channel-exchange.jsonl",
+          import.meta.url,
+        ),
+        "utf8",
       ),
-    ),
-  );
+    );
 });
 
-Deno.test("адрес ядра не разбирается — отказ попытки, а не падение канала; EOF — выход 0", async () => {
+it("адрес ядра не разбирается — отказ попытки, а не падение канала; EOF — выход 0", async () => {
   const stand = channel("не адрес", "t");
   for (const line of await liveIn()) stand.input.push(line);
   await stand.said("mpu claude-channel: ядро недоступно или нет токена");
   stand.input.end();
-  assertEquals(await stand.code, 0);
+  expect(await stand.code).toBe(0);
 });
 
-Deno.test("stdin закрыт, пока читался токен — регистрации нет, выход 0", () =>
+it("stdin закрыт, пока читался токен — регистрации нет, выход 0", () =>
   withBack(async (back) => {
     const token = Promise.withResolvers<string | undefined>();
     const asked = Promise.withResolvers<void>();
@@ -318,6 +318,6 @@ Deno.test("stdin закрыт, пока читался токен — регис
     // приходит токен: цепочка микрозадач, без сна.
     for (let turn = 0; turn < 20; turn++) await Promise.resolve();
     token.resolve(back.token);
-    assertEquals(await within(stand.code, 5000, "выход канала"), 0);
-    assertEquals(stand.err, []);
+    expect(await within(stand.code, 5000, "выход канала")).toBe(0);
+    expect(stand.err).toStrictEqual([]);
   }));

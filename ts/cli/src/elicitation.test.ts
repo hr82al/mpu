@@ -5,7 +5,8 @@
  * поднимается только тестом.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { ELICITATION } from "../../back/src/frames/mod.ts";
 import { withBack } from "../../back/src/backend/testback.ts";
 import {
@@ -14,7 +15,7 @@ import {
   pressUpdate,
 } from "../../back/src/botquestions/testbot.ts";
 import { runClient } from "./client.ts";
-import { testEnv } from "./testkit.ts";
+import { closedPort, testEnv } from "./testkit.ts";
 
 /** Что увидел вызывающий клиента. */
 interface Seen {
@@ -34,11 +35,12 @@ async function viaClient(
 /** Живая форма без полей от сервера `gitlab`. */
 async function gitlabForm(): Promise<string> {
   const live = JSON.parse(
-    await Deno.readTextFile(
+    await readFile(
       new URL(
         "../../back/src/claudehook/testdata/elicitation/live-elicitation-mpu.json",
         import.meta.url,
       ),
+      "utf8",
     ),
   );
   return JSON.stringify({
@@ -48,12 +50,10 @@ async function gitlabForm(): Promise<string> {
   });
 }
 
-Deno.test("сервер строк не отвечает — без решения, код 0", async () => {
-  const closed = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-  const base = `http://127.0.0.1:${(closed.addr as Deno.NetAddr).port}`;
-  closed.close();
+it("сервер строк не отвечает — без решения, код 0", async () => {
+  const base = `http://127.0.0.1:${await closedPort()}`;
   const seen = await viaClient({ base, main: "t", stdin: await gitlabForm() });
-  assertEquals([seen.code, seen.stdout], [0, ""]);
+  expect([seen.code, seen.stdout]).toStrictEqual([0, ""]);
   assert(
     seen.stderr.startsWith(
       "mpu claude-hook elicitation: без решения — сервер mpu не отвечает: ",
@@ -62,7 +62,7 @@ Deno.test("сервер строк не отвечает — без решени
   );
 });
 
-Deno.test("11 через клиент: Accept из чата — решение в stdout, код 0", async () => {
+it("11 через клиент: Accept из чата — решение в stdout, код 0", async () => {
   const bot = new FakeBot();
   await withBack(async (back) => {
     const seen = viaClient({
@@ -72,7 +72,7 @@ Deno.test("11 через клиент: Accept из чата — решение �
     });
     await bot.called(1);
     bot.deliver([pressUpdate(1, 111, bot.calls[0].data[0][0])]);
-    assertEquals(await seen, {
+    expect(await seen).toStrictEqual({
       code: 0,
       stdout:
         '{"hookSpecificOutput":{"hookEventName":"Elicitation","action":"accept","content":{}}}\n',

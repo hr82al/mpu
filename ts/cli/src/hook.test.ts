@@ -4,7 +4,8 @@
  * поднимается только тестом; эталон — копия `cases.json` у `back/src/line`.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, beforeAll, describe, expect, it } from "vitest";
+import { chmod, readFile, writeFile } from "node:fs/promises";
 import { PRE_TOOL_USE } from "../../back/src/frames/mod.ts";
 import {
   ALLOW,
@@ -17,7 +18,7 @@ import {
 import { rulesOf } from "../../back/src/line/mod.ts";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";
-import { type Script, testEnv, withFakeServer } from "./testkit.ts";
+import { closedPort, type Script, testEnv, withFakeServer } from "./testkit.ts";
 
 interface HookCase {
   readonly id: string;
@@ -47,7 +48,7 @@ const testdata = (name: string) =>
   );
 
 async function golden(): Promise<Golden> {
-  return JSON.parse(await Deno.readTextFile(testdata("cases.json")));
+  return JSON.parse(await readFile(testdata("cases.json"), "utf8"));
 }
 
 /** stdin сценария `id`: живой payload с его `tool_name` и `tool_input`. */
@@ -55,7 +56,7 @@ async function payloadOf(id: string): Promise<string> {
   const one = (await golden()).cases.find((c) => c.id === id);
   if (one === undefined) throw new Error(`нет сценария ${id}`);
   const live = JSON.parse(
-    await Deno.readTextFile(testdata("live-bash-mpu-version.json")),
+    await readFile(testdata("live-bash-mpu-version.json"), "utf8"),
   );
   return JSON.stringify({
     ...live,
@@ -96,13 +97,16 @@ function hookVia(back: TestBack, stdin: string): Promise<Seen> {
 
 /** Исход сценария окружения: код, stdout и одна строка stderr. */
 function assertEnv(seen: Seen, one: EnvCase) {
-  assertEquals([seen.code, seen.stdout], [one.exit, one.stdout], one.id);
+  expect([seen.code, seen.stdout], one.id).toStrictEqual([
+    one.exit,
+    one.stdout,
+  ]);
   if (one.stderr !== undefined) {
-    assertEquals(seen.stderr, one.stderr, one.id);
+    expect(seen.stderr, one.id).toStrictEqual(one.stderr);
     return;
   }
   assert(seen.stderr.startsWith(one.stderr_prefix ?? ""), seen.stderr);
-  assertEquals(seen.stderr.split("\n").length, 2, seen.stderr);
+  expect(seen.stderr.split("\n").length, seen.stderr).toBe(2);
 }
 
 /** Посев снят, `*` — allow; путь хука — `verdict`. */
@@ -115,30 +119,31 @@ function hookPathRuled(file: string, verdict: Verdict) {
   book.set(RulePath.parse(PRE_TOOL_USE.words.join(" ")), verdict);
 }
 
-Deno.test("S1, S5 через клиент: ответ ядра как есть, код 0", async (t) => {
-  const { cases } = await golden();
+describe("S1, S5 через клиент: ответ ядра как есть, код 0", () => {
+  let cases: readonly HookCase[] = [];
+  beforeAll(async () => {
+    ({ cases } = await golden());
+  });
   for (const id of ["S1", "S5", "S19a"]) {
-    const one = cases.find((c) => c.id === id);
-    assert(one !== undefined);
-    await t.step(id, () =>
+    it(id, () =>
       withBack(async (back) => {
+        const one = cases.find((c) => c.id === id);
+        assert(one !== undefined);
         const stdin = one.tool_name === undefined
           ? "не json"
           : await payloadOf(id);
-        assertEquals(await hookVia(back, stdin), {
+        expect(await hookVia(back, stdin)).toStrictEqual({
           code: 0,
           stdout: one.stdout,
           stderr: one.stderr,
         });
-        assertEquals(back.called, []);
+        expect(back.called).toStrictEqual([]);
       }));
   }
 });
 
-Deno.test("S20a: сервер строк не отвечает", async () => {
-  const closed = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-  const base = `http://127.0.0.1:${(closed.addr as Deno.NetAddr).port}`;
-  closed.close();
+it("S20a: сервер строк не отвечает", async () => {
+  const base = `http://127.0.0.1:${await closedPort()}`;
   const seen = await viaClient(PRE_TOOL_USE.words, {
     base,
     main: "t",
@@ -147,7 +152,7 @@ Deno.test("S20a: сервер строк не отвечает", async () => {
   assertEnv(seen, await envCase("S20a"));
 });
 
-Deno.test("S20d: нет файла токена", async () => {
+it("S20d: нет файла токена", async () => {
   const seen = await viaClient(PRE_TOOL_USE.words, {
     base: "http://127.0.0.1:1",
     stdin: await payloadOf("S1"),
@@ -155,29 +160,35 @@ Deno.test("S20d: нет файла токена", async () => {
   assertEnv(seen, await envCase("S20d"));
 });
 
-Deno.test("S20b, S20c: файл правил не читается", async (t) => {
-  const stdin = await payloadOf("S1");
-  await t.step("S20b: мусор", () =>
+describe("S20b, S20c: файл правил не читается", () => {
+  let stdin = "";
+  beforeAll(async () => {
+    stdin = await payloadOf("S1");
+  });
+  it("S20b: мусор", () =>
     withBack(async (back) => {
-      await Deno.writeTextFile(back.policyFile, "мусор\n".repeat(64));
+      await writeFile(back.policyFile, "мусор\n".repeat(64));
       assertEnv(await hookVia(back, stdin), await envCase("S20b"));
     }));
-  await t.step("S20c: без права чтения", () =>
+  it("S20c: без права чтения", () =>
     withBack(async (back) => {
       rulesOf(back.policyFile);
-      await Deno.chmod(back.policyFile, 0o000);
+      await chmod(back.policyFile, 0o000);
       try {
         assertEnv(await hookVia(back, stdin), await envCase("S20c"));
       } finally {
-        await Deno.chmod(back.policyFile, 0o600);
+        await chmod(back.policyFile, 0o600);
       }
     }));
 });
 
-Deno.test("S20e, S20f: путь хука не allow — правила недоступны, код 0", async (t) => {
-  const stdin = await payloadOf("S1");
+describe("S20e, S20f: путь хука не allow — правила недоступны, код 0", () => {
+  let stdin = "";
+  beforeAll(async () => {
+    stdin = await payloadOf("S1");
+  });
   for (const [id, verdict] of [["S20e", DENY], ["S20f", ASK]] as const) {
-    await t.step(id, () =>
+    it(id, () =>
       withBack(async (back) => {
         hookPathRuled(back.policyFile, verdict);
         assertEnv(await hookVia(back, stdin), await envCase(id));
@@ -185,15 +196,15 @@ Deno.test("S20e, S20f: путь хука не allow — правила недо�
   }
 });
 
-Deno.test("S21: справка хука — обычная строка, код 0", async (t) => {
+describe("S21: справка хука — обычная строка, код 0", () => {
   for (const tail of ["--help", "help"]) {
-    await t.step(tail, () =>
+    it(tail, () =>
       withBack(async (back) => {
         const seen = await viaClient([...PRE_TOOL_USE.words, tail], {
           base: back.url,
           main: back.token,
         });
-        assertEquals([seen.code, seen.stderr], [0, ""]);
+        expect([seen.code, seen.stderr]).toStrictEqual([0, ""]);
         assert(
           seen.stdout.includes(
             "Какое решение правил mpu у вызова инструмента Claude Code?",
@@ -204,13 +215,13 @@ Deno.test("S21: справка хука — обычная строка, код 
   }
 });
 
-Deno.test("слова сверх хука — обычная судьба: отказ строки и его код", () =>
+it("слова сверх хука — обычная судьба: отказ строки и его код", () =>
   withBack(async (back) => {
     const seen = await viaClient([...PRE_TOOL_USE.words, "лишнее"], {
       base: back.url,
       main: back.token,
     });
-    assertEquals([seen.code, seen.stdout], [2, ""]);
+    expect([seen.code, seen.stdout]).toStrictEqual([2, ""]);
     assert(!seen.stderr.includes("без решения"), seen.stderr);
   }));
 
@@ -223,16 +234,17 @@ function framed(...frames: readonly object[]): Script {
   };
 }
 
-Deno.test("код ядра не 0: причина — первая строка кадров err как есть", () =>
+it("код ядра не 0: причина — первая строка кадров err как есть", () =>
   withFakeServer(
     async (base) => {
-      assertEquals(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }), {
-        code: 0,
-        stdout: "",
-        stderr: PRE_TOOL_USE.undecided(
-          PRE_TOOL_USE.unavailable("mpu: текст ядра"),
-        ),
-      });
+      expect(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }))
+        .toStrictEqual({
+          code: 0,
+          stdout: "",
+          stderr: PRE_TOOL_USE.undecided(
+            PRE_TOOL_USE.unavailable("mpu: текст ядра"),
+          ),
+        });
     },
     {
       script: framed(
@@ -243,16 +255,17 @@ Deno.test("код ядра не 0: причина — первая строка 
     },
   ));
 
-Deno.test("обрыв после кадра out: stdout пуст, одна строка без решения, код 0", () =>
+it("обрыв после кадра out: stdout пуст, одна строка без решения, код 0", () =>
   withFakeServer(
     async (base) => {
-      assertEquals(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }), {
-        code: 0,
-        stdout: "",
-        stderr: PRE_TOOL_USE.undecided(
-          PRE_TOOL_USE.unavailable("сервер оборвал строку"),
-        ),
-      });
+      expect(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }))
+        .toStrictEqual({
+          code: 0,
+          stdout: "",
+          stderr: PRE_TOOL_USE.undecided(
+            PRE_TOOL_USE.unavailable("сервер оборвал строку"),
+          ),
+        });
     },
     { script: framed({ out: '{"hookSpecificOutput":{}}\n' }) },
   ));

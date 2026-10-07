@@ -6,7 +6,8 @@
  * только тестом: код `cli/` берёт из `back/` лишь контракт кадров.
  */
 
-import { assertEquals } from "@std/assert";
+import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import type { CommandIo } from "../../back/src/command/mod.ts";
 import { IN_PLACE, type InvokeJournal } from "../../back/src/entrypoint/mod.ts";
 import {
@@ -162,43 +163,41 @@ async function viaClient(line: Line, back: TestBack): Promise<Seen> {
     code,
   };
   for (const token of [back.token, back.agentToken]) {
-    assertEquals(
-      JSON.stringify(seen).includes(token),
+    expect(JSON.stringify(seen).includes(token), "токен в выводе клиента").toBe(
       false,
-      "токен в выводе клиента",
     );
   }
   return seen;
 }
 
-Deno.test("клиент и прямое исполнение дают одно и то же", async (t) => {
+describe("клиент и прямое исполнение дают одно и то же", () => {
   for (const line of LINES) {
     const name = `${line.stance}: ${line.words.join(" ")} ${
       line.answers ?? ""
     }`;
-    await t.step(name, () =>
+    it(name, () =>
       withPolicyFile((file) =>
         withBack(async (back) => {
           const expected = await viaLine(line, file);
-          assertEquals(await viaClient(line, back), expected);
-          assertEquals(rulesOf(back.policyFile), rulesOf(file));
+          expect(await viaClient(line, back)).toStrictEqual(expected);
+          expect(rulesOf(back.policyFile)).toStrictEqual(rulesOf(file));
         }, { io: line.io })
       ));
   }
 });
 
-Deno.test("правило без основного токена: отказ, файл не изменён", () =>
+it("правило без основного токена: отказ, файл не изменён", () =>
   withBack(async (back) => {
     rulesOf(back.policyFile);
-    const before = await Deno.readFile(back.policyFile);
+    const before = await readFile(back.policyFile);
     const seen = await viaClient({
       words: ["allow:", "kiten ls"],
       stance: "agent",
     }, back);
-    assertEquals(seen, {
+    expect(seen).toStrictEqual({
       stdout: "",
       stderr: "изменить правила может только человек\n",
       code: 1,
     });
-    assertEquals(await Deno.readFile(back.policyFile), before);
+    expect(await readFile(back.policyFile)).toStrictEqual(before);
   }));
