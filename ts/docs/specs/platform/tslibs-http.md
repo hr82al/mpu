@@ -1,6 +1,6 @@
 # Порция H1 — транспорт HTTP библиотекой `tslibs/http`
 
-Статус: черновик (2026-10-07) — ждёт решения о порядке этапов 3 и 4: потребитель `ts/` на Deno не берёт локальный пакет без обходов (план, этап 4, «Находки»). После этапа 1 (V5 переводит тесты `back/src/http`).
+Статус: черновик (2026-10-07) — после этапа 3: потребитель `ts/` уже на Bun (решение владельца 2026-10-07, план «Порядок этапов»).
 Договор пакета — `platform/tslibs-package.md`; транспорт — `platform/loki-http.md`
 (поведение не меняется, кроме [S.6]–[S.8]). План — этап 4, первая библиотека:
 `http` нужен Kaiten, GitLab, Loki, Portainer, Sheets, sl-back, Telegram,
@@ -31,10 +31,9 @@
    22 потребителя (список ниже) импортируют `@mpu/http`; `back/src/http/`
    удалён.
 4. `ts/package.json` → `"@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz"`;
-   `deno.jsonc` → `"nodeModulesDir": "manual"`; установка — `bun install` в
-   `ts/` (договор [S.6]); гейты `ts/CLAUDE.md` начинаются с `bun install`.
-5. Гейты `ts/` зелёные: `deno fmt --check`, `deno lint`, `deno check .`,
-   `deno task vitest`, `deno task smoke`.
+   `bun install` в `ts/` ставит архив штатно.
+5. Гейты `ts/` (после этапа 3 — на Bun) зелёные, smoke собранного бинаря
+   зелёный.
 6. Вызов с явным прокси `http://127.0.0.1:<порт>` (локальный CONNECT-прокси
    в тесте) на `https://example.test/x` → прокси получил `CONNECT
    example.test:443`, ответ сервера дошёл; одинаково под тремя рантаймами.
