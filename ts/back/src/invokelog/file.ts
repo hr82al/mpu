@@ -192,8 +192,11 @@ async function dropFileLock(lockPath: string): Promise<void> {
     if (!(await lstat(lockPath)).isFile()) return;
     await unlink(lockPath);
   } catch (err) {
-    // Сосед убрал файл раньше нас — убирать нечего.
-    if (!hasErrorCode(err, "ENOENT")) throw err;
+    // Сосед убрал файл раньше нас (`ENOENT`) или успел взять лок-каталог
+    // между проверкой и удалением (`EISDIR`, на macOS `EPERM`) — убирать
+    // нечего. Под Deno то же окно удалило бы пустой каталог соседа; оно
+    // открыто только пока на диске лежит файл прежней сборки.
+    if (!hasErrorCode(err, "ENOENT", "EISDIR", "EPERM")) throw err;
   }
 }
 

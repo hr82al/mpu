@@ -7,6 +7,7 @@ import {
   readFile,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -217,6 +218,19 @@ it("два процесса ротируют разом: каждая запис
     expect(records.sort()).toStrictEqual(expected.sort());
   });
 }, 60_000);
+
+it("брошенный лок — держатель умер посреди ротации — не держит её вечно", async () => {
+  await withDir(async (dir, path) => {
+    await appendRecord(path, "старое\n", NO_ROTATION);
+    // Лок-каталог без живого держателя: отметка старше порога брошенности.
+    await mkdir(`${dir}/${LOCK_NAME}`);
+    const minuteAgo = new Date(Date.now() - 60_000);
+    await utimes(`${dir}/${LOCK_NAME}`, minuteAgo, minuteAgo);
+    await appendRecord(path, "новое\n", { maxBytes: 4, keep: 5 });
+    expect(await readFile(`${path}.1`, "utf8")).toBe("старое\n");
+    expect(await exists(`${dir}/${LOCK_NAME}`)).toBe(false);
+  });
+});
 
 it("файл-лок прежней сборки не мешает ротации, лок снят после неё", async () => {
   await withDir(async (dir, path) => {

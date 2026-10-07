@@ -76,8 +76,9 @@ export class ProcessLauncher implements Launcher {
 
   launch(): Spawned {
     const { command, args, diagnose, now } = this.#parts;
-    // Запуск синхронен по контракту пула, а `/bin/sh` есть всегда:
-    // отказ запуска, если он всё же случится, придёт статусом.
+    // Запуск синхронен по контракту пула, а `/bin/sh` есть всегда.
+    // Отказ запуска, если он всё же случится, отвергнет `status` — как
+    // отказ чтения провода: пул увидит исполнителя, который не дожил.
     const child = new Program(
       spawn("/bin/sh", ["-c", OOM_WRAPPER, command, ...args], {
         stdio: ["pipe", "pipe", "pipe"],

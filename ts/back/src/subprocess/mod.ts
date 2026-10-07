@@ -120,6 +120,8 @@ export class Program {
    */
   constructor(child: ChildProcess, signal?: AbortSignal) {
     this.#child = child;
+    // Без `pid` процесс не запущен, и `status` это скажет отказом;
+    // 0 — номер, которого у пользовательского процесса не бывает.
     this.pid = child.pid ?? 0;
     this.stdin =
       child.stdin === null ? closedWritable() : Writable.toWeb(child.stdin);
@@ -156,7 +158,7 @@ export class Program {
     this.#child.kill(signal);
   }
 
-  /** Статус и весь вывод; stdin закрывается — ввода больше не будет. */
+  /** Статус и весь вывод подключённых потоков. */
   async output(): Promise<ProgramOutput> {
     const [stdout, stderr, status] = await Promise.all([
       drained(this.stdout),

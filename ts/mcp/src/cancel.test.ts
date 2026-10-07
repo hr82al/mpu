@@ -136,7 +136,14 @@ it("отмена долгой строки: запись 130, ответа вы�
         // Отменяем, когда сервер уже начал строку: иначе проверялась бы
         // гонка, а не отмена.
         await within(start.started(), 10_000, "строка началась");
-        stop.abort();
+        // Причину называет сам клиент — `String(signal.reason)` уходит в
+        // уведомление дословно, а текст `AbortError` по умолчанию у
+        // рантаймов разный (Deno — «The signal has been aborted», Node и
+        // Bun — «This operation was aborted»). Явная причина — та, что в
+        // голдене канала: проверяется переводчик, а не рантайм клиента.
+        stop.abort(
+          new DOMException("The signal has been aborted", "AbortError"),
+        );
         // Отменённый вызов ответа не ждёт: клиент получает отказ отмены.
         await expect(call).rejects.toThrow();
         await within(log.written(1), 10_000, "запись журнала");

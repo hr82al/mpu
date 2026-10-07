@@ -12,11 +12,11 @@ import { defineConfig } from "vitest/config";
  * 150 мс, `complete/main.ts`), а разбор строки в `back` и без нагрузки
  * стоит 30–60 мс. Рядом с остальными файлами прогона он не успевал
  * (`platform/vitest-v6.md`, [S.6]); отдельной группой он идёт после них,
- * без соседей за процессор. Проверка та же: процесс с правами задачи.
+ * без соседей за процессор.
  */
 const ALONE = ["complete/src/tasks.test.ts"];
 
-const EXCLUDE = ["web/**", "**/node_modules/**", ".deno/**", ".tmp/**"];
+const EXCLUDE = ["web/**", "**/node_modules/**", ".tmp/**"];
 
 export default defineConfig({
   test: {
