@@ -4,7 +4,7 @@
  *
  * Проверяется то, что можно проверить без базы: что обходится весь
  * каталог, а не первый файл, и что расхождение видно по сторонам.
- * Саму сверку с живой `information_schema` делает `deno task smoke` при
+ * Саму сверку с живой `information_schema` делает `bun run smoke` при
  * поднятом стенде — здесь её нет и быть не может.
  */
 
@@ -17,7 +17,6 @@ import {
   compareColumns,
   schemaCheckPlan,
   schemaGoldens,
-  skipCause,
   skipReason,
 } from "./schema_golden.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -125,25 +124,13 @@ describe("план сверки: пропуск и проверка — разн
 });
 
 describe("причины пропуска различимы и лечатся в разных местах", () => {
-  it("нехватка права не выдаётся за погашенный стенд", () => {
-    // Мёртвый шаг иначе выглядит живым: проверка печатает пропуск и не
-    // исполняется ни разу (замер напарника 2026-08-28).
-    const refused = new Error('Requires env access to "PGBINARY"');
-    refused.name = "NotCapable";
-    expect(skipCause(refused)).toBe("permission");
-    expect(skipCause(new Error("connect ECONNREFUSED"))).toBe("unreachable");
-  });
-
   it("текст называет и причину, и место починки", () => {
-    const permission = skipReason("permission", 'env access to "PGBINARY"');
-    expect(permission).toContain("не хватает права");
-    expect(permission).toContain("deno.jsonc");
     const unreachable = skipReason("unreachable", "ECONNREFUSED");
     expect(unreachable).toContain("стенд не поднят");
     const credentials = skipReason("credentials", "pg_0 is not set");
     expect(credentials).toContain("реквизиты");
-    // Три причины — три разных текста: сведённые к одному, они отправят
+    // Две причины — два разных текста: сведённые к одному, они отправят
     // читателя чинить не то.
-    expect(new Set([permission, unreachable, credentials]).size).toBe(3);
+    expect(new Set([unreachable, credentials]).size).toBe(2);
   });
 });

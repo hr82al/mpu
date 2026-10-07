@@ -4,7 +4,6 @@
  * подставляют постоянную отметку и настоящий git не запускают вовсе.
  */
 
-import { isPermissionRefusal } from "../oserror/mod.ts";
 import { runProgram } from "../subprocess/mod.ts";
 import type { RunGit } from "./mark.ts";
 
@@ -13,13 +12,9 @@ import type { RunGit } from "./mark.ts";
  * удалось: дерево, о котором он ничего не может сказать, получает
  * отметку `вне git`, а не отказ (`platform/code-analyzer.md`).
  *
- * Причин у неудачи больше одной, и типом они не различаются: бинаря нет
- * в `PATH` (`ENOENT`) и самого `PATH` нет в окружении
- * (обычный `Error` с текстом «no path to search» — замер 2026-09-08).
- * Обе означают одно и то же и обе дают ответ. Единственная, которая
- * обязана прорваться наружу, — нехватка права `--allow-run`: она
- * значит, что бинарь собран неверно, и молчаливое «вне git» скрыло бы
- * это от smoke.
+ * Причин у неудачи больше одной, и все означают одно и то же: бинаря
+ * нет в `PATH` (`ENOENT`), самого `PATH` нет в окружении, файл не
+ * исполняемый (`EACCES`). Все дают ответ, а не отказ.
  */
 export const spawnGit: RunGit = async (args, cwd) => {
   const decoder = new TextDecoder();
@@ -32,8 +27,8 @@ export const spawnGit: RunGit = async (args, cwd) => {
       stderr: "null",
     });
     return { code: output.code, stdout: decoder.decode(output.stdout) };
-  } catch (err) {
-    if (isPermissionRefusal(err)) throw err;
+  } catch {
+    // Любой отказ запуска — «вне git» (см. выше).
     return null;
   }
 };

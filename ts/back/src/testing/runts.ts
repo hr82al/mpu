@@ -10,13 +10,21 @@
 import process from "node:process";
 
 /**
- * Программа и аргументы запуска `module` с `args`: Node 24 и Bun
- * исполняют `.ts` сами, Deno — подкомандой `run` со всеми правами.
+ * Программа и аргументы запуска `module` с `args`, которые программа
+ * получит дословно: Node 24 исполняет `.ts` сам; Deno — подкомандой
+ * `run` со всеми правами; Bun — сам, но первый `--` после пути скрипта
+ * забирает себе (проба 2026-10-07: `bun x.ts -- a` → `["a"]`), поэтому
+ * аргументы отделяются своим `--`.
  */
 export function runTs(
   module: string,
   args: readonly string[] = [],
 ): [string, string[]] {
-  const run = process.versions.deno === undefined ? [] : ["run", "-A"];
-  return [process.execPath, [...run, module, ...args]];
+  if (process.versions.deno !== undefined) {
+    return [process.execPath, ["run", "-A", module, ...args]];
+  }
+  if (process.versions.bun !== undefined) {
+    return [process.execPath, [module, "--", ...args]];
+  }
+  return [process.execPath, [module, ...args]];
 }

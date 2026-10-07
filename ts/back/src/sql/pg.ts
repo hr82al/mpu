@@ -309,7 +309,7 @@ function send(
  * `PGAPPNAME` в shell на поведение влиять не должен. Исключения —
  * `binary` и `replication`: их умолчание ложно, а ложное значение
  * драйвер за заданное не считает и всё равно смотрит в `PGBINARY` /
- * `PGREPLICATION` (см. `deno.jsonc`, право `--allow-env=PG*`).
+ * `PGREPLICATION`.
  */
 export function clientOptions(
   target: PgTarget,

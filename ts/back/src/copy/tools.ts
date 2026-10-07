@@ -19,8 +19,6 @@ import { closeSync, openSync, rmSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isPermissionRefusal } from "../oserror/mod.ts";
-import { DomainError } from "../command/mod.ts";
 import type { PgTarget } from "../sql/mod.ts";
 import { type ProgramOutput, startProgram } from "../subprocess/mod.ts";
 
@@ -220,48 +218,18 @@ export const spawnTool: RunTool = async (argv, env, onLine) => {
 };
 
 /**
- * Каталоги временных файлов, в которые собранному бинарю разрешено
- * писать (`deno.jsonc`, задача `build`). Списком, а не готовой
- * строкой: текст отказа обязан перечислять ровно то, что в правах, и
- * совпадение с задачей `build` проверяется тестом — иначе два места
- * разошлись бы молча.
- */
-export const DUMP_DIRS: readonly string[] = ["/tmp", "/var/tmp"];
-
-/**
- * Временный файл дампа; имя уникально на вызов. Один на обе команды
- * копирования: у файла есть право сборки, и второе место его создания
+ * Временный файл дампа в каталоге временных файлов ОС; имя уникально на
+ * вызов. Один на обе команды копирования: второе место его создания
  * рано или поздно разошлось бы с первым — как раз то, чем эта ловушка
  * и обошлась (`docs/specs/copy-client.md`, «Известные ловушки»).
- *
- * Отказ прав переводится в доменный: Deno прячет путь за `<TMP>`
- * («Requires write access to <TMP>»), и оператор из такого сообщения не
- * узнаёт ни какой каталог не подошёл, ни что с этим делать.
  */
 export function makeDumpFile(prefix: string): string {
-  try {
-    // `wx` — создать, а не открыть лежащий (`O_EXCL`), как `mkstemp`:
-    // имя случайное, но чужой файл с ним не подменяется. 0600 — дамп
-    // несёт данные клиента.
-    const path = join(
-      tmpdir(),
-      `${prefix}${randomBytes(6).toString("hex")}.dump`,
-    );
-    closeSync(openSync(path, "wx", 0o600));
-    return path;
-  } catch (err) {
-    if (!isPermissionRefusal(err)) throw err;
-    throw new DomainError(
-      "нет права записи в каталог временных файлов: собранный mpu пишет " +
-        `дамп в ${DUMP_DIRS.join(" или ")}`,
-      {
-        // Не `hint`: там ждут готовую команду, а здесь выбор из двух
-        // действий (`src/command/errors.ts`, `ErrorDetails`).
-        advice: "сбрось TMPDIR либо укажи его на один из этих каталогов",
-        cause: err,
-      },
-    );
-  }
+  // `wx` — создать, а не открыть лежащий (`O_EXCL`), как `mkstemp`:
+  // имя случайное, но чужой файл с ним не подменяется. 0600 — дамп
+  // несёт данные клиента.
+  const path = join(tmpdir(), `${prefix}${randomBytes(6).toString("hex")}.dump`);
+  closeSync(openSync(path, "wx", 0o600));
+  return path;
 }
 
 /** Удаление временного файла; его отсутствие — не отказ. */

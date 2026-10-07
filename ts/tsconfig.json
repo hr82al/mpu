@@ -1,6 +1,6 @@
 {
   // Проверка типов `tsc --noEmit` (`docs/specs/platform/node-runtime.md`,
-  // [S.10]) вместо `deno check`: строгий режим, как был у Deno.
+  // [S.10]) вместо `deno check`, в том же строгом режиме.
   "compilerOptions": {
     "strict": true,
     "noEmit": true,

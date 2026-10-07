@@ -1,5 +1,5 @@
 /**
- * Точка входа `mpu-supervisor` (`deno task supervisor`): единственное, что
+ * Точка входа `mpu-supervisor` (`bun run supervisor`): единственное, что
  * запускает служба `mpu.service`.
  */
 

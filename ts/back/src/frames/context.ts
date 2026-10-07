@@ -150,8 +150,7 @@ export const SESSION_ENV = "CLAUDE_CODE_MESSAGING_SOCKET";
  * принятая `PGHOST` увела бы разрешённую строку в другую базу, не изменив
  * ни одного её слова (`platform/call-context.md`).
  *
- * Список — единственный источник: на него ссылаются права задач `cli` и
- * `compile:cli` в `deno.jsonc`.
+ * Список — единственный источник имён контекста вызова.
  */
 export const CLIENT_ENV_NAMES: readonly string[] = [
   "COLUMNS",

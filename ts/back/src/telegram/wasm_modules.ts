@@ -5,8 +5,8 @@
  * Модулем, а не файлом рядом: файл читается API рантайма или по
  * `import.meta.url`, и у собранной программы его нет (замер этапа 2:
  * бинарь Bun — «Cannot find module '@mtcute/wasm/mtcute-simd.wasm'»).
- * Совпадение с пакетом сверяет `crypto.test.ts`; при бампе пакета модуль
- * пересобирается из `node_modules/@mtcute/wasm`.
+ * Порождён `back/scripts/gen-wasm-modules.ts` из `node_modules/@mtcute/wasm`
+ * и не коммитится; совпадение с пакетом сверяет `crypto.test.ts`.
  */
 
 /** `mtcute-simd.wasm` — сборка для движков с SIMD. */

@@ -1,7 +1,7 @@
 /**
  * Голдены состава колонок (`docs/specs/fixtures/api/schema/`): чтение и
  * сверка. Живут в `src`, а не в скрипте проверки, потому что нужны
- * обоим её концам — тесту без базы и `deno task smoke` с базой, — и
+ * обоим её концам — тесту без базы и `bun run smoke` с базой, — и
  * потому что сверяемая часть должна проверяться сама.
  *
  * Голден отвечает на вопрос «есть ли такая колонка», но не на вопрос
@@ -11,7 +11,6 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import type { EnvFile } from "../command/mod.ts";
-import { isPermissionRefusal } from "../oserror/mod.ts";
 import { type PgTarget, serverTarget } from "../sql/mod.ts";
 
 /** Каталог голденов; единица — файл, а не список имён в коде. */
@@ -108,27 +107,15 @@ export function schemaCheckPlan(envFile: EnvFile): SchemaCheckPlan {
 
 /**
  * Почему сверка не состоялась. Причины названы по отдельности
- * намеренно: «нет права» чинится строкой в `deno.jsonc`, «стенд не
- * поднят» — запуском стенда, «нет реквизитов» — env-файлом. Одна
- * формулировка на три случая отправила бы читателя чинить не то, а
- * нехватку права вдобавок сделала бы неотличимой от погашенного стенда
- * — то есть мёртвый шаг выглядел бы живым (замер 2026-08-28).
+ * намеренно: «стенд не поднят» лечится запуском стенда, «нет
+ * реквизитов» — env-файлом. Одна формулировка на оба случая отправила
+ * бы читателя чинить не то.
  */
-export type SkipCause = "permission" | "unreachable" | "credentials";
-
-/** Причина пропуска по отказу подключения. */
-export function skipCause(err: unknown): SkipCause {
-  // Нехватка права у процесса — не свойство стенда: база может быть
-  // поднята и доступна, а проверка всё равно не дойдёт до неё.
-  return isPermissionRefusal(err) ? "permission" : "unreachable";
-}
+export type SkipCause = "unreachable" | "credentials";
 
 /** Текст пропуска: причина названа своим словом и с своим лечением. */
 export function skipReason(cause: SkipCause, detail: string): string {
   switch (cause) {
-    case "permission":
-      return `проверке не хватает права: ${detail}` +
-        "; добавь его задаче smoke в deno.jsonc";
     case "unreachable":
       return `main-БД недоступна (стенд не поднят?): ${detail}`;
     case "credentials":

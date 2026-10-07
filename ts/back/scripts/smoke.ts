@@ -1,15 +1,14 @@
 /**
- * `deno task smoke` — проверка собранного бинаря на том, чего не видит
- * `deno test`: на правах, зашитых в него при `deno compile`. Тесты идут
- * с широким набором прав, поэтому нехватка `--allow-*` в задаче `build`
- * их не краснит — она видна только запуску самого бинаря.
+ * `bun run smoke` — проверка собранных программ на том, чего не видят
+ * тесты: тесты идут по исходникам, а пользователь запускает бинари
+ * `bun build --compile` (`platform/node-runtime.md`, [S.11]). Состав
+ * бинаря (воркер разбора, wasm Telegram, ленивые модули), подпроцессы,
+ * файлы состояния и форма вывода видны только запуску самой программы.
  *
- * Бинарь собирается во временный каталог внутри `.tmp` репозитория
- * (`makeSubjectHome`: под `/tmp` утверждения о правах записи слепнут),
- * и он же служит ему HOME:
- * `$HOME` в правах задачи `build` подставляется этим каталогом, так что
- * всё, что бинарь пишет в домашний каталог, остаётся во временном.
- * Активная установка (`~/.local/bin/mpu`) и настоящий rc-файл не
+ * Семь программ собираются скриптами `compile:*` (`package.json`) во
+ * временный каталог внутри `.tmp` репозитория; он же служит им HOME, так
+ * что всё, что они пишут в домашний каталог, остаётся во временном.
+ * Активная установка (`~/.local/bin/mpu`) и настоящие rc-файлы не
  * трогаются.
  *
  * Проверки идут с `clearEnv`: у бинаря есть ровно те переменные, что
@@ -17,31 +16,46 @@
  * его от нас».
  */
 
-import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { once } from "node:events";
+import { closeSync, openSync, rmSync } from "node:fs";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { createServer as createTcpServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+import { DatabaseSync } from "node:sqlite";
 import { VERSION } from "../src/version.ts";
 import { GRAMMAR } from "../src/messages/mod.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
-import {
-  BACK_TASK,
-  CLI_TASK,
-  compileArgs,
-  CompileTaskError,
-  TASK_TASK,
-  WORKER_TASK,
-} from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";
 import { policyFile } from "../src/line/mod.ts";
 import { Image, imageFile, ImageMethod } from "../src/image/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
+import { hasErrorCode } from "../src/oserror/mod.ts";
+import {
+  type ProgramOutput,
+  runProgram,
+  startProgram,
+} from "../src/subprocess/mod.ts";
+import { listenLoopback, serveFetch } from "../src/testing/http.ts";
 import {
   compareColumns,
   schemaCheckPlan,
   schemaGoldens,
-  skipCause,
   skipReason,
 } from "../src/api/schema_golden.ts";
 
@@ -50,7 +64,7 @@ const decoder = new TextDecoder();
 /**
  * Проверка неисполнима в этом окружении. Не «зелёная»: пропуск
  * печатается отдельным словом и считается в итоговой строке — иначе
- * список прав выглядел бы покрытым, не будучи им.
+ * непроверенное выглядело бы проверенным.
  */
 class Skipped extends Error {
   override name = "Skipped";
@@ -60,8 +74,7 @@ class Skipped extends Error {
  * Предмет прогона: пара собранных программ, которыми человек и
  * пользуется, — сервер строк и клиент, — и два каталога, которыми им
  * подменяют окружение: `home` — состояние (`HOME`), `configHome` —
- * конфигурация (`XDG_CONFIG_HOME`). Второй нужен и на сборке: путь в
- * `--allow-write` запекается в бинарь, а не читается при запуске.
+ * конфигурация (`XDG_CONFIG_HOME`).
  */
 interface Subject {
   /** `mpu-back`: исполняет строки. */
@@ -72,7 +85,7 @@ interface Subject {
   readonly configHome: string;
   /** `mpu-task`: оркестратор ролей (`task-orchestrator.md`). */
   readonly task: string;
-  /** `XDG_RUNTIME_DIR` оркестратора: запекается в его права. */
+  /** `XDG_RUNTIME_DIR` оркестратора: каталог его первых сообщений. */
   readonly runtimeDir: string;
 }
 
@@ -94,21 +107,18 @@ async function serve(
   subject: Subject,
   env: Readonly<Record<string, string>> = {},
 ): Promise<Serving> {
-  const child = new Deno.Command(subject.back, {
+  const child = await startProgram(subject.back, {
     args: ["--port", "0"],
     env: { HOME: subject.home, ...env },
     clearEnv: true,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
-  }).spawn();
+  });
   const reader = child.stdout.getReader();
   const stop = async () => {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      // Сервер уже мёртв — гасить нечего, и это не ошибка прогона.
-    }
+    // Мёртвый сервер сигнал не получает и не бросает.
+    child.kill("SIGTERM");
     await child.status;
     await reader.cancel();
     await child.stderr.cancel();
@@ -129,7 +139,7 @@ async function serve(
   return { url: found[0], [Symbol.asyncDispose]: stop };
 }
 
-/** Программа tmux ядра: путь — как в его праве и в коде (`claudehook`). */
+/** Программа tmux ядра: путь — как в коде (`claudehook`). */
 const TMUX_BIN = "/usr/bin/tmux";
 
 /**
@@ -140,16 +150,16 @@ async function tmuxAt(
   socket: string,
   args: readonly string[],
 ): Promise<{ readonly success: boolean; readonly said: string }> {
-  let output: Deno.CommandOutput;
+  let output: ProgramOutput;
   try {
-    output = await new Deno.Command(TMUX_BIN, {
+    output = await runProgram(TMUX_BIN, {
       args: ["-S", socket, ...args],
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
-    }).output();
+    });
   } catch (err) {
-    if (!(err instanceof Deno.errors.NotFound)) throw err;
+    if (!(hasErrorCode(err, "ENOENT"))) throw err;
     return { success: false, said: reasonLine(err) };
   }
   const said = decoder.decode(output.success ? output.stdout : output.stderr);
@@ -165,14 +175,14 @@ async function hookCall(
   url: string,
   env: Readonly<Record<string, string>>,
 ): Promise<Outcome> {
-  const child = new Deno.Command(subject.cli, {
+  const child = await startProgram(subject.cli, {
     args: ["claude-hook", "permission-request"],
     env: { HOME: subject.home, MPU_BACK_URL: url, ...env },
     clearEnv: true,
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
-  }).spawn();
+  });
   const writer = child.stdin.getWriter();
   await writer.write(new TextEncoder().encode(JSON.stringify({
     tool_name: "Bash",
@@ -226,10 +236,10 @@ async function ask(
   args: readonly string[],
   cwd?: string,
 ): Promise<Outcome> {
-  const output = await new Deno.Command(subject.cli, {
+  const output = await runProgram(subject.cli, {
     args: [...args],
     // `PATH` клиенту не даётся намеренно: программы копирования
-    // перечислены в его правах абсолютными путями, и старт без `PATH`
+    // названы у него абсолютными путями, и старт без `PATH`
     // — проверяемое свойство, а не удобство прогона
     // (`cli-client.md`, «Права клиента и `PATH`»).
     env: { HOME: subject.home, MPU_BACK_URL: url },
@@ -238,7 +248,7 @@ async function ask(
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
-  }).output();
+  });
   return {
     code: output.code,
     stdout: decoder.decode(output.stdout),
@@ -286,11 +296,11 @@ function allowLines(home: string): void {
 
 /** `git` в каталоге прогона; упал — прогон красный. */
 async function gitIn(dir: string, args: readonly string[]): Promise<void> {
-  const output = await new Deno.Command("git", {
+  const output = await runProgram("git", {
     args: ["-C", dir, ...args],
     stdout: "null",
     stderr: "piped",
-  }).output();
+  });
   if (!output.success) {
     throw new Error(
       `git ${args[0]}: ${new TextDecoder().decode(output.stderr)}`,
@@ -320,9 +330,9 @@ function seedImageMethod(home: string): void {
 /** Отсутствие файла как утверждение: есть — проверка красная. */
 async function assertMissing(path: string): Promise<void> {
   try {
-    await Deno.stat(path);
+    await stat(path);
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return;
+    if (hasErrorCode(err, "ENOENT")) return;
     throw err;
   }
   throw new Error(`файл появился там, где его быть не должно: ${path}`);
@@ -351,8 +361,8 @@ async function runOk(
  */
 async function writeCopyDevEnv(subject: Subject): Promise<void> {
   const path = `${subject.home}/.config/mpu/.env`;
-  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await writeFile(
     path,
     "DEV_WORKSPACES_HOST=127.0.0.1\nDEV_WORKSPACES_PORT=1\n" +
       "DEV_WORKSPACES_USER=smoke\nDEV_WORKSPACES_PASSWORD=smoke\n",
@@ -361,87 +371,59 @@ async function writeCopyDevEnv(subject: Subject): Promise<void> {
 
 /** Убирает env-файл прогона: следующая проверка пишет свой. */
 async function removeEnvFile(subject: Subject): Promise<void> {
-  await Deno.remove(`${subject.home}/.config/mpu/.env`).catch(() => {});
+  await rm(`${subject.home}/.config/mpu/.env`).catch(() => {});
 }
 
 /**
  * Пригоден ли `/tmp` для записи в этом окружении. Зонд делает сам
- * smoke, а не бинарь: у бинаря отказ файловой системы и отказ прав
- * выглядят по-разному, но проверять надо второе, и путать их нельзя.
+ * smoke, а не бинарь: в песочнице `/tmp` бывает только на чтение, и
+ * отказ файловой системы — не дефект программы.
  */
 function probeTempDir(): void {
-  let path: string;
+  const path = `/tmp/mpu-smoke-probe-${randomBytes(6).toString("hex")}`;
   try {
-    path = Deno.makeTempFileSync({ dir: "/tmp", prefix: "mpu-smoke-probe-" });
+    closeSync(openSync(path, "wx"));
   } catch (err) {
     const reason = err instanceof Error ? err.message.split("\n")[0] : "";
     throw new Skipped(`/tmp недоступен на запись в этом окружении: ${reason}`);
   }
   try {
-    Deno.removeSync(path);
+    rmSync(path);
   } catch {
     // Зонд убирает за собой best-effort: оставшийся файл ничему не мешает.
   }
 }
 
 /**
- * Годится ли подменный HOME для утверждения о праве записи.
- *
- * Под `/tmp` и `/var/tmp` любая запись покрыта соседним правом из того
- * же списка (`--allow-write=…,/tmp,/var/tmp`), поэтому проверка,
- * которая называет своим предметом право на `$HOME/...`, зеленела бы и
- * со снятым правом — она проверяла бы чужое. Зовётся из КАЖДОЙ такой
- * проверки, а не из одной: слепо оказывается любое утверждение о
- * праве, а не какое-то избранное.
- *
- * Обычно до пропуска не доходит: домашний каталог прогона заводится
- * вне `/tmp` (`makeSubjectHome`). Пропуск остаётся для окружений, где
- * это не удалось, и называет путь — пересказ «временный каталог не
- * тот» скрыл бы, какой именно.
+ * Программы прогона: часть сборки (`compile:<часть>`, `package.json`) →
+ * имя программы. Все семь — как у установки (`install.sh`): каждая
+ * обязана собраться и ответить на `--version`.
  */
-function requireOutsideTempPermission(...paths: readonly string[]): void {
-  for (const covered of ["/tmp/", "/var/tmp/"]) {
-    for (const home of paths) {
-      if (!home.startsWith(covered)) continue;
-      throw new Skipped(
-        `каталог прогона под ${covered.slice(0, -1)} — запись туда покрыта ` +
-          `соседним правом того же списка: ${home}`,
-      );
-    }
-  }
-}
+const PROGRAMS: readonly (readonly [part: string, program: string])[] = [
+  ["back", "mpu-back"],
+  ["worker", "mpu-worker"],
+  ["mcp", "mpu-mcp"],
+  ["cli", "mpu"],
+  ["supervisor", "mpu-supervisor"],
+  ["task", "mpu-task"],
+  ["complete", "mpu-complete"],
+];
 
 /**
- * Собирает программу прогона. Аргументы — из её задачи
- * (`compile_task.ts`): список прав здесь не переписывается, иначе smoke
- * проверял бы не те права, с которыми собирается программа. Подменяются
- * только путь вывода и два каталога окружения.
+ * Собирает программу скриптом `compile:<part>` — тем же, которым собирает
+ * её установка: smoke проверяет ровно то, что ставится.
  *
- * @param task имя задачи сборки
+ * @param part часть сборки
  * @param out путь готовой программы
- * @param where каталоги, которыми раскрываются переменные прав
  */
-async function compile(
-  task: string,
-  out: string,
-  where: {
-    readonly home: string;
-    readonly configHome: string;
-    readonly runtimeDir: string;
-  },
-): Promise<void> {
-  const args = compileArgs(await Deno.readTextFile("deno.jsonc"), task, {
-    home: where.home,
-    configHome: where.configHome,
-    runtimeDir: where.runtimeDir,
-    out,
-  });
-  const compiled = await new Deno.Command("deno", {
-    args,
+async function compile(part: string, out: string): Promise<void> {
+  const compiled = await runProgram("bun", {
+    args: ["run", `compile:${part}`],
+    env: { MPU_OUT: out },
     stdout: "inherit",
     stderr: "inherit",
-  }).output();
-  if (!compiled.success) throw new Error(`deno compile не собрал ${task}`);
+  });
+  if (!compiled.success) throw new Error(`bun run compile:${part} не собрал`);
 }
 
 /** Первый существующий путь из списка; ни одного — `undefined`. */
@@ -450,7 +432,7 @@ async function firstExisting(
 ): Promise<string | undefined> {
   for (const path of paths) {
     try {
-      await Deno.stat(path);
+      await stat(path);
       return path;
     } catch {
       // Нет — пробуем следующий; причина неважна.
@@ -473,7 +455,7 @@ type Check = readonly [name: string, run: () => Promise<void>];
  * исход, чем «сверили и разошлось».
  */
 async function openMainDb() {
-  const path = envFilePath((name) => Deno.env.get(name));
+  const path = envFilePath((name) => process.env[name]);
   const envFile = makeEnvFile(
     path === undefined ? undefined : makeEnvFileStore(path),
   );
@@ -482,9 +464,7 @@ async function openMainDb() {
   try {
     return await denoSession("read-only")(plan.target);
   } catch (err) {
-    // Причина называется своя: нехватка права и погашенный стенд
-    // лечатся в разных местах, и первая не должна маскироваться второй.
-    throw new Skipped(skipReason(skipCause(err), reasonLine(err)));
+    throw new Skipped(skipReason("unreachable", reasonLine(err)));
   }
 }
 
@@ -536,54 +516,46 @@ function checks(subject: Subject): readonly Check[] {
       const outcome = await runOk(subject, ["version"]);
       assert.deepStrictEqual(outcome.stdout.trim(), VERSION, "не та версия");
     }],
-    // Права клиента: до этой порции их не проверял никто — собранного
-    // клиента прогон не запускал вовсе (`platform/monolith-removal.md`).
-    // Проверяется наблюдаемым следом, а не списком флагов: основной
-    // токен прочитан — значит клиент пришёл дверью человека, и ему
-    // доступен её собственный метод; не прочитан — дверь была бы
-    // агентской, и метода бы не было.
-    ["права клиента: основной токен читается, дверь человека", async () => {
+    // Собранный клиент читает основной токен (`cli-client.md`).
+    // Проверяется наблюдаемым следом: основной токен прочитан — значит
+    // клиент пришёл дверью человека, и ему доступен её собственный
+    // метод; не прочитан — дверь была бы агентской, и метода бы не было.
+    ["клиент: основной токен читается, дверь человека", async () => {
       const outcome = await runOk(subject, ["web"]);
       assert(
         outcome.stdout.startsWith("http://mpu.localhost"),
         `ссылка входа не та: ${JSON.stringify(outcome.stdout)}`,
       );
     }],
-    // Клиент живёт без `PATH`: программы копирования названы в его
-    // правах абсолютными путями. С именами он падал бы здесь чужим
-    // текстом ещё до своей первой строки (замер 2026-09-22,
-    // `cli-client.md`, «Права клиента и `PATH`»).
+    // Клиент живёт без `PATH`: программы копирования названы
+    // абсолютными путями (`cli/src/clipboard/mod.ts`, `cli-client.md`,
+    // «Права клиента и `PATH`»).
     ["клиент стартует без PATH в окружении", async () => {
       const outcome = await run(subject, ["version"]);
       assert.deepStrictEqual(outcome.stdout.trim(), VERSION, outcome.stderr);
     }],
-    // Право на каталог временных файлов: дамп `copy-client`/`copy-dev`
-    // пишется во временный файл, и без права бинарь падает `Requires
-    // write access to <TMP>` ещё до первого обращения к PG. Тесты этого
-    // не видят — они идут с широкими правами.
+    // Временный файл дампа `copy-client`/`copy-dev`
+    // (`docs/specs/copy-client.md`, «Известные ловушки»): собранный бинарь
+    // заводит его в каталоге временных файлов до первого обращения к PG.
     //
     // Сети здесь нет: адрес источника указан на петлю с заведомо
     // закрытым портом, а `pg_dump` не находится вовсе — окружение
     // подпроцесса не несёт PATH. Дальше создания временного файла
-    // вызов и не должен уходить: проверяется ровно право.
+    // вызов и не должен уходить.
     [
-      "временный файл дампа: право на каталог зашито в бинарь",
+      "временный файл дампа ложится в каталог временных файлов",
       async () => {
         // Зонд — до всякой подготовки: бинарь идёт с очищенным
         // окружением, поэтому каталогом временных файлов у него будет
         // `/tmp`, и если он недоступен на запись (так бывает в
-        // песочницах), проверять право нечем — отказ пришёл бы от
-        // файловой системы, а не от прав.
+        // песочницах), проверять нечем.
         probeTempDir();
         await writeCopyDevEnv(subject);
         try {
           const outcome = await run(subject, ["copy-dev"]);
           const text = `${outcome.stdout}${outcome.stderr}`;
           // Путь дампа виден в строке запуска `pg_dump`, которую команда
-          // печатает уже после создания файла: его наличие и означает,
-          // что право сработало. Сырого текста Deno здесь не бывает —
-          // отказ прав переведён в доменный, — поэтому страхует именно
-          // эта проверка, а не поиск «Requires write access».
+          // печатает уже после создания файла.
           assert(
             /\/tmp\/mpu-copy-dev-\w+\.dump/.test(text),
             `в выводе нет пути временного дампа под /tmp: ${
@@ -595,57 +567,17 @@ function checks(subject: Subject): readonly Check[] {
         }
       },
     ],
-    // Оборотная сторона той же проверки: каталог вне списка прав
-    // отбивается, а отказ приходит нашим текстом, а не сырым «Requires
-    // write access to <TMP>», из которого оператору не видно ни
-    // каталога, ни что делать.
-    //
-    // Каталог берётся соседом домашнего внутри `.tmp/`, а не его
-    // потомком: право задачи `build` перечисляет пути под `$HOME`, и
-    // сосед им не покрыт — именно это здесь и проверяется.
-    //
-    // Предпосылка проверки — «этот каталог правом НЕ покрыт», и она
-    // ложна, когда дерево лежит под `/tmp`: сосед оказывается внутри
-    // покрытого пути, отказа нет, прогон доходит до запуска `pg_dump`
-    // и краснеет чужой причиной (замер спецификатора 2026-08-31). Тот
-    // же страж, что у утверждений о праве, только здесь он бережёт от
-    // ЛОЖНОЙ красноты, а не от ложной зелени.
-    [
-      "каталог временных файлов вне прав отбивается понятным текстом",
-      async () => {
-        const outside = await Deno.realPath(
-          await ensureDir(`${Deno.cwd()}/.tmp/smoke-вне-прав`),
-        );
-        requireOutsideTempPermission(outside);
-        await writeCopyDevEnv(subject);
-        try {
-          const outcome = await run(subject, ["copy-dev"], { TMPDIR: outside });
-          const text = `${outcome.stdout}${outcome.stderr}`;
-          assert(
-            text.includes("нет права записи в каталог временных файлов"),
-            `отказ пришёл не нашим текстом: ${JSON.stringify(text)}`,
-          );
-          assert(
-            !text.includes("Requires write access"),
-            `сырой текст Deno дошёл до оператора: ${JSON.stringify(text)}`,
-          );
-        } finally {
-          await removeEnvFile(subject);
-          await Deno.remove(outside, { recursive: true }).catch(() => {});
-        }
-      },
-    ],
     [
       "MPU_XLSX: ключ env-файла читается, окружение процесса — нет",
       async () => {
         const book = `${subject.home}/book.xlsx`;
-        await Deno.writeTextFile(book, "");
+        await writeFile(book, "");
         const envPath = `${subject.home}/.config/mpu/.env`;
-        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
 
-        await Deno.writeTextFile(envPath, `MPU_XLSX=${book}\n`);
+        await writeFile(envPath, `MPU_XLSX=${book}\n`);
         const fromFile = await runOk(subject, [
           "xlsx",
           "resolve",
@@ -667,7 +599,7 @@ function checks(subject: Subject): readonly Check[] {
         // экспортирован в окружение процесса — путь не резолвится вовсе
         // (других источников тоже нет). Это и есть smoke-подтверждение
         // того, что окружение процесса больше не читается.
-        await Deno.remove(envPath);
+        await rm(envPath);
         // Путь не резолвится — код 2 и с JSON: код отдаёт результат, а не
         // форма (`platform/line-grammar.md` [D.6]).
         const fromProcessEnv = await run(subject, [
@@ -691,17 +623,17 @@ function checks(subject: Subject): readonly Check[] {
     ],
     [
       // Клиент MTProto подгружается лениво (`src/telegram/cmd_send.ts`):
-      // `deno test` этого не проверяет вовсе — там модуль резолвит
-      // рантайм, а не бинарь. Здесь вызов доходит до сеанса и падает на
-      // фиктивной строке сессии: значит модуль в бинаре есть и прав ему
-      // хватает. Сети проверка не касается — до неё дело не доходит.
+      // тесты этого не проверяют вовсе — там модуль резолвит рантайм, а
+      // не бинарь. Здесь вызов доходит до сеанса и падает на фиктивной
+      // строке сессии: значит модуль в бинаре есть. Сети проверка не
+      // касается — до неё дело не доходит.
       "telegram send: ленивый клиент MTProto есть в бинаре",
       async () => {
         const envPath = `${subject.home}/.config/mpu/.env`;
-        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
-        await Deno.writeTextFile(
+        await writeFile(
           envPath,
           "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
             "TELEGRAM_SESSION=не-строка-сессии\n",
@@ -714,7 +646,7 @@ function checks(subject: Subject): readonly Check[] {
           "--chat",
           "me",
         ]);
-        await Deno.remove(envPath);
+        await rm(envPath);
         assert.deepStrictEqual(
           outcome.code,
           1,
@@ -737,43 +669,41 @@ function checks(subject: Subject): readonly Check[] {
       // соединения проверка не идёт.
       "telegram: криптография без сети, соединение сразу на узел",
       async () => {
-        const node = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+        // Узел — слушатель на петле: первое соединение и есть след.
+        const node = createTcpServer((conn) => conn.destroy());
+        const nodePort = await listenLoopback(node);
         const envPath = `${subject.home}/.config/mpu/.env`;
-        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
-        await Deno.writeTextFile(
+        await writeFile(
           envPath,
           "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
-            `TELEGRAM_SESSION=${loopbackSession(node.addr.port)}\n`,
+            `TELEGRAM_SESSION=${loopbackSession(nodePort)}\n`,
         );
         // Окружение достаётся серверу: строку исполняет он.
         await using server = await serve(subject, {
           HTTPS_PROXY: "http://127.0.0.1:1",
         });
-        const child = new Deno.Command(subject.cli, {
+        const child = await startProgram(subject.cli, {
           args: ["telegram", "ls", "--limit", "1"],
           env: { HOME: subject.home, MPU_BACK_URL: server.url },
           clearEnv: true,
           stdin: "null",
           stdout: "null",
           stderr: "piped",
-        }).spawn();
+        });
         const stderr = new Response(child.stderr).text();
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           const reached = await Promise.race([
-            node.accept().then((conn) => {
-              conn.close();
-              return "узел";
-            }),
+            once(node, "connection").then(() => "узел"),
             child.status.then((status) => `завершился с ${status.code}`),
             new Promise<string>((resolve) => {
               timer = setTimeout(() => resolve("срок вышел"), NODE_DEADLINE_MS);
             }),
           ]);
           if (reached !== "узел") {
-            // Гасить нужно только зависший: вышедший `kill` отвергает.
             if (reached === "срок вышел") child.kill("SIGKILL");
             await child.status;
             throw new Error(
@@ -784,14 +714,11 @@ function checks(subject: Subject): readonly Check[] {
           }
         } finally {
           clearTimeout(timer);
-          try {
-            child.kill("SIGKILL");
-          } catch {
-            // Уже завершился — гасить нечего.
-          }
+          // Завершившийся процесс сигнал не получает и не бросает.
+          child.kill("SIGKILL");
           await child.status;
-          node.close();
-          await Deno.remove(envPath);
+          await new Promise<void>((resolve) => node.close(() => resolve()));
+          await rm(envPath);
         }
         await stderr;
       },
@@ -805,24 +732,24 @@ function checks(subject: Subject): readonly Check[] {
       "telegram: нет соединения за 20 с — отказ текстом спеки, stdout пуст",
       async () => {
         const envPath = `${subject.home}/.config/mpu/.env`;
-        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
-        await Deno.writeTextFile(
+        await writeFile(
           envPath,
           "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
             `TELEGRAM_SESSION=${loopbackSession(1)}\n` +
             "TELEGRAM_PROXY=http://127.0.0.1:1\n",
         );
         await using server = await serve(subject);
-        const child = new Deno.Command(subject.cli, {
+        const child = await startProgram(subject.cli, {
           args: ["telegram", "ls", "--limit", "1"],
           env: { HOME: subject.home, MPU_BACK_URL: server.url },
           clearEnv: true,
           stdin: "null",
           stdout: "piped",
           stderr: "piped",
-        }).spawn();
+        });
         const output = child.output();
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
@@ -854,7 +781,7 @@ function checks(subject: Subject): readonly Check[] {
           assert(stdout === "", `stdout не пуст: ${stdout}`);
         } finally {
           clearTimeout(timer);
-          await Deno.remove(envPath);
+          await rm(envPath);
         }
       },
     ],
@@ -869,17 +796,11 @@ function checks(subject: Subject): readonly Check[] {
         );
       }
     }],
-    // Единственная проверка, поднимающая сеть: она же и единственная,
-    // которой права `--allow-net` и `--allow-write=$HOME/.config/mpu`
-    // нужны одновременно — бинарь ходит в Portainer и заводит кэш-БД.
+    // Бинарь ходит в Portainer и заводит кэш-БД в каталоге состояния.
     // Конфигурация приходит только из env-файла: окружение подпроцесса
     // очищено (`clearEnv`), в нём есть один HOME.
     ["init: discovery через фейковый Portainer и кэш-БД в HOME", async () => {
-      // Файл кэш-БД заводит сам бинарь — это и есть утверждение о
-      // праве на каталог состояния, и оно слепо под `/tmp`.
-      requireOutsideTempPermission(subject.home);
-      const server = Deno.serve(
-        { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+      const server = await serveFetch(
         (req) => {
           const url = new URL(req.url);
           if (url.pathname === "/api/endpoints") {
@@ -895,13 +816,13 @@ function checks(subject: Subject): readonly Check[] {
       );
       try {
         const envPath = `${subject.home}/.config/mpu/.env`;
-        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
-        await Deno.writeTextFile(
+        await writeFile(
           envPath,
           "PORTAINER_API_KEY=proba-kluch\n" +
-            `PORTAINER_URL=http://127.0.0.1:${server.addr.port}\n`,
+            `PORTAINER_URL=${server.baseUrl}\n`,
         );
         const outcome = await runOk(subject, ["init", "dry"]);
         assert(
@@ -912,26 +833,22 @@ function checks(subject: Subject): readonly Check[] {
           outcome.stderr.includes("# bootstrap: схема в"),
           `нет строки шага 1: ${JSON.stringify(outcome.stderr)}`,
         );
-        // Файл кэш-БД заведён самим бинарём — это и есть проверка права
-        // на запись в каталог состояния для нового файла.
-        await Deno.stat(`${subject.home}/.config/mpu/mpu.db`);
-        await Deno.remove(envPath);
+        // Файл кэш-БД заведён самим бинарём в каталоге состояния.
+        await stat(`${subject.home}/.config/mpu/mpu.db`);
+        await rm(envPath);
       } finally {
-        await server.shutdown();
+        await server.stop();
       }
     }],
-    // Проверка права `--allow-env=…,PG*`: клиент PostgreSQL читает
-    // умолчания опций из окружения, и те, чьё умолчание ложно
-    // (`PGBINARY`, `PGREPLICATION`), явной опцией не перекрываются —
-    // без права клиент не создаётся вовсе, и команда падала бы отказом
-    // прав вместо отказа сети. Живого PG здесь нет и не нужно: адрес
-    // заведомо закрыт, ценно то, КАКОЙ ошибкой команда завершается.
-    ["update: PG-клиент отказывает по сети, а не по правам", async () => {
+    // Клиент PostgreSQL в собранном бинаре создаётся и доходит до сети.
+    // Живого PG здесь нет и не нужно: адрес заведомо закрыт, ценно то,
+    // КАКОЙ ошибкой команда завершается.
+    ["update: PG-клиент отказывает по сети", async () => {
       const envPath = `${subject.home}/.config/mpu/.env`;
-      await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+      await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
         recursive: true,
       });
-      await Deno.writeTextFile(
+      await writeFile(
         envPath,
         "pg_0=127.0.0.1\nPG_PORT=1\n" +
           "PG_MAIN_USER_NAME=proba\nPG_MAIN_USER_PASSWORD=proba\n",
@@ -942,42 +859,27 @@ function checks(subject: Subject): readonly Check[] {
         outcome.stderr.startsWith("mpu update: main (sl-0) недоступен: "),
         `не тот отказ: ${JSON.stringify(outcome.stderr)}`,
       );
-      assert(
-        !outcome.stderr.includes("Requires env access"),
-        `клиенту PG не хватило права: ${JSON.stringify(outcome.stderr)}`,
-      );
-      await Deno.remove(envPath);
+      await rm(envPath);
     }],
     // Граница состояния и конфигурации на собранном бинаре: `HOME`
     // адресует кэш-БД и журнал, `XDG_CONFIG_HOME` — env-файл и
     // выведенный из его кред токен-кэш sl-back. Разводит каталоги одна
     // строка `main.ts`, и проверить её можно только запуском: тесты
     // зовут `makeDenoIo` сами и подстановку из точки входа не видят.
-    // Она же — единственное покрытие права
-    // `--allow-write=…,$XDG_CONFIG_HOME/mpu`: снять право — и кэш не
-    // появится (отказ записи глотает сам слой, `slback-http.md`,
-    // поэтому наблюдаемое здесь — отсутствие файла, а не текст отказа).
-    //
-    // Покрытие настоящее не везде, и это названо, а не
-    // подразумевается: каталоги прогона заводятся вне `/tmp`
-    // намеренно (`makeSubjectHome`), но там, где это не удалось —
-    // репозиторий сам лежит под `/tmp`, — запись покрыта соседним
-    // правом того же списка, и снятое право осталось бы
-    // незамеченным. Там проверка честно пропускается, а не зеленеет.
+    // Отказ записи кэша глотает сам слой (`slback-http.md`), поэтому
+    // наблюдаемое здесь — файл на месте, а не текст.
     [
       "границы каталогов: XDG_CONFIG_HOME уводит токен-кэш, но не кэш-БД",
       async () => {
-        requireOutsideTempPermission(subject.home, subject.configHome);
-        const server = Deno.serve(
-          { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+        const server = await serveFetch(
           () => Response.json({ accessToken: "проба-токена" }),
         );
         const cachePath = `${subject.configHome}/mpu/.api-token.json`;
         try {
-          await Deno.mkdir(`${subject.configHome}/mpu`, { recursive: true });
-          await Deno.writeTextFile(
+          await mkdir(`${subject.configHome}/mpu`, { recursive: true });
+          await writeFile(
             `${subject.configHome}/mpu/.env`,
-            `BASE_API_URL=http://127.0.0.1:${server.addr.port}\n` +
+            `BASE_API_URL=${server.baseUrl}\n` +
               "TOKEN_EMAIL=proba@example.com\nTOKEN_PASSWORD=proba\n",
           );
           const outcome = await runOk(subject, ["api", "get-token"], {
@@ -989,15 +891,14 @@ function checks(subject: Subject): readonly Check[] {
             "не тот токен",
           );
           // Кэш лёг рядом с кредами, из которых токен получен. Права
-          // файла проверяет юнит-тест слоя (`src/runtime/mod.test.ts`):
-          // они видны и без запуска бинаря, а здесь ценно право.
-          await Deno.stat(cachePath);
+          // файла проверяет юнит-тест слоя (`src/runtime/mod.test.ts`).
+          await stat(cachePath);
           // И не лёг в каталог состояния: иначе токен подменного
           // сервера переиспользовался бы основной конфигурацией.
           await assertMissing(`${subject.home}/.config/mpu/.api-token.json`);
         } finally {
-          await server.shutdown();
-          await Deno.remove(`${subject.configHome}/mpu`, { recursive: true });
+          await server.stop();
+          await rm(`${subject.configHome}/mpu`, { recursive: true });
         }
       },
     ],
@@ -1013,13 +914,13 @@ function checks(subject: Subject): readonly Check[] {
       );
       // Порядок копирования значим: SVG обязан быть не старше `.d2`,
       // иначе бинарь пойдёт звать `d2`, которого в окружении нет.
-      await Deno.writeTextFile(
+      await writeFile(
         `${base}.d2`,
-        await Deno.readTextFile(new URL("sample.d2", from)),
+        await readFile(new URL("sample.d2", from), "utf8"),
       );
-      await Deno.writeTextFile(
+      await writeFile(
         `${base}.svg`,
-        await Deno.readTextFile(new URL("sample.svg", from)),
+        await readFile(new URL("sample.svg", from), "utf8"),
       );
       const outcome = await runOk(subject, [
         "d2-miro",
@@ -1037,14 +938,10 @@ function checks(subject: Subject): readonly Check[] {
         `не та строка [info]: ${JSON.stringify(outcome.stderr)}`,
       );
     }],
-    // Право `--allow-run` собранного бинаря: без запуска подпроцесса
-    // оно осталось бы слепым — тот же класс, что правило «проверка,
-    // которая ничего не утверждает» (CLAUDE.md). Годится не всякий
-    // подпроцесс: `d2` в этом окружении нет вовсе, и Deno отвечает
-    // «файла нет» раньше, чем спрашивает право (замер 2026-08-31 —
-    // бинарь без `--allow-run` печатает ровно то же). `ssh` в PATH
-    // есть, поэтому право проверяется на нём.
-    ["ssh: подпроцесс запускается правом, а не отказом", async () => {
+    // Подпроцесс собранного бинаря (`node:child_process`, `subprocess`):
+    // запуск, оба потока и код выхода. Годится не всякий подпроцесс:
+    // `d2` в этом окружении нет вовсе, а `ssh` в PATH есть.
+    ["ssh: подпроцесс запускается и отказывает сам", async () => {
       // Ищется там же, где его будет искать бинарь: ему передаётся
       // именно этот PATH, и наличие ssh в PATH самого smoke ничего бы
       // о вызове не говорило.
@@ -1053,8 +950,8 @@ function checks(subject: Subject): readonly Check[] {
         throw new Skipped("`ssh` не найден в /usr/bin и /bin: нечего звать");
       }
       const envDir = `${subject.configHome}/mpu`;
-      await Deno.mkdir(envDir, { recursive: true });
-      await Deno.writeTextFile(
+      await mkdir(envDir, { recursive: true });
+      await writeFile(
         `${envDir}/.env`,
         // Петля с закрытым портом: ssh обязан запуститься и отказать
         // сам. Наружу вызов не идёт — ни к dev-ноде по умолчанию, ни
@@ -1076,37 +973,29 @@ function checks(subject: Subject): readonly Check[] {
         // недоступный ключ приходит и когда порт закрыт, и когда на
         // машине поднят sshd (тогда отказ будет на аутентификации).
         // Привязка к «connection refused» краснела бы на машине с
-        // sshd, ничего не сообщая о праве.
+        // sshd, ничего не сообщая о запуске.
         assert(
           outcome.stderr.includes("Identity file") &&
             outcome.stderr.includes(".ssh/id_rsa"),
           `подпроцесс ssh не запускался: ${JSON.stringify(outcome.stderr)}`,
         );
         // Код ssh доносится как есть (`exec-transport.md`): 255 — это
-        // он, а не наша трактовка. Без права бинарь падал бы с 1.
+        // он, а не наша трактовка; отказ запуска дал бы 1.
         assert.deepStrictEqual(outcome.code, 255, "код ssh не донесён");
       } finally {
-        await Deno.remove(`${envDir}/.env`);
+        await rm(`${envDir}/.env`);
       }
     }],
-    // Право ядра на `/usr/bin/tmux` (`claude-hook-permission-request.md`
-    // [D.7]): строка хука `PermissionRequest` подписывает вопрос окном
-    // tmux клиента — ядро зовёт `tmux -S <сокет из TMUX> display-message`.
-    // Сервер tmux прогона отмечает каждый такой вызов хуком
-    // `after-display-message`: отметка и есть след запуска tmux собранным
-    // `mpu-back`; без права подпроцесс не стартует, и отметки нет.
-    // Клиент несёт `TMUX` и `TMUX_PANE` — заодно проверено его право на
-    // `TMUX_PANE`.
     // Канал Claude Code (`claude-channel.md`): собранный клиент держит
-    // stdio сессии на `node:*` и регистрируется в ядре — заодно проверено
-    // его право на `CLAUDE_CODE_MESSAGING_SOCKET`; значение
+    // stdio сессии на `node:*` и регистрируется в ядре по
+    // `CLAUDE_CODE_MESSAGING_SOCKET`; значение
     // `CLAUDE_CODE_MESSAGING_TOKEN` не появляется ни в одном выводе.
     [
       "канал: собранный клиент отвечает Claude Code и регистрируется в ядре",
       async () => {
         await using server = await serve(subject);
         const secret = "секрет-канала-7f3a";
-        const child = new Deno.Command(subject.cli, {
+        const child = await startProgram(subject.cli, {
           args: ["claude-channel"],
           env: {
             HOME: subject.home,
@@ -1118,7 +1007,7 @@ function checks(subject: Subject): readonly Check[] {
           stdin: "piped",
           stdout: "piped",
           stderr: "piped",
-        }).spawn();
+        });
         const stdout = new Response(child.stdout).text();
         const writer = child.stdin.getWriter();
         await writer.write(new TextEncoder().encode(
@@ -1126,13 +1015,12 @@ function checks(subject: Subject): readonly Check[] {
             '{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
         ));
         // Регистрация — след в stderr канала; дождаться его, затем EOF.
-        const errors = child.stderr.pipeThrough(new TextDecoderStream())
-          .getReader();
+        const errors = child.stderr.getReader();
         let said = "";
         while (!said.includes("зарегистрирован в ядре")) {
           const next = await errors.read();
           if (next.done) break;
-          said += next.value;
+          said += decoder.decode(next.value, { stream: true });
         }
         await writer.close();
         for (
@@ -1140,7 +1028,7 @@ function checks(subject: Subject): readonly Check[] {
           !next.done;
           next = await errors.read()
         ) {
-          said += next.value;
+          said += decoder.decode(next.value, { stream: true });
         }
         const status = await child.status;
         const out = await stdout;
@@ -1153,6 +1041,12 @@ function checks(subject: Subject): readonly Check[] {
         );
       },
     ],
+    // Ядро зовёт `/usr/bin/tmux` (`claude-hook-permission-request.md`
+    // [D.7]): строка хука `PermissionRequest` подписывает вопрос окном
+    // tmux клиента — `tmux -S <сокет из TMUX> display-message`. Сервер
+    // tmux прогона отмечает каждый такой вызов хуком
+    // `after-display-message`: отметка и есть след запуска tmux собранным
+    // `mpu-back`. Клиент несёт `TMUX` и `TMUX_PANE`.
     ["tmux: подпись окна вопроса запускает /usr/bin/tmux", async () => {
       const socket = `${subject.home}/tmux.sock`;
       const tmux = (...args: string[]) => tmuxAt(socket, args);
@@ -1197,22 +1091,19 @@ function checks(subject: Subject): readonly Check[] {
         await tmux("kill-server");
       }
     }],
-    // Журнал вызовов: одна запись на вызов и ни одной лишней. Права на
-    // файл берутся из `--allow-write=$HOME/.config/mpu` — журнал живёт
-    // в каталоге состояния, а путь приходит ключом env-файла, не
+    // Журнал вызовов: одна запись на вызов и ни одной лишней. Журнал
+    // живёт в каталоге состояния, а путь приходит ключом env-файла, не
     // окружением процесса (`platform/invoke-log.md`).
     ["журнал вызовов: по записи на вызов", async () => {
-      // Журнал пишет бинарь, и права на него — из того же списка.
-      requireOutsideTempPermission(subject.home);
       const configDir = `${subject.home}/.config/mpu`;
       const logPath = `${configDir}/invoke.log`;
-      await Deno.mkdir(configDir, { recursive: true });
-      await Deno.writeTextFile(
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
         `${configDir}/.env`,
         `MPU_LOG_FILE=${logPath}\n`,
       );
       try {
-        await Deno.remove(logPath);
+        await rm(logPath);
       } catch {
         // Файла ещё нет: считаем записи этой проверки, а не прогона.
       }
@@ -1226,7 +1117,7 @@ function checks(subject: Subject): readonly Check[] {
           "json",
         ]);
         assert.deepStrictEqual(resolve.code, 2, resolve.stderr);
-        const afterFirst = await Deno.readTextFile(logPath);
+        const afterFirst = await readFile(logPath, "utf8");
         assert.deepStrictEqual(
           logRecords(afterFirst),
           [`$ mpu xlsx resolve ${GRAMMAR.close} json`],
@@ -1237,7 +1128,7 @@ function checks(subject: Subject): readonly Check[] {
         // обвязка своей не добавляла. Маршрута нет, записи делает
         // только обвязка — считаем, что ровно по одной.
         await runOk(subject, ["config", GRAMMAR.close, "json"]);
-        const afterSecond = await Deno.readTextFile(logPath);
+        const afterSecond = await readFile(logPath, "utf8");
         assert.deepStrictEqual(
           logRecords(afterSecond),
           [
@@ -1246,27 +1137,22 @@ function checks(subject: Subject): readonly Check[] {
           ],
           `записи задвоились: ${JSON.stringify(afterSecond)}`,
         );
-        // Права — последним утверждением: их отсутствие у файловой
-        // системы даёт пропуск (`modeOf`), и стоящее раньше он отменил
-        // бы то, что от режима не зависит вовсе.
         assert.deepStrictEqual(
           (await modeOf(logPath)).toString(8),
           "600",
           "права файла журнала не 0600",
         );
       } finally {
-        await Deno.remove(`${configDir}/.env`);
+        await rm(`${configDir}/.env`);
       }
     }],
-    // Единственная проверка, поднимающая клиент PostgreSQL: она же
-    // подтверждает право `--allow-env=PG*` — без него драйвер не
-    // создаётся вовсе (`NotCapable` ещё до подключения). Живого
+    // Проверка, поднимающая клиент PostgreSQL `sql-ro`. Живого
     // PostgreSQL у smoke нет, поэтому адрес заведомо закрытый: важно,
-    // что отказ пришёл от драйвера, а не от прав.
+    // что отказ пришёл от драйвера.
     ["sql-ro: мета-блок из env-файла и живой PG-клиент", async () => {
       const configDir = `${subject.home}/.config/mpu`;
-      await Deno.mkdir(configDir, { recursive: true });
-      await Deno.writeTextFile(
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
         `${configDir}/.env`,
         "pg_1=127.0.0.1\nPG_PORT=1\nPG_MY_USER_NAME=u\nPG_MY_USER_PASSWORD=p\n",
       );
@@ -1308,47 +1194,39 @@ function checks(subject: Subject): readonly Check[] {
           live.stderr.startsWith("db error: "),
           `отказ не от драйвера: ${JSON.stringify(live.stderr)}`,
         );
-        assert(
-          !live.stderr.includes("NotCapable"),
-          `драйверу не хватило прав бинаря: ${live.stderr}`,
-        );
       } finally {
-        await Deno.remove(`${configDir}/.env`);
+        await rm(`${configDir}/.env`);
       }
     }],
     // Разбор кода собранным бинарём: `mpu code refs` строит программу
     // проекта компилятором TypeScript, запечённым в бинарь, и зовёт
-    // `git` за отметкой дерева. Тесты этого не видят — они идут с
-    // широкими правами; здесь права те, что зашиты задачей `build`.
-    // Снять `--allow-read` или `--allow-run` — проверка краснеет:
-    // первое рвёт чтение дерева, второе отметку.
+    // `git` за отметкой дерева. Тесты идут по исходникам; здесь —
+    // компилятор и воркер, встроенные в бинарь.
     [
       "code: разбор дерева, отметка и оба раздела собранным бинарём",
       async () => {
         const ws = `${subject.home}/ws`;
         const repo = `${ws}/probe`;
-        await Deno.mkdir(`${repo}/src`, { recursive: true });
+        await mkdir(`${repo}/src`, { recursive: true });
         // Каталог `.git` без содержимого: репозиторием подкаталог делает
         // именно он. Отметка при этом заведомо `вне git`, и по причине,
         // которую надо назвать честно: запуск здесь идёт с `clearEnv`,
         // `PATH` в окружении бинаря нет, и `git` не запускается вовсе.
         // То есть ветка отметки под настоящим git этой проверкой НЕ
-        // покрыта — её держат тесты `mark_test.ts` с подставленным
-        // источником. Покрыть её здесь мешает право: пробросить `PATH`
-        // можно, только прочитав его, а `--allow-env` задачи `smoke`
-        // такого имени не несёт.
-        await Deno.mkdir(`${repo}/.git`, { recursive: true });
-        await Deno.writeTextFile(`${ws}/.mp-workspace-root`, "");
-        await Deno.writeTextFile(
+        // покрыта — её держат тесты `mark.test.ts` с подставленным
+        // источником.
+        await mkdir(`${repo}/.git`, { recursive: true });
+        await writeFile(`${ws}/.mp-workspace-root`, "");
+        await writeFile(
           `${repo}/tsconfig.json`,
           '{"compilerOptions":{"strict":true,"noEmit":true},' +
             '"include":["src/**/*"]}\n',
         );
-        await Deno.writeTextFile(
+        await writeFile(
           `${repo}/src/a.ts`,
           "export function addOne(n: number): number {\n  return n + 1;\n}\n",
         );
-        await Deno.writeTextFile(
+        await writeFile(
           `${repo}/src/b.ts`,
           "import { addOne } from './a.ts';\n\nexport const two = addOne(1);\n",
         );
@@ -1374,8 +1252,7 @@ function checks(subject: Subject): readonly Check[] {
           `нулевой раздел не напечатан: ${JSON.stringify(outcome.stdout)}`,
         );
         // Вторая поверхность семейства идёт тем же путём, но добавляет
-        // сканер компилятора: тела нормализуются им, и без прав на
-        // окружение бинарь падал бы и здесь.
+        // сканер компилятора: тела нормализуются им.
         const twins = await run(
           subject,
           ["code", "twins", "address:", "probe:src/a.ts:1"],
@@ -1399,14 +1276,14 @@ function checks(subject: Subject): readonly Check[] {
         // Одного репозитория мало: обход из одного задания считается на
         // месте, и воркер не запускается вовсе.
         const other = `${ws}/probe-two`;
-        await Deno.mkdir(`${other}/src`, { recursive: true });
-        await Deno.mkdir(`${other}/.git`, { recursive: true });
-        await Deno.writeTextFile(
+        await mkdir(`${other}/src`, { recursive: true });
+        await mkdir(`${other}/.git`, { recursive: true });
+        await writeFile(
           `${other}/tsconfig.json`,
           '{"compilerOptions":{"strict":true,"noEmit":true},' +
             '"include":["src/**/*"]}\n',
         );
-        await Deno.writeTextFile(
+        await writeFile(
           `${other}/src/c.ts`,
           "export function addOne(n: number): number {\n  return n + 2;\n}\n",
         );
@@ -1430,37 +1307,36 @@ function checks(subject: Subject): readonly Check[] {
         );
       },
     ],
-    // Право на каталог образа (`image-sync.md`, `design-mpu.md` п. 6):
-    // файлы методов пишет ядро строкой `image sync`, и без права записи
-    // `$HOME/mr/mp/mpu/image` строка отвечает `сбой`, код 1. Тесты этого
-    // не видят — они идут с широкими правами. Метод посеян записью в
-    // `image.db`, правило `image sync` — `allow` (`ALLOWED`): вопроса
-    // в прогоне задать некому.
-    ["каталог образа: право записи зашито в бинарь", async () => {
+    // Каталог образа (`image-sync.md`): файлы методов пишет ядро строкой
+    // `image sync` в `$HOME/mr/mp/mpu/image`; не записав, строка
+    // отвечает `сбой`, код 1. Метод посеян записью в `image.db`, правило
+    // `image sync` — `allow` (`ALLOWED`): вопроса в прогоне задать
+    // некому.
+    ["каталог образа: файл метода пишется ядром", async () => {
       seedImageMethod(subject.home);
-      await Deno.mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
+      await mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
       const outcome = await run(subject, ["image", "sync"]);
       assert.deepStrictEqual(
         [outcome.code, outcome.stdout],
         [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
         `stderr: ${outcome.stderr}`,
       );
-      await Deno.stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
+      await stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
     }],
     // Два файла корня рабочей области (`mp-clone.md`, «Корень и права»):
-    // `.gitignore` и сентинел пишет сама команда, и без права записи
-    // строка отвечает `сбой`, код 1. Служебные субрепо заведены `git
+    // `.gitignore` и сентинел пишет сама команда; не записав, строка
+    // отвечает `сбой`, код 1. Служебные субрепо заведены `git
     // init` заранее — все «уже есть», поэтому ни ssh, ни сервера прогон
     // не касается. Правило `mp-clone` — `allow` (`ALLOWED`).
-    ["mp-clone: два файла корня пишутся правом ядра", async () => {
+    ["mp-clone: два файла корня пишутся ядром", async () => {
       const root = `${subject.home}/mr/mp`;
-      await Deno.mkdir(root, { recursive: true });
-      await Deno.writeTextFile(
+      await mkdir(root, { recursive: true });
+      await writeFile(
         `${root}/mp.code-workspace`,
         JSON.stringify({ folders: [{ path: "." }] }),
       );
       for (const name of ["mp-config-local", "ai-tools", "opiu-service"]) {
-        await Deno.mkdir(`${root}/${name}`);
+        await mkdir(`${root}/${name}`);
         await gitIn(`${root}/${name}`, ["init", "-q"]);
         await gitIn(`${root}/${name}`, [
           "-c",
@@ -1481,20 +1357,19 @@ function checks(subject: Subject): readonly Check[] {
       });
       assert.deepStrictEqual(outcome.code, 0, `stderr: ${outcome.stderr}`);
       assert.deepStrictEqual(
-        await Deno.readTextFile(`${root}/.mp-workspace-root`),
+        await readFile(`${root}/.mp-workspace-root`, "utf8"),
         "",
       );
       assert.deepStrictEqual(
-        await Deno.readTextFile(`${root}/.gitignore`),
+        await readFile(`${root}/.gitignore`, "utf8"),
         "# Detected subrepos:\n/mp-config-local/\n/ai-tools/\n/opiu-service/\n",
       );
     }],
     // Файл программы `run:` читает ядро (`program-input.md`, «держится
-    // на»): без права чтения его каталога строка падает, а тесты этого
-    // не видят — они идут с широкими правами. Ключ вызова — параметр.
-    ["run: файл программы читается правом ядра", async () => {
+    // на»), ключ вызова — параметр.
+    ["run: файл программы читается ядром", async () => {
       const path = `${subject.home}/probe.mpu`;
-      await Deno.writeTextFile(path, "@col print");
+      await writeFile(path, "@col print");
       const outcome = await run(subject, ["run:", path, "col:", "review"]);
       assert.deepStrictEqual(
         [outcome.code, outcome.stdout],
@@ -1565,26 +1440,35 @@ function checks(subject: Subject): readonly Check[] {
         await session.close();
       }
     }],
-    ["mpu-task: версия, ничего не поднимая", async () => {
-      const out = await new Deno.Command(subject.task, {
-        args: ["--version"],
-        clearEnv: true,
-        stdout: "piped",
-        stderr: "piped",
-      }).output();
-      assert.deepStrictEqual(decoder.decode(out.stdout).trim(), VERSION);
+    // Все семь программ установки отвечают версией сборки, ничего не
+    // поднимая (`platform/supervisor-install.md`, «Части»): так их
+    // проверяет и `install.sh` перед подменой.
+    ["семь программ: --version, ничего не поднимая", async () => {
+      for (const [, program] of PROGRAMS) {
+        const out = await runProgram(`${subject.home}/${program}`, {
+          args: ["--version"],
+          clearEnv: true,
+          stdout: "piped",
+          stderr: "piped",
+        });
+        assert.deepStrictEqual(
+          [out.code, decoder.decode(out.stdout).trim()],
+          [0, VERSION],
+          `${program}: ${decoder.decode(out.stderr)}`,
+        );
+      }
     }],
-    // Права оркестратора на кэш-БД (`deno.jsonc`, задача `task`): первый
-    // шаг идёт сразу при старте и открывает журнал канала — таблицы
-    // появляются в `mpu.db`. Без права записи шаг падает строкой лога
+    // Кэш-БД оркестратора (`task-orchestrator.md`, «Порты»): первый шаг
+    // идёт сразу при старте и открывает журнал канала — таблицы
+    // появляются в `mpu.db`. Не записав, шаг падает строкой лога
     // `шаг: …`, и таблиц нет. Проектов с ролями нет — tmux не зовётся.
-    ["mpu-task: кэш-БД — право записи зашито в бинарь", async () => {
-      const child = new Deno.Command(subject.task, {
+    ["mpu-task: кэш-БД — таблицы канала при старте", async () => {
+      const child = await startProgram(subject.task, {
         clearEnv: true,
         env: { HOME: subject.home, XDG_RUNTIME_DIR: subject.runtimeDir },
         stdout: "piped",
         stderr: "piped",
-      }).spawn();
+      });
       const tables = await taskTablesWithin(subject.home, 10_000);
       child.kill("SIGTERM");
       const out = await child.output();
@@ -1611,9 +1495,9 @@ async function taskTablesWithin(home: string, ms: number): Promise<boolean> {
 
 async function hasTaskTables(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return false;
+    if (hasErrorCode(err, "ENOENT")) return false;
     throw err;
   }
   const db = new DatabaseSync(path, { readOnly: true });
@@ -1628,61 +1512,27 @@ async function hasTaskTables(path: string): Promise<boolean> {
 
 /**
  * Домашний каталог прогона. Заводится в `.tmp` репозитория, а не в
- * системном временном каталоге: под `/tmp` все утверждения о правах
- * записи слепнут — соседнее право того же списка покрывает их разом
- * (`requireOutsideTempPermission`). `.tmp` исключён из инструментов
- * (`deno.jsonc`), и прогон убирает за собой.
+ * системном временном каталоге: в песочнице `/tmp` бывает только на
+ * чтение. `.tmp` исключён из инструментов (`biome.jsonc`, `tsconfig.json`),
+ * и прогон убирает за собой.
  *
- * Не удалось (каталог только на чтение) — системный временный, и
- * тогда проверки прав честно пропускаются, а не зеленеют вхолостую.
+ * Не удалось (каталог только на чтение) — системный временный.
  */
 async function makeSubjectHome(): Promise<string> {
   try {
-    await Deno.mkdir(".tmp", { recursive: true });
+    await mkdir(".tmp", { recursive: true });
     await sweepOldRuns();
-    // Путь абсолютный, и это не косметика: страж сверяет его с `/tmp`
-    // и `/var/tmp` по началу строки, а относительный `.tmp/…` не
-    // совпал бы никогда — репозиторий, выложенный под `/tmp`, вернул
-    // бы ровно ту слепоту, ради которой всё и делается.
-    return await Deno.realPath(
-      await Deno.makeTempDir({ dir: ".tmp", prefix: "mpu-smoke-" }),
-    );
+    // Путь абсолютный: программы прогона зовутся по нему из любого
+    // каталога (`code`, `mp-clone` запускаются не из `ts/`).
+    return await realpath(await mkdtemp(join(".tmp", "mpu-smoke-")));
   } catch {
-    return await Deno.realPath(
-      await Deno.makeTempDir({ prefix: "mpu-smoke-" }),
-    );
+    return await realpath(await mkdtemp(join(tmpdir(), "mpu-smoke-")));
   }
 }
 
-/**
- * Права файла восьмеричным числом. Файловая система без POSIX-прав
- * режима не сообщает — тогда пропуск, а не молчаливый проход: прежние
- * формы (`if (mode === null) return` и `mode ?? 0o600`) утверждали
- * права, ничего не проверив, а вторая ещё и сравнивала ожидаемое с
- * ожидаемым. Предмет здесь секретный — токен MCP-сервера и журнал
- * вызовов, — и вакуумно-зелёное утверждение о его правах хуже, чем
- * отсутствие утверждения: оно выглядит проверкой.
- *
- * Пропускается вся проверка целиком, а не одно утверждение: причина
- * названа дословно, и по ней видно, что именно вернула файловая
- * система.
- */
+/** Права файла восьмеричным числом. */
 async function modeOf(path: string): Promise<number> {
-  const info = await Deno.stat(path);
-  if (info.mode === null) {
-    throw new Skipped(
-      `файловая система не сообщает права: Deno.stat(${
-        JSON.stringify(path)
-      }).mode === null`,
-    );
-  }
-  return info.mode & 0o777;
-}
-
-/** Создаёт каталог, если его нет, и возвращает его путь. */
-async function ensureDir(path: string): Promise<string> {
-  await Deno.mkdir(path, { recursive: true });
-  return path;
+  return (await stat(path)).mode & 0o777;
 }
 
 /**
@@ -1691,9 +1541,9 @@ async function ensureDir(path: string): Promise<string> {
  * десятки мегабайт. Раньше их подметал `/tmp`, теперь — некому.
  */
 async function sweepOldRuns(): Promise<void> {
-  for await (const entry of Deno.readDir(".tmp")) {
-    if (!entry.isDirectory || !entry.name.startsWith("mpu-smoke-")) continue;
-    await Deno.remove(`.tmp/${entry.name}`, { recursive: true }).catch(() => {
+  for (const entry of await readdir(".tmp", { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith("mpu-smoke-")) continue;
+    await rm(`.tmp/${entry.name}`, { recursive: true }).catch(() => {
       // Чужой прогон, идущий прямо сейчас: своё он уберёт сам.
     });
   }
@@ -1703,9 +1553,8 @@ async function main(): Promise<number> {
   const home = await makeSubjectHome();
   try {
     // Каталог конфигурации — внутри подменного HOME, но вне
-    // `.config/mpu`: право задачи сборки перечисляет именно
-    // `.config/mpu`, и запись в `xdg/mpu` им не покрыта — иначе
-    // проверка границы ничего бы не доказывала.
+    // `.config/mpu`: иначе проверка границы каталогов ничего бы не
+    // доказывала.
     const subject: Subject = {
       back: `${home}/mpu-back`,
       cli: `${home}/mpu`,
@@ -1715,24 +1564,14 @@ async function main(): Promise<number> {
       runtimeDir: `${home}/run`,
     };
     console.log("== сборка ==");
-    try {
-      await compile(BACK_TASK, subject.back, subject);
-      // Рядом с `mpu-back`, как у установки: ядро исполняет строки на нём,
-      // и каждая проверка ниже идёт через исполнителя с его правами.
-      await compile(WORKER_TASK, `${home}/mpu-worker`, subject);
-      await compile(CLI_TASK, subject.cli, subject);
-      await compile(TASK_TASK, subject.task, subject);
-    } catch (err) {
-      // Задачи нет — прогон говорит, какой именно, и уходит: падать
-      // разбором незачем, а молча пропускать сборку нельзя
-      // (`platform/monolith-removal.md`).
-      if (!(err instanceof CompileTaskError)) throw err;
-      console.error(`smoke: ${err.message}`);
-      return 1;
+    // Все семь — рядом, как у установки: ядро исполняет строки на
+    // `mpu-worker` из своего каталога.
+    for (const [part, program] of PROGRAMS) {
+      await compile(part, `${home}/${program}`);
     }
     // Человек однажды разрешил эти строки: иначе мутирующие отказали
     // бы «спросить некого». До старта сервера — см. `allowLines`.
-    await Deno.mkdir(`${home}/.config/mpu`, { recursive: true });
+    await mkdir(`${home}/.config/mpu`, { recursive: true });
     allowLines(home);
     console.log("== проверки ==");
     let passed = 0;
@@ -1768,10 +1607,10 @@ async function main(): Promise<number> {
     );
     return 0;
   } finally {
-    await Deno.remove(home, { recursive: true });
+    await rm(home, { recursive: true });
   }
 }
 
 if (import.meta.main) {
-  Deno.exit(await main());
+  process.exit(await main());
 }

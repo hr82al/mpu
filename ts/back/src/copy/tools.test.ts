@@ -1,9 +1,6 @@
 /**
  * Временный файл дампа (`docs/specs/copy-client.md`, «Известные
- * ловушки»): каталог, в который он ложится, обязан совпадать с тем, на
- * который у собранного бинаря есть право записи (`deno.jsonc`,
- * `--allow-write`). Разойдутся — упадёт бинарь у пользователя, а не
- * тест здесь.
+ * ловушки») и настоящий запуск инструментов копирования.
  */
 
 import { describe, expect, it } from "vitest";
@@ -11,10 +8,7 @@ import { rejected } from "../testing/thrown.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { BACK_TASK } from "../../scripts/compile_task.ts";
 import {
-  DUMP_DIRS,
   makeDumpFile,
   removeDumpFile,
   spawnRedis,
@@ -51,27 +45,6 @@ it("временный файл дампа создан пустым, тольк
   }
 });
 
-it("названные каталоги совпадают с правом задачи сборки", async () => {
-  // Текст отказа перечисляет каталоги, а право их разрешает — два
-  // места про одно. Сверка здесь: разойдясь, они дали бы оператору
-  // совет, которого сборка не поддерживает.
-  const denoJsonc = await readFile(
-    new URL("../../../deno.jsonc", import.meta.url),
-    "utf8",
-  );
-  // Имя задачи сборки названо один раз — у её единственного читателя.
-  const task = denoJsonc.match(
-    new RegExp(`"${BACK_TASK}":\\s*"([^"]*)"`),
-  )?.[1] ?? "";
-  const write = task.split(/\s+/)
-    .find((arg) => arg.startsWith("--allow-write="))
-    ?.slice("--allow-write=".length)
-    .split(",") ?? [];
-  for (const dir of DUMP_DIRS) {
-    expect(write.includes(dir), `${dir} нет в --allow-write`).toBe(true);
-  }
-});
-
 it("удаление временного файла: отсутствие файла — не отказ", () => {
   const path = makeDumpFile("mpu-test-");
   removeDumpFile(path);
@@ -82,9 +55,9 @@ it("удаление временного файла: отсутствие фа�
 
 describe("настоящий запуск redis: подача, код возврата, причина отказа", () => {
   // Исходный дефект был в том, что настоящий исполнитель никем не
-  // исполнялся и никем не проверялся. Проверяется он теми же
-  // разрешёнными бинарями, что и подпроцесс ssh (`deno.jsonc`, задача
-  // `test`), — живого docker в прогоне нет и не должно быть.
+  // исполнялся и никем не проверялся. Проверяется он системными
+  // программами (`/bin/echo`, `/bin/false`), как и подпроцесс ssh, —
+  // живого docker в прогоне нет и не должно быть.
   it("успех: stdin принят, отказа нет", async () => {
     await spawnRedis(["/bin/echo", "проба"], "значение");
   });

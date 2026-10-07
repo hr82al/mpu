@@ -20,7 +20,7 @@ import {
   type Server as NetServer,
 } from "node:net";
 
-/** Обработчик запроса — как у сервера Deno. */
+/** Обработчик запроса в форме `Request → Response`. */
 export type FetchHandler = (request: Request) => Response | Promise<Response>;
 
 /** Запущенный сервер. */
@@ -30,8 +30,8 @@ export interface FakeHttp {
   readonly port: number;
   /**
    * Перестать принимать соединения и дождаться начатых ответов —
-   * как `shutdown` у сервера Deno. Висящий обработчик тест отпускает до
-   * `stop`: при живом клиенте `stop` ждёт его ответа без срока.
+   * как `shutdown` прежнего сервера (Deno). Висящий обработчик тест
+   * отпускает до `stop`: при живом клиенте `stop` ждёт его ответа без срока.
    */
   stop(): Promise<void>;
 }
@@ -101,8 +101,8 @@ async function answer(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  // Обрыв клиентом до конца ответа — отмена запроса, как `request.signal`
-  // у сервера Deno.
+  // Обрыв клиентом до конца ответа — отмена запроса, как у
+  // `request.signal` прежнего сервера (Deno).
   const aborted = new AbortController();
   res.on("close", () => {
     if (!res.writableFinished) aborted.abort();

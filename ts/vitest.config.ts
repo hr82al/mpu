@@ -1,8 +1,8 @@
 /**
  * Корневой Vitest рабочей области (`docs/specs/platform/vitest.md`):
- * раннер выбирается именем файла — `*.test.ts` здесь, `*_test.ts` у
- * `deno test` (его `test.exclude` в `deno.jsonc`). У `web/` свой раннер
- * (`deno task web:test`), корневой его не исполняет.
+ * тесты `*.test.ts` под Bun, Node и Deno (`bun run test`, `test:node`,
+ * `test:deno`). У `web/` свой раннер (`bun run web:test`), корневой его
+ * не исполняет.
  */
 
 import { defineConfig } from "vitest/config";
@@ -21,7 +21,7 @@ const EXCLUDE = ["web/**", "**/node_modules/**", ".deno/**", ".tmp/**"];
 export default defineConfig({
   test: {
     exclude: EXCLUDE,
-    // Предела времени нет, как у `deno test` (`platform/vitest-v2-v5.md`,
+    // Предела времени нет, как было у `deno test` (`platform/vitest-v2-v5.md`,
     // [S.11]): под нагрузкой 5 с давали ложные красные, а брошенный по
     // пределу случай продолжал исполняться и портил следующий.
     testTimeout: 0,

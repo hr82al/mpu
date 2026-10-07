@@ -1,10 +1,10 @@
 /**
  * Настоящая сборка `compile:back` (`platform/supervisor-install.md`,
- * «Части»): собранный `mpu-back` отвечает на `--version` и несёт в себе
- * воркер разбора кода и оба `.wasm` Telegram — без `--include` они не
- * встроены, и программа падает на `code` и `telegram`. Признак — кусок
- * содержимого каждого файла в байтах бинаря, а не имя (имена встречаются
- * и в исходнике).
+ * «Части»; `platform/node-runtime.md`, [S.11]): собранный `mpu-back`
+ * отвечает на `--version` и несёт в себе воркер разбора кода (вторым
+ * входом сборки) и оба wasm Telegram (модулем `wasm_modules.ts`) — без
+ * них программа падает на `code` и `telegram`. Признак — кусок
+ * содержимого в байтах бинаря, а не имя файла.
  */
 
 import { expect, it, onTestFinished } from "vitest";
@@ -13,12 +13,30 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  MTCUTE_SIMD_WASM,
+  MTCUTE_WASM,
+} from "../../back/src/telegram/wasm_modules.ts";
 
-const INCLUDED = [
-  "back/src/code/repo_worker.ts",
-  "back/src/telegram/mtcute.wasm",
-  "back/src/telegram/mtcute-simd.wasm",
-];
+/** Что обязано быть в бинаре: имя для сообщения и кусок содержимого. */
+function embedded(): readonly (readonly [string, Uint8Array])[] {
+  const encoder = new TextEncoder();
+  // Кусок из середины base64: не заголовок, общий для обоих wasm.
+  const middle = (text: string) =>
+    encoder.encode(text.slice(text.length / 2, text.length / 2 + 256));
+  return [
+    // Второй вход сборки лежит в корне файловой системы бинаря
+    // (`--root back/src/code`): там его ищет `new URL("./repo_worker.ts",
+    // import.meta.url)` собранного кода. Без входа пути в бинаре нет
+    // (проба 2026-10-07).
+    [
+      "back/src/code/repo_worker.ts",
+      encoder.encode("$bunfs/root/repo_worker.js"),
+    ],
+    ["mtcute.wasm", middle(MTCUTE_WASM)],
+    ["mtcute-simd.wasm", middle(MTCUTE_SIMD_WASM)],
+  ];
+}
 
 /** Код выхода и вывод программы; окружение — родителя плюс `env`. */
 async function output(
@@ -61,11 +79,11 @@ function contains(haystack: Uint8Array, needle: Uint8Array): boolean {
   return false;
 }
 
-it("compile:back — --version и встроенные воркер и .wasm", async () => {
+it("compile:back — --version и встроенные воркер и wasm", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     const out = `${dir}/mpu-back`;
-    const built = await output("deno", ["task", "compile:back"], {
+    const built = await output("bun", ["run", "compile:back"], {
       MPU_OUT: out,
     });
     expect(built.code, built.stderr).toBe(0);
@@ -80,12 +98,8 @@ it("compile:back — --version и встроенные воркер и .wasm", a
       "0.1.0\n",
     ]);
     const binary = await readFile(out);
-    for (const path of INCLUDED) {
-      const bytes = await readFile(path);
-      // Кусок из середины: не заголовок, общий для всех .wasm.
-      const middle = Math.floor(bytes.length / 2);
-      const piece = bytes.subarray(middle, middle + 256);
-      expect(contains(binary, piece), `${path} не встроен`).toBe(true);
+    for (const [name, piece] of embedded()) {
+      expect(contains(binary, piece), `${name} не встроен`).toBe(true);
     }
   } finally {
     await rm(dir, { recursive: true });

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { hasErrorCode, isPermissionRefusal, osError } from "./mod.ts";
+import { hasErrorCode, osError } from "./mod.ts";
 
 it("код настоящей ошибки файловой системы различается", async () => {
   const err = await readFile("/нет-такого-пути").catch((err) => err);
@@ -16,11 +16,4 @@ it("не ошибка и ошибка без кода — не ошибка ОС
 
 it("подменная ошибка несёт код", () => {
   expect(hasErrorCode(osError("EPIPE", "труба"), "EPIPE")).toBe(true);
-});
-
-it("отказ права узнаётся по имени, а не по коду", () => {
-  const refused = new Error("Requires write access");
-  refused.name = "NotCapable";
-  expect(isPermissionRefusal(refused)).toBe(true);
-  expect(isPermissionRefusal(osError("EACCES", "нет права"))).toBe(false);
 });

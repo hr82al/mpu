@@ -71,7 +71,7 @@ function closedWritable(): WritableStream<Uint8Array> {
   });
 }
 
-/** Код выхода по сигналу — как у оболочки и прежнего запуска Deno. */
+/** Код выхода по сигналу — `128 + номер`, как у оболочки. */
 function statusOf(
   code: number | null,
   signal: NodeJS.Signals | null,

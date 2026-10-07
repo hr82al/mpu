@@ -13,6 +13,10 @@
 node_modules/
 /web/dist/
 
+# Байты wasm Telegram модулем: порождается из node_modules при установке и
+# сборке (back/scripts/gen-wasm-modules.ts)
+/back/src/telegram/wasm_modules.ts
+
 # Покрытие
 /cov/
 coverage/

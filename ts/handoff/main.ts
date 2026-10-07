@@ -1,7 +1,7 @@
 /**
  * CLI поверх ячейки передачи работы.
  *
- *   deno run --allow-read --allow-write --allow-env handoff/main.ts <команда>
+ *   bun run handoff <команда>
  *
  *   status                    что сейчас в ячейке
  *   post <файл|->             положить постановку (отказ, если прежняя не отработана)

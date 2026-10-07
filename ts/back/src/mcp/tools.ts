@@ -14,7 +14,7 @@ import { nativeEntry } from "./native_tool.ts";
 // Закрытый список публикации читается из канала спецификаций
 // напрямую: копия рядом с кодом дала бы второй источник истины и
 // тест, стерегущий их совпадение (`docs/CLAUDE.md`). Импорт
-// статический — список попадает в бинарь при `deno compile`.
+// статический — список попадает в бинарь при сборке.
 import toolPolicies from "../../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
@@ -137,7 +137,7 @@ function listedPolicy(name: string): Policy | undefined {
 
 /**
  * Снапшот тулов профиля: тот же текст сверяет инвариант
- * `invariants_test.ts` и пересобирает `deno task tools:snapshot`. Одна
+ * `invariants.test.ts` и пересобирает `bun run tools:snapshot`. Одна
  * функция на оба пути намеренно: разойдись они отступом или хвостовым
  * переводом строки — пересобранный снапшот ронял бы собственный тест.
  */

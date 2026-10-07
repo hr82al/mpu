@@ -5,10 +5,10 @@
  * клиента хука, принесённого строкой.
  */
 
-import { hasErrorCode, isPermissionRefusal } from "../oserror/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import { type ProgramOutput, runProgram } from "../subprocess/mod.ts";
 
-/** Программа tmux: путём, как в праве `--allow-run` ядра [D.7]. */
+/** Программа tmux: абсолютным путём [D.7]. */
 export const TMUX = "/usr/bin/tmux";
 
 /** Сколько ждать ответа tmux. */
@@ -32,10 +32,9 @@ export const RUN_TMUX: TmuxRun = async (args) => {
       signal: AbortSignal.timeout(WINDOW_MS),
     });
   } catch (err) {
-    // Нет tmux или права его звать — подписи нет: окно лишь подписывает
-    // вопрос и не меняет, куда он идёт.
+    // Нет tmux — подписи нет: окно лишь подписывает вопрос и не меняет,
+    // куда он идёт.
     if (hasErrorCode(err, "ENOENT")) return undefined;
-    if (isPermissionRefusal(err)) return undefined;
     throw err;
   }
   return output.success ? new TextDecoder().decode(output.stdout) : undefined;

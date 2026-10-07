@@ -28,12 +28,3 @@ export function hasErrorCode(
 export function osError(code: OsErrorCode, message: string): Error {
   return Object.assign(new Error(`${code}: ${message}`), { code });
 }
-
-/**
- * Отказ права процесса Deno (`--allow-*`). У него нет кода ОС — только
- * имя, и под `node:fs` тоже (проба порции E2). Права уходят вместе со
- * сборкой `deno compile` (`platform/node-runtime.md`, E4).
- */
-export function isPermissionRefusal(err: unknown): boolean {
-  return err instanceof Error && err.name === "NotCapable";
-}
