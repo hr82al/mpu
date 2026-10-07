@@ -1,0 +1,148 @@
+/**
+ * Подставной HTTP-сервер на петле для тестов `*.test.ts`: обработчик в
+ * форме `Request → Response`, как у `Deno.serve`, а сервер — `node:http`
+ * (`node:https` с сертификатом), одинаковый под Deno, Node и Bun.
+ *
+ * Модуль подключают только тесты.
+ */
+
+import { Buffer } from "node:buffer";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import type { AddressInfo } from "node:net";
+
+/** Обработчик запроса — как у `Deno.serve`. */
+export type FetchHandler = (request: Request) => Response | Promise<Response>;
+
+/** Запущенный сервер. */
+export interface FakeHttp {
+  /** `http://127.0.0.1:<порт>` (`https://` с сертификатом), без `/`. */
+  readonly baseUrl: string;
+  readonly port: number;
+  /**
+   * Перестать принимать соединения и дождаться начатых ответов —
+   * как `shutdown` у `Deno.serve`.
+   */
+  stop(): Promise<void>;
+}
+
+/** Сертификат и ключ в PEM: сервер — `https`. */
+export interface Tls {
+  readonly cert: string;
+  readonly key: string;
+}
+
+/** Поднимает сервер на `127.0.0.1` и свободном порту. */
+export async function serveFetch(
+  handler: FetchHandler,
+  tls?: Tls,
+): Promise<FakeHttp> {
+  const scheme = tls === undefined ? "http" : "https";
+  const listener = (req: IncomingMessage, res: ServerResponse) => {
+    // Сбой записи ответа (клиент ушёл посреди `writeHead`/`write`) —
+    // соединение рвётся, ошибка видна в выводе прогона.
+    answer(handler, scheme, req, res).catch((err) => {
+      console.error(err);
+      res.destroy();
+    });
+  };
+  const server: Server = tls === undefined
+    ? createHttpServer(listener)
+    : createHttpsServer({ cert: tls.cert, key: tls.key }, listener);
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  // Сервер слушает TCP: `address()` — `AddressInfo`, не путь сокета и не
+  // `null` (тот — до `listen`).
+  const { port } = server.address() as AddressInfo;
+  return {
+    baseUrl: `${scheme}://127.0.0.1:${port}`,
+    port,
+    stop: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => err === undefined ? resolve() : reject(err));
+        server.closeIdleConnections();
+      }),
+  };
+}
+
+async function answer(
+  handler: FetchHandler,
+  scheme: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  // Обрыв клиентом до конца ответа — отмена запроса, как `request.signal`
+  // у `Deno.serve`.
+  const aborted = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) aborted.abort();
+  });
+  let response: Response;
+  try {
+    response = await handler(await requestOf(scheme, req, aborted.signal));
+  } catch (err) {
+    // `Deno.serve` на брошенном из обработчика отвечает 500 и пишет ошибку.
+    console.error(err);
+    response = new Response("Internal Server Error", { status: 500 });
+  }
+  res.writeHead(response.status, [...response.headers].flat());
+  if (response.body !== null) {
+    // Клиент ушёл — тело отменяется, как у `Deno.serve`: бесконечный
+    // поток иначе читался бы вечно.
+    const reader = response.body.getReader();
+    aborted.signal.addEventListener(
+      "abort",
+      () => {
+        // Отказ отмены дописывать некому: клиент уже ушёл.
+        reader.cancel().catch((err) => console.error(err));
+      },
+      { once: true },
+    );
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+    } catch (err) {
+      // Тело оборвалось у обработчика — соединение рвётся, как у
+      // `Deno.serve`: клиент видит обрыв, а не тихо укороченный ответ.
+      console.error(err);
+      res.destroy();
+      return;
+    }
+  }
+  res.end();
+}
+
+async function requestOf(
+  scheme: string,
+  req: IncomingMessage,
+  signal: AbortSignal,
+): Promise<Request> {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    for (const one of [value ?? []].flat()) headers.append(name, one);
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const method = req.method ?? "GET";
+  const body = method === "GET" || method === "HEAD"
+    ? undefined
+    : new Uint8Array(Buffer.concat(chunks));
+  // Запрос к прокси несёт адрес целиком (`GET http://…`), прочие — путь.
+  const url = new URL(req.url ?? "/", `${scheme}://${req.headers.host}`);
+  return new Request(url, {
+    method,
+    headers,
+    body,
+    signal,
+  });
+}
