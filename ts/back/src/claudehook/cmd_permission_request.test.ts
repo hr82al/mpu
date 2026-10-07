@@ -15,12 +15,14 @@ it("S23: однострока и фрагмент настроек — как в
     "Как ответить на вопрос Claude Code о праве из Telegram?",
   );
   const fragment = command.help.slice(command.help.lastIndexOf("\n{") + 1);
-  expect(JSON.parse(fragment)).toStrictEqual(JSON.parse(
-    await readFile(
-      testdata("permission-request/settings-fragment.json"),
-      "utf8",
+  expect(JSON.parse(fragment)).toStrictEqual(
+    JSON.parse(
+      await readFile(
+        testdata("permission-request/settings-fragment.json"),
+        "utf8",
+      ),
     ),
-  ));
+  );
 });
 
 it("S23: справка — снятый голден", async () => {

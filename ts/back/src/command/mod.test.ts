@@ -10,9 +10,11 @@ import {
 import { makeFakeIo } from "../testing/mod.ts";
 
 /** Минимальное корректное объявление; поля подменяются в тестах. */
-function declare(
-  overrides: { summary?: string; usage?: string; help?: string },
-) {
+function declare(overrides: {
+  summary?: string;
+  usage?: string;
+  help?: string;
+}) {
   return defineCommand({
     path: ["proba"],
     summary: "проба пера",
@@ -37,11 +39,7 @@ describe("объявление без справочного текста не �
   ];
   for (const [title, overrides] of cases) {
     it(title, () => {
-      thrown(
-        () => declare(overrides),
-        TypeError,
-        "текст обязателен",
-      );
+      thrown(() => declare(overrides), TypeError, "текст обязателен");
     });
   }
 });
@@ -100,7 +98,8 @@ describe("formatCommandError: две формы подсказки", () => {
 
   it("выбор из нескольких действий — дословно", () => {
     const err = new DomainError("таймер уже идёт на карточке 10000001", {
-      advice: "останови `mpu kiten time stop 10000001` или сбрось " +
+      advice:
+        "останови `mpu kiten time stop 10000001` или сбрось " +
         "`mpu kiten time discard 10000001`",
     });
     expect(formatCommandError("kiten time start", err)).toStrictEqual(
@@ -136,24 +135,24 @@ describe("числовой список: элементы приводятся �
   });
 
   it("вид входа выведен из типа элемента", () => {
-    expect(command.inputs.map((input) => [input.name, input.kind]))
-      .toStrictEqual([["ids", "numbers"], ["names", "strings"]]);
+    expect(
+      command.inputs.map((input) => [input.name, input.kind]),
+    ).toStrictEqual([
+      ["ids", "numbers"],
+      ["names", "strings"],
+    ]);
   });
 
   it("повтор флага накапливает числа, а не строки", () => {
     expect(command.parseArgs(["--ids", "1", "--ids", "20"]).ids).toStrictEqual([
-      1,
-      20,
+      1, 20,
     ]);
   });
 
   it("нецифровое значение отвергается схемой, а не молчит", () => {
     // Приведение оставляет негодный текст текстом, и о типе говорит
     // схема — своего сообщения слой разбора не заводит.
-    const err = thrown(
-      () => command.parseArgs(["--ids", "abc"]),
-      UsageError,
-    );
+    const err = thrown(() => command.parseArgs(["--ids", "abc"]), UsageError);
     expect(err.hint).toBe("mpu proba --help");
   });
 

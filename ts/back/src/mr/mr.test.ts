@@ -54,8 +54,8 @@ function ioTo(baseUrl: string): CommandIo {
         name === "GITLAB_BASE_URL"
           ? baseUrl
           : name === "GLAB_TOKEN"
-          ? TOKEN
-          : undefined,
+            ? TOKEN
+            : undefined,
       require: (name: string) => {
         if (name === "GLAB_TOKEN") return TOKEN;
         throw new DomainError(`нет ключа ${name}`);
@@ -133,43 +133,47 @@ const SECOND_PATH = "src/module/file1.ts";
 const DISCUSSIONS = [
   {
     id: "953d395bb1c317b7317d46193627708c31882800",
-    notes: [{
-      id: 42175,
-      body: "текст комментария",
-      author: { name: "Имя Фамилия", username: "reviewer" },
-      created_at: "2026-08-27T17:00:10.721Z",
-      updated_at: "2026-08-27T17:00:10.721Z",
-      system: false,
-      resolvable: true,
-      resolved: false,
-      type: "DiffNote",
-      position: {
-        old_path: INLINE_PATH,
-        new_path: INLINE_PATH,
-        old_line: null,
-        new_line: 25,
+    notes: [
+      {
+        id: 42175,
+        body: "текст комментария",
+        author: { name: "Имя Фамилия", username: "reviewer" },
+        created_at: "2026-08-27T17:00:10.721Z",
+        updated_at: "2026-08-27T17:00:10.721Z",
+        system: false,
+        resolvable: true,
+        resolved: false,
+        type: "DiffNote",
+        position: {
+          old_path: INLINE_PATH,
+          new_path: INLINE_PATH,
+          old_line: null,
+          new_line: 25,
+        },
       },
-    }],
+    ],
   },
   {
     id: "d7f534bcb52ae6545ba7b0eab6f5378863acbe88",
-    notes: [{
-      id: 42176,
-      body: "текст комментария",
-      author: { name: "Имя Фамилия", username: "reviewer" },
-      created_at: "2026-08-27T17:00:17.416Z",
-      updated_at: "2026-08-27T17:00:17.416Z",
-      system: false,
-      resolvable: true,
-      resolved: false,
-      type: "DiffNote",
-      position: {
-        old_path: SECOND_PATH,
-        new_path: SECOND_PATH,
-        old_line: null,
-        new_line: 196,
+    notes: [
+      {
+        id: 42176,
+        body: "текст комментария",
+        author: { name: "Имя Фамилия", username: "reviewer" },
+        created_at: "2026-08-27T17:00:17.416Z",
+        updated_at: "2026-08-27T17:00:17.416Z",
+        system: false,
+        resolvable: true,
+        resolved: false,
+        type: "DiffNote",
+        position: {
+          old_path: SECOND_PATH,
+          new_path: SECOND_PATH,
+          old_line: null,
+          new_line: 196,
+        },
       },
-    }],
+    ],
   },
 ];
 
@@ -218,8 +222,9 @@ describe("view: JSON — эталон канала, текстовая форм�
   });
 
   it("пустое описание — без пустой строки в хвосте", () => {
-    expect(renderView({ ...mr, description: "" }, false).endsWith("456\n"))
-      .toBe(true);
+    expect(
+      renderView({ ...mr, description: "" }, false).endsWith("456\n"),
+    ).toBe(true);
   });
 });
 
@@ -229,13 +234,9 @@ describe("files: JSON — эталон канала, таблица — сумм
 
   beforeAll(async () => {
     stand = await standWith();
-    result = await runFiles(
-      { mr: REF, json: true },
-      ioTo(stand.baseUrl),
-      {
-        runGit: noGit,
-      },
-    );
+    result = await runFiles({ mr: REF, json: true }, ioTo(stand.baseUrl), {
+      runGit: noGit,
+    });
   });
 
   afterAll(async () => {
@@ -243,9 +244,7 @@ describe("files: JSON — эталон канала, таблица — сумм
   });
 
   it("--json побайтно равен голдену", async () => {
-    expect(renderFiles(result, true)).toStrictEqual(
-      await golden("files.json"),
-    );
+    expect(renderFiles(result, true)).toStrictEqual(await golden("files.json"));
   });
 
   it("порядок файлов — порядок ответа API", () => {
@@ -322,9 +321,7 @@ describe("diff: блоки, пометки статуса и фильтр по �
         runGit: noGit,
       },
     );
-    expect(filtered.files.map((f) => f.new_path)).toStrictEqual([
-      "src/new.ts",
-    ]);
+    expect(filtered.files.map((f) => f.new_path)).toStrictEqual(["src/new.ts"]);
   });
 
   it("нет совпадений — отказ, эталон канала", async () => {
@@ -435,17 +432,19 @@ describe("comments: общий тред отличается от инлайно
   beforeAll(async () => {
     const general = {
       id: "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111",
-      notes: [{
-        id: 1,
-        body: "общий комментарий\nвторая строка",
-        author: { name: "Имя", username: "user" },
-        created_at: "2026-08-27T10:00:00.000Z",
-        updated_at: "2026-08-27T10:00:00.000Z",
-        system: false,
-        resolvable: false,
-        resolved: false,
-        type: null,
-      }],
+      notes: [
+        {
+          id: 1,
+          body: "общий комментарий\nвторая строка",
+          author: { name: "Имя", username: "user" },
+          created_at: "2026-08-27T10:00:00.000Z",
+          updated_at: "2026-08-27T10:00:00.000Z",
+          system: false,
+          resolvable: false,
+          resolved: false,
+          type: null,
+        },
+      ],
     };
     stand = await standWith({ discussions: [general, ...DISCUSSIONS] });
     io = ioTo(stand.baseUrl);
@@ -493,23 +492,25 @@ describe("comments: общий тред отличается от инлайно
     // тому имени, которое помнит.
     const renamedThread = {
       id: "cccc3333cccc3333cccc3333cccc3333cccc3333",
-      notes: [{
-        id: 7,
-        body: "на переименованном файле",
-        author: { name: "Имя", username: "user" },
-        created_at: "2026-08-27T11:00:00.000Z",
-        updated_at: "2026-08-27T11:00:00.000Z",
-        system: false,
-        resolvable: true,
-        resolved: false,
-        type: "DiffNote",
-        position: {
-          old_path: "src/старый.ts",
-          new_path: "src/новый.ts",
-          old_line: null,
-          new_line: 3,
+      notes: [
+        {
+          id: 7,
+          body: "на переименованном файле",
+          author: { name: "Имя", username: "user" },
+          created_at: "2026-08-27T11:00:00.000Z",
+          updated_at: "2026-08-27T11:00:00.000Z",
+          system: false,
+          resolvable: true,
+          resolved: false,
+          type: "DiffNote",
+          position: {
+            old_path: "src/старый.ts",
+            new_path: "src/новый.ts",
+            old_line: null,
+            new_line: 3,
+          },
         },
-      }],
+      ],
     };
     const renamedStand = await standWith({ discussions: [renamedThread] });
     try {
@@ -527,13 +528,9 @@ describe("comments: общий тред отличается от инлайно
   });
 
   it("--author без учёта регистра, по первой ноте", async () => {
-    const byAuthor = await runComments(
-      { ...args, author: "REVIEWER" },
-      io,
-      {
-        runGit: noGit,
-      },
-    );
+    const byAuthor = await runComments({ ...args, author: "REVIEWER" }, io, {
+      runGit: noGit,
+    });
     expect(byAuthor.threads.length).toBe(2);
     const none = await runComments({ ...args, author: "нет-такого" }, io, {
       runGit: noGit,
@@ -550,17 +547,19 @@ it("comments: системные ноты не видны ни в одной ф�
   const withSystem = [
     {
       id: "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222",
-      notes: [{
-        id: 9,
-        body: "changed title from **старое** to **новое**",
-        author: { name: "Имя", username: "user" },
-        created_at: "2026-08-27T10:00:00.000Z",
-        updated_at: "2026-08-27T10:00:00.000Z",
-        system: true,
-        resolvable: false,
-        resolved: false,
-        type: null,
-      }],
+      notes: [
+        {
+          id: 9,
+          body: "changed title from **старое** to **новое**",
+          author: { name: "Имя", username: "user" },
+          created_at: "2026-08-27T10:00:00.000Z",
+          updated_at: "2026-08-27T10:00:00.000Z",
+          system: true,
+          resolvable: false,
+          resolved: false,
+          type: null,
+        },
+      ],
     },
     ...DISCUSSIONS,
   ];
@@ -598,11 +597,9 @@ describe("show: тред по префиксу, полный id в заголо�
   beforeAll(async () => {
     stand = await standWith();
     io = ioTo(stand.baseUrl);
-    thread = await runShow(
-      { discussion: "953d39", mr: REF, json: false },
-      io,
-      { runGit: noGit },
-    );
+    thread = await runShow({ discussion: "953d39", mr: REF, json: false }, io, {
+      runGit: noGit,
+    });
   });
 
   afterAll(async () => {
@@ -628,16 +625,18 @@ describe("show: тред по префиксу, полный id в заголо�
     // Неоднозначный префикс проверен на уровне атома вместе с
     // текстом перечня (`gitlab/discussion.test.ts`).
     for (const ref of ["953d3", "ffffff"]) {
-      await expect(runShow({ discussion: ref, mr: REF, json: false }, io, {
-        runGit: noGit,
-      })).rejects.toThrow(DomainError);
+      await expect(
+        runShow({ discussion: ref, mr: REF, json: false }, io, {
+          runGit: noGit,
+        }),
+      ).rejects.toThrow(DomainError);
     }
   });
 });
 
 it("отказ GitLab: эталон канала с подсказкой по --mr", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(`{"message":"404 Not found"}`, { status: 404 })
+  const stand = await startFakeGitlab(
+    () => new Response(`{"message":"404 Not found"}`, { status: 404 }),
   );
   try {
     const err = await rejected(
@@ -656,8 +655,8 @@ it("отказ GitLab: эталон канала с подсказкой по --
 });
 
 it("401: подсказка называет ключ и путь, но не значение токена", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
+  const stand = await startFakeGitlab(
+    () => new Response(`{"message":"401 Unauthorized"}`, { status: 401 }),
   );
   try {
     const err = await rejected(
@@ -715,14 +714,16 @@ describe("files: пустой MR и binary-файл — нули, а не отк
   it("binary-файл: +0 / -0", async () => {
     const binary = {
       changes: {
-        changes: [{
-          old_path: "assets/logo.png",
-          new_path: "assets/logo.png",
-          new_file: false,
-          renamed_file: false,
-          deleted_file: false,
-          diff: "",
-        }],
+        changes: [
+          {
+            old_path: "assets/logo.png",
+            new_path: "assets/logo.png",
+            new_file: false,
+            renamed_file: false,
+            deleted_file: false,
+            diff: "",
+          },
+        ],
       },
     };
     const stand = await standWith(binary);
@@ -802,9 +803,11 @@ describe("отказ состояния — код 1, отказ ввода — 
   it("пустой --mr — UsageError, а не резолв по ветке", async () => {
     const stand = await standWith();
     try {
-      await expect(runView({ mr: "", json: false }, ioTo(stand.baseUrl), {
-        runGit: noGit,
-      })).rejects.toThrow(UsageError);
+      await expect(
+        runView({ mr: "", json: false }, ioTo(stand.baseUrl), {
+          runGit: noGit,
+        }),
+      ).rejects.toThrow(UsageError);
     } finally {
       await stand.stop();
     }

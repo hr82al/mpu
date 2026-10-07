@@ -13,23 +13,32 @@ export const SYNC_PATH: readonly string[] = ["image", "sync"];
 
 /** Аргументы строки `image sync` после разбора цепочкой. */
 export const syncArgsSchema = z.object({
-  "dry-run": z.boolean().default(false).describe(
-    "только отчёт: ни база, ни файлы, ни архив не меняются",
-  ),
-  dir: z.string().optional().describe(
-    "каталог файлов; умолчание — ключ конфига image.dir",
-  ),
-  base: z.array(z.string()).default([]).describe(
-    "адрес метода получатель.имя: в конфликте права база; повторяется",
-  ),
-  files: z.array(z.string()).default([]).describe(
-    "адрес метода получатель.имя: в конфликте права файл; повторяется",
-  ),
-  deletes: z.enum(["allow"], {
-    error: (issue) => `invalid deletes: value "${String(issue.input)}"`,
-  }).optional().describe(
-    "allow — снять предохранитель массового удаления",
-  ),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("только отчёт: ни база, ни файлы, ни архив не меняются"),
+  dir: z
+    .string()
+    .optional()
+    .describe("каталог файлов; умолчание — ключ конфига image.dir"),
+  base: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "адрес метода получатель.имя: в конфликте права база; повторяется",
+    ),
+  files: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "адрес метода получатель.имя: в конфликте права файл; повторяется",
+    ),
+  deletes: z
+    .enum(["allow"], {
+      error: (issue) => `invalid deletes: value "${String(issue.input)}"`,
+    })
+    .optional()
+    .describe("allow — снять предохранитель массового удаления"),
 });
 
 /** Аргументы синхронизации. */
@@ -44,7 +53,8 @@ export const imageSyncCommand = defineCommand({
   keys: {},
   errorName: "image sync",
   summary: "Сводит методы образа с файлами каталога в обе стороны.",
-  usage: "mpu ask image sync [dry] [dir: КАТАЛОГ] [base: АДРЕС]... " +
+  usage:
+    "mpu ask image sync [dry] [dir: КАТАЛОГ] [base: АДРЕС]... " +
     "[files: АДРЕС]... [deletes: allow]",
   help: `Звать после правки файлов методов или перед коммитом каталога \
 образа: в отличие от ручного копирования видит, какая сторона изменилась \

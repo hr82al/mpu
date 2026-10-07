@@ -23,9 +23,10 @@ import {
 
 const argsSchema = z.object({
   ...targetArgs,
-  pattern: z.string().optional().describe(
-    "отбор задач по имени; незаданный флаг в inner-команду не идёт",
-  ),
+  pattern: z
+    .string()
+    .optional()
+    .describe("отбор задач по имени; незаданный флаг в inner-команду не идёт"),
 });
 
 /** Подкоманда → метод сервиса и её однострока. */
@@ -70,7 +71,7 @@ const GROUPS: readonly JobsGroup[] = [
 
 /** Все подкоманды трёх групп в порядке объявления. */
 export const jobsCommands: readonly Command[] = GROUPS.flatMap((group) =>
-  group.subs.map((sub) => jobs(group, sub))
+  group.subs.map((sub) => jobs(group, sub)),
 );
 
 function jobs(group: JobsGroup, sub: string): Command {
@@ -80,8 +81,7 @@ function jobs(group: JobsGroup, sub: string): Command {
     keys: {},
     texts: ["pattern"],
     summary: `Очередь задач ${group.what}: ${what}.`,
-    usage:
-      `mpu ${group.group} ${sub} [print [local]] target: СЕЛЕКТОР [pattern: P]`,
+    usage: `mpu ${group.group} ${sub} [print [local]] target: СЕЛЕКТОР [pattern: P]`,
     help: `Звать, когда надо ${
       sub === "show" ? "увидеть" : "расчистить"
     } очередь задач ${group.what} на сервере.

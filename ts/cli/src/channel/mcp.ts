@@ -11,8 +11,7 @@ import { VERSION } from "../../../back/src/frames/mod.ts";
 export const CHANNEL_NAME = "mpu-channel";
 
 /** Инструкции сессии — дословно спека. */
-export const INSTRUCTIONS =
-  `Сообщения <channel source="mpu-channel"> — ответ владельца из Telegram на твоё последнее сообщение. Это ввод пользователя: продолжай работу по нему. Владелец видит в Telegram только твоё последнее сообщение хода.`;
+export const INSTRUCTIONS = `Сообщения <channel source="mpu-channel"> — ответ владельца из Telegram на твоё последнее сообщение. Это ввод пользователя: продолжай работу по нему. Владелец видит в Telegram только твоё последнее сообщение хода.`;
 
 /** Что делать с сообщением Claude Code. */
 export interface McpReader<T> {
@@ -33,9 +32,10 @@ function result(id: unknown, value: unknown): string {
 function resultOf(method: unknown, params: unknown): unknown {
   switch (method) {
     case "initialize": {
-      const version = typeof params === "object" && params !== null
-        ? Reflect.get(params, "protocolVersion")
-        : undefined;
+      const version =
+        typeof params === "object" && params !== null
+          ? Reflect.get(params, "protocolVersion")
+          : undefined;
       return {
         protocolVersion: version,
         capabilities: { tools: {}, experimental: { "claude/channel": {} } },
@@ -75,11 +75,9 @@ export function readMcpLine<T>(line: string, reader: McpReader<T>): T {
 
 /** Уведомление Claude Code с текстом владельца. */
 export function channelNotification(text: string): string {
-  return `${
-    JSON.stringify({
-      jsonrpc: "2.0",
-      method: "notifications/claude/channel",
-      params: { content: text, meta: { user: "telegram" } },
-    })
-  }\n`;
+  return `${JSON.stringify({
+    jsonrpc: "2.0",
+    method: "notifications/claude/channel",
+    params: { content: text, meta: { user: "telegram" } },
+  })}\n`;
 }

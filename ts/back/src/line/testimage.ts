@@ -62,7 +62,7 @@ export async function imageGoldens(): Promise<Record<string, string>> {
       await run(CARDS_IN, ["y"]);
       taken["messages.txt"] = (await run("kiten messages")).stdout;
       taken["help.txt"] = (await run("kiten cardsIn: help")).stdout;
-    })
+    }),
   );
   return taken;
 }

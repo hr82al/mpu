@@ -110,11 +110,14 @@ export function clientIdsOfSid(
       " ORDER BY client_id",
     sid,
   );
-  const rows = exact.length > 0 ? exact : cache.query(
-    "SELECT DISTINCT client_id FROM sl_wb_sids WHERE sid LIKE '%' || ? || '%'" +
-      " ORDER BY client_id",
-    sid,
-  );
+  const rows =
+    exact.length > 0
+      ? exact
+      : cache.query(
+          "SELECT DISTINCT client_id FROM sl_wb_sids WHERE sid LIKE '%' || ? || '%'" +
+            " ORDER BY client_id",
+          sid,
+        );
   return rows.map((row) => intOf(row.client_id, "sl_wb_sids.client_id"));
 }
 
@@ -123,10 +126,9 @@ function withSids(
   cache: CacheReader,
   rows: readonly SqlRow[],
 ): readonly Candidate[] {
-  const sids = sidsByClient(
-    cache,
-    [...new Set(rows.map((row) => intOf(row.client_id, "client_id")))],
-  );
+  const sids = sidsByClient(cache, [
+    ...new Set(rows.map((row) => intOf(row.client_id, "client_id"))),
+  ]);
   return rows.map((row) => {
     const clientId = intOf(row.client_id, "client_id");
     const server = textOf(row.server);

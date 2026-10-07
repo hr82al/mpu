@@ -53,8 +53,7 @@ const TM9: Case = {
 
 const GOLDEN: Case = {
   name: "голден: упоминание, ссылка, жирный",
-  text:
-    "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
+  text: "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
   entities: [
     { _: "messageEntityMention", offset: 0, length: 7 },
     url(42, 19, "https://btlz.kaiten.ru/71300001"),
@@ -171,12 +170,14 @@ const JOINTS: readonly Case[] = [
   {
     name: "блок кода с языком",
     text: "const a = `x`;\n  b ** c",
-    entities: [{
-      _: "messageEntityPre",
-      offset: 0,
-      length: 23,
-      language: "ts",
-    }],
+    entities: [
+      {
+        _: "messageEntityPre",
+        offset: 0,
+        length: 23,
+        language: "ts",
+      },
+    ],
   },
   {
     name: "блок кода без языка",
@@ -201,11 +202,14 @@ const JOINTS: readonly Case[] = [
   {
     name: "код внутри ссылки",
     text: "a]b",
-    entities: [url(0, 3, "u"), {
-      _: "messageEntityCode",
-      offset: 0,
-      length: 3,
-    }],
+    entities: [
+      url(0, 3, "u"),
+      {
+        _: "messageEntityCode",
+        offset: 0,
+        length: 3,
+      },
+    ],
   },
 ];
 
@@ -221,8 +225,9 @@ function comparable(entities: readonly tl.TypeMessageEntity[]) {
   return entities
     .filter((entity) => !AS_IS.has(entity._))
     .map((entity) => ({ ...entity }))
-    .sort((a, b) =>
-      a.offset - b.offset || a.length - b.length || a._.localeCompare(b._)
+    .sort(
+      (a, b) =>
+        a.offset - b.offset || a.length - b.length || a._.localeCompare(b._),
     );
 }
 
@@ -240,11 +245,13 @@ describe("обратимость: разбор `send --md` даёт исходн
   for (const sample of [...SCENARIOS, ...JOINTS]) {
     it(sample.name, () => {
       const parsed = md(markdown(sample.text, sample.entities));
-      expect({ text: parsed.text, entities: comparable(parsed.entities ?? []) })
-        .toStrictEqual({
-          text: sample.text,
-          entities: comparable(sample.entities),
-        });
+      expect({
+        text: parsed.text,
+        entities: comparable(parsed.entities ?? []),
+      }).toStrictEqual({
+        text: sample.text,
+        entities: comparable(sample.entities),
+      });
     });
   }
 });
@@ -254,7 +261,9 @@ it("сущность нулевой длины разметки не даёт", 
 });
 
 it("код: экранируются только косая и кавычка", () => {
-  expect(markdown("x **a** [b] `c` \\d > e", [
-    { _: "messageEntityCode", offset: 2, length: 20 },
-  ])).toStrictEqual("x `**a** [b] \\`c\\` \\\\d > e`");
+  expect(
+    markdown("x **a** [b] `c` \\d > e", [
+      { _: "messageEntityCode", offset: 2, length: 20 },
+    ]),
+  ).toStrictEqual("x `**a** [b] \\`c\\` \\\\d > e`");
 });

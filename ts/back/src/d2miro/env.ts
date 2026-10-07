@@ -49,7 +49,7 @@ export function denoD2MiroEnv(cwd: string): D2MiroEnv {
         return undefined;
       }
     },
-    hasD2: async () => await run("d2", ["--version"], cwd) !== undefined,
+    hasD2: async () => (await run("d2", ["--version"], cwd)) !== undefined,
     renderSvg: async (input, output) => {
       const outcome = await run("d2", [input, output], cwd);
       return outcome ?? { code: 127, stderr: "d2 CLI is not in PATH" };

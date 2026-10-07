@@ -20,10 +20,6 @@ describe("путь правила нормализуется", () => {
 
 it("пустой путь правила — отказ", () => {
   for (const text of ["", "   "]) {
-    thrown(
-      () => RulePath.parse(text),
-      EmptyRulePath,
-      "путь правила пуст",
-    );
+    thrown(() => RulePath.parse(text), EmptyRulePath, "путь правила пуст");
   }
 });

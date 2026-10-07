@@ -38,11 +38,9 @@ it("порядок запросов равен порядку инструкци
     sheets: SHEETS,
     defaultSheet: "Sheet1",
   });
-  expect(compiled.requests.map((r) => Object.keys(r as object)[0]))
-    .toStrictEqual([
-      "trimWhitespace",
-      "unmergeCells",
-    ]);
+  expect(
+    compiled.requests.map((r) => Object.keys(r as object)[0]),
+  ).toStrictEqual(["trimWhitespace", "unmergeCells"]);
 });
 
 it("лист, создаваемый этим же скриптом, на компиляции не существует", () => {
@@ -104,10 +102,9 @@ it("generic-инструкция разворачивает сахар по вс
 });
 
 it("sheetId в generic — имя листа, а не число", () => {
-  const compiled = compileScript(
-    '@deleteSheet { "sheetId": "@\'Второй\'" }',
-    { sheets: [...SHEETS, { title: "Второй", sheetId: 7 }] },
-  );
+  const compiled = compileScript('@deleteSheet { "sheetId": "@\'Второй\'" }', {
+    sheets: [...SHEETS, { title: "Второй", sheetId: 7 }],
+  });
   expect(compiled.requests[0]).toStrictEqual({ deleteSheet: { sheetId: 7 } });
 });
 
@@ -224,16 +221,14 @@ it("find-replace без области и без -n — ошибка, а не в
 });
 
 it("неопознанное слово-опция — ошибка, а не молчание", () => {
-  for (
-    const [script, message] of [
-      ["merge A1:B2 колонки", "строка 1: неизвестная опция 'колонки'"],
-      [
-        "cols insert A inherit=befor",
-        "строка 1: неизвестная опция 'inherit=befor'",
-      ],
-      ["clear A1 частично", "строка 1: неизвестная опция 'частично'"],
-    ]
-  ) {
+  for (const [script, message] of [
+    ["merge A1:B2 колонки", "строка 1: неизвестная опция 'колонки'"],
+    [
+      "cols insert A inherit=befor",
+      "строка 1: неизвестная опция 'inherit=befor'",
+    ],
+    ["clear A1 частично", "строка 1: неизвестная опция 'частично'"],
+  ]) {
     const err = thrown(() => {
       compileScript(script, { sheets: SHEETS, defaultSheet: "Sheet1" });
     }, UsageError);
@@ -321,21 +316,19 @@ it("-l делает значением строку, чем бы токен ни
 });
 
 it("лишнее слово отбивается у каждого глагола с опциями", () => {
-  for (
-    const script of [
-      "sort A1:B9 by=A мусор",
-      "dedupe A1:B9 мусор",
-      "cols resize A px=10 мусор",
-      "freeze Sheet1 rows=1 мусор",
-      "border A1:B2 around мусор",
-      "validate A1 blank мусор",
-      "protect A1 мусор",
-      "cond clear Sheet1 мусор",
-      "copy A1 -> B1 мусор",
-      "cut A1 -> B1 мусор",
-      "sheet add Новый мусор",
-    ]
-  ) {
+  for (const script of [
+    "sort A1:B9 by=A мусор",
+    "dedupe A1:B9 мусор",
+    "cols resize A px=10 мусор",
+    "freeze Sheet1 rows=1 мусор",
+    "border A1:B2 around мусор",
+    "validate A1 blank мусор",
+    "protect A1 мусор",
+    "cond clear Sheet1 мусор",
+    "copy A1 -> B1 мусор",
+    "cut A1 -> B1 мусор",
+    "sheet add Новый мусор",
+  ]) {
     // Ручная поимка, а не `thrown`: падение называет скрипт цикла.
     let err: unknown;
     try {
@@ -397,14 +390,12 @@ it("нулевой индекс в A1 — ошибка ввода, а не от�
 });
 
 it("опечатка во втором слове называет пару у любого семейства", () => {
-  for (
-    const [script, message] of [
-      ["cols insrt A", "строка 1: неизвестный глагол 'cols insrt'"],
-      ["group colz A", "строка 1: неизвестный глагол 'group colz'"],
-      ["append rowz 2", "строка 1: неизвестный глагол 'append rowz'"],
-      ["sheet ad Новый", "строка 1: неизвестный глагол 'sheet ad'"],
-    ]
-  ) {
+  for (const [script, message] of [
+    ["cols insrt A", "строка 1: неизвестный глагол 'cols insrt'"],
+    ["group colz A", "строка 1: неизвестный глагол 'group colz'"],
+    ["append rowz 2", "строка 1: неизвестный глагол 'append rowz'"],
+    ["sheet ad Новый", "строка 1: неизвестный глагол 'sheet ad'"],
+  ]) {
     const err = thrown(() => {
       compileScript(script, { sheets: SHEETS, defaultSheet: "Sheet1" });
     }, UsageError);

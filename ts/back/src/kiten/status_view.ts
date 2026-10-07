@@ -34,25 +34,37 @@ export function jsonRows(rows: readonly StatusRow[]): readonly unknown[] {
 
 /** `--out md`: GFM-таблица; экранирование ячеек — как в `kiten-ls.md`. */
 export function renderMd(rows: readonly StatusRow[], today: number): string {
-  const head = "| ID | ЭТАП | ВРЕМЯ | ОБНОВЛ | ДОРОЖКА | TITLE |\n" +
+  const head =
+    "| ID | ЭТАП | ВРЕМЯ | ОБНОВЛ | ДОРОЖКА | TITLE |\n" +
     "| --- | --- | --- | --- | --- | --- |\n";
-  return head + rows.map((row) =>
-    "| " + [
-      String(row.id),
-      row.stage,
-      minutesText(row.myMinutes),
-      updatedText(row.updated, today),
-      placeText(row),
-      cell(row.title),
-    ].join(" | ") + " |\n"
-  ).join("");
+  return (
+    head +
+    rows
+      .map(
+        (row) =>
+          "| " +
+          [
+            String(row.id),
+            row.stage,
+            minutesText(row.myMinutes),
+            updatedText(row.updated, today),
+            placeText(row),
+            cell(row.title),
+          ].join(" | ") +
+          " |\n",
+      )
+      .join("")
+  );
 }
 
 /** `--out url`: ссылка markdown по строке; скобки в заголовке экранируются. */
 export function renderUrls(rows: readonly StatusRow[]): string {
-  return rows.map((row) =>
-    `[${row.title.replaceAll("[", "\\[").replaceAll("]", "\\]")}](${row.url})\n`
-  ).join("");
+  return rows
+    .map(
+      (row) =>
+        `[${row.title.replaceAll("[", "\\[").replaceAll("]", "\\]")}](${row.url})\n`,
+    )
+    .join("");
 }
 
 /**
@@ -64,27 +76,29 @@ export function renderFormat(
   rows: readonly StatusRow[],
   template: string,
 ): string {
-  return rows.map((row, index) => {
-    const values: Readonly<Record<string, string>> = {
-      "{n}": String(index + 1),
-      "{id}": String(row.id),
-      "{title}": row.title,
-      "{url}": row.url,
-      "{stage}": row.stage,
-      "{board}": row.board ?? "",
-      "{lane}": row.lane ?? "",
-      "{due}": dueText(row.dueDate),
-      "{min}": String(row.myMinutes),
-      // Через запятую: оригинал склеивал имена без разделителя
-      // (отклонение `fix`).
-      "{src}": [...row.sources].sort().join(","),
-    };
-    let line = template;
-    for (const [placeholder, value] of Object.entries(values)) {
-      line = line.replaceAll(placeholder, value);
-    }
-    return `${line}\n`;
-  }).join("");
+  return rows
+    .map((row, index) => {
+      const values: Readonly<Record<string, string>> = {
+        "{n}": String(index + 1),
+        "{id}": String(row.id),
+        "{title}": row.title,
+        "{url}": row.url,
+        "{stage}": row.stage,
+        "{board}": row.board ?? "",
+        "{lane}": row.lane ?? "",
+        "{due}": dueText(row.dueDate),
+        "{min}": String(row.myMinutes),
+        // Через запятую: оригинал склеивал имена без разделителя
+        // (отклонение `fix`).
+        "{src}": [...row.sources].sort().join(","),
+      };
+      let line = template;
+      for (const [placeholder, value] of Object.entries(values)) {
+        line = line.replaceAll(placeholder, value);
+      }
+      return `${line}\n`;
+    })
+    .join("");
 }
 
 /** Итоговая строка подвала человекочитаемых форм. */
@@ -93,10 +107,9 @@ export function footer(
   minutesByRole: Readonly<Record<string, number>>,
 ): string {
   const open = rows.filter((row) => !row.closed).length;
-  const touch =
-    rows.filter((row) =>
-      row.sources.length === 1 && row.sources[0] === "activity"
-    ).length;
+  const touch = rows.filter(
+    (row) => row.sources.length === 1 && row.sources[0] === "activity",
+  ).length;
   const total = Object.values(minutesByRole).reduce(
     (sum, minutes) => sum + minutes,
     0,

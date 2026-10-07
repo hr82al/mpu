@@ -70,10 +70,13 @@ export class Stand {
       executedBy: () => {},
       log: NO_INVOKE_LOG,
     };
-    const human: Partial<CommandIo> = caller.answers === undefined ? {} : {
-      stdinIsTerminal: () => caller.stdin === undefined,
-      stderrIsTerminal: () => true,
-    };
+    const human: Partial<CommandIo> =
+      caller.answers === undefined
+        ? {}
+        : {
+            stdinIsTerminal: () => caller.stdin === undefined,
+            stderrIsTerminal: () => true,
+          };
     const io = makeFakeIo({
       ...human,
       openCacheDb: this.#db,

@@ -313,8 +313,10 @@ export function lineEntry(ports: LinePorts): CliEntry {
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
     const typedEntry = entryOf(walked);
-    const origin = await sourceOf(argv, walked, typedEntry.words.length)
-      .origin(io, ports.files);
+    const origin = await sourceOf(argv, walked, typedEntry.words.length).origin(
+      io,
+      ports.files,
+    );
     // Дверь объявляет строка или текст её файла (`ask` первым словом).
     const entry = origin.entry(typedEntry);
     const door = entry.words;
@@ -368,7 +370,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
                 pictures,
               ),
               ports.invoker,
-            )
+            ),
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),
         consent: (view, order) => consentAt(order.argv(view.executed(words))),

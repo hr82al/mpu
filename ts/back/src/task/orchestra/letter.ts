@@ -44,9 +44,10 @@ export class Letter {
 
 function textOf(parts: LetterParts): string {
   const { project, role, profile } = parts;
-  const reads = profile.read.length === 0
-    ? "нет\n"
-    : profile.read.map((path) => `- ${path}\n`).join("");
+  const reads =
+    profile.read.length === 0
+      ? "нет\n"
+      : profile.read.map((path) => `- ${path}\n`).join("");
   return `# Роль: ${role} проекта ${project}
 
 ${profile.powers}

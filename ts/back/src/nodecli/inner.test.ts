@@ -56,12 +56,9 @@ describe("значение по типу", () => {
   it("список — флаг один, значения подряд", () => {
     // sl-back CLI читает подряд идущие не-флаговые токены массивом
     // (спека семейства, `data-loader`).
-    expect(tokens([{ name: "sids", value: ["abc", "def"] }]).slice(4))
-      .toStrictEqual([
-        "--sids",
-        "abc",
-        "def",
-      ]);
+    expect(
+      tokens([{ name: "sids", value: ["abc", "def"] }]).slice(4),
+    ).toStrictEqual(["--sids", "abc", "def"]);
   });
 
   it("пустое, false и пустой список — следа нет", () => {

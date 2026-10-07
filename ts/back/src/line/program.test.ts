@@ -31,27 +31,27 @@ function marked(text: string, stand: Stand): string {
   return text.replaceAll(stand.baseUrl, KAITEN_MARK);
 }
 
-it(
-  "эталон вычислителя: строка → stdout, stderr, код",
-  () =>
-    withPolicyFile((file) =>
-      withStand(async (stand) => {
-        allowEverything(file);
-        for (const one of golden.cases) {
-          const ran = await runOnStand(file, words(one.line), stand);
-          expect({
+it("эталон вычислителя: строка → stdout, stderr, код", () =>
+  withPolicyFile((file) =>
+    withStand(async (stand) => {
+      allowEverything(file);
+      for (const one of golden.cases) {
+        const ran = await runOnStand(file, words(one.line), stand);
+        expect(
+          {
             stdout: marked(ran.stdout, stand),
             stderr: marked(ran.stderr, stand),
             exit: ran.exit,
-          }, one.name).toStrictEqual({
-            stdout: one.stdout,
-            stderr: one.stderr,
-            exit: one.exit,
-          });
-        }
-      })
-    ),
-);
+          },
+          one.name,
+        ).toStrictEqual({
+          stdout: one.stdout,
+          stderr: one.stderr,
+          exit: one.exit,
+        });
+      }
+    }),
+  ));
 
 it("журнал: запись программы и своя запись на каждую команду", () =>
   withPolicyFile((file) =>
@@ -67,10 +67,11 @@ it("журнал: запись программы и своя запись на 
         "kiten ls",
         "kiten ls",
       ]);
-      expect(ran.records.map((record) => record.native)).toStrictEqual([[
-        "kiten ls",
-      ], ["kiten ls"]]);
-    })
+      expect(ran.records.map((record) => record.native)).toStrictEqual([
+        ["kiten ls"],
+        ["kiten ls"],
+      ]);
+    }),
   ));
 
 it("вид команды в программе — тот же, что у однокомандной строки", () =>
@@ -87,7 +88,7 @@ it("вид команды в программе — тот же, что у од�
         expect(inside.stdout, tail.join(" ")).toStrictEqual(alone.stdout);
         expect(inside.exit).toBe(0);
       }
-    })
+    }),
   ));
 
 it("запрет, найденный обходом, — ничего не исполнено", () =>
@@ -120,7 +121,7 @@ it("деление склеенного проверяется до исполн
       expect(ran.exit).toBe(2);
       expect(stand.asked()).toBe(0);
       expect(ran.records).toStrictEqual([]);
-    })
+    }),
   ));
 
 it("справка корня называет слова программы из константы", () =>
@@ -130,36 +131,28 @@ it("справка корня называет слова программы и�
       const ran = await runOnStand(file, ["help"], stand);
       expect(ran.exit).toBe(0);
       const g = GRAMMAR;
-      for (
-        const shown of [
-          `${g.open} ${g.parameter}a ${g.parameter}b … ${g.blockEnd}`,
-          `${g.comment} … ${g.close}`,
-          `x ${g.assign} <выражение>`,
-          `${g.quote}текст из слов${g.quote}`,
-          `${g.separator}  разделяет выражения`,
-        ]
-      ) {
+      for (const shown of [
+        `${g.open} ${g.parameter}a ${g.parameter}b … ${g.blockEnd}`,
+        `${g.comment} … ${g.close}`,
+        `x ${g.assign} <выражение>`,
+        `${g.quote}текст из слов${g.quote}`,
+        `${g.separator}  разделяет выражения`,
+      ]) {
         expect(ran.stdout.includes(shown), shown).toBe(true);
       }
-    })
+    }),
   ));
 
 describe("ключ-текст на стенде: текст уходит как есть", () => {
   const cases: readonly (readonly [readonly string[], readonly string[]])[] = [
     [
-      [
-        "kiten",
-        "comment",
-        "id:",
-        "11",
-        "text:",
-        "@ivan готово. Проверьте",
-      ],
+      ["kiten", "comment", "id:", "11", "text:", "@ivan готово. Проверьте"],
       ["11 @ivan готово. Проверьте"],
     ],
-    [words("kiten comment id: 11 text: ^ответ: 2^^ готово^"), [
-      "11 ответ: 2^ готово",
-    ]],
+    [
+      words("kiten comment id: 11 text: ^ответ: 2^^ готово^"),
+      ["11 ответ: 2^ готово"],
+    ],
     [
       words(
         "ask kiten ls each: {do} {:}c kiten comment id: {@}c id " +
@@ -169,18 +162,16 @@ describe("ключ-текст на стенде: текст уходит как 
     ],
   ];
   for (const [line, posted] of cases) {
-    it(
-      line.join(" "),
-      () =>
-        withPolicyFile((file) =>
-          withStand(async (stand) => {
-            allowEverything(file);
-            const before = stand.posted().length;
-            const ran = await runOnStand(file, line, stand);
-            expect(ran.exit, ran.stderr).toBe(0);
-            expect(stand.posted().slice(before)).toStrictEqual(posted);
-          })
-        ),
+    it(line.join(" "), () =>
+      withPolicyFile((file) =>
+        withStand(async (stand) => {
+          allowEverything(file);
+          const before = stand.posted().length;
+          const ran = await runOnStand(file, line, stand);
+          expect(ran.exit, ran.stderr).toBe(0);
+          expect(stand.posted().slice(before)).toStrictEqual(posted);
+        }),
+      ),
     );
   }
 });
@@ -193,7 +184,7 @@ it("корневое help выражением — справка корня, н
       });
       expect(ran.exit, ran.stderr).toBe(0);
       expect(ran.stdout.startsWith("2\nИспользование: mpu")).toBe(true);
-    })
+    }),
   ));
 
 it("запись программы: out не пишется, если в ней команда без stdout", () => {

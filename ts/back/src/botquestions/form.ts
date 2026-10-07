@@ -54,7 +54,8 @@ export class Title {
    */
   line(head: string, step: number, steps: number): string {
     const numbered = steps > 1 ? `${head} ${step}/${steps}` : head;
-    return [numbered, this.#places.join(" · ")].filter((part) => part !== "")
+    return [numbered, this.#places.join(" · ")]
+      .filter((part) => part !== "")
       .join(" — ");
   }
 }
@@ -121,10 +122,12 @@ class OneSelection implements Selection {
   }
 
   buttons(): readonly (readonly Button[])[] {
-    return pairs(this.#options.map((option, index) => ({
-      label: clipLabel(option.label),
-      key: new OptionKey(index),
-    })));
+    return pairs(
+      this.#options.map((option, index) => ({
+        label: clipLabel(option.label),
+        key: new OptionKey(index),
+      })),
+    );
   }
 }
 
@@ -156,9 +159,9 @@ class ManySelection implements Selection {
 
   buttons(): readonly (readonly Button[])[] {
     const options = this.#options.map((option, index) => ({
-      label: `${this.#marked.has(index) ? "☑" : "☐"} ${
-        clipLabel(option.label)
-      }`,
+      label: `${this.#marked.has(index) ? "☑" : "☐"} ${clipLabel(
+        option.label,
+      )}`,
       key: new OptionKey(index),
     }));
     return [...pairs(options), [{ label: "Готово", key: DONE }]];

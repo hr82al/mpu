@@ -43,9 +43,9 @@ async function withCache(
   try {
     using db = openCacheDb(`${dir}/mpu.db`);
     db.bootstrap();
-    for (
-      const clientId of sheets > 1 ? [CLIENT.id, CLIENT.id + 1] : [CLIENT.id]
-    ) {
+    for (const clientId of sheets > 1
+      ? [CLIENT.id, CLIENT.id + 1]
+      : [CLIENT.id]) {
       db.execute(
         "INSERT INTO sl_clients (client_id, server, is_active, is_locked," +
           " is_deleted, synced_at) VALUES (?, ?, 1, 0, 0, ?)",
@@ -136,11 +136,9 @@ it("печать: docker-команда одной строкой — этало
 it("выполнение: локальный docker, а не ssh и не Portainer", async () => {
   await withCache(1, async (db) => {
     const docker = fakeDocker();
-    const result = await runMakeSchema(
-      args({ print: false }),
-      io(db),
-      { runProcess: docker.run },
-    );
+    const result = await runMakeSchema(args({ print: false }), io(db), {
+      runProcess: docker.run,
+    });
     expect(docker.calls.length).toBe(1);
     // Именно локальный подпроцесс `docker`: ни ssh, ни Portainer в
     // вызове нет по построению (спека, «Побочные эффекты»).

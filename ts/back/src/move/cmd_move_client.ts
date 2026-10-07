@@ -33,12 +33,15 @@ import {
 } from "./transfer.ts";
 
 const argsSchema = z.object({
-  selector: z.string({
-    error: "нужен target: client_id, spreadsheet_id или заголовок",
-  }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
-  target: z.string().default("sl-1").describe(
-    "сервер назначения вида sl-N; по умолчанию sl-1",
-  ),
+  selector: z
+    .string({
+      error: "нужен target: client_id, spreadsheet_id или заголовок",
+    })
+    .describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
+  target: z
+    .string()
+    .default("sl-1")
+    .describe("сервер назначения вида sl-N; по умолчанию sl-1"),
 });
 
 const resultSchema = z.object({
@@ -85,11 +88,16 @@ export async function runMoveClient(
     );
   }
 
-  const exitCode = await putJob(io, cache, {
-    clientId,
-    sourceServer,
-    targetServer,
-  }, options);
+  const exitCode = await putJob(
+    io,
+    cache,
+    {
+      clientId,
+      sourceServer,
+      targetServer,
+    },
+    options,
+  );
   const source = `sl-${sourceServer}`;
   const target = `sl-${targetServer}`;
   if (exitCode !== 0) {

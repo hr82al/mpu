@@ -20,15 +20,15 @@ export const SQL_ITEMS: Items<SqlResult> = {
     const outcome = result.outcome;
     if (outcome?.kind !== "rows") return [];
     return outcome.rows.map((row) =>
-      Object.fromEntries(outcome.columns.map((column, i) => [column, row[i]]))
+      Object.fromEntries(outcome.columns.map((column, i) => [column, row[i]])),
     );
   },
   with(result, records) {
     const outcome = result.outcome;
     if (outcome?.kind !== "rows") return result;
-    const rows = recordsSchema.parse(records).map((record) =>
-      outcome.columns.map((column) => record[column] ?? null)
-    );
+    const rows = recordsSchema
+      .parse(records)
+      .map((record) => outcome.columns.map((column) => record[column] ?? null));
     return { ...result, outcome: { ...outcome, rows } };
   },
 };

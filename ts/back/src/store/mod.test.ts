@@ -138,10 +138,9 @@ it("БД без части таблиц: bootstrap досоздаёт недос
       using db = openCacheDb(path);
       db.bootstrap();
       // Старые данные целы.
-      expect(plainRows(db.query("SELECT key, value FROM config")))
-        .toStrictEqual([
-          { key: "k", value: "v" },
-        ]);
+      expect(
+        plainRows(db.query("SELECT key, value FROM config")),
+      ).toStrictEqual([{ key: "k", value: "v" }]);
       // Недостающая таблица и её индекс появились.
       expect(
         db.query(
@@ -167,13 +166,16 @@ it("execute возвращает число изменённых строк", as
     expect(
       db.execute("INSERT INTO config (key, value) VALUES (?, ?)", "a", "1"),
     ).toBe(1);
-    expect(db.execute("UPDATE config SET value = ? WHERE key = ?", "2", "a"))
-      .toBe(1);
-    expect(db.execute(
-      "UPDATE config SET value = ? WHERE key = ?",
-      "3",
-      "нет-такого-ключа",
-    )).toBe(0);
+    expect(
+      db.execute("UPDATE config SET value = ? WHERE key = ?", "2", "a"),
+    ).toBe(1);
+    expect(
+      db.execute(
+        "UPDATE config SET value = ? WHERE key = ?",
+        "3",
+        "нет-такого-ключа",
+      ),
+    ).toBe(0);
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -199,8 +201,7 @@ it("query возвращает пустой массив и понимает NUL
     );
     expect(
       plainRows(db.query("SELECT endpoint_name FROM portainer_containers")),
-    )
-      .toStrictEqual([{ endpoint_name: null }]);
+    ).toStrictEqual([{ endpoint_name: null }]);
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -285,11 +286,7 @@ it("повреждённый файл БД: ошибка SQLite пробрасы
   try {
     const path = `${dir}/mpu.db`;
     await writeFile(path, "мусор, а не файл SQLite");
-    thrown(
-      () => openCacheDb(path),
-      Error,
-      "file is not a database",
-    );
+    thrown(() => openCacheDb(path), Error, "file is not a database");
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -299,9 +296,11 @@ it("openCacheDb устанавливает журнальный режим WAL",
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     using db = openCacheDb(`${dir}/mpu.db`);
-    expect(plainRows(db.query("PRAGMA journal_mode"))).toStrictEqual([{
-      journal_mode: "wal",
-    }]);
+    expect(plainRows(db.query("PRAGMA journal_mode"))).toStrictEqual([
+      {
+        journal_mode: "wal",
+      },
+    ]);
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -316,9 +315,11 @@ it("режим WAL персистентен между открытиями", as
       seed.bootstrap();
     }
     using db = openCacheDb(path);
-    expect(plainRows(db.query("PRAGMA journal_mode"))).toStrictEqual([{
-      journal_mode: "wal",
-    }]);
+    expect(plainRows(db.query("PRAGMA journal_mode"))).toStrictEqual([
+      {
+        journal_mode: "wal",
+      },
+    ]);
   } finally {
     await rm(dir, { recursive: true });
   }

@@ -58,9 +58,9 @@ const NO_COLUMN = "—";
 
 /** Предупреждение о пропущенном живом опросе — отчёт строится на журнале. */
 export function liveSkippedWarning(cause: unknown): string {
-  return `mpu telegram status: live-обогащение пропущено (Kaiten: ${
-    reason(cause)
-  })`;
+  return `mpu telegram status: live-обогащение пропущено (Kaiten: ${reason(
+    cause,
+  )})`;
 }
 
 /**
@@ -69,9 +69,9 @@ export function liveSkippedWarning(cause: unknown): string {
  * отклонения», вердикт fix).
  */
 function historyWarning(cardId: number, cause: unknown): string {
-  return `mpu telegram status: история карточки ${cardId} недоступна (Kaiten: ${
-    reason(cause)
-  })`;
+  return `mpu telegram status: история карточки ${cardId} недоступна (Kaiten: ${reason(
+    cause,
+  )})`;
 }
 
 /**
@@ -126,7 +126,8 @@ async function lastChange(
     if (change.authorId !== me) continue;
     const atSec = momentOf(change.changed);
     if (
-      atSec === null || atSec < options.window.fromSec ||
+      atSec === null ||
+      atSec < options.window.fromSec ||
       atSec > options.window.toSec
     ) {
       continue;

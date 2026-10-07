@@ -18,17 +18,15 @@ it("проекты — только tsconfig.json и только вне арт�
     await mkdir(`${temp}/pkg`, { recursive: true });
     await mkdir(`${temp}/node_modules/dep`, { recursive: true });
     await mkdir(`${temp}/dist`, { recursive: true });
-    for (
-      const path of [
-        `${temp}/tsconfig.json`,
-        `${temp}/pkg/tsconfig.json`,
-        // Ни один из трёх проектом не считается: имя не то либо каталог
-        // артефактов и зависимостей.
-        `${temp}/tsconfig.base.json`,
-        `${temp}/node_modules/dep/tsconfig.json`,
-        `${temp}/dist/tsconfig.json`,
-      ]
-    ) {
+    for (const path of [
+      `${temp}/tsconfig.json`,
+      `${temp}/pkg/tsconfig.json`,
+      // Ни один из трёх проектом не считается: имя не то либо каталог
+      // артефактов и зависимостей.
+      `${temp}/tsconfig.base.json`,
+      `${temp}/node_modules/dep/tsconfig.json`,
+      `${temp}/dist/tsconfig.json`,
+    ]) {
       await writeFile(path, "{}\n");
     }
     expect(findProjects(temp)).toStrictEqual([
@@ -64,17 +62,21 @@ it("исключения кода снимаются, исключения ар�
       `${temp}/node_modules/dep/index.ts`,
       "export const d = 4;\n",
     );
-    const built = buildProgram(ts, {
-      kind: "tsconfig",
-      path: `${temp}/tsconfig.json`,
-    }, temp);
+    const built = buildProgram(
+      ts,
+      {
+        kind: "tsconfig",
+        path: `${temp}/tsconfig.json`,
+      },
+      temp,
+    );
     if (built.kind !== "program") {
       throw new Error(`программа не построена: ${built.kind}`);
     }
     expect(
-      built.program.getRootFileNames().map((name) =>
-        name.slice(temp.length + 1)
-      )
+      built.program
+        .getRootFileNames()
+        .map((name) => name.slice(temp.length + 1))
         .sort(),
     ).toStrictEqual(["src/a.spec.ts", "src/a.ts"]);
   } finally {
@@ -114,14 +116,14 @@ describe("непостроенная программа — отказ с при
         ts,
         { kind: "tsconfig", path: `${temp}/tsconfig.json` },
         temp,
-      )
+      ),
     ).toThrow(DomainError);
     expect(() =>
       buildProgram(
         ts,
         { kind: "tsconfig", path: `${temp}/tsconfig.json` },
         temp,
-      )
+      ),
     ).toThrow("не читается");
   });
   it("конфигурация не разбирается", async () => {
@@ -138,14 +140,14 @@ describe("непостроенная программа — отказ с при
         ts,
         { kind: "tsconfig", path: `${temp}/tsconfig.json` },
         temp,
-      )
+      ),
     ).toThrow(DomainError);
     expect(() =>
       buildProgram(
         ts,
         { kind: "tsconfig", path: `${temp}/tsconfig.json` },
         temp,
-      )
+      ),
     ).toThrow("не разбирается");
   });
 });

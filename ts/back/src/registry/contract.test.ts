@@ -70,7 +70,8 @@ const SAMPLE_BACKUP = {
   pg_host: "10.9.9.9",
   pg_port: 5432,
   database: "mp",
-  sql: "CREATE TABLE backups.wb_unit_proto_777_20260827 AS\n" +
+  sql:
+    "CREATE TABLE backups.wb_unit_proto_777_20260827 AS\n" +
     "SELECT * FROM schema_777.wb_unit_proto;",
   dry: true,
 };
@@ -210,13 +211,15 @@ const CASES: readonly CommandCase[] = [
     argv: ["--dry-run"],
     sampleResult: {
       portainerUrl: "https://portainer.example.com",
-      containers: [{
-        serverNumber: 1,
-        containerName: "sl-1-cli",
-        state: "running",
-        endpointId: 1,
-        endpointName: "prod",
-      }],
+      containers: [
+        {
+          serverNumber: 1,
+          containerName: "sl-1-cli",
+          state: "running",
+          endpointId: 1,
+          endpointName: "prod",
+        },
+      ],
       otherCount: 2,
       reset: null,
       write: null,
@@ -228,10 +231,12 @@ const CASES: readonly CommandCase[] = [
         lanes: 7,
         columns: null,
         roles: 2,
-        skippedBoards: [{
-          boardId: 502,
-          reason: "kaiten GET /boards/502/columns -> 500: boom",
-        }],
+        skippedBoards: [
+          {
+            boardId: 502,
+            reason: "kaiten GET /boards/502/columns -> 500: boom",
+          },
+        ],
       },
       telegram: { skipped: null },
     },
@@ -247,7 +252,8 @@ const CASES: readonly CommandCase[] = [
       mode: "dry-run",
       targets: [{ label: "sl-1", exitCode: null, failure: null }],
       detach: null,
-      preview: "mpu ssh sl-1 -- node --input-type=module -" +
+      preview:
+        "mpu ssh sl-1 -- node --input-type=module -" +
         " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n",
       output: "",
       exitCode: 0,
@@ -327,7 +333,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:ssUpdater update --client-id 777" +
+      inner:
+        "node cli service:ssUpdater update --client-id 777" +
         " --spreadsheet-id SHEET123 --update-type schedule --logs info",
       printed: 'sl-9-cli sh -c "node cli service:ssUpdater update"',
       output: "",
@@ -429,7 +436,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "--sids", "abc", "--sids", "def", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:dataLoader findCandidate --client-id 777" +
+      inner:
+        "node cli service:dataLoader findCandidate --client-id 777" +
         " --sids abc def",
       printed: 'sl-9-cli sh -c "node cli service:dataLoader findCandidate"',
       output: "",
@@ -441,7 +449,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:wbUnitCalculatedData recalculateExpenses" +
+      inner:
+        "node cli service:wbUnitCalculatedData recalculateExpenses" +
         " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
       printed: 'sl-9-cli sh -c "node cli service:wbUnitCalculatedData"',
       output: "",
@@ -453,7 +462,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:wbUnitCalculatedData saveExpenses" +
+      inner:
+        "node cli service:wbUnitCalculatedData saveExpenses" +
         " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
       printed: 'sl-9-cli sh -c "node cli service:wbUnitCalculatedData"',
       output: "",
@@ -465,7 +475,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:ozonUnitCalculatedData recalculateExpenses" +
+      inner:
+        "node cli service:ozonUnitCalculatedData recalculateExpenses" +
         " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
       printed: 'sl-9-cli sh -c "node cli service:ozonUnitCalculatedData"',
       output: "",
@@ -477,7 +488,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
     sampleResult: {
       server: "sl-9",
-      inner: "node cli service:ozonUnitCalculatedData saveExpenses" +
+      inner:
+        "node cli service:ozonUnitCalculatedData saveExpenses" +
         " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
       printed: 'sl-9-cli sh -c "node cli service:ozonUnitCalculatedData"',
       output: "",
@@ -490,16 +502,18 @@ const CASES: readonly CommandCase[] = [
     // трогает 10X — impersonate пишет прод-аудит, а автосинку нужен PG.
     argv: ["777", "--no-update"],
     sampleResult: {
-      rows: [{
-        client_id: 777,
-        spreadsheet_id: "SHEET123",
-        title: "Таблица клиента",
-        server: "sl-9",
-        server_number: 9,
-        sl_ip: "10.9.9.9",
-        pg_ip: "10.9.9.10",
-        sids: [],
-      }],
+      rows: [
+        {
+          client_id: 777,
+          spreadsheet_id: "SHEET123",
+          title: "Таблица клиента",
+          server: "sl-9",
+          server_number: 9,
+          sl_ip: "10.9.9.9",
+          pg_ip: "10.9.9.10",
+          sids: [],
+        },
+      ],
       projection: null,
       synced: false,
       target: null,
@@ -521,13 +535,15 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: {
       source: "cache",
-      containers: [{
-        endpoint: "sl-1",
-        name: "mp-sl-1-cli",
-        state: "running",
-        status: null,
-        image: "registry.example/app:1.2.3",
-      }],
+      containers: [
+        {
+          endpoint: "sl-1",
+          name: "mp-sl-1-cli",
+          state: "running",
+          status: null,
+          image: "registry.example/app:1.2.3",
+        },
+      ],
     },
   },
   {
@@ -539,11 +555,13 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {
       kind: "entries",
       names: [],
-      entries: [{
-        tsNs: "1754380800000000000",
-        line: "строка сервиса",
-        labels: { host: "sl-1" },
-      }],
+      entries: [
+        {
+          tsNs: "1754380800000000000",
+          line: "строка сервиса",
+          labels: { host: "sl-1" },
+        },
+      ],
       snapshot: null,
     },
   },
@@ -769,11 +787,13 @@ const CASES: readonly CommandCase[] = [
     path: "kiten checklist ls",
     argv: ["10000001"],
     sampleResult: {
-      checklists: [{
-        id: 11960707,
-        name: "Проверки",
-        items: [{ id: 66835645, checked: false, text: "Тест написан" }],
-      }],
+      checklists: [
+        {
+          id: 11960707,
+          name: "Проверки",
+          items: [{ id: 66835645, checked: false, text: "Тест написан" }],
+        },
+      ],
     },
   },
   {
@@ -871,16 +891,18 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: {
       view: "table",
-      rows: [{
-        id: 65634936,
-        state: "in progress",
-        due_date: null,
-        updated: "2026-08-14T16:44:18.152Z",
-        title: "проба",
-        url: "https://kaiten.example.test/65634936",
-        column: "Бэклог",
-        columnMapped: "Бэклог",
-      }],
+      rows: [
+        {
+          id: 65634936,
+          state: "in progress",
+          due_date: null,
+          updated: "2026-08-14T16:44:18.152Z",
+          title: "проба",
+          url: "https://kaiten.example.test/65634936",
+          column: "Бэклог",
+          columnMapped: "Бэклог",
+        },
+      ],
     },
   },
   {
@@ -890,26 +912,28 @@ const CASES: readonly CommandCase[] = [
     // источников (карточки, время, лента действий).
     argv: [],
     sampleResult: {
-      rows: [{
-        id: 65634936,
-        title: "проба",
-        url: "https://kaiten.example.test/65634936",
-        stage: "work",
-        column: "Бэклог",
-        board: "Разработка",
-        space: "Основная",
-        lane: "Основная",
-        state: "in progress",
-        closed: false,
-        escalated: false,
-        due_date: null,
-        updated: "2026-08-14T16:44:18.152Z",
-        my_minutes: 75,
-        sources: ["assigned", "time"],
-      }],
+      rows: [
+        {
+          id: 65634936,
+          title: "проба",
+          url: "https://kaiten.example.test/65634936",
+          stage: "work",
+          column: "Бэклог",
+          board: "Разработка",
+          space: "Основная",
+          lane: "Основная",
+          state: "in progress",
+          closed: false,
+          escalated: false,
+          due_date: null,
+          updated: "2026-08-14T16:44:18.152Z",
+          my_minutes: 75,
+          sources: ["assigned", "time"],
+        },
+      ],
       out: "matrix",
       format: null,
-      minutesByRole: { "Техподдержка": 75 },
+      minutesByRole: { Техподдержка: 75 },
       now: 1786700096,
     },
   },
@@ -919,12 +943,14 @@ const CASES: readonly CommandCase[] = [
     // здесь на разборе --limit.
     argv: ["--limit", "0"],
     sampleResult: {
-      dialogs: [{
-        id: 100000001,
-        title: "Иван Петров",
-        kind: "user",
-        username: "ipetrov",
-      }],
+      dialogs: [
+        {
+          id: 100000001,
+          title: "Иван Петров",
+          kind: "user",
+          username: "ipetrov",
+        },
+      ],
       more: false,
       table: false,
     },
@@ -935,20 +961,22 @@ const CASES: readonly CommandCase[] = [
     // здесь на пустом глобальном поиске.
     argv: [],
     sampleResult: {
-      messages: [{
-        id: 4821,
-        chat_id: -1000000000101,
-        chat_title: "Команда выгрузок",
-        sender: "Иван Петров",
-        date: "2026-08-16T07:54:28+00:00",
-        text: "выгрузка за июль готова",
-        file: {
-          name: "разбор.md",
-          size: 1234,
-          mime: "text/markdown",
+      messages: [
+        {
+          id: 4821,
+          chat_id: -1000000000101,
+          chat_title: "Команда выгрузок",
+          sender: "Иван Петров",
+          date: "2026-08-16T07:54:28+00:00",
+          text: "выгрузка за июль готова",
+          file: {
+            name: "разбор.md",
+            size: 1234,
+            mime: "text/markdown",
+          },
+          link: "https://t.me/team_uploads/4821",
         },
-        link: "https://t.me/team_uploads/4821",
-      }],
+      ],
       more: false,
       scanCapped: false,
       table: false,
@@ -972,8 +1000,7 @@ const CASES: readonly CommandCase[] = [
     // отбиться до сети и до кэш-БД — их у обхода нет.
     argv: [],
     sampleResult: {
-      text:
-        "Отчёт за сегодня (2026-08-17 МСК):\n\nСегодня перемещений не было.",
+      text: "Отчёт за сегодня (2026-08-17 МСК):\n\nСегодня перемещений не было.",
       sent: null,
     },
   },
@@ -1157,9 +1184,11 @@ const CASES: readonly CommandCase[] = [
     argv: ["777", "-p"],
     sampleResult: {
       container: "mp-sl-1-cli",
-      command: "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
+      command:
+        "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
         " init --client-id 777 --server sl-1",
-      printed: "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
+      printed:
+        "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
         " init --client-id 777 --server sl-1",
       output: "",
       exitCode: 0,
@@ -1189,12 +1218,20 @@ const CASES: readonly CommandCase[] = [
     argv: ["Sheet1!A1:B2"],
     sampleResult: {
       spreadsheetId: "1SyntheticSpreadsheetIdForGoldens0000000000",
-      valueRanges: [{
-        range: "Sheet1!A1:B2",
-        values: [["привет", 42], ["", 84]],
-        formulas: [["привет", 42], ["", "=B1*2"]],
-        fromCache: true,
-      }],
+      valueRanges: [
+        {
+          range: "Sheet1!A1:B2",
+          values: [
+            ["привет", 42],
+            ["", 84],
+          ],
+          formulas: [
+            ["привет", 42],
+            ["", "=B1*2"],
+          ],
+          fromCache: true,
+        },
+      ],
     },
   },
   {
@@ -1306,27 +1343,31 @@ const CASES: readonly CommandCase[] = [
     path: "mr files",
     argv: ["--mr", "group/repo!456"],
     sampleResult: {
-      files: [{
-        status: "M",
-        old_path: "src/file.ts",
-        new_path: "src/file.ts",
-        additions: 2,
-        deletions: 1,
-      }],
+      files: [
+        {
+          status: "M",
+          old_path: "src/file.ts",
+          new_path: "src/file.ts",
+          additions: 2,
+          deletions: 1,
+        },
+      ],
     },
   },
   {
     path: "mr diff",
     argv: ["--mr", "group/repo!456"],
     sampleResult: {
-      files: [{
-        old_path: "src/file.ts",
-        new_path: "src/file.ts",
-        diff: "@@ -1,1 +1,2 @@\n-раз\n+один\n+два\n",
-        new_file: false,
-        renamed_file: false,
-        deleted_file: false,
-      }],
+      files: [
+        {
+          old_path: "src/file.ts",
+          new_path: "src/file.ts",
+          diff: "@@ -1,1 +1,2 @@\n-раз\n+один\n+два\n",
+          new_file: false,
+          renamed_file: false,
+          deleted_file: false,
+        },
+      ],
     },
   },
   {
@@ -1442,14 +1483,16 @@ const CASES: readonly CommandCase[] = [
     path: "config",
     argv: ["sheet.default"],
     sampleResult: {
-      entries: [{
-        key: "sheet.default",
-        value: null,
-        source: "default",
-        default: null,
-        description:
-          "Spreadsheet по умолчанию (ID/URL/alias/client_id/title) для `mpu sheet`",
-      }],
+      entries: [
+        {
+          key: "sheet.default",
+          value: null,
+          source: "default",
+          default: null,
+          description:
+            "Spreadsheet по умолчанию (ID/URL/alias/client_id/title) для `mpu sheet`",
+        },
+      ],
       action: "get",
     },
   },
@@ -1561,18 +1604,21 @@ const CASES: readonly CommandCase[] = [
     path: "glab-status",
     argv: ["group/repo!456"],
     sampleResult: {
-      rows: [{
-        repo: "repo",
-        iid: 456,
-        title: "feat(scope): краткое описание",
-        state: "opened",
-        web_url: "https://gitlab.example.test/group/repo/-/merge_requests/456",
-        landed: [],
-        project: "group/repo",
-        source_branch: "feat/scope/change",
-        target_branch: "main",
-        other_branches: null,
-      }],
+      rows: [
+        {
+          repo: "repo",
+          iid: 456,
+          title: "feat(scope): краткое описание",
+          state: "opened",
+          web_url:
+            "https://gitlab.example.test/group/repo/-/merge_requests/456",
+          landed: [],
+          project: "group/repo",
+          source_branch: "feat/scope/change",
+          target_branch: "main",
+          other_branches: null,
+        },
+      ],
       selectors: true,
       columns: null,
     },
@@ -1614,12 +1660,14 @@ const CASES: readonly CommandCase[] = [
       ready: true,
       tabs: 3,
       bytes: 4096,
-      spreadsheets: [{
-        ss_id: "1SyntheticSpreadsheetId0000",
-        tabs: 3,
-        bytes: 4096,
-        latest: 1787000000,
-      }],
+      spreadsheets: [
+        {
+          ss_id: "1SyntheticSpreadsheetId0000",
+          tabs: 3,
+          bytes: 4096,
+          latest: 1787000000,
+        },
+      ],
     },
   },
   {
@@ -1688,7 +1736,8 @@ const CASES: readonly CommandCase[] = [
     path: "sheet open",
     argv: [],
     sampleResult: {
-      url: "https://docs.google.com/spreadsheets/d/" +
+      url:
+        "https://docs.google.com/spreadsheets/d/" +
         "1SyntheticSpreadsheetId0000/edit#gid=0",
       ss_id: "1SyntheticSpreadsheetId0000",
       sheet_id: 0,
@@ -1850,11 +1899,13 @@ const CASES: readonly CommandCase[] = [
     argv: [SYNTHETIC_SID, "--print"],
     sampleResult: {
       printed: true,
-      calls: [{
-        method: "POST",
-        path: "/admin/wb-loader/blocked-loaders/v1/find",
-        body: { filter: { sid: SYNTHETIC_SID } },
-      }],
+      calls: [
+        {
+          method: "POST",
+          path: "/admin/wb-loader/blocked-loaders/v1/find",
+          body: { filter: { sid: SYNTHETIC_SID } },
+        },
+      ],
       entries: [{ sid: SYNTHETIC_SID, response: null }],
     },
   },
@@ -1866,7 +1917,8 @@ const CASES: readonly CommandCase[] = [
     argv: ["нет-такого-клиента"],
     sampleResult: {
       sid: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
-      path: "/admin/wb-loader/loaders/3f2504e0-4f89-11d3-9a0c-0305e82c3301" +
+      path:
+        "/admin/wb-loader/loaders/3f2504e0-4f89-11d3-9a0c-0305e82c3301" +
         "/cards/v1/reset",
       direct: true,
       printed: true,
@@ -1963,12 +2015,14 @@ const CASES: readonly CommandCase[] = [
         consumers: { total: 1, places: [{ path: "src/window.ts", line: 2 }] },
         unresolved: {
           total: 1,
-          items: [{
-            path: "src/broken.ts",
-            line: 3,
-            specifier: "./nowhere",
-            reason: "модуль не найден",
-          }],
+          items: [
+            {
+              path: "src/broken.ts",
+              line: 3,
+              specifier: "./nowhere",
+              reason: "модуль не найден",
+            },
+          ],
         },
       },
     },
@@ -2013,12 +2067,14 @@ const CASES: readonly CommandCase[] = [
         similar: { total: 0, twins: [] },
         unresolved: {
           total: 1,
-          items: [{
-            path: "src/broken.ts",
-            line: 3,
-            specifier: "./nowhere",
-            reason: "модуль не найден",
-          }],
+          items: [
+            {
+              path: "src/broken.ts",
+              line: 3,
+              specifier: "./nowhere",
+              reason: "модуль не найден",
+            },
+          ],
         },
       },
     },
@@ -2031,50 +2087,56 @@ const CASES: readonly CommandCase[] = [
     argv: ["spanDays", "--in", "fixture"],
     sampleResult: {
       name: "spanDays",
-      sections: [{
-        kind: "answer",
-        mark: { repo: "fixture", git: null },
-        guarantee: "types",
-        declarations: {
-          total: 2,
-          items: [
-            {
-              path: "src/days.ts",
-              line: 9,
-              name: "spanDays",
-              signature: "(from: string, to: string): number",
-              scope: "module-only",
-            },
-            {
-              path: "src/span.ts",
-              line: 3,
-              name: "spanDays",
-              signature: "(from: string, to: string): number",
-              scope: "private",
-            },
-          ],
+      sections: [
+        {
+          kind: "answer",
+          mark: { repo: "fixture", git: null },
+          guarantee: "types",
+          declarations: {
+            total: 2,
+            items: [
+              {
+                path: "src/days.ts",
+                line: 9,
+                name: "spanDays",
+                signature: "(from: string, to: string): number",
+                scope: "module-only",
+              },
+              {
+                path: "src/span.ts",
+                line: 3,
+                name: "spanDays",
+                signature: "(from: string, to: string): number",
+                scope: "private",
+              },
+            ],
+          },
+          returnTypes: ["number"],
+          neighbours: {
+            total: 1,
+            items: [
+              {
+                path: "src/window.ts",
+                line: 4,
+                name: "windowDays",
+                signature: "(from: string, to: string): string[]",
+                scope: "entry",
+              },
+            ],
+          },
+          unresolved: {
+            total: 1,
+            items: [
+              {
+                path: "src/broken.ts",
+                line: 3,
+                specifier: "./nowhere",
+                reason: "модуль не найден",
+              },
+            ],
+          },
         },
-        returnTypes: ["number"],
-        neighbours: {
-          total: 1,
-          items: [{
-            path: "src/window.ts",
-            line: 4,
-            name: "windowDays",
-            signature: "(from: string, to: string): string[]",
-            scope: "entry",
-          }],
-        },
-        unresolved: {
-          total: 1,
-          items: [{
-            path: "src/broken.ts",
-            line: 3,
-            specifier: "./nowhere",
-            reason: "модуль не найден",
-          }],
-        },
-      }],
+      ],
     },
   },
   {
@@ -2085,19 +2147,21 @@ const CASES: readonly CommandCase[] = [
     argv: ["src/gone.ts", "--in", "fixture"],
     sampleResult: {
       path: "src/gone.ts",
-      sections: [{
-        kind: "answer",
-        mark: { repo: "fixture", git: null },
-        exists: false,
-        mentions: {
-          total: 2,
-          places: [
-            { path: "docs/guide.md", line: 3 },
-            { path: "docs/guide.md", line: 5 },
-          ],
+      sections: [
+        {
+          kind: "answer",
+          mark: { repo: "fixture", git: null },
+          exists: false,
+          mentions: {
+            total: 2,
+            places: [
+              { path: "docs/guide.md", line: 3 },
+              { path: "docs/guide.md", line: 5 },
+            ],
+          },
+          unresolved: { total: 0, items: [] },
         },
-        unresolved: { total: 0, items: [] },
-      }],
+      ],
     },
   },
   // Канал `task` (`task.md`): кэш-БД обхода общая, записи ложатся в неё
@@ -2136,28 +2200,32 @@ const CASES: readonly CommandCase[] = [
     path: "task status",
     argv: [],
     sampleResult: {
-      rows: [{
-        project: "demo",
-        portion: 1,
-        turn: "ждёт исполнителя",
-        last: "task",
-        age_s: 5,
-        unread: true,
-        note: "",
-      }],
+      rows: [
+        {
+          project: "demo",
+          portion: 1,
+          turn: "ждёт исполнителя",
+          last: "task",
+          age_s: 5,
+          unread: true,
+          note: "",
+        },
+      ],
     },
   },
   {
     path: "task history",
     argv: [],
     sampleResult: {
-      rows: [{
-        project: "demo",
-        portion: 1,
-        kind: "task",
-        at: "2026-09-26T00:00:00.000Z",
-        first_line: "x",
-      }],
+      rows: [
+        {
+          project: "demo",
+          portion: 1,
+          kind: "task",
+          at: "2026-09-26T00:00:00.000Z",
+          first_line: "x",
+        },
+      ],
     },
   },
   {
@@ -2183,19 +2251,21 @@ const CASES: readonly CommandCase[] = [
     path: "task roles",
     argv: ["--project", "demo"],
     sampleResult: {
-      rows: [{
-        role: "exec",
-        mark: null,
-        mark_age_s: null,
-        session: "w",
-        window: "demo-exec",
-        dir: "/d",
-        model: "opus",
-        mode: "auto",
-        add_dir: [],
-        read: [],
-        powers: "x",
-      }],
+      rows: [
+        {
+          role: "exec",
+          mark: null,
+          mark_age_s: null,
+          session: "w",
+          window: "demo-exec",
+          dir: "/d",
+          model: "opus",
+          mode: "auto",
+          add_dir: [],
+          read: [],
+          powers: "x",
+        },
+      ],
     },
   },
   ...["busy", "idle"].map((mark) => ({
@@ -2296,11 +2366,15 @@ it("инвариант 1: исполнение не печатает", async () 
       if (testCase.path === "copy-client") {
         // Дальше выбора клиента копирование дойти не должно: следующие
         // шаги — настоящие pg_dump и `docker exec` (см. образец выше).
-        expect(refused, "copy-client не отбит до pg_dump и docker")
-          .toBeInstanceOf(SelectorError);
+        expect(
+          refused,
+          "copy-client не отбит до pg_dump и docker",
+        ).toBeInstanceOf(SelectorError);
       }
-      expect(captured, `${testCase.path} писала в приёмник вывода: ${captured}`)
-        .toBe("");
+      expect(
+        captured,
+        `${testCase.path} писала в приёмник вывода: ${captured}`,
+      ).toBe("");
     }
   });
 });
@@ -2364,9 +2438,10 @@ it("инвариант 4: имена входа совпадают со схем
     for (const input of command.inputs) {
       if (input.form.short === undefined) continue;
       const value = sampleValue(command, input);
-      const written = input.kind === "boolean"
-        ? [`-${input.form.short}`]
-        : [`-${input.form.short}`, String(value)];
+      const written =
+        input.kind === "boolean"
+          ? [`-${input.form.short}`]
+          : [`-${input.form.short}`, String(value)];
       const parsed = command.parseArgs([...requiredArgv(command), ...written]);
       expect(
         parsed[input.name],
@@ -2377,8 +2452,8 @@ it("инвариант 4: имена входа совпадают со схем
     // Исключение — вход, объявивший `keepsUnknown`: у него хвост argv
     // это чужая командная строка (`mpu ssh`), и неопознанный токен по
     // объявлению уходит в него, а не становится отказом.
-    const catchAll = command.inputs.find((input) =>
-      input.form.keepsUnknown === true
+    const catchAll = command.inputs.find(
+      (input) => input.form.keepsUnknown === true,
     );
     if (catchAll !== undefined) {
       const parsed = command.parseArgs([
@@ -2422,9 +2497,9 @@ it("инвариант 5: обязательность совпадает", () =
       ).toThrow(UsageError);
     }
     // Параметр со значением по умолчанию не обязателен ни там, ни там.
-    for (
-      const [key, field] of Object.entries(command.argsJsonSchema.properties)
-    ) {
+    for (const [key, field] of Object.entries(
+      command.argsJsonSchema.properties,
+    )) {
       if (field.default === undefined) continue;
       assert(
         !names.includes(key),
@@ -2504,8 +2579,10 @@ it("инвариант 6: результат сериализуем без по�
   for (const testCase of CASES) {
     const command = mustFind(testCase.path);
     const restored = JSON.parse(JSON.stringify(testCase.sampleResult));
-    expect(restored, `${testCase.path}: результат не переживает JSON`)
-      .toStrictEqual(testCase.sampleResult);
+    expect(
+      restored,
+      `${testCase.path}: результат не переживает JSON`,
+    ).toStrictEqual(testCase.sampleResult);
     // Образец обязан удовлетворять объявленной схеме результата, иначе
     // проверка сериализации сверяет не то, что команда возвращает.
     command.assertResult(testCase.sampleResult);
@@ -2544,12 +2621,12 @@ async function withCapturedOutput(fn: () => Promise<void>): Promise<string> {
     console[level] = (...args: unknown[]) => void chunks.push(args.join(" "));
   }
   const writes = [process.stdout, process.stderr].map((stream) =>
-    vi.spyOn(stream, "write").mockImplementation(
-      (chunk: string | Uint8Array) => {
+    vi
+      .spyOn(stream, "write")
+      .mockImplementation((chunk: string | Uint8Array) => {
         chunks.push(typeof chunk === "string" ? chunk : decoder.decode(chunk));
         return true;
-      },
-    )
+      }),
   );
   try {
     await fn();

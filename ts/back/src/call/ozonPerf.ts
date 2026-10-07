@@ -179,9 +179,11 @@ class MissingPerfKey implements CabinetKey {
  * чтобы отказ назвал его, а не «нет кабинета».
  */
 function keysQuery(clientId: number): string {
-  return "SELECT seller_client_id::text, performance_client_id, " +
+  return (
+    "SELECT seller_client_id::text, performance_client_id, " +
     `performance_client_secret FROM "schema_${clientId}".ozon_api_keys ` +
-    "WHERE seller_client_id IS NOT NULL";
+    "WHERE seller_client_id IS NOT NULL"
+  );
 }
 
 /** Ключ кабинета из строки: оба поля Performance заданы — иначе отказ. */
@@ -201,7 +203,7 @@ export function ozonPerf(tokens: Tokens): Marketplace {
     path: ["ozon", "perf"],
     name: "Ozon",
     address: new FixedHost(HOST),
-    usualMethod: (body) => body === undefined ? "GET" : "POST",
+    usualMethod: (body) => (body === undefined ? "GET" : "POST"),
     emptyBody: null,
     quotaHeaders: ["ratelimit-remaining", "retry-after"],
     keys: async (session: SqlSession, { clientId }: Wanted) => {
@@ -216,52 +218,58 @@ const PERF: Receiver = {
   marketplace: ozonPerf(EXCHANGE_EACH_CALL),
   help: {
     cabinetId: "Client-Id",
-    key:
-      `Ключи Performance кабинета берутся из БД клиента read-only сессией и на
+    key: `Ключи Performance кабинета берутся из БД клиента read-only сессией и на
 каждый вызов меняются на bearer (POST ${TOKEN_URL} —
 ещё один запрос). Ни секрет, ни bearer наружу не выходят: ни в вывод, ни
 в журнал, ни в текст отказа; эхо в теле ответа заменяется на ***. Обмен
 ответил не 2xx — его статус и тело и есть результат.`,
-    body:
-      "body: — JSON-текст тела; с ним метод по умолчанию POST, без него — GET.",
+    body: "body: — JSON-текст тела; с ним метод по умолчанию POST, без него — GET.",
     requests: "Один вызов — обмен токена и один запрос",
     dry: "authorization: Bearer ***, без обмена токена и",
     refusals: "у кабинета нет ключей Performance, ",
   },
 };
 
-export const ozonPerfCallRoCommand = callMessage(PERF, {
-  name: "call-ro",
-  policy: "ro",
-  access: new ReadList(READS),
-  summary:
-    "что сейчас отвечает ручка чтения Ozon Performance API (реклама) под ключами кабинета клиента",
-  help: `Звать, когда нужен живой ответ рекламного API Ozon (Performance) по
+export const ozonPerfCallRoCommand = callMessage(
+  PERF,
+  {
+    name: "call-ro",
+    policy: "ro",
+    access: new ReadList(READS),
+    summary:
+      "что сейчас отвечает ручка чтения Ozon Performance API (реклама) под ключами кабинета клиента",
+    help: `Звать, когда нужен живой ответ рекламного API Ozon (Performance) по
 кабинету клиента: кампании, статистика, заказ отчёта. Ключи и обмен на
 bearer делает mpu — секрет в руки брать не нужно. Только ручки из списка
 чтения; прочие — отказ до чтения ключа с готовой строкой mpu ask ozon perf
 call.`,
-  examples: [
-    "mpu ozon perf call-ro target: 54 path: /api/client/campaign",
-    'mpu ozon perf call-ro target: 54 path: /api/client/statistics/json body: {"campaigns":["1"]}',
-    "mpu ozon perf call-ro dry target: 54 path: /api/client/campaign",
-  ],
-}, LIVE);
+    examples: [
+      "mpu ozon perf call-ro target: 54 path: /api/client/campaign",
+      'mpu ozon perf call-ro target: 54 path: /api/client/statistics/json body: {"campaigns":["1"]}',
+      "mpu ozon perf call-ro dry target: 54 path: /api/client/campaign",
+    ],
+  },
+  LIVE,
+);
 
-export const ozonPerfCallCommand = callMessage(PERF, {
-  name: "call",
-  policy: "rw",
-  access: ANY_REQUEST,
-  summary:
-    "вызвать любую ручку Ozon Performance API (реклама) под ключами кабинета клиента (запись)",
-  help: `Звать, когда ручка меняет рекламу кабинета у Ozon (кампании, ставки)
+export const ozonPerfCallCommand = callMessage(
+  PERF,
+  {
+    name: "call",
+    policy: "rw",
+    access: ANY_REQUEST,
+    summary:
+      "вызвать любую ручку Ozon Performance API (реклама) под ключами кабинета клиента (запись)",
+    help: `Звать, когда ручка меняет рекламу кабинета у Ozon (кампании, ставки)
 или её нет в списке чтения mpu ozon perf call-ro. Идёт только через дверь
 ask: вызов с подтверждением человека. Изменение, которое делает ручка, — у
 Ozon, и отменить его mpu не может.`,
-  examples: [
-    "mpu ask ozon perf call target: 54 path: /api/client/campaign/1/activate method: POST",
-  ],
-}, LIVE);
+    examples: [
+      "mpu ask ozon perf call target: 54 path: /api/client/campaign/1/activate method: POST",
+    ],
+  },
+  LIVE,
+);
 
 /** Сообщения получателя `ozon perf`. */
 export const ozonPerfCommands = [ozonPerfCallRoCommand, ozonPerfCallCommand];

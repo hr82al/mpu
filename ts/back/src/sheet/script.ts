@@ -181,6 +181,9 @@ export function unquote(token: string): string {
 /** Был ли токен записан в кавычках: строкой он остаётся при любом виде. */
 export function isQuoted(token: string): boolean {
   const quote = token[0];
-  return (quote === "'" || quote === '"') && token.length >= 2 &&
-    token.endsWith(quote);
+  return (
+    (quote === "'" || quote === '"') &&
+    token.length >= 2 &&
+    token.endsWith(quote)
+  );
 }

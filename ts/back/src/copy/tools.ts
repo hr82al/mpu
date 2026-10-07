@@ -151,9 +151,12 @@ export async function runTool(
 ): Promise<ToolOutcome> {
   const startedMs = nowMs();
   let lastError = "";
-  const timer = heartbeat === undefined ? undefined : setInterval(() => {
-    heartbeat(Math.round((nowMs() - startedMs) / 1000));
-  }, HEARTBEAT_MS);
+  const timer =
+    heartbeat === undefined
+      ? undefined
+      : setInterval(() => {
+          heartbeat(Math.round((nowMs() - startedMs) / 1000));
+        }, HEARTBEAT_MS);
   try {
     const outcome = await run(argv, { PGPASSWORD: target.password }, (line) => {
       if (ERROR_LINE.test(line)) lastError = line.trim();
@@ -180,8 +183,8 @@ export function toolFailure(
   what: string,
   outcome: ToolOutcome,
 ): string {
-  const head = `${tool} ${what} failed (exit ${outcome.code}, ` +
-    `${outcome.seconds}s)`;
+  const head =
+    `${tool} ${what} failed (exit ${outcome.code}, ` + `${outcome.seconds}s)`;
   return outcome.lastError === ""
     ? head
     : `${head}; последняя ошибка: ${outcome.lastError}`;
@@ -227,7 +230,10 @@ export function makeDumpFile(prefix: string): string {
   // `wx` — создать, а не открыть лежащий (`O_EXCL`), как `mkstemp`:
   // имя случайное, но чужой файл с ним не подменяется. 0600 — дамп
   // несёт данные клиента.
-  const path = join(tmpdir(), `${prefix}${randomBytes(6).toString("hex")}.dump`);
+  const path = join(
+    tmpdir(),
+    `${prefix}${randomBytes(6).toString("hex")}.dump`,
+  );
   closeSync(openSync(path, "wx", 0o600));
   return path;
 }
@@ -288,8 +294,11 @@ export const spawnRedis: RunRedis = async (argv, stdin) => {
   }
   const decoder = new TextDecoder();
   if (!outcome.success) {
-    const reason = decoder.decode(outcome.stderr).split("\n")
-      .find((line) => line.trim() !== "") ?? `код ${outcome.code}`;
+    const reason =
+      decoder
+        .decode(outcome.stderr)
+        .split("\n")
+        .find((line) => line.trim() !== "") ?? `код ${outcome.code}`;
     throw new Error(reason);
   }
   // Нулевой код — не успех: отказ инфраструктуры ловит `docker` и
@@ -298,7 +307,9 @@ export const spawnRedis: RunRedis = async (argv, stdin) => {
   // команда). Не разбери мы её — шаг молча не сделал бы ничего, а
   // предупреждению взяться неоткуда. Предупреждение `AUTH failed`
   // сюда не попадает: оно печатается в stderr и отказом не является.
-  const failed = decoder.decode(outcome.stdout).split("\n")
+  const failed = decoder
+    .decode(outcome.stdout)
+    .split("\n")
     .map((line) => line.trim())
     .find((line) => /^(\(error\)\s*)?ERR\b/.test(line));
   if (failed !== undefined) throw new Error(failed);

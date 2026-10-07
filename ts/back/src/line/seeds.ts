@@ -81,9 +81,10 @@ function commandSeeds(command: Command): readonly Rule[] {
 }
 
 function under(group: CommandGroup): readonly Command[] {
-  return commands.filter((command) =>
-    group.path.every((segment, i) => command.path[i] === segment) &&
-    command.path.length > group.path.length
+  return commands.filter(
+    (command) =>
+      group.path.every((segment, i) => command.path[i] === segment) &&
+      command.path.length > group.path.length,
   );
 }
 
@@ -148,8 +149,9 @@ export function openRegistryBook(file: string | undefined): RuleBook {
  * подкомандой откроет вызову с селектором впереди; прочим путям — пусто.
  */
 export function selectorFirstWriters(path: RulePath): readonly string[] {
-  const group = groups.find((one) =>
-    one.layout === "selector-first" && one.path.join(" ") === path.text()
+  const group = groups.find(
+    (one) =>
+      one.layout === "selector-first" && one.path.join(" ") === path.text(),
   );
   if (group === undefined) return [];
   return under(group)

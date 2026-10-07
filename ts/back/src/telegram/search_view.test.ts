@@ -63,13 +63,17 @@ const FOUND: readonly RawMessage[] = [
     text: "",
     // Форма — догадка по исходникам клиента: живьём не снята
     // (`telegram-file.md`, «Golden-примеры»).
-    file: documentFile(1503, {
-      name: "выгрузка-июль.xlsx",
-      size: 48213,
-      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }, () => {
-      throw new Error("скачивание в выдаче поиска не ожидается");
-    }),
+    file: documentFile(
+      1503,
+      {
+        name: "выгрузка-июль.xlsx",
+        size: 48213,
+        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+      () => {
+        throw new Error("скачивание в выдаче поиска не ожидается");
+      },
+    ),
     entities: [],
   },
   {
@@ -87,8 +91,7 @@ const FOUND: readonly RawMessage[] = [
       username: "psidorov",
     },
     date: new Date("2026-10-02T06:11:14.000Z"),
-    text:
-      "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
+    text: "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
     file: noFile(17694),
     entities: [
       { _: "messageEntityMention", offset: 0, length: 7 },
@@ -124,8 +127,9 @@ it("ничего не найдено в таблице: без счётчика"
 it("таблица: порядок колонок, строк и итог", () => {
   // Три сообщения голдена в одну строку каждое: перевод строки внутри
   // текста четвёртого переносит клетку, а это оформление, не контракт.
-  const lines = renderMessagesTable(FOUND.slice(0, 3).map(foundMessage))
-    .split("\n");
+  const lines = renderMessagesTable(FOUND.slice(0, 3).map(foundMessage)).split(
+    "\n",
+  );
   expect(lines.at(-1), "вывод оканчивается одним переводом строки").toBe("");
   expect(lines.at(-2)).toBe("(3 messages)");
   expect(lines[0].split(/\s{2,}/)).toStrictEqual([
@@ -159,12 +163,14 @@ it("TM12: в колонке TEXT та же Markdown-строка, что в JSON
     ...FOUND[0],
     text: "1. Ozon: сверка выкупа - готово к код-ревью",
     file: noFile(17694),
-    entities: [{
-      _: "messageEntityTextUrl",
-      offset: 3,
-      length: 19,
-      url: "https://btlz.kaiten.ru/71300001",
-    }],
+    entities: [
+      {
+        _: "messageEntityTextUrl",
+        offset: 3,
+        length: 19,
+        url: "https://btlz.kaiten.ru/71300001",
+      },
+    ],
   });
   const row = renderMessagesTable([message]).split("\n")[1];
   expect(row.split(/\s{2,}/).at(-1)).toBe(

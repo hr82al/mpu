@@ -35,7 +35,7 @@ function accessTo(baseUrl: string): KaitenAccess {
 
 it("POST: метод, JSON-тело, Content-Type и разбор ответа", async () => {
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json({ id: 7, comment: "ok" }, { status: 201 })
+    Response.json({ id: 7, comment: "ok" }, { status: 201 }),
   );
   try {
     const result = await kaitenCall(accessTo(baseUrl), {
@@ -62,7 +62,7 @@ it("POST: метод, JSON-тело, Content-Type и разбор ответа",
 
 it("вызов без тела не объявляет тип содержимого", async () => {
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json([])
+    Response.json([]),
   );
   try {
     await kaitenCallArray(accessTo(baseUrl), {
@@ -80,7 +80,7 @@ it("вызов без тела не объявляет тип содержимо
 
 it("query-параметры уходят в адрес запроса", async () => {
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json([])
+    Response.json([]),
   );
   try {
     await kaitenCallArray(accessTo(baseUrl), {
@@ -98,10 +98,11 @@ it("query-параметры уходят в адрес запроса", async (
 
 describe("пустое тело успешного ответа — не ошибка разбора", () => {
   it("одиночный вызов: данных нет", async () => {
-    const { baseUrl, stop } = await startFakeKaiten(() =>
-      new Response(null, {
-        status: 204,
-      })
+    const { baseUrl, stop } = await startFakeKaiten(
+      () =>
+        new Response(null, {
+          status: 204,
+        }),
     );
     try {
       expect(
@@ -116,10 +117,11 @@ describe("пустое тело успешного ответа — не оши�
   });
 
   it("вызов-список: пустой список", async () => {
-    const { baseUrl, stop } = await startFakeKaiten(() =>
-      new Response("", {
-        status: 200,
-      })
+    const { baseUrl, stop } = await startFakeKaiten(
+      () =>
+        new Response("", {
+          status: 200,
+        }),
     );
     try {
       expect(
@@ -135,8 +137,8 @@ describe("пустое тело успешного ответа — не оши�
 });
 
 it("не-2xx: текст ошибки называет метод и путь", async () => {
-  const { baseUrl, stop } = await startFakeKaiten(() =>
-    new Response("boom", { status: 400 })
+  const { baseUrl, stop } = await startFakeKaiten(
+    () => new Response("boom", { status: 400 }),
   );
   try {
     const failure = kaitenCall(accessTo(baseUrl), {
@@ -158,15 +160,18 @@ it("не-2xx с пустым телом: сообщение кончается �
   // карточки сервер не раскрывает (`kaiten-api-cards.md`, «Граничные
   // случаи»). Подставлять после двоеточия нечего, и заполнителя тут быть
   // не должно — иначе текст соврёт о том, что ответил сервер.
-  const { baseUrl, stop } = await startFakeKaiten(() =>
-    new Response(null, { status: 403 })
+  const { baseUrl, stop } = await startFakeKaiten(
+    () => new Response(null, { status: 403 }),
   );
   try {
-    const err = await rejected(() =>
-      kaitenCall(accessTo(baseUrl), {
-        method: "GET",
-        path: "/cards/99999999",
-      }), KaitenError);
+    const err = await rejected(
+      () =>
+        kaitenCall(accessTo(baseUrl), {
+          method: "GET",
+          path: "/cards/99999999",
+        }),
+      KaitenError,
+    );
 
     expect(err.message).toBe("kaiten GET /cards/99999999 -> 403: ");
   } finally {
@@ -178,10 +183,10 @@ it("429 повторяется и у мутирующего вызова", async
   const { baseUrl, seen, stop } = await startFakeKaiten((requests) =>
     requests.length === 1
       ? new Response("slow down", {
-        status: 429,
-        headers: { "Retry-After": "0" },
-      })
-      : Response.json({ id: 11 })
+          status: 429,
+          headers: { "Retry-After": "0" },
+        })
+      : Response.json({ id: 11 }),
   );
   try {
     const notes: string[] = [];
@@ -235,24 +240,28 @@ it("пределы времени — на каждом вызове катал�
  * ограничивает его уже предел всего вызова. `stop` сперва отпускает тело —
  * иначе сервер ждал бы его вечно.
  */
-async function stalledKaiten(head: string, tail: string): Promise<{
+async function stalledKaiten(
+  head: string,
+  tail: string,
+): Promise<{
   readonly baseUrl: string;
   readonly finish: () => void;
   readonly stop: () => Promise<void>;
 }> {
   const gate = Promise.withResolvers<void>();
   const encoder = new TextEncoder();
-  const { baseUrl, stop } = await startFakeKaiten(() =>
-    new Response(
-      new ReadableStream<Uint8Array>({
-        async start(controller) {
-          controller.enqueue(encoder.encode(head));
-          await gate.promise;
-          controller.enqueue(encoder.encode(tail));
-          controller.close();
-        },
-      }),
-    )
+  const { baseUrl, stop } = await startFakeKaiten(
+    () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          async start(controller) {
+            controller.enqueue(encoder.encode(head));
+            await gate.promise;
+            controller.enqueue(encoder.encode(tail));
+            controller.close();
+          },
+        }),
+      ),
   );
   return {
     baseUrl,
@@ -325,7 +334,10 @@ describe("пределы Kaiten по умолчанию — свои, а не о
         const call = kaitenCall(accessTo(baseUrl), {
           method: "GET",
           path: "/users/current",
-        }).then((value) => ({ value }), (error: unknown) => ({ error }));
+        }).then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        );
         await arrived.promise;
         await vi.advanceTimersByTimeAsync(5_600);
         pending.resolve(Response.json({ id: 7 }));
@@ -375,36 +387,34 @@ describe("пределы Kaiten по умолчанию — свои, а не о
     }
   });
 
-  it(
-    "тело позже предела заголовков, но раньше предела вызова — успех",
-    async () => {
-      // Живость доказывается ответом, а не отсутствием отказа: отказ через
-      // `node:http` доставляется не сразу, и промис, «ещё не отклонённый»
-      // сразу после сдвига часов, мог быть уже обречён. Отменённый вызов
-      // дочитанного тела не вернул бы.
-      const { baseUrl, finish, stop } = await stalledKaiten('{"id":', "7}");
+  it("тело позже предела заголовков, но раньше предела вызова — успех", async () => {
+    // Живость доказывается ответом, а не отсутствием отказа: отказ через
+    // `node:http` доставляется не сразу, и промис, «ещё не отклонённый»
+    // сразу после сдвига часов, мог быть уже обречён. Отменённый вызов
+    // дочитанного тела не вернул бы.
+    const { baseUrl, finish, stop } = await stalledKaiten('{"id":', "7}");
+    try {
+      vi.useFakeTimers();
       try {
-        vi.useFakeTimers();
-        try {
-          using watch = watchHeadersTimer(KAITEN_TIMEOUTS.headersTimeoutMs);
-          const call = kaitenCall(accessTo(baseUrl), {
-            method: "GET",
-            path: "/users/current",
-          }).then((value) => ({ value }), (error: unknown) => ({ error }));
-          await Promise.race([watch.cleared, call]);
-          await vi.advanceTimersByTimeAsync(
-            KAITEN_TIMEOUTS.headersTimeoutMs + 1,
-          );
-          finish();
-          expect(await call).toStrictEqual({ value: { id: 7 } });
-        } finally {
-          vi.useRealTimers();
-        }
+        using watch = watchHeadersTimer(KAITEN_TIMEOUTS.headersTimeoutMs);
+        const call = kaitenCall(accessTo(baseUrl), {
+          method: "GET",
+          path: "/users/current",
+        }).then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        );
+        await Promise.race([watch.cleared, call]);
+        await vi.advanceTimersByTimeAsync(KAITEN_TIMEOUTS.headersTimeoutMs + 1);
+        finish();
+        expect(await call).toStrictEqual({ value: { id: 7 } });
       } finally {
-        await stop();
+        vi.useRealTimers();
       }
-    },
-  );
+    } finally {
+      await stop();
+    }
+  });
 
   it("тело не приходит — отказ пределом вызова 30 с", async () => {
     // Часы — за верхнюю из двух границ, спеки и константы: неверный предел
@@ -420,7 +430,10 @@ describe("пределы Kaiten по умолчанию — свои, а не о
         const call = kaitenCall(accessTo(baseUrl), {
           method: "GET",
           path: "/users/current",
-        }).then((value) => ({ value }), (error: unknown) => ({ error }));
+        }).then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        );
         await Promise.race([watch.cleared, call]);
         await vi.advanceTimersByTimeAsync(Math.max(total, 30_000) + 1);
         const outcome = await call;
@@ -449,7 +462,7 @@ function fullPage(): readonly number[] {
 describe("offset-пагинация: страницы до первой короче лимита", () => {
   it("полная страница, затем неполная", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten((requests) =>
-      Response.json(requests.length === 1 ? fullPage() : [100, 101])
+      Response.json(requests.length === 1 ? fullPage() : [100, 101]),
     );
     try {
       const items = await kaitenCallPaged(accessTo(baseUrl), {
@@ -474,7 +487,7 @@ describe("offset-пагинация: страницы до первой коро
 
   it("полная страница, затем пустая", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten((requests) =>
-      Response.json(requests.length === 1 ? fullPage() : [])
+      Response.json(requests.length === 1 ? fullPage() : []),
     );
     try {
       const items = await kaitenCallPaged(accessTo(baseUrl), {
@@ -491,7 +504,7 @@ describe("offset-пагинация: страницы до первой коро
 
   it("первая же страница неполная — один запрос", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json([7])
+      Response.json([7]),
     );
     try {
       expect(
@@ -522,7 +535,7 @@ it("курсорная пагинация: курсор последнего э�
   const first = feedPage(100, "2026-07-20T10:00:00.000Z", "p1");
   const second = [{ id: "p2-0", created: "2026-07-19T10:00:00.000Z" }];
   const { baseUrl, seen, stop } = await startFakeKaiten((requests) =>
-    Response.json(requests.length === 1 ? first : second)
+    Response.json(requests.length === 1 ? first : second),
   );
   try {
     const items = await kaitenCallCursorPaged(
@@ -542,9 +555,9 @@ it("курсорная пагинация: курсор последнего э�
     // пустой курсор сервер трактует как «начать сначала».
     expect(seen.map((r) => r.search)).toStrictEqual([
       "?actions=card_move%2Ccard_add&offset=0&limit=100" +
-      "&cursor_created=&cursor_id=",
+        "&cursor_created=&cursor_id=",
       "?actions=card_move%2Ccard_add&offset=0&limit=100" +
-      "&cursor_created=2026-07-20T10%3A00%3A00.000Z&cursor_id=p1-99",
+        "&cursor_created=2026-07-20T10%3A00%3A00.000Z&cursor_id=p1-99",
     ]);
   } finally {
     await stop();
@@ -556,7 +569,7 @@ describe("курсорная пагинация: останов", () => {
 
   it("страница короче лимита", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten((requests) =>
-      Response.json(requests.length === 1 ? full : [])
+      Response.json(requests.length === 1 ? full : []),
     );
     try {
       const items = await kaitenCallCursorPaged(
@@ -574,7 +587,7 @@ describe("курсорная пагинация: останов", () => {
 
   it("потолок страниц исчерпан", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(full)
+      Response.json(full),
     );
     try {
       const items = await kaitenCallCursorPaged(
@@ -591,12 +604,15 @@ describe("курсорная пагинация: останов", () => {
   });
 
   it("у последнего элемента нет `created`", async () => {
-    const tail = [...feedPage(99, "2026-07-20T10:00:00.000Z", "p"), {
-      id: "p-99",
-      created: null,
-    }];
+    const tail = [
+      ...feedPage(99, "2026-07-20T10:00:00.000Z", "p"),
+      {
+        id: "p-99",
+        created: null,
+      },
+    ];
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(tail)
+      Response.json(tail),
     );
     try {
       const items = await kaitenCallCursorPaged(
@@ -612,18 +628,19 @@ describe("курсорная пагинация: останов", () => {
     }
   });
 
-  for (
-    const [name, last] of [
-      ["у последнего элемента нет `id`", {
+  for (const [name, last] of [
+    [
+      "у последнего элемента нет `id`",
+      {
         created: "2026-07-20T10:00:00.000Z",
-      }],
-      ["последний элемент вообще не объект", "мусор"],
-    ] as const
-  ) {
+      },
+    ],
+    ["последний элемент вообще не объект", "мусор"],
+  ] as const) {
     it(name, async () => {
       const tail = [...feedPage(99, "2026-07-20T10:00:00.000Z", "p"), last];
       const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-        Response.json(tail)
+        Response.json(tail),
       );
       try {
         const items = await kaitenCallCursorPaged(
@@ -648,7 +665,7 @@ describe("курсорная пагинация: нижняя граница д�
     startFakeKaiten((requests) =>
       Response.json(
         requests.length === 1 ? first : requests.length === 2 ? second : [],
-      )
+      ),
     );
 
   it("`created` последнего стал меньше границы — останов", async () => {
@@ -689,7 +706,7 @@ describe("курсорная пагинация: нижняя граница д�
 
 it("тело multipart/form-data: граница своя на каждый запрос", async () => {
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json({ id: 3 })
+    Response.json({ id: 3 }),
   );
   try {
     for (const text of ["первый", "второй"]) {
@@ -711,13 +728,15 @@ it("тело multipart/form-data: граница своя на каждый за
 
     // Тело собрано вокруг объявленной границы, а сама она на каждый
     // запрос своя (`kaiten-http.md`, «Запрос»).
-    expect(seen[0].body).toStrictEqual([
-      `--${boundaries[0]}`,
-      'Content-Disposition: form-data; name="text"',
-      "",
-      "первый",
-      `--${boundaries[0]}--`,
-    ].join("\r\n"));
+    expect(seen[0].body).toStrictEqual(
+      [
+        `--${boundaries[0]}`,
+        'Content-Disposition: form-data; name="text"',
+        "",
+        "первый",
+        `--${boundaries[0]}--`,
+      ].join("\r\n"),
+    );
     expect(boundaries[0] === boundaries[1], "граница повторилась").toBe(false);
   } finally {
     await stop();
@@ -726,7 +745,7 @@ it("тело multipart/form-data: граница своя на каждый за
 
 it("ответ не той формы: вызов-список отказывает, а не пустеет", async () => {
   const { baseUrl, stop } = await startFakeKaiten(() =>
-    Response.json({ id: 1 })
+    Response.json({ id: 1 }),
   );
   try {
     const failure = kaitenCallArray(accessTo(baseUrl), {

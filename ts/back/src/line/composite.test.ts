@@ -46,7 +46,7 @@ function onStand(
     withStand((stand) => {
       rules(file);
       return body(file, stand);
-    })
+    }),
   );
 }
 
@@ -77,13 +77,14 @@ it("с ask — вопрос на каждую запись, да да да", () 
       question(11) + question(12) + question(13),
     );
     expect(stand.posted()).toStrictEqual(["11 ping", "12 ping", "13 ping"]);
-    expect(ran.records.map((record) => [record.argv.join(" "), record.native]))
-      .toStrictEqual([
-        ["ask kiten ls", ["kiten ls"]],
-        ["ask kiten comment id: 11 text: ping", ["kiten comment"]],
-        ["ask kiten comment id: 12 text: ping", ["kiten comment"]],
-        ["ask kiten comment id: 13 text: ping", ["kiten comment"]],
-      ]);
+    expect(
+      ran.records.map((record) => [record.argv.join(" "), record.native]),
+    ).toStrictEqual([
+      ["ask kiten ls", ["kiten ls"]],
+      ["ask kiten comment id: 11 text: ping", ["kiten comment"]],
+      ["ask kiten comment id: 12 text: ping", ["kiten comment"]],
+      ["ask kiten comment id: 13 text: ping", ["kiten comment"]],
+    ]);
   }));
 
 it("нет — вычисление останавливается, дальше вопросов нет", () =>
@@ -93,16 +94,18 @@ it("нет — вычисление останавливается, дальше
     });
     expect(ran.exit).toBe(1);
     expect(ran.stderr).toStrictEqual(
-      question(11) + question(12) +
+      question(11) +
+        question(12) +
         "mpu kiten comment id: 12 text: ping: не подтверждено\n",
     );
     expect(stand.posted()).toStrictEqual(["11 ping"]);
-    expect(ran.records.map((record) => [record.argv.join(" "), record.native]))
-      .toStrictEqual([
-        ["ask kiten ls", ["kiten ls"]],
-        ["ask kiten comment id: 11 text: ping", ["kiten comment"]],
-        ["ask kiten comment id: 12 text: ping", []],
-      ]);
+    expect(
+      ran.records.map((record) => [record.argv.join(" "), record.native]),
+    ).toStrictEqual([
+      ["ask kiten ls", ["kiten ls"]],
+      ["ask kiten comment id: 11 text: ping", ["kiten comment"]],
+      ["ask kiten comment id: 12 text: ping", []],
+    ]);
   }));
 
 it("пять записей, да да нет — четвёртая и пятая не спрошены", () =>
@@ -121,14 +124,16 @@ it("пять записей, да да нет — четвёртая и пята
   }));
 
 describe("лишний ask на строке без записей — без вопросов", () => {
-  for (
-    const line of ["ask kiten ls {end} size", "ask kiten ls {.} 2 plus: 2"]
-  ) {
+  for (const line of [
+    "ask kiten ls {end} size",
+    "ask kiten ls {.} 2 plus: 2",
+  ]) {
     it(line, () =>
       onStand(async (file, stand) => {
         const ran = await runOnStand(file, words(line), stand);
         expect([ran.exit, ran.stderr]).toStrictEqual([0, ""]);
-      }));
+      }),
+    );
   }
 });
 
@@ -144,7 +149,8 @@ describe("deny в теле блока — отказ правила до исп�
           0,
         ]);
         expect([ran.native, ran.records]).toStrictEqual([[], []]);
-      }));
+      }),
+    );
   }
 });
 
@@ -183,7 +189,7 @@ it("правило сменил другой процесс — отказ вс�
         using book = RuleBook.open(file, []);
         book.set(RulePath.parse("kiten comment"), ASK);
       },
-    )
+    ),
   ));
 
 it("агент без человека — первый вопрос: спросить некого", () =>

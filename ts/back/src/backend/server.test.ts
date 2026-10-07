@@ -62,14 +62,14 @@ it("снимок дерева: записан при старте и равен 
     const selectors = (node: { messages: { selector: string }[] }) =>
       node.messages.map((line) => line.selector);
     expect(selectors(nodes[0]).includes("allow:")).toBe(true);
-    const card = nodes.find((node: { path: string[] }) =>
-      node.path.join(" ") === "kiten card"
+    const card = nodes.find(
+      (node: { path: string[] }) => node.path.join(" ") === "kiten card",
     );
     expect(card.tail).toBe("args");
     expect(selectors(card)).toStrictEqual(["id:"]);
     expect(card.formats).toStrictEqual(["json", "md"]);
-    const kiten = nodes.find((node: { path: string[] }) =>
-      node.path.join(" ") === "kiten"
+    const kiten = nodes.find(
+      (node: { path: string[] }) => node.path.join(" ") === "kiten",
     );
     expect(kiten.tail).toStrictEqual(null);
     const paths = nodes.map((node: { path: string[] }) => node.path.join(" "));
@@ -108,16 +108,21 @@ it("снимок пишется во временный файл и переим
 });
 
 it("снимок не записан — строка диагностики, сервер работает", () =>
-  withBack(async (back) => {
-    expect(back.diagnosed.length).toBe(1);
-    expect(back.diagnosed[0]).toContain("mpu-back: снимок дерева не записан: ");
-    expect((await request(back, "/health")).status).toBe(200);
-  }, {
-    snapshotFile: (dir) => {
-      writeFileSync(`${dir}/file`, "");
-      return `${dir}/file/tree.json`;
+  withBack(
+    async (back) => {
+      expect(back.diagnosed.length).toBe(1);
+      expect(back.diagnosed[0]).toContain(
+        "mpu-back: снимок дерева не записан: ",
+      );
+      expect((await request(back, "/health")).status).toBe(200);
     },
-  }));
+    {
+      snapshotFile: (dir) => {
+        writeFileSync(`${dir}/file`, "");
+        return `${dir}/file/tree.json`;
+      },
+    },
+  ));
 
 it("rpc: схема, правила, ошибки", () =>
   withBack(async (back) => {

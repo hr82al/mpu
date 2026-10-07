@@ -151,10 +151,8 @@ export class StopDesk {
       signal: done.signal,
     });
     if (closing.aborted) expire();
-    const watching = until(
-      stop,
-      transcript.answered(stop),
-      () => asked.withdraw(TERMINAL),
+    const watching = until(stop, transcript.answered(stop), () =>
+      asked.withdraw(TERMINAL),
     ).catch((err) => {
       // Хук уже вышел — сбой наблюдателя некому отдать: вопрос остаётся,
       // его снимут чат, новый конец хода или остановка ядра.

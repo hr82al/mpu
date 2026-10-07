@@ -46,11 +46,8 @@ class Comment {
 const COMMENT = new Shape<Comment>(
   [unary("clear", about("убрать текст"), DATA, (c) => c.write(""))],
   {
-    fallback: link(
-      "<text>",
-      about("текст комментария"),
-      DATA,
-      (c, word) => c.write(word),
+    fallback: link("<text>", about("текст комментария"), DATA, (c, word) =>
+      c.write(word),
     ),
   },
 );
@@ -80,11 +77,8 @@ const CARD = new Shape<Card>([
     DATA,
     (c, args) => c.comment().write(String(args.comment)),
   ),
-  unary(
-    "comment",
-    about("комментарий к карточке"),
-    COMMENT,
-    (c) => c.comment(),
+  unary("comment", about("комментарий к карточке"), COMMENT, (c) =>
+    c.comment(),
   ),
 ]);
 
@@ -95,17 +89,11 @@ class Cards {
   }
 }
 
-const CARDS = new Shape<Cards>(
-  [],
-  {
-    fallback: link(
-      "<card>",
-      about("карточка с номером"),
-      CARD,
-      (c, word) => c.numbered(word),
-    ),
-  },
-);
+const CARDS = new Shape<Cards>([], {
+  fallback: link("<card>", about("карточка с номером"), CARD, (c, word) =>
+    c.numbered(word),
+  ),
+});
 
 /** Kaiten тестового дерева; считает вызовы `ls`. */
 export class Kaiten {

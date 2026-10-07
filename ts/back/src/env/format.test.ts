@@ -23,9 +23,13 @@ describe("разбор: граничные случаи формата", () => {
     ["# без пробела остаётся в значении", "A=va#lue\n", { A: "va#lue" }],
     ["# после пробела режется", "A=val # хвост\n", { A: "val" }],
     ["одинарные кавычки: # цел", "A='va # lue'\n", { A: "va # lue" }],
-    ["двойные кавычки: экранирование не трогаем", 'A="a\\nb"\n', {
-      A: "a\\nb",
-    }],
+    [
+      "двойные кавычки: экранирование не трогаем",
+      'A="a\\nb"\n',
+      {
+        A: "a\\nb",
+      },
+    ],
     ["незакрытая кавычка — безкавычное значение", "A='abc\n", { A: "'abc" }],
     ["дубликат: побеждает последний", "A=1\nA=2\n", { A: "2" }],
     ["отступ и export", "  export  A = 1 \n", { A: "1" }],
@@ -75,17 +79,17 @@ describe("запись: форма значения и граничные слу
     ],
   ];
   for (const [name, text, key, value, expected] of cases) {
-    it(
-      name,
-      () => expect(assignEnvValue(text, key, value)).toStrictEqual(expected),
+    it(name, () =>
+      expect(assignEnvValue(text, key, value)).toStrictEqual(expected),
     );
   }
 });
 
 describe("запись: непригодное значение — ошибка, текст не построен", () => {
-  for (
-    const [name, value] of [["перевод строки", "a\nb"], ["кавычка", "a'b"]]
-  ) {
+  for (const [name, value] of [
+    ["перевод строки", "a\nb"],
+    ["кавычка", "a'b"],
+  ]) {
     it(name, () => {
       expect(() => assignEnvValue("A=1\n", "A", value)).toThrow(EnvValueError);
     });

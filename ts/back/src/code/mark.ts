@@ -13,13 +13,13 @@
 export type TreeState =
   | { readonly kind: "out-of-git" }
   | {
-    readonly kind: "git";
-    /** Имя ветки; отделённая голова — `detached`. */
-    readonly branch: string;
-    /** Первые восемь знаков полного хэша. */
-    readonly commit: string;
-    readonly dirty: boolean;
-  };
+      readonly kind: "git";
+      /** Имя ветки; отделённая голова — `detached`. */
+      readonly branch: string;
+      /** Первые восемь знаков полного хэша. */
+      readonly commit: string;
+      readonly dirty: boolean;
+    };
 
 /** Отметка дерева одного репозитория. */
 export interface TreeMark {
@@ -75,13 +75,14 @@ export async function gitTreeMark(
       kind: "git",
       // Отделённая голова: `symbolic-ref` отвечает ненулевым кодом, и
       // это не сбой, а второе штатное состояние головы.
-      branch: branch === null || branch.code !== 0
-        ? "detached"
-        : branch.stdout.trim(),
+      branch:
+        branch === null || branch.code !== 0
+          ? "detached"
+          : branch.stdout.trim(),
       commit: head.stdout.trim().slice(0, COMMIT_CHARS),
       // Недоступный `status` не имеет права выглядеть чистым деревом.
-      dirty: status === null || status.code !== 0 ||
-        status.stdout.trim() !== "",
+      dirty:
+        status === null || status.code !== 0 || status.stdout.trim() !== "",
     },
   };
 }
@@ -91,9 +92,10 @@ export async function gitTreeMark(
  * (`platform/code-analyzer.md`, «Отметка дерева»).
  */
 export function renderMark(mark: TreeMark, guarantee: Guarantee): string {
-  const promise = guarantee === "types"
-    ? "разбор по типам — ответ полон"
-    : "текстовый разбор — ответ неполон";
+  const promise =
+    guarantee === "types"
+      ? "разбор по типам — ответ полон"
+      : "текстовый разбор — ответ неполон";
   return [...markFields(mark), promise].join(" · ");
 }
 

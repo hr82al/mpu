@@ -91,51 +91,56 @@ class Opened implements Shelf {
   }
 
   archive(dir: string): Map<string, string> {
-    const rows = this.#db.prepare(
-      "SELECT method, hash FROM archive WHERE dir = ?",
-    ).all(dir);
+    const rows = this.#db
+      .prepare("SELECT method, hash FROM archive WHERE dir = ?")
+      .all(dir);
     return new Map(rows.map((row) => [String(row.method), String(row.hash)]));
   }
 
   /** Строка архива каталога `dir` по методу `method`. */
   archived(dir: string, method: string, hash: string) {
-    this.#db.prepare(
-      "INSERT OR REPLACE INTO archive (dir, method, hash) VALUES (?, ?, ?)",
-    ).run(dir, method, hash);
+    this.#db
+      .prepare(
+        "INSERT OR REPLACE INTO archive (dir, method, hash) VALUES (?, ?, ?)",
+      )
+      .run(dir, method, hash);
   }
 
   /** Снимает строку архива каталога `dir` по методу `method`. */
   unarchived(dir: string, method: string) {
-    this.#db.prepare("DELETE FROM archive WHERE dir = ? AND method = ?")
+    this.#db
+      .prepare("DELETE FROM archive WHERE dir = ? AND method = ?")
       .run(dir, method);
   }
 
   /** Записывает метод (заменяет прежний того же имени у того же получателя). */
   define(method: ImageMethod) {
     const record = method.record();
-    this.#db.prepare(
-      `INSERT OR REPLACE INTO methods
+    this.#db
+      .prepare(
+        `INSERT OR REPLACE INTO methods
          (receiver, name, source, words, purpose, keys, author, time, hash)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      record.receiver.join(" "),
-      record.name,
-      method.text(),
-      JSON.stringify(record.words),
-      record.purpose,
-      record.keys,
-      record.author,
-      record.time,
-      method.hash(),
-    );
+      )
+      .run(
+        record.receiver.join(" "),
+        record.name,
+        method.text(),
+        JSON.stringify(record.words),
+        record.purpose,
+        record.keys,
+        record.author,
+        record.time,
+        method.hash(),
+      );
     this.#load();
   }
 
   /** Удаляет метод; итог — был ли он. */
   forget(receiver: readonly string[], name: string): boolean {
-    const { changes } = this.#db.prepare(
-      "DELETE FROM methods WHERE receiver = ? AND name = ?",
-    ).run(receiver.join(" "), name);
+    const { changes } = this.#db
+      .prepare("DELETE FROM methods WHERE receiver = ? AND name = ?")
+      .run(receiver.join(" "), name);
     this.#load();
     return Number(changes) > 0;
   }
@@ -148,20 +153,23 @@ class Opened implements Shelf {
     // Версия — до чтения строк: чужая запись между ними оставит
     // прочитанное с устаревшей версией, и следующее чтение его перечитает.
     const version = this.#fileVersion();
-    const rows = this.#db.prepare(
-      "SELECT receiver, name, words, purpose, keys, author, time FROM methods" +
-        " ORDER BY receiver, name",
-    ).all();
-    this.#methods = rows.map((row) =>
-      new ImageMethod({
-        receiver: String(row.receiver).split(" "),
-        name: String(row.name),
-        words: wordsOf(String(row.words)),
-        purpose: String(row.purpose),
-        keys: String(row.keys),
-        author: String(row.author),
-        time: String(row.time),
-      })
+    const rows = this.#db
+      .prepare(
+        "SELECT receiver, name, words, purpose, keys, author, time FROM methods" +
+          " ORDER BY receiver, name",
+      )
+      .all();
+    this.#methods = rows.map(
+      (row) =>
+        new ImageMethod({
+          receiver: String(row.receiver).split(" "),
+          name: String(row.name),
+          words: wordsOf(String(row.words)),
+          purpose: String(row.purpose),
+          keys: String(row.keys),
+          author: String(row.author),
+          time: String(row.time),
+        }),
     );
     this.#version = version;
   }
@@ -232,9 +240,10 @@ export class Image implements Disposable {
   #shelf: Shelf;
 
   private constructor(file: string | undefined) {
-    this.#shelf = file === undefined
-      ? HOMELESS
-      : new Closed(file, (opened) => this.#shelf = opened);
+    this.#shelf =
+      file === undefined
+        ? HOMELESS
+        : new Closed(file, (opened) => (this.#shelf = opened));
   }
 
   /**

@@ -32,7 +32,7 @@ export function matchDiscussion(
     );
   }
   const matched = discussions.filter((d) =>
-    d.id.toLowerCase().startsWith(needle)
+    d.id.toLowerCase().startsWith(needle),
   );
   if (matched.length === 0) {
     throw new DiscussionRefError(`дискуссия '${ref}' не найдена в этом MR`);

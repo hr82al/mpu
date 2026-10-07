@@ -6,15 +6,7 @@
  */
 
 import { Buffer } from "node:buffer";
-import {
-  lstat,
-  mkdir,
-  open,
-  rename,
-  rm,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { lstat, mkdir, open, rename, rm, stat, unlink } from "node:fs/promises";
 import { hasErrorCode } from "../oserror/mod.ts";
 
 /**
@@ -113,13 +105,13 @@ async function rotate(
   rotation: Rotation,
 ): Promise<void> {
   if (rotation.maxBytes <= 0) return;
-  if (await sizeOf(path) < rotation.maxBytes) return;
+  if ((await sizeOf(path)) < rotation.maxBytes) return;
   const release = await waitLock(dir);
   if (release === undefined) return;
   try {
     // Размер перечитывается под локом: пока мы ждали, файл мог
     // ротировать сосед — второй раз подряд ротировать нечего.
-    if (await sizeOf(path) >= rotation.maxBytes) {
+    if ((await sizeOf(path)) >= rotation.maxBytes) {
       await shift(path, rotation.keep);
     }
   } finally {

@@ -25,12 +25,17 @@ import {
 } from "./threads.ts";
 
 const argsSchema = z.object({
-  discussion: z.string({
-    error: "нужен id: полный id треда или префикс от 6 символов",
-  }).describe("id треда или его префикс (≥6 символов)"),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  discussion: z
+    .string({
+      error: "нужен id: полный id треда или префикс от 6 символов",
+    })
+    .describe("id треда или его префикс (≥6 символов)"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   json: z.boolean().default(false).describe("объект треда JSON"),
 });
 
@@ -58,7 +63,7 @@ export function renderShow(thread: ShowResult, json: boolean): string {
   if (json) return `${JSON.stringify(thread, null, 2)}\n`;
   const parts = [
     `discussion ${thread.id} · ${thread.location ?? "general"} · ` +
-    statusWord(thread),
+      statusWord(thread),
   ];
   for (const note of thread.notes) {
     parts.push("", noteHeadline(note), note.body);

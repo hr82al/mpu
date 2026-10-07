@@ -27,8 +27,8 @@ function unopened(line: readonly string[]): readonly string[] {
 export const OWN: Order = {
   argv(line) {
     const words = unopened(line);
-    const at = words.findIndex((word, i) =>
-      word === GRAMMAR.close && words[i - 1] !== GRAMMAR.literal
+    const at = words.findIndex(
+      (word, i) => word === GRAMMAR.close && words[i - 1] !== GRAMMAR.literal,
     );
     return at < 0 ? words : words.slice(0, at);
   },

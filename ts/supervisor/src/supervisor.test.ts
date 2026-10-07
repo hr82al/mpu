@@ -104,9 +104,9 @@ function log() {
 /** PID-ы запусков дочернего `name` по строкам супервизора. */
 function pids(lines: readonly string[], name: string): number[] {
   const prefix = `[supervisor] ${name}: запущен, pid `;
-  return lines.filter((line) => line.startsWith(prefix)).map((line) =>
-    Number(line.slice(prefix.length))
-  );
+  return lines
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => Number(line.slice(prefix.length)));
 }
 
 /** Сторож: ожидание, которое не наступит, — отказ теста, а не зависание. */
@@ -151,7 +151,7 @@ it("back падает трижды: паузы 1, 2, 4 с, mcp и task живы 
   expect(pids(out.lines, "mcp")).toStrictEqual([supervisor.mcp.pid()]);
   expect(pids(out.lines, "task")).toStrictEqual([supervisor.task.pid()]);
   await out.until((lines) =>
-    lines.some((line) => line.startsWith("[task] live pid"))
+    lines.some((line) => line.startsWith("[task] live pid")),
   );
   await supervisor.stop();
   // Вывод дочерних — с префиксами, свои строки — со своим.
@@ -173,21 +173,17 @@ it("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоборо�
   const time = clock(0);
   const out = log();
   const handlers = new Map<SupervisorSignal, () => void>();
-  const running = runSupervisor([
-    "--back",
-    "live",
-    "--mcp",
-    "stubborn",
-    "--task",
-    "live",
-  ], {
-    launcher: LAUNCHER,
-    clock: time.fake,
-    log: out.sink,
-    stdout: () => {},
-    onSignal: (signal, handler) => handlers.set(signal, handler),
-    watch: QUIET_WATCH,
-  });
+  const running = runSupervisor(
+    ["--back", "live", "--mcp", "stubborn", "--task", "live"],
+    {
+      launcher: LAUNCHER,
+      clock: time.fake,
+      log: out.sink,
+      stdout: () => {},
+      onSignal: (signal, handler) => handlers.set(signal, handler),
+      watch: QUIET_WATCH,
+    },
+  );
   const started = (name: string, n: number) =>
     within(
       out.until((lines) => pids(lines, name).length >= n),
@@ -196,8 +192,8 @@ it("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоборо�
   /** Дочерний сам сказал, что жив (у упрямого — обработчик стоит). */
   const ready = (prefix: string, n: number) =>
     within(
-      out.until((lines) =>
-        lines.filter((line) => line.startsWith(prefix)).length >= n
+      out.until(
+        (lines) => lines.filter((line) => line.startsWith(prefix)).length >= n,
       ),
       `${n}-я строка ${prefix}`,
     );
@@ -223,8 +219,8 @@ it("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоборо�
   await time.expire();
   expect(await within(running, "остановка супервизора")).toBe(0);
   expect(
-    out.lines.filter((line) =>
-      line === "[supervisor] mcp: не ответил на SIGTERM, SIGKILL"
+    out.lines.filter(
+      (line) => line === "[supervisor] mcp: не ответил на SIGTERM, SIGKILL",
     ).length,
   ).toBe(2);
   for (const pid of [back1, back2, mcp1, mcp2, task1]) {
@@ -250,28 +246,14 @@ it("--version — версия и код 0, ничего не запускает
 });
 
 describe("неверные флаги — строка использования, код 2, ничего не запускается", () => {
-  for (
-    const args of [
-      [],
-      ["--back", "a"],
-      ["--back", "a", "--mcp"],
-      [
-        "--back",
-        "a",
-        "--port",
-        "b",
-      ],
-      ["--back", "a", "--mcp", "b"],
-      [
-        "--back",
-        "a",
-        "--mcp",
-        "b",
-        "--port",
-        "c",
-      ],
-    ]
-  ) {
+  for (const args of [
+    [],
+    ["--back", "a"],
+    ["--back", "a", "--mcp"],
+    ["--back", "a", "--port", "b"],
+    ["--back", "a", "--mcp", "b"],
+    ["--back", "a", "--mcp", "b", "--port", "c"],
+  ]) {
     it(args.join(" ") || "(пусто)", async () => {
       const errors: string[] = [];
       const code = await runSupervisor(args, {

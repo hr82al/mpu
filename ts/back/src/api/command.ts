@@ -53,17 +53,20 @@ export function endpointCommand(spec: EndpointSpec): Command {
 
   const shape: Record<string, z.ZodType> = {};
   for (const name of params) {
-    shape[name] = z.string({ error: `нужен ${name}: ${helpOf(name)}` })
+    shape[name] = z
+      .string({ error: `нужен ${name}: ${helpOf(name)}` })
       .describe(helpOf(name));
   }
   for (const field of fields) shape[field.name] = fieldSchema(spec, field);
   if (spec.body === true) {
-    shape[BODY_INPUT] = z.string().optional().describe(
-      "полный JSON body: '<json>'",
-    );
-    shape[BODY_FILE_INPUT] = z.string().optional().describe(
-      "путь к файлу с полным JSON body",
-    );
+    shape[BODY_INPUT] = z
+      .string()
+      .optional()
+      .describe("полный JSON body: '<json>'");
+    shape[BODY_FILE_INPUT] = z
+      .string()
+      .optional()
+      .describe("путь к файлу с полным JSON body");
   }
 
   const forms: Record<string, { positional?: "one"; short?: string }> = {};
@@ -114,10 +117,13 @@ function pathKeys(
   const keys: Record<string, string | KeyRename> = {};
   for (const [at, param] of params.entries()) {
     const key = pathKeyOf(params, at);
-    keys[key] = key === param || key === "id" ? param : {
-      input: param,
-      why: `параметр пути :${param} — по имени сущности`,
-    };
+    keys[key] =
+      key === param || key === "id"
+        ? param
+        : {
+            input: param,
+            why: `параметр пути :${param} — по имени сущности`,
+          };
   }
   return keys;
 }
@@ -165,13 +171,14 @@ function fieldSchema(spec: EndpointSpec, field: FieldSpec): z.ZodType {
     // схема, а справка печатает её из схемы («(обязателен)»,
     // `src/entrypoint/help.ts`). Написать её ещё и словами значило бы
     // назвать один факт дважды в одной строке.
-    return z.string({ error: `--${field.name} обязателен` }).describe(
-      `(${field.type}) ${field.help}`,
-    );
+    return z
+      .string({ error: `--${field.name} обязателен` })
+      .describe(`(${field.type}) ${field.help}`);
   }
-  return z.string().optional().describe(
-    `(${field.type})${requirementMark(spec, field)} ${field.help}`,
-  );
+  return z
+    .string()
+    .optional()
+    .describe(`(${field.type})${requirementMark(spec, field)} ${field.help}`);
 }
 
 /** Объявляет ли схема поле обязательным: только там, где это безусловно. */
@@ -222,9 +229,10 @@ async function runEndpoint(
   // `--body` его бросает схема (там же и подсказка), у команды с
   // `--body` — разбор полей. Подсказка добавляется здесь, чтобы одна
   // и та же нехватка печаталась одинаково независимо от слоя.
-  const body = raw === undefined
-    ? withHelpHint(spec, () => bodyFromFields(fields, args))
-    : bodyArg(raw);
+  const body =
+    raw === undefined
+      ? withHelpHint(spec, () => bodyFromFields(fields, args))
+      : bodyArg(raw);
 
   const session = openSlback(io);
   try {
@@ -344,8 +352,9 @@ function assertDeclaration(
 
 /** Как вход пишется ключом: параметр пути — по `pathKeys`, поле — своим именем. */
 function keyWords(params: readonly string[]): ReadonlyMap<string, string> {
-  const keys = Object.entries(pathKeys(params)).map(([key, declared]) =>
-    [typeof declared === "string" ? declared : declared.input, key] as const
+  const keys = Object.entries(pathKeys(params)).map(
+    ([key, declared]) =>
+      [typeof declared === "string" ? declared : declared.input, key] as const,
   );
   return new Map(keys);
 }
@@ -365,7 +374,7 @@ function usageOf(spec: EndpointSpec, params: readonly string[]): string {
       // правда, что и схема.
       schemaRequires(spec, field)
         ? `${fieldKey(field)}: ЗНАЧЕНИЕ`
-        : `[${fieldKey(field)}: ЗНАЧЕНИЕ]`
+        : `[${fieldKey(field)}: ЗНАЧЕНИЕ]`,
     ),
     ...(spec.body === true
       ? [`[${BODY_INPUT}: JSON | ${BODY_FILE_INPUT}: <путь>]`]
@@ -407,9 +416,9 @@ function examplesOf(
     `mpu api ${spec.name}`,
     ...params.map((name) => `${keys.get(name)}: ${SAMPLE_PARAM[name] ?? name}`),
   ];
-  const required = (spec.fields ?? []).filter((field) =>
-    field.required === true
-  ).map((field) => `${fieldKey(field)}: ${SAMPLE_FIELD[field.type]}`);
+  const required = (spec.fields ?? [])
+    .filter((field) => field.required === true)
+    .map((field) => `${fieldKey(field)}: ${SAMPLE_FIELD[field.type]}`);
   const plain = [...words, ...required].join(" ");
   if (spec.body !== true) return [plain];
   return [plain, `${words.join(" ")} ${BODY_FILE_INPUT}: req.json`];
@@ -418,7 +427,7 @@ function examplesOf(
 function helpText(spec: EndpointSpec): string {
   const parts = [
     `Звать, когда нужен прямой вызов sl-back ${spec.method} ${spec.path}: ` +
-    "ответ приходит как есть, без разбора и пересчёта.",
+      "ответ приходит как есть, без разбора и пересчёта.",
   ];
   if (spec.about !== undefined) parts.push(spec.about);
   if (spec.body === true) {

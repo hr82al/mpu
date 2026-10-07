@@ -25,32 +25,47 @@ import { type OutputCell, renderGetRaw, renderGetTsv } from "./render.ts";
 const RANGES_HINT =
   "mpu xlsx get range: ДИАПАЗОН... [from: FILE] [sheet: ЛИСТ]";
 
-const argsSchema = z.object({
-  ranges: z.array(z.string()).default([]).describe(
-    "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
-  ),
-  file: z.string().optional().describe(
-    "путь или алиас .xlsx; без ключа: MPU_XLSX (env-файл), " +
-      "config xlsx.default",
-  ),
-  sheet: z.string().optional().describe(
-    "префиксует диапазоны без «!»; без диапазонов — весь лист",
-  ),
-  from: z.array(z.string()).default([]).describe(
-    "файл с диапазонами построчно; ключ повторяется; «-» — stdin",
-  ),
-  render: z.enum(["both", "values", "formulas"], {
-    error: (issue) => `invalid render: value "${String(issue.input)}"`,
-  }).default("both").describe("что попадает в ячейку результата"),
-  raw: z.boolean().default(false).describe(
-    "формат raw: голые значения без шапки",
-  ),
-  tsv: z.boolean().default(false).describe(
-    "формат tsv: таблица с шапкой range/value",
-  ),
-}).refine((args) => !(args.raw && args.tsv), {
-  error: "only one format: raw or tsv",
-});
+const argsSchema = z
+  .object({
+    ranges: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
+      ),
+    file: z
+      .string()
+      .optional()
+      .describe(
+        "путь или алиас .xlsx; без ключа: MPU_XLSX (env-файл), " +
+          "config xlsx.default",
+      ),
+    sheet: z
+      .string()
+      .optional()
+      .describe("префиксует диапазоны без «!»; без диапазонов — весь лист"),
+    from: z
+      .array(z.string())
+      .default([])
+      .describe("файл с диапазонами построчно; ключ повторяется; «-» — stdin"),
+    render: z
+      .enum(["both", "values", "formulas"], {
+        error: (issue) => `invalid render: value "${String(issue.input)}"`,
+      })
+      .default("both")
+      .describe("что попадает в ячейку результата"),
+    raw: z
+      .boolean()
+      .default(false)
+      .describe("формат raw: голые значения без шапки"),
+    tsv: z
+      .boolean()
+      .default(false)
+      .describe("формат tsv: таблица с шапкой range/value"),
+  })
+  .refine((args) => !(args.raw && args.tsv), {
+    error: "only one format: raw or tsv",
+  });
 
 const cellSchema = z.object({
   range: z.string(),
@@ -75,7 +90,8 @@ export const getCommand = defineCommand({
     },
   },
   summary: "значения диапазонов книги",
-  usage: "mpu xlsx get [range: ДИАПАЗОН]... [file: FILE] [sheet: ЛИСТ] " +
+  usage:
+    "mpu xlsx get [range: ДИАПАЗОН]... [file: FILE] [sheet: ЛИСТ] " +
     "[from: FROM] [render: both|values|formulas] [end raw|tsv|json]",
   help: `Звать, когда нужны значения или формулы ячеек локальной книги
 xlsx — присланной клиентом выгрузки или своей копии: ответ точный, со
@@ -125,7 +141,7 @@ Exit: 0 — успех (пустой результат не ошибка); 2 �
     return {
       file: report.resolved.path,
       cells: collectCells(workbook, targets).map((cell) =>
-        project(cell, args.render)
+        project(cell, args.render),
       ),
     };
   },
@@ -173,9 +189,8 @@ async function fromFileTokens(
   for (const file of files) {
     let text: string;
     try {
-      text = file === "-"
-        ? await readTextStdin(io)
-        : await io.readTextFile(file);
+      text =
+        file === "-" ? await readTextStdin(io) : await io.readTextFile(file);
     } catch (err) {
       // Отказ строки (`stdin` уже прочитан ключом) — её слово, не сбой файла.
       if (err instanceof UsageError) throw err;

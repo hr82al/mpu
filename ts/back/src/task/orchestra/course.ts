@@ -119,8 +119,8 @@ export class Course {
   }
 
   #answered(question: Message): boolean {
-    return this.#messages.some((one) =>
-      one.kind === ANSWER && one.id > question.id
+    return this.#messages.some(
+      (one) => one.kind === ANSWER && one.id > question.id,
     );
   }
 }

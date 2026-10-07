@@ -120,16 +120,16 @@ function inList(ids: readonly number[]): string {
  */
 export function sl1Sql(targets: readonly number[]): string {
   const ids = inList(targets);
-  const spreadsheets =
-    `SELECT spreadsheet_id FROM public.spreadsheets WHERE client_id IN (${ids})`;
+  const spreadsheets = `SELECT spreadsheet_id FROM public.spreadsheets WHERE client_id IN (${ids})`;
   const lines = [
     "SET session_replication_role = replica;",
-    ...SPREADSHEET_CHILDREN.map((table) =>
-      `DELETE FROM public.${table} WHERE spreadsheet_id IN (${spreadsheets});`
+    ...SPREADSHEET_CHILDREN.map(
+      (table) =>
+        `DELETE FROM public.${table} WHERE spreadsheet_id IN (${spreadsheets});`,
     ),
     `DELETE FROM public.clients WHERE id IN (${ids});`,
-    ...SL1_CLIENT_TABLES.map((table) =>
-      `DELETE FROM public.${table} WHERE client_id IN (${ids});`
+    ...SL1_CLIENT_TABLES.map(
+      (table) => `DELETE FROM public.${table} WHERE client_id IN (${ids});`,
     ),
     ...targets.map((id) => `DROP SCHEMA IF EXISTS schema_${id} CASCADE;`),
   ];
@@ -142,8 +142,8 @@ export function sl0Sql(targets: readonly number[]): string {
   return [
     "SET session_replication_role = replica;",
     `DELETE FROM public.clients WHERE id IN (${ids});`,
-    ...SL0_CLIENT_TABLES.map((table) =>
-      `DELETE FROM public.${table} WHERE client_id IN (${ids});`
+    ...SL0_CLIENT_TABLES.map(
+      (table) => `DELETE FROM public.${table} WHERE client_id IN (${ids});`,
     ),
   ].join("\n");
 }

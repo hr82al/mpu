@@ -108,8 +108,10 @@ function refusalOf(repoName: string, cause: NoAnalyzers["cause"]): string {
     case "no-configs":
       return `в репозитории ${repoName} нет ни одного проекта`;
     case "no-programs":
-      return `в репозитории ${repoName} есть конфигурации проектов, ` +
-        "но ни одна программа не собралась непустой";
+      return (
+        `в репозитории ${repoName} есть конфигурации проектов, ` +
+        "но ни одна программа не собралась непустой"
+      );
     default: {
       const unknown: never = cause;
       throw new Error(`неизвестная причина отказа: ${unknown}`);
@@ -149,7 +151,8 @@ async function typeAnalyzers(
   // потерять объявление молча, под шапкой «ответ полон». Проверка
   // стоит обход каталога окна, построение — секунды.
   if (
-    window !== undefined && skipped.length > 0 &&
+    window !== undefined &&
+    skipped.length > 0 &&
     !covered(analyzers, window, repo.root)
   ) {
     for (const project of skipped) {
@@ -191,8 +194,9 @@ function covered(
 ): boolean {
   const known = new Set(analyzers.flatMap((analyzer) => analyzer.files()));
   const inside = window.slice(repoRoot.length + 1);
-  return walkFiles(window, CODE_SUFFIXES)
-    .every((path) => known.has(`${inside}/${path}`));
+  return walkFiles(window, CODE_SUFFIXES).every((path) =>
+    known.has(`${inside}/${path}`),
+  );
 }
 
 function textAnalyzer(repo: Repo, reason: string): Analyzer {
@@ -211,9 +215,7 @@ function merged(analyzers: readonly Analyzer[], mark: MarkSource): Analyzer {
     mark,
     hasFile: (path) => analyzers.some((analyzer) => analyzer.hasFile(path)),
     files: () =>
-      [
-        ...new Set(analyzers.flatMap((analyzer) => analyzer.files())),
-      ].sort(),
+      [...new Set(analyzers.flatMap((analyzer) => analyzer.files()))].sort(),
     declarationsOf: (path) => declarationsOf(analyzers, path),
     declarationsRefusal: () => null,
     bodiesOf: () => bodiesOf(analyzers),

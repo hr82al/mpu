@@ -74,12 +74,10 @@ it("define: с «да» — метод записан, правило посев
         "",
       ]);
       // Журнал: вызов метода своей записью, затем команда тела.
-      expect(called.records.map((record) => record.argv.join(" ")))
-        .toStrictEqual([
-          "kiten cardsIn: 9101",
-          "kiten ls",
-        ]);
-    })
+      expect(
+        called.records.map((record) => record.argv.join(" ")),
+      ).toStrictEqual(["kiten cardsIn: 9101", "kiten ls"]);
+    }),
   ));
 
 it("метод отвечает протоколу: messages, understands:, help, complete:, снимок", () =>
@@ -106,7 +104,7 @@ it("метод отвечает протоколу: messages, understands:, help
         "Использование: mpu kiten cardsIn: <сообщение>",
         "образ: мои в колонке",
         "Метод образа, определён human 2026-09-23T10:00:00.000Z.\n" +
-        "Исходник: do :col kiten ls where: column is: @col done",
+          "Исходник: do :col kiten ls where: column is: @col done",
         "Ключи:\n  cardsIn:  id колонки (обязательный)\n",
       ]);
       const complete = await runOnStand(
@@ -115,14 +113,12 @@ it("метод отвечает протоколу: messages, understands:, help
         stand,
         { image: ports },
       );
-      expect(complete.stdout.split("\n").map((row) => row.split("\t")[0]))
-        .toStrictEqual([
-          "card",
-          "cardsIn:",
-          "",
-        ]);
-      const node = registryNodes(image.methods())
-        .find((one) => one.path.join(" ") === "kiten cardsIn:");
+      expect(
+        complete.stdout.split("\n").map((row) => row.split("\t")[0]),
+      ).toStrictEqual(["card", "cardsIn:", ""]);
+      const node = registryNodes(image.methods()).find(
+        (one) => one.path.join(" ") === "kiten cardsIn:",
+      );
       expect(node?.image).toStrictEqual({
         author: "human",
         time: "2026-09-23T10:00:00.000Z",
@@ -130,7 +126,7 @@ it("метод отвечает протоколу: messages, understands:, help
         definition:
           "kiten define: cardsIn: purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done",
       });
-    })
+    }),
   ));
 
 it("голдены testdata/image: прогон на стенде совпадает", async () => {
@@ -186,8 +182,8 @@ const MISDEFINED: readonly (readonly [string, string])[] = [
   [
     "kiten define: z purpose: ^x^ do :c kiten ls done",
     "mpu kiten define: z purpose: ^x^ do :c kiten ls done: требует " +
-    "подтверждения — вызывай mpu ask kiten define: z purpose: ^x^ do :c " +
-    "kiten ls done\n",
+      "подтверждения — вызывай mpu ask kiten define: z purpose: ^x^ do :c " +
+      "kiten ls done\n",
   ],
 ];
 
@@ -205,7 +201,7 @@ it("отказы определения — код 2, ничего не запи
         ]);
       }
       expect(image.methods()).toStrictEqual([]);
-    })
+    }),
   ));
 
 it("метод, достигающий записи: посев ask; без ask — отказ; вопрос на каждый вызов", () =>
@@ -220,7 +216,7 @@ it("метод, достигающий записи: посев ask; без ask 
       expect([bare.exit, bare.stderr]).toStrictEqual([
         2,
         "mpu kiten pingAll: строка может записать (kiten pingAll) — начни с " +
-        "ask: mpu ask kiten pingAll\n",
+          "ask: mpu ask kiten pingAll\n",
       ]);
       expect(stand.asked()).toBe(0);
       const no = await lineOn(stand, policy, ports, "ask kiten pingAll", ["n"]);
@@ -245,7 +241,7 @@ it("метод, достигающий записи: посев ask; без ask 
         "выполнить mpu kiten pingAll",
       ]);
       expect(stand.posted()).toStrictEqual(["11 ping", "12 ping", "13 ping"]);
-    })
+    }),
   ));
 
 it("метод, определённый другим процессом, виден следующей строке", () =>
@@ -275,7 +271,7 @@ it("метод, определённый другим процессом, вид
         "kiten every size",
       );
       expect([second.exit, second.stdout]).toStrictEqual([0, "3\n"]);
-    })
+    }),
   ));
 
 it("forget: — метод исчез из отражения, дополнения, снимка и правил", () =>
@@ -305,8 +301,9 @@ it("forget: — метод исчез из отражения, дополнен�
       );
       assert(!complete.stdout.includes("cardsIn:"), complete.stdout);
       assert(
-        !registryNodes(image.methods())
-          .some((node) => node.path.join(" ") === "kiten cardsIn:"),
+        !registryNodes(image.methods()).some(
+          (node) => node.path.join(" ") === "kiten cardsIn:",
+        ),
       );
       const called = await lineOn(stand, policy, ports, "kiten cardsIn: 9101");
       expect([called.exit, called.stderr]).toStrictEqual([
@@ -324,7 +321,7 @@ it("forget: — метод исчез из отражения, дополнен�
         1,
         "mpu kiten forget: у kiten нет метода cardsIn:\n",
       ]);
-    })
+    }),
   ));
 
 it("image.db — мусор: «образ: …», код 1, до разбора", () =>
@@ -338,7 +335,7 @@ it("image.db — мусор: «образ: …», код 1, до разбора"
         assert(ran.stderr.startsWith("образ: "), ran.stderr);
       }
       expect(stand.asked()).toBe(0);
-    })
+    }),
   ));
 
 it("запрет правила на define: — код 1; нет HOME — отказ записи, код 1", () =>
@@ -366,7 +363,7 @@ it("запрет правила на define: — код 1; нет HOME — от�
         "образ: каталог состояния не задан (нет HOME)\n",
       ]);
       expect(ruleOf(policy, "kiten other:")).toStrictEqual(undefined);
-    })
+    }),
   ));
 
 it("forget: с лишним словом — не строка образа", () =>
@@ -384,7 +381,7 @@ it("forget: с лишним словом — не строка образа", ()
         ran.stderr.startsWith("mpu ask kiten: не понимает forget:"),
         ran.stderr,
       );
-    })
+    }),
   ));
 
 /** Запись журнала без времени, pid и run_id: их тест не сверяет. */
@@ -398,27 +395,34 @@ function stable(record: string): string {
 /** Последняя запись журнала `file`, отобранная `cmd:`, как её печатает `mpu log`. */
 async function lastRecord(file: string, cmd?: string): Promise<string> {
   const io = makeFakeIo({ readTextFile: (path) => readFile(path, "utf8") });
-  const result = await runLog({
-    tail: 1,
-    failed: false,
-    cmd,
-    since: undefined,
-    run: undefined,
-    file,
-  }, io);
+  const result = await runLog(
+    {
+      tail: 1,
+      failed: false,
+      cmd,
+      since: undefined,
+      run: undefined,
+      file,
+    },
+    io,
+  );
   return stable(result.records.join(""));
 }
 
 /** Ожидаемая запись J1–J2 (`platform/image.md`, «Журнал вызовов»). */
 function journaled(line: string, out: string): string {
-  return `### <шапка>\n$ mpu ${line}\n--- out run=<id> ---\n${out}` +
-    "--- end run=<id> exit=0 dur=<сек>s ---\n\n";
+  return (
+    `### <шапка>\n$ mpu ${line}\n--- out run=<id> ---\n${out}` +
+    "--- end run=<id> exit=0 dur=<сек>s ---\n\n"
+  );
 }
 
 /** Ожидаемая запись отказа J3–J3b: секция `err` и код. */
 function refusedRecord(line: string, err: string, exit: number): string {
-  return `### <шапка>\n$ mpu ${line}\n--- err run=<id> ---\n${err}` +
-    `--- end run=<id> exit=${exit} dur=<сек>s ---\n\n`;
+  return (
+    `### <шапка>\n$ mpu ${line}\n--- err run=<id> ---\n${err}` +
+    `--- end run=<id> exit=${exit} dur=<сек>s ---\n\n`
+  );
 }
 
 /** Журнал вызовов во временном каталоге рядом с образом. */
@@ -460,7 +464,7 @@ it("журнал: define: и forget: — по записи со строкой, 
       expect(await lastRecord(journal), "J2").toStrictEqual(
         journaled("ask kiten forget: probe", forgot.stdout),
       );
-    })
+    }),
   ));
 
 it("журнал: отказ самой строки define:/forget: — запись с err и кодом (J3, J3b)", () =>
@@ -495,5 +499,5 @@ it("журнал: отказ самой строки define:/forget: — зап�
           refusedRecord(line, ran.stderr, exit),
         );
       }
-    })
+    }),
   ));

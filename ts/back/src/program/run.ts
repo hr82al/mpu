@@ -35,13 +35,13 @@ const REFUSED = 2;
  */
 export type LineReply =
   | {
-    readonly data: unknown;
-    readonly command: {
-      readonly path: readonly string[];
-      readonly argv: readonly string[];
-    } | null;
-    readonly shown: string;
-  }
+      readonly data: unknown;
+      readonly command: {
+        readonly path: readonly string[];
+        readonly argv: readonly string[];
+      } | null;
+      readonly shown: string;
+    }
   | { readonly exit: number };
 
 /** Итог программы (граница кадра): код и отказ-объект; нет отказа — `null`. */
@@ -156,10 +156,12 @@ function replyOf(reply: LineReply, commands: Commands): Reply {
   const { data, command, shown } = reply;
   return {
     value: () =>
-      command === null ? fromData(dataOf(data)) : new CommandResult(
-        commands.view(command.path, data, command.argv),
-        shown,
-      ),
+      command === null
+        ? fromData(dataOf(data))
+        : new CommandResult(
+            commands.view(command.path, data, command.argv),
+            shown,
+          ),
     printed: () => new Printed(shown),
   };
 }
@@ -175,9 +177,9 @@ function untilCancelled<T>(
     const cancel = () => reject(new Cancelled("программа отменена"));
     if (signal.aborted) return cancel();
     signal.addEventListener("abort", cancel, { once: true });
-    promise.then(resolve, reject).finally(() =>
-      signal.removeEventListener("abort", cancel)
-    );
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", cancel));
   });
 }
 
@@ -232,16 +234,19 @@ export async function runProgram(
     };
   }
   const place = new Place();
-  const machine = new Machine({
-    signal: ports.signal,
-    pace: ports.pace,
-    print: ports.print,
-    core: async (line) =>
-      replyOf(
-        await untilCancelled(ports.core(line), ports.signal),
-        ports.commands,
-      ),
-  }, place);
+  const machine = new Machine(
+    {
+      signal: ports.signal,
+      pace: ports.pace,
+      print: ports.print,
+      core: async (line) =>
+        replyOf(
+          await untilCancelled(ports.core(line), ports.signal),
+          ports.commands,
+        ),
+    },
+    place,
+  );
   try {
     const last = await machine.run(program.run(new Scope(params), place));
     ports.print(last.shown());

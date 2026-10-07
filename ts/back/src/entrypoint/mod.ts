@@ -418,9 +418,7 @@ async function runLeafCommand(
       // собственная форма вывода команды начинается с её имени.
       return await run(args, json.json);
     }
-    output.stderr(
-      `mpu: --json не применяется к команде '${path.join(" ")}'\n`,
-    );
+    output.stderr(`mpu: --json не применяется к команде '${path.join(" ")}'\n`);
     return 2;
   }
   // Команда, объявившая собственный `--json` (`specs/sql-ro.md`),
@@ -593,9 +591,10 @@ export function withoutJsonFlag(argv: readonly string[]): readonly string[] {
  * Снимает общий параметр формы вывода из argv. Всё после `--` —
  * позиционные аргументы команды и не разбирается.
  */
-function takeJsonFlag(
-  argv: readonly string[],
-): { args: readonly string[]; json: boolean } {
+function takeJsonFlag(argv: readonly string[]): {
+  args: readonly string[];
+  json: boolean;
+} {
   const args: string[] = [];
   let json = false;
   let index = 0;
@@ -633,9 +632,10 @@ function dropPath(
 }
 
 /** Самое длинное начало argv, опознанное реестром как путь команды. */
-function matchPath(
-  argv: readonly string[],
-): { path: readonly string[]; rest: readonly string[] } {
+function matchPath(argv: readonly string[]): {
+  path: readonly string[];
+  rest: readonly string[];
+} {
   const path: string[] = [];
   let index = 0;
   while (index < argv.length && !argv[index].startsWith("-")) {
@@ -692,10 +692,7 @@ type SubPlace =
  * `mpu ozon-jobs show --help` перепутанными не считаются: второго
  * позиционного там нет, и лист сам ответит справкой.
  */
-function subPlace(
-  group: CommandGroup,
-  args: readonly string[],
-): SubPlace {
+function subPlace(group: CommandGroup, args: readonly string[]): SubPlace {
   if (group.layout !== "selector-first") return { kind: "absent" };
   const names = new Set(childrenOf(group.path).map((child) => child.name));
   const positions = positionalIndexes(group, args);

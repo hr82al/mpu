@@ -32,16 +32,13 @@ it("имена контейнеров: все Names, ведущий слэш с�
     },
     { Id: "b", Names: ["mp-wb-loader"], State: "exited", Image: "" },
   ]);
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response(body, { status: 200 })
+  const { baseUrl, stop } = await serveFetch(
+    () => new Response(body, { status: 200 }),
   );
   try {
-    expect(await listAllContainerNamesOverHttp(accessTo(baseUrl), 4))
-      .toStrictEqual([
-        "mp-api",
-        "mp-api-alias",
-        "mp-wb-loader",
-      ]);
+    expect(
+      await listAllContainerNamesOverHttp(accessTo(baseUrl), 4),
+    ).toStrictEqual(["mp-api", "mp-api-alias", "mp-wb-loader"]);
   } finally {
     await stop();
   }
@@ -93,13 +90,16 @@ it("чтение Loki уходит в query_range", async () => {
     return new Response(body, { status: 200 });
   });
   try {
-    const entries = await readLokiOverHttp({ baseUrl }, {
-      logql: '{host="sl-1"}',
-      startNs: 1n,
-      endNs: 2n,
-      limit: 3,
-      direction: "forward",
-    });
+    const entries = await readLokiOverHttp(
+      { baseUrl },
+      {
+        logql: '{host="sl-1"}',
+        startNs: 1n,
+        endNs: 2n,
+        limit: 3,
+        direction: "forward",
+      },
+    );
     expect(entries).toStrictEqual([{ tsNs: "1", line: "строка", labels: {} }]);
     expect(seen[0].pathname).toBe("/loki/api/v1/query_range");
   } finally {

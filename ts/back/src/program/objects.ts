@@ -321,10 +321,8 @@ const NUMBER: Protocol<Num> = new Protocol<Num>("число", {
   "plus:": arithmetic("plus:", "сумма", (a, b) => a + b),
   "minus:": arithmetic("minus:", "разность", (a, b) => a - b),
   "times:": arithmetic("times:", "произведение", (a, b) => a * b),
-  "div:": arithmetic(
-    "div:",
-    "целое частное с округлением вниз",
-    (a, b) => Math.floor(a / divisor(b)),
+  "div:": arithmetic("div:", "целое частное с округлением вниз", (a, b) =>
+    Math.floor(a / divisor(b)),
   ),
   "dividedBy:": arithmetic(
     "dividedBy:",
@@ -712,10 +710,7 @@ export interface Enumerable extends Value {
  * данных: `each:`, `collect:`, `select:`, `reject:`, `detect:`,
  * `inject:into:`.
  */
-export function enumeration<T extends Enumerable>(): Record<
-  string,
-  Method<T>
-> {
+export function enumeration<T extends Enumerable>(): Record<string, Method<T>> {
   return {
     "each:": {
       purpose: "вызвать блок с каждым элементом",

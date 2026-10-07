@@ -76,8 +76,8 @@ export function framePosition(
   // Средний y — по фреймам с координатами: у фрейма без `position`
   // координаты нет вовсе, и включать его в среднее было бы
   // подстановкой нуля вместо неизвестного.
-  const middle = placed.reduce((sum, frame) => sum + (frame.y ?? 0), 0) /
-    placed.length;
+  const middle =
+    placed.reduce((sum, frame) => sum + (frame.y ?? 0), 0) / placed.length;
   return { x: right + FRAME_GAP + width / 2, y: middle };
 }
 
@@ -177,7 +177,7 @@ export async function renderPlan(
     // Контейнер — тот, чьё имя является префиксом имени другого шейпа:
     // вложенность в исходнике задаётся точкой (`recalc.check`).
     const container = plan.shapes.some((other) =>
-      other.name.startsWith(`${shape.name}.`)
+      other.name.startsWith(`${shape.name}.`),
     );
     try {
       ids.set(
@@ -197,17 +197,18 @@ export async function renderPlan(
     // успех оставил бы на доске текст вместо таблицы, а оператор
     // принял бы его за сделанное (инвариант спеки).
     if (block.text.includes("|")) {
-      io.progress(
-        `[warn] markdown table in '${block.name}' rendered as text`,
-      );
+      io.progress(`[warn] markdown table in '${block.name}' rendered as text`);
     }
     try {
       await board.create("/texts", {
         data: { content: `<p>${htmlLabel(block.text)}</p>` },
         position: {
           x: plan.frameWidth / 2,
-          y: plan.diagramHeight + MARKDOWN_MARGIN +
-            index * MARKDOWN_BLOCK_HEIGHT + MARKDOWN_BLOCK_HEIGHT / 2,
+          y:
+            plan.diagramHeight +
+            MARKDOWN_MARGIN +
+            index * MARKDOWN_BLOCK_HEIGHT +
+            MARKDOWN_BLOCK_HEIGHT / 2,
         },
         geometry: {
           width: Math.max(

@@ -42,7 +42,7 @@ export function linePrompt(line: Asking, door: PromptDoor): Prompt {
     // Молчание клиента — пустой ответ, а не «спросить некого»: спросили
     // ведь, и человек либо закрыл ввод, либо не ответил за срок
     // (`platform/back-rpc.md`), либо строку успели остановить.
-    return await answer.given(await line.answer() ?? "");
+    return await answer.given((await line.answer()) ?? "");
   };
   return {
     line: (question, answer) => asked("line", question, answer),

@@ -43,9 +43,11 @@ export class Tally {
   }
 
   summary(): string {
-    return `mp-clone: ${this.clonedNames.length} склонировано, ` +
+    return (
+      `mp-clone: ${this.clonedNames.length} склонировано, ` +
       `${this.presentNames.length} уже было, ` +
-      `${this.absentNames.length} нет на сервере`;
+      `${this.absentNames.length} нет на сервере`
+    );
   }
 }
 
@@ -61,7 +63,10 @@ export interface Step {
 
 /** Каталог со своим `.git`: не трогается никогда. */
 export class Present implements Step {
-  constructor(private readonly name: string, private readonly head: string) {}
+  constructor(
+    private readonly name: string,
+    private readonly head: string,
+  ) {}
 
   planned(): string {
     return `уже есть: ${this.name} (${this.head})`;
@@ -134,7 +139,10 @@ export class Fresh implements Step {
  * checkout поверх, отличающиеся файлы — обратно из копии.
  */
 export class OverDummy implements Step {
-  constructor(private readonly name: string, private readonly backup: string) {}
+  constructor(
+    private readonly name: string,
+    private readonly backup: string,
+  ) {}
 
   planned(): string {
     return `поверх пустышки: ${this.name}, копия ${this.backup}`;
@@ -161,13 +169,11 @@ export class OverDummy implements Step {
 
   private async cloneInto(context: StepContext, dir: string): Promise<void> {
     const temp = `${context.backupDir}/.clone-${this.name}`;
-    await must(context.shell, [
-      "git",
-      "clone",
-      "--no-checkout",
-      urlOf(this.name),
-      temp,
-    ], this.name);
+    await must(
+      context.shell,
+      ["git", "clone", "--no-checkout", urlOf(this.name), temp],
+      this.name,
+    );
     await must(
       context.shell,
       ["cp", "-a", `${temp}/.git`, `${dir}/.git`],

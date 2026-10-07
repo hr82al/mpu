@@ -41,8 +41,9 @@ describe("решение для пути строки по эталону", () =
   for (const one of cases) {
     it(one.name, () => {
       const rules = new Rules(
-        one.rules.map((rule) =>
-          new Rule(RulePath.parse(rule.path), verdictNamed(rule.verdict))
+        one.rules.map(
+          (rule) =>
+            new Rule(RulePath.parse(rule.path), verdictNamed(rule.verdict)),
         ),
       );
       expect(rules.decide(one.path.split(" ")).record()).toStrictEqual({

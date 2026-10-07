@@ -66,11 +66,7 @@ export function parseCalendarDate(input: string, flag: string): string {
 }
 
 /** Форма `Ч:ММ`: минуты вне 00–59 — свой текст, а не «неразобранная». */
-function clockMinutes(
-  compact: string,
-  input: string,
-  argName: string,
-): number {
+function clockMinutes(compact: string, input: string, argName: string): number {
   const parts = CLOCK_FORM.exec(compact);
   if (parts === null) throw unparsedDuration(input, argName);
   const minutes = Number(parts[2]);
@@ -89,11 +85,7 @@ function clockMinutes(
  * оно и есть весь вход: `1h15` иначе молча значило бы «1 час 15 минут» у
  * одного читателя и «1 час 15 часов» у другого.
  */
-function unitMinutes(
-  compact: string,
-  input: string,
-  argName: string,
-): number {
+function unitMinutes(compact: string, input: string, argName: string): number {
   const used = new Set<string>();
   let total = 0;
   let position = 0;
@@ -192,7 +184,9 @@ function durationError(
 function isRealDay(parts: RegExpExecArray): boolean {
   const [year, month, day] = [parts[1], parts[2], parts[3]].map(Number);
   const stamp = new Date(Date.UTC(year, month - 1, day));
-  return stamp.getUTCFullYear() === year &&
+  return (
+    stamp.getUTCFullYear() === year &&
     stamp.getUTCMonth() === month - 1 &&
-    stamp.getUTCDate() === day;
+    stamp.getUTCDate() === day
+  );
 }

@@ -41,9 +41,12 @@ export function urlOf(name: string): string {
 
 /** Первая непустая строка вывода — текст отказа внешней программы. */
 export function firstLine(text: string): string {
-  return text.split("\n").map((line) => line.trim()).find((line) =>
-    line !== ""
-  ) ?? "";
+  return (
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line !== "") ?? ""
+  );
 }
 
 /** Сервер: ключ хоста проверяется один раз, до первого `ls-remote`. */
@@ -82,8 +85,7 @@ export class Remote {
       return;
     }
     throw new CloneStop(
-      `ключа ${HOST}:${PORT} нет в known_hosts — отпечаток ${await this
-        .fingerprint()}; принять: ssh-keyscan -p ${PORT} ${HOST} >> ~/.ssh/known_hosts`,
+      `ключа ${HOST}:${PORT} нет в known_hosts — отпечаток ${await this.fingerprint()}; принять: ssh-keyscan -p ${PORT} ${HOST} >> ~/.ssh/known_hosts`,
       3,
     );
   }
@@ -98,7 +100,8 @@ export class Remote {
       ["ssh-keygen", "-lf", "-"],
       scan.stdout,
     );
-    const prints = listed.stdout.split("\n")
+    const prints = listed.stdout
+      .split("\n")
       .map((line) => line.split(" ")[1] ?? "")
       .filter((print) => print.startsWith("SHA256:"));
     return prints.length === 0

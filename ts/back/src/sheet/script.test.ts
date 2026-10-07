@@ -49,10 +49,10 @@ it("кавычки защищают ';', '#' и перевод строки", ()
 
 it("пустые инструкции отбрасываются, номера идут по оставшимся", () => {
   const parsed = splitScript("a;;\n\n b ");
-  expect(parsed.map((i) => [i.text, i.line])).toStrictEqual([["a", 1], [
-    "b",
-    2,
-  ]]);
+  expect(parsed.map((i) => [i.text, i.line])).toStrictEqual([
+    ["a", 1],
+    ["b", 2],
+  ]);
 });
 
 it("токены делятся пробелами, кавычки остаются в токене", () => {

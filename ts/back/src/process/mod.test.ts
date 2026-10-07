@@ -52,11 +52,13 @@ it("запись журнала называет каталог того, кто
   );
   expect(code).toBe(7);
   expect(printed.join("")).toBe("0.0.0\n");
-  expect(begun).toStrictEqual([{
-    kind: "argv",
-    argv: ["version"],
-    cwd: "/каталог/вызывающего",
-  }]);
+  expect(begun).toStrictEqual([
+    {
+      kind: "argv",
+      argv: ["version"],
+      cwd: "/каталог/вызывающего",
+    },
+  ]);
 });
 
 it("каталог исчез: записи нет, вызов доходит до конца", async () => {

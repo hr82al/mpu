@@ -7,11 +7,13 @@ import { aliases, aliasPath, removeAlias, setAlias } from "../config/mod.ts";
 /** Разрешённые имена алиасов (контракт спеки). */
 const NAME_RE = /^[A-Za-z0-9_.-]+$/;
 
-const nameSchema = z.string({
-  error: "alias add ожидает name: и path:",
-}).refine((name) => NAME_RE.test(name), {
-  error: (issue) => `invalid alias name "${String(issue.input)}"`,
-});
+const nameSchema = z
+  .string({
+    error: "alias add ожидает name: и path:",
+  })
+  .refine((name) => NAME_RE.test(name), {
+    error: (issue) => `invalid alias name "${String(issue.input)}"`,
+  });
 
 export const aliasAddCommand = defineCommand({
   path: ["xlsx", "alias", "add"],
@@ -26,13 +28,12 @@ name: — по [A-Za-z0-9_.-]+, иначе exit 2. path: — непустой;
 add того же имени заменяет путь (upsert). Успех молчалив.
 
 Exit: 0 — успех; 2 — ошибка ввода; 1 — хранилище недоступно.`,
-  examples: [
-    "mpu xlsx alias add name: otchet path: ~/docs/report.xlsx",
-  ],
+  examples: ["mpu xlsx alias add name: otchet path: ~/docs/report.xlsx"],
   policy: "rw",
   argsSchema: z.object({
     name: nameSchema.describe("имя алиаса по [A-Za-z0-9_.-]+"),
-    path: z.string({ error: "alias add ожидает name: и path:" })
+    path: z
+      .string({ error: "alias add ожидает name: и path:" })
       .min(1, { error: "alias path must not be empty" })
       .describe("путь к книге; хранится как введён"),
   }),
@@ -64,9 +65,7 @@ export const aliasLsCommand = defineCommand({
 пустой вывод.
 
 Exit: 0 — всегда при читаемом хранилище; 1 — хранилище битое.`,
-  examples: [
-    "mpu xlsx alias ls",
-  ],
+  examples: ["mpu xlsx alias ls"],
   policy: "ro",
   argsSchema: z.object({}),
   resultSchema: z.object({
@@ -91,12 +90,11 @@ export const aliasRmCommand = defineCommand({
 exit 0 всегда. Успех молчалив.
 
 Exit: 0 — всегда; 2 — name: не передан; 1 — хранилище недоступно.`,
-  examples: [
-    "mpu xlsx alias rm name: otchet",
-  ],
+  examples: ["mpu xlsx alias rm name: otchet"],
   policy: "rw",
   argsSchema: z.object({
-    name: z.string({ error: "alias rm ожидает name:" })
+    name: z
+      .string({ error: "alias rm ожидает name:" })
       .describe("имя удаляемого алиаса"),
   }),
   forms: { name: { positional: "one" } },

@@ -54,10 +54,15 @@ async function run(
     note: () => {},
   } as unknown as InvokeJournal;
   const io = makeFakeIo(answers === undefined ? {} : HUMAN);
-  const code = await lineEntry(consentOf(file, answers))(argv, io, {
-    stdout: (text: string) => void out.push(text),
-    stderr: (text: string) => void err.push(text),
-  }, journal);
+  const code = await lineEntry(consentOf(file, answers))(
+    argv,
+    io,
+    {
+      stdout: (text: string) => void out.push(text),
+      stderr: (text: string) => void err.push(text),
+    },
+    journal,
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), called };
 }
 
@@ -84,15 +89,13 @@ async function confirmed(file: string, message: string, path: string) {
 it("посев первого старта и ничего заново на втором", () =>
   withPolicyFile(async (file) => {
     const first = await rules(file);
-    for (
-      const [path, verdict] of [
-        ["kiten card", "allow"],
-        ["kiten comment", "ask"],
-        ["ozon-jobs", "ask"],
-        ["policy", "allow"],
-        ["version", "allow"],
-      ]
-    ) {
+    for (const [path, verdict] of [
+      ["kiten card", "allow"],
+      ["kiten comment", "ask"],
+      ["ozon-jobs", "ask"],
+      ["policy", "allow"],
+      ["version", "allow"],
+    ]) {
       expect(verdictOf(first, path), path).toStrictEqual(verdict);
     }
     expect(verdictOf(first, "*"), "корневое правило").toStrictEqual(undefined);
@@ -136,7 +139,9 @@ it("посев: у каждой команды правило по ro/rw, кро
       expect(verdictOf(listed, path), path).toStrictEqual(
         path in OWN_SEEDS
           ? OWN_SEEDS[path]
-          : (command.policy === "ro" ? "allow" : "ask"),
+          : command.policy === "ro"
+            ? "allow"
+            : "ask",
       );
     }
   }));
@@ -191,7 +196,8 @@ it("ask через дверь: без человека, ответ нет, от�
     expect(await run(file, line, ["n"])).toStrictEqual({
       code: 1,
       stdout: "",
-      stderr: "выполнить mpu xlsx alias ls? [y/N] " +
+      stderr:
+        "выполнить mpu xlsx alias ls? [y/N] " +
         "mpu xlsx alias ls: не подтверждено\n",
       called: [],
     });
@@ -223,7 +229,8 @@ it("изменение правила: вопрос, ответ нет — фа�
     expect(await run(file, ["deny:", "kiten  ls *"], ["n"])).toStrictEqual({
       code: 1,
       stdout: "",
-      stderr: "изменить правило: kiten ls → deny? [y/N] " +
+      stderr:
+        "изменить правило: kiten ls → deny? [y/N] " +
         "mpu deny: kiten  ls *: не подтверждено\n",
       called: [],
     });
@@ -274,17 +281,20 @@ it("правило, записанное другим процессом, реш
 it("файл правил — мусор: отказ до разбора, даже справке", () =>
   withPolicyFile(async (file) => {
     await writeFile(file, "не SQLite ".repeat(200));
-    for (
-      const argv of [["kiten", "ls"], ["policy"], ["kiten", "card", "--help"], [
-        "нет-такого",
-      ]]
-    ) {
+    for (const argv of [
+      ["kiten", "ls"],
+      ["policy"],
+      ["kiten", "card", "--help"],
+      ["нет-такого"],
+    ]) {
       const broken = await run(file, argv);
       expect(broken.code, argv.join(" ")).toBe(1);
       expect(broken.stdout, argv.join(" ")).toBe("");
       expect(broken.called, argv.join(" ")).toStrictEqual([]);
-      expect(broken.stderr.startsWith("правила подтверждения: "), broken.stderr)
-        .toBe(true);
+      expect(
+        broken.stderr.startsWith("правила подтверждения: "),
+        broken.stderr,
+      ).toBe(true);
     }
   }));
 
@@ -312,16 +322,22 @@ describe("файл испорчен после открытия: отказ пр
             return false;
           },
         });
-        const code = await lineEntry(consentOf(file))(argv, io, {
-          stdout: () => {},
-          stderr: (text: string) => void err.push(text),
-        }, journal);
+        const code = await lineEntry(consentOf(file))(
+          argv,
+          io,
+          {
+            stdout: () => {},
+            stderr: (text: string) => void err.push(text),
+          },
+          journal,
+        );
         expect(code).toBe(1);
         expect(err.join("")).toBe(
           'правила подтверждения: неизвестное решение "maybe"\n',
         );
         expect(called).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -379,7 +395,9 @@ it("справка сообщения правил ничего не пишет"
   }));
 
 it("имена сообщений корня не совпадают с командами реестра", () => {
-  const own = ruleMethods().map((method) => method.selector).sort();
+  const own = ruleMethods()
+    .map((method) => method.selector)
+    .sort();
   expect(own).toStrictEqual(["allow:", "ask:", "deny:", "forget:", "policy"]);
   const top = new Set(commands.map((command) => command.path[0]));
   for (const name of [...own, "ask"]) {
@@ -397,8 +415,8 @@ it("книга прежней версии: claude-hook notification ask → all
     const listed = await run(file, ["version"]);
     expect(listed.code, listed.stderr).toBe(0);
     using book = RuleBook.open(file, []);
-    const hook = book.list().find((rule) =>
-      rule.path === "claude-hook notification"
-    );
+    const hook = book
+      .list()
+      .find((rule) => rule.path === "claude-hook notification");
     expect(hook?.verdict).toBe("allow");
   }));

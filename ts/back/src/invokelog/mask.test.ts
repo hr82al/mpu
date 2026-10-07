@@ -93,11 +93,13 @@ describe("маскирование значений секретных опци�
 
 describe("маскирование JSON в теле -b/--body", () => {
   it("рекурсивно по ключам, обе формы записи", () => {
-    expect(commandLine([
-      "api",
-      "--body",
-      '{"a":{"token":"x"},"b":[{"password":1}]}',
-    ])).toBe(
+    expect(
+      commandLine([
+        "api",
+        "--body",
+        '{"a":{"token":"x"},"b":[{"password":1}]}',
+      ]),
+    ).toBe(
       `mpu api --body '{"a":{"token":"REDACTED"},"b":[{"password":"REDACTED"}]}'`,
     );
     expect(commandLine(["api", "-b", '{"session":"x"}'])).toBe(
@@ -136,8 +138,9 @@ describe("маскирование JSON в теле -b/--body", () => {
 
 describe("строка команды вызова тула MCP-сервером", () => {
   it("путь через пробел и JSON одной строкой", () => {
-    expect(toolCommandLine(["xlsx", "ls"], { path: "/tmp/a b.xlsx", sheet: 1 }))
-      .toBe(`mpu xlsx ls '{"path":"/tmp/a b.xlsx","sheet":1}'`);
+    expect(
+      toolCommandLine(["xlsx", "ls"], { path: "/tmp/a b.xlsx", sheet: 1 }),
+    ).toBe(`mpu xlsx ls '{"path":"/tmp/a b.xlsx","sheet":1}'`);
   });
   it("секретные ключи маскируются рекурсивно", () => {
     expect(toolCommandLine(["api"], { auth: { token: "x" }, keep: true })).toBe(
@@ -165,15 +168,19 @@ describe("маскирование текста JSON — отдельная по
 });
 
 it("помеченная команда: аргументы после пути заменены маской", () => {
-  expect(commandLine(["telegram", "log", "личная заметка"], {
-    path: ["telegram", "log"],
-  })).toBe("mpu telegram log REDACTED");
+  expect(
+    commandLine(["telegram", "log", "личная заметка"], {
+      path: ["telegram", "log"],
+    }),
+  ).toBe("mpu telegram log REDACTED");
 });
 
 it("помеченная команда: маскируется каждый аргумент, не только первый", () => {
-  expect(commandLine(["telegram", "log", "текст", "--чужое", "значение"], {
-    path: ["telegram", "log"],
-  })).toBe("mpu telegram log REDACTED REDACTED REDACTED");
+  expect(
+    commandLine(["telegram", "log", "текст", "--чужое", "значение"], {
+      path: ["telegram", "log"],
+    }),
+  ).toBe("mpu telegram log REDACTED REDACTED REDACTED");
 });
 
 it("путь команды маской не трогается", () => {
@@ -187,17 +194,21 @@ it("помеченная команда: путь в argv не сплошной 
   // `xlsx --json alias ls`): у помеченной команды он тоже аргумент, а
   // не часть пути, поэтому граница ищется сопоставлением с путём, а
   // не длиной префикса — иначе замаскировался бы сегмент пути `log`.
-  expect(commandLine(["telegram", "--json", "log", "текст"], {
-    path: ["telegram", "log"],
-  })).toBe("mpu telegram REDACTED log REDACTED");
+  expect(
+    commandLine(["telegram", "--json", "log", "текст"], {
+      path: ["telegram", "log"],
+    }),
+  ).toBe("mpu telegram REDACTED log REDACTED");
 });
 
 it("помеченная команда: слово аргумента совпадает со словом пути — не принимается за путь", () => {
   // Путь уже пройден целиком двумя первыми элементами — второе
   // совпадение с "log" это уже текст заметки, а не сегмент пути.
-  expect(commandLine(["telegram", "log", "log"], {
-    path: ["telegram", "log"],
-  })).toBe("mpu telegram log REDACTED");
+  expect(
+    commandLine(["telegram", "log", "log"], {
+      path: ["telegram", "log"],
+    }),
+  ).toBe("mpu telegram log REDACTED");
 });
 
 it("без пометки правило прежнее: маскируются только опции-секреты", () => {
@@ -207,9 +218,15 @@ it("без пометки правило прежнее: маскируются 
 });
 
 it("помеченный тул: JSON аргументов заменён маской целиком", () => {
-  expect(toolCommandLine(["telegram", "log"], { message: "личное" }, {
-    masked: true,
-  })).toBe("mpu telegram log REDACTED");
+  expect(
+    toolCommandLine(
+      ["telegram", "log"],
+      { message: "личное" },
+      {
+        masked: true,
+      },
+    ),
+  ).toBe("mpu telegram log REDACTED");
 });
 
 describe("значение объявленной опции пишется, необъявленной — нет", () => {
@@ -257,9 +274,11 @@ describe("значение объявленной опции пишется, н�
 
   it("чужая командная строка не трогается", () => {
     // Хвост `ssh` — не наши опции: ради него запись и читают.
-    expect(commandLine(["ssh", "sl-9", "psql", "--tuples-only", "x"], {
-      options,
-      foreignTail: true,
-    })).toBe("mpu ssh sl-9 psql --tuples-only x");
+    expect(
+      commandLine(["ssh", "sl-9", "psql", "--tuples-only", "x"], {
+        options,
+        foreignTail: true,
+      }),
+    ).toBe("mpu ssh sl-9 psql --tuples-only x");
   });
 });

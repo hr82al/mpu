@@ -55,13 +55,16 @@ async function golden(name: string): Promise<string> {
 
 it("обычный текст берётся из аргумента, stdin не читается", async () => {
   let read = false;
-  const message = await logMessage({ message: "заметка" }, {
-    ...io(""),
-    readStdin: () => {
-      read = true;
-      return Promise.resolve(new Uint8Array());
+  const message = await logMessage(
+    { message: "заметка" },
+    {
+      ...io(""),
+      readStdin: () => {
+        read = true;
+        return Promise.resolve(new Uint8Array());
+      },
     },
-  });
+  );
   expect(message).toStrictEqual({ kind: "text", text: "заметка" });
   expect(read).toBe(false);
 });
@@ -204,11 +207,14 @@ it("текст сообщения предел подписи не задева�
 });
 
 it("отсутствующий файл — отказ до сети, с путём на экране", async () => {
-  const err = await rejected(() =>
-    logMessage(
-      { message: "текст", file: "/no/such/file" },
-      ioWithFile("/tmp/a.md", "x"),
-    ), UsageError);
+  const err = await rejected(
+    () =>
+      logMessage(
+        { message: "текст", file: "/no/such/file" },
+        ioWithFile("/tmp/a.md", "x"),
+      ),
+    UsageError,
+  );
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
   expect(`${formatCommandError(command.errorName, err)}\n`).toStrictEqual(
     await golden("err-file-missing-stderr.txt"),
@@ -232,11 +238,10 @@ it("каталог вместо файла — тот же отказ, не па
 });
 
 it("повтор -f — ошибка ввода, а не молчаливое схлопывание", async () => {
-  const err = await rejected(() =>
-    command.invoke(
-      ["текст", "-f", "a.md", "-f", "b.md"],
-      makeFakeIo(),
-    ), UsageError);
+  const err = await rejected(
+    () => command.invoke(["текст", "-f", "a.md", "-f", "b.md"], makeFakeIo()),
+    UsageError,
+  );
   expect(err.message).toBe("option --file may be given only once");
   // Путь в тексте не эхо-печатается: он ушёл бы в секцию err журнала.
   expect(err.message.includes("a.md")).toBe(false);

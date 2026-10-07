@@ -42,7 +42,7 @@ it("E1: правка файла — ждёт человека, база и ар�
     expect(outcome(await exported(sync))).toStrictEqual([
       0,
       "ждёт человека\tбаза из файла\tkiten cardsIn:\n" +
-      "совпало 2, изменено 0, конфликтов 0\n",
+        "совпало 2, изменено 0, конфликтов 0\n",
     ]);
     expect(await imageBytes(sync)).toStrictEqual(before);
     const help = await sync.run("kiten cardsIn: help");
@@ -121,9 +121,11 @@ it("E5: справка — однострока и повод звать", () =>
       help.stdout,
     );
     assert(
-      help.stdout.replaceAll("\n", " ").includes(
-        "Её зовёт суточный таймер; человеку — когда нужны файлы без вопроса: пишет только в каталог образа, а всё, что меняет базу, оставляет строкой «ждёт человека» для image sync.",
-      ),
+      help.stdout
+        .replaceAll("\n", " ")
+        .includes(
+          "Её зовёт суточный таймер; человеку — когда нужны файлы без вопроса: пишет только в каталог образа, а всё, что меняет базу, оставляет строкой «ждёт человека» для image sync.",
+        ),
       help.stdout,
     );
   }));
@@ -135,7 +137,7 @@ it("E6: конфликт — ждёт человека с адресом, код
     expect(outcome(await exported(sync))).toStrictEqual([
       0,
       "ждёт человека\tконфликт\tkiten cardsIn:\tkiten.cardsIn\n" +
-      "совпало 2, изменено 0, конфликтов 0\n",
+        "совпало 2, изменено 0, конфликтов 0\n",
     ]);
     expect(await snapshot(sync)).toStrictEqual(before);
   }));
@@ -150,7 +152,7 @@ it("E7: новый файл метода — ждёт человека без п
     expect(outcome(await exported(sync))).toStrictEqual([
       0,
       "ждёт человека\tновый метод\tkiten ls\n" +
-      "совпало 3, изменено 0, конфликтов 0\n",
+        "совпало 3, изменено 0, конфликтов 0\n",
     ]);
   }));
 
@@ -162,7 +164,7 @@ it("E8: мусор вместо файла — файл не разобран, �
     expect(outcome(await exported(sync))).toStrictEqual([
       1,
       "файл не разобран\tkiten/cardsIn:.mpu\tв файле нет строки определения\n" +
-      "совпало 2, изменено 0, конфликтов 0\n",
+        "совпало 2, изменено 0, конфликтов 0\n",
     ]);
     expect(await imageBytes(sync)).toStrictEqual(before);
   }));
@@ -176,9 +178,9 @@ it("E9: каталог очищен — ждёт человека, база це
     expect(outcome(ran)).toStrictEqual([
       0,
       "ждёт человека\tудалён метод\tkiten cardsIn:\n" +
-      "ждёт человека\tудалён метод\tkiten mine\n" +
-      "ждёт человека\tудалён метод\tkiten shipped\n" +
-      "совпало 0, изменено 0, конфликтов 0\n",
+        "ждёт человека\tудалён метод\tkiten mine\n" +
+        "ждёт человека\tудалён метод\tkiten shipped\n" +
+        "совпало 0, изменено 0, конфликтов 0\n",
     ]);
     expect(ran.refusals).toStrictEqual([]);
     expect(await imageBytes(sync)).toStrictEqual(before);
@@ -250,14 +252,14 @@ describe("Массовое удаление файлов: 3 из 5 — отка�
           2,
           "",
           `${one.said}: удалилось бы 3 из 5 методов (файлы) — вызывай ` +
-          `mpu ${one.hint.join(" ")}\n`,
+            `mpu ${one.hint.join(" ")}\n`,
         ]);
-        expect(ran.refusals.map((r) => [r.reason, r.hint])).toStrictEqual([[
-          "удалилось бы",
-          one.hint,
-        ]]);
+        expect(ran.refusals.map((r) => [r.reason, r.hint])).toStrictEqual([
+          ["удалилось бы", one.hint],
+        ]);
         expect(await snapshot(sync)).toStrictEqual(before);
-      }));
+      }),
+    );
   }
 });
 

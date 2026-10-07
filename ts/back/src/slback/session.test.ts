@@ -52,8 +52,8 @@ function ioTo(
 }
 
 it("живой кэш отдаёт токен без единого запроса", async () => {
-  const stand = await startFakeSlback(() =>
-    new Response("не ожидается", { status: 500 })
+  const stand = await startFakeSlback(
+    () => new Response("не ожидается", { status: 500 }),
   );
   try {
     const cache = JSON.stringify({ token: "из-кэша", expires_at: 2000 });
@@ -68,7 +68,7 @@ it("живой кэш отдаёт токен без единого запрос
 it("холодный кэш: логин без авторизации, запрос — под Bearer", async () => {
   const written: string[] = [];
   const stand = await startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply("svezhiy") : Response.json({ id: 777 })
+    seen.length === 1 ? loginReply("svezhiy") : Response.json({ id: 777 }),
   );
   try {
     const io = ioTo(stand.baseUrl, { onWrite: (text) => written.push(text) });
@@ -107,7 +107,7 @@ it("холодный кэш: логин без авторизации, запр�
 
 it("сбой записи кэша не роняет вызов: токен уже получен", async () => {
   const stand = await startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply() : Response.json({ ok: true })
+    seen.length === 1 ? loginReply() : Response.json({ ok: true }),
   );
   try {
     const io = {
@@ -141,7 +141,7 @@ it("HTTP ≥ 400 — отказ с кодом и сохранённым тело
   const stand = await startFakeSlback((seen) =>
     seen.length === 1
       ? loginReply()
-      : new Response("client not found", { status: 404 })
+      : new Response("client not found", { status: 404 }),
   );
   try {
     const err = await rejected(
@@ -158,7 +158,7 @@ it("HTTP ≥ 400 — отказ с кодом и сохранённым тело
 
 it("2xx с HTML-телом — non-JSON, несмотря на успешный статус", async () => {
   const stand = await startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply() : new Response("<html>вход</html>")
+    seen.length === 1 ? loginReply() : new Response("<html>вход</html>"),
   );
   try {
     const err = await rejected(
@@ -175,11 +175,12 @@ it("2xx с HTML-телом — non-JSON, несмотря на успешный 
 
 it("2xx с пустым телом — нет данных, а не ошибка", async () => {
   const stand = await startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply() : new Response(null, { status: 204 })
+    seen.length === 1 ? loginReply() : new Response(null, { status: 204 }),
   );
   try {
-    expect(await openSlback(ioTo(stand.baseUrl)).call("GET", "/admin/roles"))
-      .toStrictEqual(undefined);
+    expect(
+      await openSlback(ioTo(stand.baseUrl)).call("GET", "/admin/roles"),
+    ).toStrictEqual(undefined);
   } finally {
     await stand.stop();
   }
@@ -205,8 +206,8 @@ it("числа ответа печатаются как пришли, без п�
     seen.length === 1
       ? loginReply()
       : new Response('{"id":123456789012345678901,"ratio":1.0}', {
-        headers: { "content-type": "application/json" },
-      })
+          headers: { "content-type": "application/json" },
+        }),
   );
   try {
     const response = await openSlback(ioTo(stand.baseUrl)).call(
@@ -223,12 +224,10 @@ it("числа ответа печатаются как пришли, без п�
 
 it("нет адреса — отказ до сети, у вызова и у логина", async () => {
   const io = ioTo("", { env: { BASE_API_URL: "" } });
-  for (
-    const attempt of [
-      () => openSlback(io).call("GET", "/admin/roles"),
-      () => openSlback(io).token(),
-    ]
-  ) {
+  for (const attempt of [
+    () => openSlback(io).call("GET", "/admin/roles"),
+    () => openSlback(io).token(),
+  ]) {
     const err = await rejected(attempt, DomainError);
     expect(err.message).toContain("sl-back base URL не задан");
   }
@@ -250,8 +249,8 @@ it("тело отказа режется на 500 символов, не-JSON �
     seen.length === 1
       ? loginReply()
       : seen.length === 2
-      ? new Response(long, { status: 400 })
-      : new Response(long)
+        ? new Response(long, { status: 400 })
+        : new Response(long),
   );
   try {
     const session = openSlback(ioTo(stand.baseUrl));

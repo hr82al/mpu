@@ -131,11 +131,7 @@ describe("logs — коллекция строк: отбор, печать от�
   });
 
   it("запись: time, host, service, stream, text", async () => {
-    const got = await run(
-      file,
-      [...LOGS, END, "first", END, "json"],
-      stand,
-    );
+    const got = await run(file, [...LOGS, END, "first", END, "json"], stand);
     expect(JSON.parse(got.stdout)).toStrictEqual({
       time: "2025-08-05T08:00:00.001Z",
       host: "sl-1",

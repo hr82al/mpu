@@ -30,7 +30,8 @@ const EXTENSION = ".mpu";
 /** Справка `run:`: однострока и когда звать. */
 export const RUN_DOC: Doc = {
   purpose: `исполнить программу из файла ${EXTENSION}`,
-  help: "Звать, когда программа длиннее строки или ломается на кавычках " +
+  help:
+    "Звать, когда программа длиннее строки или ломается на кавычках " +
     "оболочки:\nфайл делится по пробелам так же, как строка, а @ключ " +
     "внутри берёт значение\nиз ключа вызова (mpu run: x.mpu col: review). " +
     "Без слов программа берётся\nиз stdin: mpu < x.mpu.",
@@ -38,8 +39,10 @@ export const RUN_DOC: Doc = {
 
 /** Текст `mpu run: help`. */
 export function runHelp(): string {
-  return `Использование: mpu ${GRAMMAR.run} <файл${EXTENSION}> ` +
-    `[<ключ>: <значение>]…\n\n${RUN_DOC.purpose}\n\n${RUN_DOC.help}\n`;
+  return (
+    `Использование: mpu ${GRAMMAR.run} <файл${EXTENSION}> ` +
+    `[<ключ>: <значение>]…\n\n${RUN_DOC.purpose}\n\n${RUN_DOC.help}\n`
+  );
 }
 
 /** Вид и текст отказа `run:` не первым словом строки. */
@@ -159,15 +162,18 @@ async function realOf(files: ProgramFiles, full: string): Promise<string> {
  * (`~/.config` → другой диск) не уводит токен из-под проверки.
  */
 async function settingsOf(files: ProgramFiles): Promise<string[]> {
-  const real = await Promise.all(files.settings.map(async (dir) => {
-    try {
-      return [await files.realPath(dir)];
-    } catch (err) {
-      // Каталога нет или его не пройти — остаётся проверка по набранному.
-      if (hasErrorCode(err, "ENOENT", "ENOTDIR", "EACCES", "EPERM")) return [];
-      throw err;
-    }
-  }));
+  const real = await Promise.all(
+    files.settings.map(async (dir) => {
+      try {
+        return [await files.realPath(dir)];
+      } catch (err) {
+        // Каталога нет или его не пройти — остаётся проверка по набранному.
+        if (hasErrorCode(err, "ENOENT", "ENOTDIR", "EACCES", "EPERM"))
+          return [];
+        throw err;
+      }
+    }),
+  );
   return [...files.settings, ...real.flat()];
 }
 
@@ -272,7 +278,7 @@ async function paramValue(
 async function taken(stdin: LineStdin, key: string): Promise<string> {
   try {
     // Ключ без своего приглашения: терминал — отказ, а не `undefined`.
-    return await stdin.take(key, false) ?? "";
+    return (await stdin.take(key, false)) ?? "";
   } catch (err) {
     if (!(err instanceof Refusal)) throw err;
     throw new SourceError(err.reason, err.message);

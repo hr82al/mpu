@@ -23,9 +23,12 @@ it("запомнить, обновить, забыть — по номеру с�
 
 it("база недоступна — строка в журнал, вопрос не роняется", () => {
   const log: string[] = [];
-  const shown = new StoredMessages(() => {
-    throw new Error("нет HOME");
-  }, (line) => log.push(line));
+  const shown = new StoredMessages(
+    () => {
+      throw new Error("нет HOME");
+    },
+    (line) => log.push(line),
+  );
   shown.remember(1, new Card("T", "x", []));
   expect(shown.all()).toStrictEqual([]);
   expect(log).toStrictEqual([

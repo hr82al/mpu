@@ -25,9 +25,9 @@ export const checklistItemViewSchema = z.object({
 export const checklistViewSchema = z.object({
   id: z.number().int().describe("id чек-листа"),
   name: z.string().describe("название чек-листа"),
-  items: z.array(checklistItemViewSchema).describe(
-    "пункты по возрастанию sort_order, при равенстве по id",
-  ),
+  items: z
+    .array(checklistItemViewSchema)
+    .describe("пункты по возрастанию sort_order, при равенстве по id"),
 });
 
 /** Чек-лист глазами вывода. */
@@ -81,7 +81,7 @@ export function cardItems(
     sortedItems(checklist.items).map((item) => ({
       checklistId: checklist.id,
       item,
-    }))
+    })),
   );
 }
 
@@ -144,8 +144,7 @@ function weight(item: ChecklistItem): number {
 /** Блок одного чек-листа: заголовок со счётчиком и таблица пунктов. */
 function checklistBlock(view: ChecklistView): string {
   const checked = view.items.filter((item) => item.checked).length;
-  const header =
-    `${view.name} · ${checked}/${view.items.length} (checklist id ${view.id})`;
+  const header = `${view.name} · ${checked}/${view.items.length} (checklist id ${view.id})`;
   const rows = [
     [...COLUMNS],
     ...view.items.map((item) => [
@@ -160,11 +159,12 @@ function checklistBlock(view: ChecklistView): string {
 /** Строки таблицы: колонки по ширине содержимого, ряд в рамке из пробелов. */
 function table(rows: readonly (readonly string[])[]): string {
   const widths = rows[0].map((_, index) =>
-    Math.max(...rows.map((row) => row[index].length))
+    Math.max(...rows.map((row) => row[index].length)),
   );
   return rows
-    .map((row) =>
-      ` ${row.map((cell, index) => cell.padEnd(widths[index])).join("  ")} `
+    .map(
+      (row) =>
+        ` ${row.map((cell, index) => cell.padEnd(widths[index])).join("  ")} `,
     )
     .join("\n");
 }

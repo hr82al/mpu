@@ -26,16 +26,16 @@ import {
 import { bodyOf, PROJECT, type TaskIo, withJournal } from "./glue.ts";
 import { SETUP_TEXT } from "./texts.ts";
 
-const TEXT = z.string().optional().describe(
-  "тело сообщения; stdin — ввод строки",
-);
+const TEXT = z
+  .string()
+  .optional()
+  .describe("тело сообщения; stdin — ввод строки");
 const FILE = z.string().optional().describe("файл с телом сообщения");
 
 /** Пустой результат записи: печатать нечего. */
 const NOTHING = z.object({});
 
-const BODY_HELP =
-  `Тело — text: (одно слово; из нескольких — ^…^; stdin — ввод) или
+const BODY_HELP = `Тело — text: (одно слово; из нескольких — ^…^; stdin — ввод) или
 file: (путь), ровно одно из двух; хранится и печатается побайтово.`;
 
 const setupArgs = z.object({
@@ -77,17 +77,17 @@ function setup(args: z.infer<typeof setupArgs>, io: TaskIo) {
     if (args.note !== undefined) throw new UsageError("note: без project:");
     return { text: SETUP_TEXT };
   }
-  withJournal(
-    io,
-    (projects) => projects.setup(name, args.note ?? null, Date.now()),
+  withJournal(io, (projects) =>
+    projects.setup(name, args.note ?? null, Date.now()),
   );
   return { text: SETUP_TEXT };
 }
 
 const postArgs = z.object({
-  force: z.boolean().default(false).describe(
-    "заменить неотработанную постановку; номер порции не растёт",
-  ),
+  force: z
+    .boolean()
+    .default(false)
+    .describe("заменить неотработанную постановку; номер порции не растёт"),
   project: PROJECT,
   text: TEXT,
   file: FILE,
@@ -168,10 +168,8 @@ Exit: 0; 2 — нет проекта, порций ещё нет, тело пу�
     ownerOnly: spec.ownerOnly,
     run: async (args, io: TaskIo) => {
       const body = await bodyOf(args, io);
-      withJournal(
-        io,
-        (projects, depth) =>
-          projects.at(args.project).attach(spec.kind, body, Date.now(), depth),
+      withJournal(io, (projects, depth) =>
+        projects.at(args.project).attach(spec.kind, body, Date.now(), depth),
       );
       return {};
     },
@@ -217,7 +215,8 @@ export const taskKindCommands: readonly Command[] = [
   {
     kind: OWNER,
     summary: "Кладёт вопрос владельцу, который правила не решают.",
-    when: "Звать хосту, когда правила проекта вопроса не решают: ход «ждёт\n" +
+    when:
+      "Звать хосту, когда правила проекта вопроса не решают: ход «ждёт\n" +
       "владельца», пока не придёт owner-answer.",
   },
   {
@@ -299,8 +298,7 @@ Exit: 0; 2 — нет проекта.`,
 });
 
 function steer(io: TaskIo, name: string, kind: Kind, body: string) {
-  withJournal(
-    io,
-    (projects, depth) => projects.at(name).steer(kind, body, Date.now(), depth),
+  withJournal(io, (projects, depth) =>
+    projects.at(name).steer(kind, body, Date.now(), depth),
   );
 }

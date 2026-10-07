@@ -22,13 +22,7 @@ const NOW_MS = Date.parse("2026-08-17T07:00:00.000Z");
  */
 const FAKED: Array<
   "Date" | "setTimeout" | "clearTimeout" | "setInterval" | "clearInterval"
-> = [
-  "Date",
-  "setTimeout",
-  "clearTimeout",
-  "setInterval",
-  "clearInterval",
-];
+> = ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"];
 
 async function golden(name: string): Promise<string> {
   return await readFile(
@@ -192,13 +186,15 @@ it("живой опрос без ключа Kaiten: предупреждение
 });
 
 it("после отправки печатается строка JSON отправки", () => {
-  expect(command.renderResult(
-    {
-      text: "Отчёт за сегодня (2026-08-17 МСК):",
-      sent: { id: 5000001, chat_id: 100000001, date: null },
-    },
-    [],
-  )).toBe('{"id": 5000001, "chat_id": 100000001, "date": null}\n');
+  expect(
+    command.renderResult(
+      {
+        text: "Отчёт за сегодня (2026-08-17 МСК):",
+        sent: { id: 5000001, chat_id: 100000001, date: null },
+      },
+      [],
+    ),
+  ).toBe('{"id": 5000001, "chat_id": 100000001, "date": null}\n');
 });
 
 describe("объявление команды", () => {
@@ -301,8 +297,8 @@ it("живой опрос: запросы Kaiten и запись в отчёте
 
 it("отказ Kaiten: предупреждение и отчёт на журнале", async () => {
   fakeTimers({ now: NOW_MS, toFake: FAKED });
-  const fake = await startFakeKaiten(() =>
-    new Response("нет доступа", { status: 401 })
+  const fake = await startFakeKaiten(
+    () => new Response("нет доступа", { status: 401 }),
   );
   const st = await stand({
     KITEN_API_KEY: "probe-key",

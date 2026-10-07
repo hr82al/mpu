@@ -36,9 +36,7 @@ const API_KEY = "proba-portainer-key-K7x9Qz";
 
 /** `status` по умолчанию 1 (доступен) — большинству тестов down не нужен. */
 function endpointsResponse(
-  endpoints: ReadonlyArray<
-    { id: number; name: string; status?: number }
-  >,
+  endpoints: ReadonlyArray<{ id: number; name: string; status?: number }>,
 ): Response {
   return Response.json(
     endpoints.map((e) => ({ Id: e.id, Name: e.name, Status: e.status ?? 1 })),
@@ -53,12 +51,14 @@ interface FakeContainer {
 }
 
 function containersResponse(containers: readonly FakeContainer[]): Response {
-  return Response.json(containers.map((c) => ({
-    Id: c.id,
-    Names: c.names,
-    State: c.state,
-    Image: c.image,
-  })));
+  return Response.json(
+    containers.map((c) => ({
+      Id: c.id,
+      Names: c.names,
+      State: c.state,
+      Image: c.image,
+    })),
+  );
 }
 
 function envFileFake(values: Readonly<Record<string, string>> = {}): EnvFile {
@@ -79,10 +79,7 @@ function envFileFake(values: Readonly<Record<string, string>> = {}): EnvFile {
  * молчит: его отказы проверяются отдельными тестами, а в остальных он
  * только шумел бы в ожидаемом stderr.
  */
-function makeIo(
-  dbPath: string,
-  overrides: Partial<CommandIo> = {},
-): CommandIo {
+function makeIo(dbPath: string, overrides: Partial<CommandIo> = {}): CommandIo {
   return makeFakeIo({
     openCacheDb: () => openCacheDb(dbPath),
     ...overrides,
@@ -129,8 +126,10 @@ const TELEGRAM_SKIPPED =
  * терминала у теста нет, а молчаливого пропуска у входа не бывает
  * (`telegram-login.md`, инвариант 3).
  */
-const WARMUP_SKIPPED = "# loki: пропущено (LOKI_URL не задан)\n" +
-  "# kaiten: пропущено (KITEN_API_KEY не задан)\n" + TELEGRAM_SKIPPED;
+const WARMUP_SKIPPED =
+  "# loki: пропущено (LOKI_URL не задан)\n" +
+  "# kaiten: пропущено (KITEN_API_KEY не задан)\n" +
+  TELEGRAM_SKIPPED;
 
 async function withTempDb(
   fn: (dbPath: string, dir: string) => Promise<void>,
@@ -147,10 +146,12 @@ it("golden: нет PORTAINER_API_KEY", async () => {
   await withTempDb(async (dbPath) => {
     const io = makeIo(dbPath, { envFile: envFileFake({}) });
     const outcome = await invokeInit([], io);
-    const expected = (await readFile(
-      new URL("testdata/err-no-api-key.txt", import.meta.url),
-      "utf8",
-    )).replace("<путь к кэш-БД>", dbPath);
+    const expected = (
+      await readFile(
+        new URL("testdata/err-no-api-key.txt", import.meta.url),
+        "utf8",
+      )
+    ).replace("<путь к кэш-БД>", dbPath);
     expect(outcome.stderr).toStrictEqual(expected);
     expect(outcome.code).toBe(2);
   });
@@ -162,10 +163,12 @@ it("golden: нет --portainer и PORTAINER_URL", async () => {
       envFile: envFileFake({ PORTAINER_API_KEY: API_KEY }),
     });
     const outcome = await invokeInit([], io);
-    const expected = (await readFile(
-      new URL("testdata/err-no-url.txt", import.meta.url),
-      "utf8",
-    )).replace("<путь к кэш-БД>", dbPath);
+    const expected = (
+      await readFile(
+        new URL("testdata/err-no-url.txt", import.meta.url),
+        "utf8",
+      )
+    ).replace("<путь к кэш-БД>", dbPath);
     expect(outcome.stderr).toStrictEqual(expected);
     expect(outcome.code).toBe(2);
   });
@@ -236,8 +239,7 @@ describe("requirePortainerAccess: приоритет --portainer, PORTAINER_VERI
       },
     },
     {
-      name:
-        'PORTAINER_VERIFY_TLS="True" — verifyTls включён (без учёта регистра)',
+      name: 'PORTAINER_VERIFY_TLS="True" — verifyTls включён (без учёта регистра)',
       args: { portainer: "https://cli.example.com" },
       env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "True" },
       expected: {
@@ -247,8 +249,7 @@ describe("requirePortainerAccess: приоритет --portainer, PORTAINER_VERI
       },
     },
     {
-      name:
-        'PORTAINER_VERIFY_TLS="TRUE" — verifyTls включён (без учёта регистра)',
+      name: 'PORTAINER_VERIFY_TLS="TRUE" — verifyTls включён (без учёта регистра)',
       args: { portainer: "https://cli.example.com" },
       env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "TRUE" },
       expected: {
@@ -268,8 +269,7 @@ describe("requirePortainerAccess: приоритет --portainer, PORTAINER_VERI
       },
     },
     {
-      name:
-        'PORTAINER_VERIFY_TLS="1" — verifyTls выключен (сравнение без учёта регистра, но не с "1")',
+      name: 'PORTAINER_VERIFY_TLS="1" — verifyTls выключен (сравнение без учёта регистра, но не с "1")',
       args: { portainer: "https://cli.example.com" },
       env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "1" },
       expected: {
@@ -328,13 +328,16 @@ it("happy path: сводка, запись в кэш, sl-строки по во�
       );
       expect(outcome.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
-          `# записано 3 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 3 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
-      const rows = plainRows(db.query(
-        "SELECT container_id, container_name, server_number, portainer_url, endpoint_id FROM portainer_containers ORDER BY container_id",
-      ));
+      const rows = plainRows(
+        db.query(
+          "SELECT container_id, container_name, server_number, portainer_url, endpoint_id FROM portainer_containers ORDER BY container_id",
+        ),
+      );
       expect(rows).toStrictEqual([
         {
           container_id: "c1",
@@ -371,10 +374,13 @@ it("sl-строки сортируются по server_number независим
     const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
-        return endpointsResponse([{ id: 1, name: "e1" }, {
-          id: 2,
-          name: "e2",
-        }]);
+        return endpointsResponse([
+          { id: 1, name: "e1" },
+          {
+            id: 2,
+            name: "e2",
+          },
+        ]);
       }
       if (url.pathname === "/api/endpoints/1/docker/containers/json") {
         return containersResponse([
@@ -421,10 +427,13 @@ it("обход endpoints конкурентный: оба запроса при�
     const { baseUrl, stop } = await serveFetch(async (req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
-        return endpointsResponse([{ id: 1, name: "e1" }, {
-          id: 2,
-          name: "e2",
-        }]);
+        return endpointsResponse([
+          { id: 1, name: "e1" },
+          {
+            id: 2,
+            name: "e2",
+          },
+        ]);
       }
       if (
         url.pathname === "/api/endpoints/1/docker/containers/json" ||
@@ -471,10 +480,13 @@ it("ошибка одного endpoint'а: строка в stderr, обход п
     const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
-        return endpointsResponse([{ id: 1, name: "bad" }, {
-          id: 2,
-          name: "good",
-        }]);
+        return endpointsResponse([
+          { id: 1, name: "bad" },
+          {
+            id: 2,
+            name: "good",
+          },
+        ]);
       }
       if (url.pathname === "/api/endpoints/1/docker/containers/json") {
         return new Response("upstream error", { status: 502 });
@@ -498,7 +510,8 @@ it("ошибка одного endpoint'а: строка в stderr, обход п
       expect(outcome.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "mpu init: endpoint 1 (bad): HTTP 502\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
       expect(outcome.stdout).toStrictEqual(
         "# найдено sl-N контейнеров: 1\n" +
@@ -509,9 +522,13 @@ it("ошибка одного endpoint'а: строка в stderr, обход п
       // Инвариант init.md «обрыв не теряет уже собранное»: собранное с
       // здорового endpoint'а реально в БД, а не только в тексте сводки.
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query(
-        "SELECT container_id, endpoint_id FROM portainer_containers",
-      ))).toStrictEqual([{ container_id: "c1", endpoint_id: 2 }]);
+      expect(
+        plainRows(
+          db.query(
+            "SELECT container_id, endpoint_id FROM portainer_containers",
+          ),
+        ),
+      ).toStrictEqual([{ container_id: "c1", endpoint_id: 2 }]);
     } finally {
       await stop();
     }
@@ -525,10 +542,13 @@ it("ошибки нескольких endpoints — строки в stderr по 
       if (url.pathname === "/api/endpoints") {
         // Список отдаётся не по возрастанию id — сортировка вывода не
         // должна полагаться на порядок ответа Portainer.
-        return endpointsResponse([{ id: 5, name: "e5" }, {
-          id: 2,
-          name: "e2",
-        }]);
+        return endpointsResponse([
+          { id: 5, name: "e5" },
+          {
+            id: 2,
+            name: "e2",
+          },
+        ]);
       }
       return new Response("boom", { status: 500 });
     });
@@ -561,10 +581,13 @@ it("таймаут молчащего endpoint'а: строка ошибки, о
     const { baseUrl, stop } = await serveFetch((req) => {
       const url = new URL(req.url);
       if (url.pathname === "/api/endpoints") {
-        return endpointsResponse([{ id: 1, name: "silent" }, {
-          id: 2,
-          name: "fine",
-        }]);
+        return endpointsResponse([
+          { id: 1, name: "silent" },
+          {
+            id: 2,
+            name: "fine",
+          },
+        ]);
       }
       if (url.pathname === "/api/endpoints/1/docker/containers/json") {
         return pending.promise; // никогда не резолвится сам по себе
@@ -646,19 +669,18 @@ it("0 sl-контейнеров при непустых прочих — не о
       // прочих — не ошибка, шаги 3–5 выполняются.
       expect(outcome.code).toBe(0);
       expect(outcome.stdout).toStrictEqual(
-        "# найдено sl-N контейнеров: 0\n" +
-          "# прочих контейнеров: 2\n",
+        "# найдено sl-N контейнеров: 0\n" + "# прочих контейнеров: 2\n",
       );
       expect(outcome.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
-          `# записано 2 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 2 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
       expect(
         plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
-      )
-        .toStrictEqual([{ n: 2 }]);
+      ).toStrictEqual([{ n: 2 }]);
     } finally {
       await stop();
     }
@@ -667,8 +689,8 @@ it("0 sl-контейнеров при непустых прочих — не о
 
 it("exit 1: сбой списка endpoints", async () => {
   await withTempDb(async (dbPath) => {
-    const { baseUrl, stop } = await serveFetch(() =>
-      new Response("nope", { status: 500 })
+    const { baseUrl, stop } = await serveFetch(
+      () => new Response("nope", { status: 500 }),
     );
     try {
       const io = makeIo(dbPath, {
@@ -715,8 +737,7 @@ it("exit 1: ни одного контейнера не найдено", async (
       using db = openCacheDb(dbPath);
       expect(
         plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
-      )
-        .toStrictEqual([{ n: 0 }]);
+      ).toStrictEqual([{ n: 0 }]);
     } finally {
       await stop();
     }
@@ -753,8 +774,7 @@ it("--dry-run: кэш не изменяется, сводка та же, без 
       using db = openCacheDb(dbPath);
       expect(
         plainRows(db.query("SELECT COUNT(*) AS n FROM portainer_containers")),
-      )
-        .toStrictEqual([{ n: 0 }]);
+      ).toStrictEqual([{ n: 0 }]);
     } finally {
       await stop();
     }
@@ -792,10 +812,12 @@ it("запись в кэш: image и endpoint_name дословны, discovered_
       expect(outcome.code).toBe(0);
 
       using db = openCacheDb(dbPath);
-      const rows = plainRows(db.query(
-        "SELECT image, endpoint_name, discovered_at FROM portainer_containers WHERE container_id = ?",
-        "c1",
-      ));
+      const rows = plainRows(
+        db.query(
+          "SELECT image, endpoint_name, discovered_at FROM portainer_containers WHERE container_id = ?",
+          "c1",
+        ),
+      );
       expect(rows.length).toBe(1);
       const row = rows[0];
       expect(row.image).toBe("registry.example.com/sl:1.2.3");
@@ -848,14 +870,14 @@ it("--reset: удаляет старые записи перед записью 
       expect(second.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "# reset: удалено 2 старых записей\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
       expect(
         plainRows(db.query("SELECT container_id FROM portainer_containers")),
-      )
-        .toStrictEqual([{ container_id: "c3" }]);
+      ).toStrictEqual([{ container_id: "c3" }]);
     } finally {
       await stop();
     }
@@ -963,13 +985,16 @@ it("повторный прогон без --reset: дублей нет, про�
       expect(second.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "# удалено устаревших записей: 1\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
-      const rows = plainRows(db.query(
-        "SELECT container_id, state FROM portainer_containers ORDER BY container_id",
-      ));
+      const rows = plainRows(
+        db.query(
+          "SELECT container_id, state FROM portainer_containers ORDER BY container_id",
+        ),
+      );
       // Ровно одна строка — c1 реконсилирован, c2 обновилась (upsert).
       expect(rows).toStrictEqual([{ container_id: "c2", state: "exited" }]);
     } finally {
@@ -1039,16 +1064,23 @@ it("down-endpoint: строка пропуска без опроса, рекон
         `# bootstrap: схема в ${dbPath} готова\n` +
           "mpu init: endpoint 1 (prod): down — пропущен\n" +
           "# удалено устаревших записей: 1\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
-      expect(endpoint1Requests, "down-endpoint не должен быть опрошен повторно")
-        .toBe(1);
+      expect(
+        endpoint1Requests,
+        "down-endpoint не должен быть опрошен повторно",
+      ).toBe(1);
 
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query(
-        "SELECT portainer_url, endpoint_id, container_id FROM " +
-          "portainer_containers ORDER BY portainer_url, container_id",
-      ))).toStrictEqual([
+      expect(
+        plainRows(
+          db.query(
+            "SELECT portainer_url, endpoint_id, container_id FROM " +
+              "portainer_containers ORDER BY portainer_url, container_id",
+          ),
+        ),
+      ).toStrictEqual([
         { portainer_url: baseUrl, endpoint_id: 2, container_id: "c2" },
         {
           portainer_url: "https://other.example.com",
@@ -1099,13 +1131,18 @@ it("endpoint исчез из списка endpoints: реконсиляция у
       expect(second.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "# удалено устаревших записей: 1\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query(
-        "SELECT endpoint_id, container_id FROM portainer_containers",
-      ))).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
+      expect(
+        plainRows(
+          db.query(
+            "SELECT endpoint_id, container_id FROM portainer_containers",
+          ),
+        ),
+      ).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
     } finally {
       await stop();
     }
@@ -1152,13 +1189,18 @@ it("все контейнеры пропали с успешно обойдён�
       expect(second.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "# удалено устаревших записей: 1\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query(
-        "SELECT endpoint_id, container_id FROM portainer_containers",
-      ))).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
+      expect(
+        plainRows(
+          db.query(
+            "SELECT endpoint_id, container_id FROM portainer_containers",
+          ),
+        ),
+      ).toStrictEqual([{ endpoint_id: 1, container_id: "c1" }]);
     } finally {
       await stop();
     }
@@ -1207,14 +1249,19 @@ it("сорвавшийся endpoint: записи целы, реконсиляц
       expect(second.stderr).toStrictEqual(
         `# bootstrap: схема в ${dbPath} готова\n` +
           "mpu init: endpoint 1 (prod): HTTP 502\n" +
-          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query(
-        "SELECT endpoint_id, container_id FROM portainer_containers " +
-          "ORDER BY endpoint_id",
-      ))).toStrictEqual([
+      expect(
+        plainRows(
+          db.query(
+            "SELECT endpoint_id, container_id FROM portainer_containers " +
+              "ORDER BY endpoint_id",
+          ),
+        ),
+      ).toStrictEqual([
         { endpoint_id: 1, container_id: "c1" },
         { endpoint_id: 2, container_id: "c2" },
       ]);
@@ -1266,10 +1313,12 @@ it("--dry-run: не удаляет ничего, даже когда endpoint с
 
       using db = openCacheDb(dbPath);
       expect(
-        plainRows(db.query(
-          "SELECT endpoint_id, container_id FROM portainer_containers " +
-            "ORDER BY endpoint_id",
-        )),
+        plainRows(
+          db.query(
+            "SELECT endpoint_id, container_id FROM portainer_containers " +
+              "ORDER BY endpoint_id",
+          ),
+        ),
         "--dry-run обязан оставить кэш нетронутым, включая записи down-endpoint'а",
       ).toStrictEqual([
         { endpoint_id: 1, container_id: "c1" },
@@ -1331,15 +1380,17 @@ it("--help содержит числа пределов и укладывает�
 // --- шаги 3–5 и модель исполнения -------------------------------------
 
 /** Пространства стенда: две доски, чтобы обход частей 2–3 был не вырожден. */
-const STAND_SPACES = [{
-  id: 101,
-  title: "Разработка",
-  archived: false,
-  boards: [
-    { id: 501, space_id: 101, title: "Основная доска" },
-    { id: 502, space_id: 101, title: "Баги" },
-  ],
-}];
+const STAND_SPACES = [
+  {
+    id: 101,
+    title: "Разработка",
+    archived: false,
+    boards: [
+      { id: 501, space_id: 101, title: "Основная доска" },
+      { id: 502, space_id: 101, title: "Баги" },
+    ],
+  },
+];
 
 const STAND_LANES: Readonly<Record<string, unknown[]>> = {
   "501": [
@@ -1357,10 +1408,13 @@ const STAND_COLUMNS: Readonly<Record<string, unknown[]>> = {
   "502": [{ id: 7101, board_id: 502, title: "Очередь", sort_order: 1 }],
 };
 
-const STAND_ROLES = [{ id: 11, name: "Разработка" }, {
-  id: 12,
-  name: "Аналитика",
-}];
+const STAND_ROLES = [
+  { id: 11, name: "Разработка" },
+  {
+    id: 12,
+    name: "Аналитика",
+  },
+];
 
 /** Ответ series: два хоста, две пары (у одной записи сервиса нет). */
 const STAND_SERIES = {
@@ -1377,7 +1431,8 @@ const STAND_CONTAINERS: readonly FakeContainer[] = [
 ];
 
 /** Сводки прогревов стенда — их же ждут тесты порядка и конкурентности. */
-const STAND_WARMUP_LINES = "# loki: 2 hosts, 2 (host, service) пар\n" +
+const STAND_WARMUP_LINES =
+  "# loki: 2 hosts, 2 (host, service) пар\n" +
   "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n" +
   "# telegram: ключей приложения нет; взять их — https://my.telegram.org/apps\n" +
   "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
@@ -1396,8 +1451,9 @@ function boardOf(pathname: string, what: string): string | undefined {
  * ответ по пути (вернул undefined — берётся ответ стенда по умолчанию).
  */
 function fakeStand(
-  hook: (url: URL) => Response | Promise<Response | undefined> | undefined =
-    () => undefined,
+  hook: (
+    url: URL,
+  ) => Response | Promise<Response | undefined> | undefined = () => undefined,
 ) {
   return serveFetch(async (req) => {
     const url = new URL(req.url);
@@ -1518,7 +1574,8 @@ it("шаги 2–4 конкурентны: три запроса пришли р
     const { baseUrl, stop } = await fakeStand((url) => {
       const first = url.pathname === "/api/endpoints/1/docker/containers/json";
       if (
-        !first && url.pathname !== "/loki/api/v1/series" &&
+        !first &&
+        url.pathname !== "/loki/api/v1/series" &&
         url.pathname !== "/api/latest/spaces"
       ) {
         return undefined;
@@ -1622,7 +1679,7 @@ it("шаг 5 и команда дают один исход на одном вх
     const step = await runTelegramLogin(io);
     const direct = await runTelegramLoginStep(io);
     expect(step, `${name}: шаг и команда разошлись`).toStrictEqual(
-      direct.status === "skipped" ? direct.reason ?? "без причины" : null,
+      direct.status === "skipped" ? (direct.reason ?? "без причины") : null,
     );
     // Обе половины прогона напечатали одно и то же: строки делятся
     // пополам и половины совпадают.
@@ -1645,7 +1702,7 @@ describe("шаг 5: причина пропуска — от самого вхо
       "нет терминала",
       {},
       "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH " +
-      "в .env вручную)\n",
+        "в .env вручную)\n",
     ],
   ];
   for (const [name, override, expected] of cases) {
@@ -1715,12 +1772,12 @@ it("пропуск одной доски Kaiten: строка и scoped-запи
 
       // Собранное по здоровой доске записано, обход не оборван.
       using db = openCacheDb(dbPath);
-      expect(plainRows(db.query("SELECT id FROM kaiten_lanes ORDER BY id")))
-        .toStrictEqual(
-          [{ id: 9001 }, { id: 9002 }],
-        );
-      expect(Number(db.query("SELECT COUNT(*) AS n FROM kaiten_columns")[0].n))
-        .toBe(3);
+      expect(
+        plainRows(db.query("SELECT id FROM kaiten_lanes ORDER BY id")),
+      ).toStrictEqual([{ id: 9001 }, { id: 9002 }]);
+      expect(
+        Number(db.query("SELECT COUNT(*) AS n FROM kaiten_columns")[0].n),
+      ).toBe(3);
     } finally {
       await stop();
     }
@@ -1732,7 +1789,7 @@ it("часть 2 Kaiten упала целиком: счётчик в сводк�
     const { baseUrl, stop } = await fakeStand((url) =>
       boardOf(url.pathname, "lanes") === undefined
         ? undefined
-        : new Response("boom", { status: 500 })
+        : new Response("boom", { status: 500 }),
     );
     try {
       const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
@@ -1754,8 +1811,9 @@ it("часть 2 Kaiten упала целиком: счётчик в сводк�
 
       // Упавшая целиком часть кэш дорожек не трогает вовсе.
       using db = openCacheDb(dbPath);
-      expect(Number(db.query("SELECT COUNT(*) AS n FROM kaiten_lanes")[0].n))
-        .toBe(0);
+      expect(
+        Number(db.query("SELECT COUNT(*) AS n FROM kaiten_lanes")[0].n),
+      ).toBe(0);
     } finally {
       await stop();
     }
@@ -1767,7 +1825,7 @@ it("прогрев Loki упал: строка пропуска, остальн�
     const { baseUrl, stop } = await fakeStand((url) =>
       url.pathname === "/loki/api/v1/series"
         ? new Response("nope", { status: 503 })
-        : undefined
+        : undefined,
     );
     try {
       const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
@@ -1796,7 +1854,7 @@ it("молчащий источник прогрева не тянет кома�
   await withTempDb(async (dbPath) => {
     const pending = Promise.withResolvers<Response>();
     const { baseUrl, stop } = await fakeStand((url) =>
-      url.pathname === "/loki/api/v1/series" ? pending.promise : undefined
+      url.pathname === "/loki/api/v1/series" ? pending.promise : undefined,
     );
     try {
       const progress: string[] = [];
@@ -1838,7 +1896,7 @@ it("шаг 4 ограничен пределами Kaiten, а не предел�
   await withTempDb(async (dbPath) => {
     const pending = Promise.withResolvers<Response>();
     const { baseUrl, stop } = await fakeStand((url) =>
-      url.pathname === "/api/latest/spaces" ? pending.promise : undefined
+      url.pathname === "/api/latest/spaces" ? pending.promise : undefined,
     );
     try {
       const progress: string[] = [];

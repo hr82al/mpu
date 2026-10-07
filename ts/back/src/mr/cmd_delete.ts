@@ -21,17 +21,21 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  note: z.number({ error: "нужен id: номер заметки" }).int(
-    "id: — целое число",
-  ).positive("id: — положительное число").describe(
-    "номер заметки (id из mpu mr comments end json)",
-  ),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
-  yes: z.boolean().default(false).describe(
-    "не спрашивать подтверждения (для скриптов)",
-  ),
+  note: z
+    .number({ error: "нужен id: номер заметки" })
+    .int("id: — целое число")
+    .positive("id: — положительное число")
+    .describe("номер заметки (id из mpu mr comments end json)"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
+  yes: z
+    .boolean()
+    .default(false)
+    .describe("не спрашивать подтверждения (для скриптов)"),
 });
 
 const resultSchema = z.object({
@@ -108,10 +112,7 @@ mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без �
 Exit: 0 — успех; 2 — id: не передан или не число, нераспознанный
 mr:; 1 — нет терминала без yes, отказ человека, отказ GitLab,
 несуществующая заметка.`,
-  examples: [
-    "mpu mr delete id: 42",
-    "mpu mr delete yes id: 42 mr: 456",
-  ],
+  examples: ["mpu mr delete id: 42", "mpu mr delete yes id: 42 mr: 456"],
   policy: "rw",
   argsSchema,
   forms: { note: { positional: "one" } },

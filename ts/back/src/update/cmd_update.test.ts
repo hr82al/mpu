@@ -134,7 +134,8 @@ describe("сводка: форма строк вывода дословно", ()
     failedServers: [],
     loki: { skipped: null, hosts: 7, pairs: 9 },
   };
-  const summary = "clients: 12 rows, spreadsheets: 34 rows from 3 servers, " +
+  const summary =
+    "clients: 12 rows, spreadsheets: 34 rows from 3 servers, " +
     "wb sids: 5 rows, took 1.23s\n";
 
   it("сводка и строка Loki", () => {
@@ -144,10 +145,12 @@ describe("сводка: форма строк вывода дословно", ()
   });
 
   it("прогрев Loki пропущен — только сводка", () => {
-    expect(updateCommand.renderResult(
-      { ...result, loki: { skipped: "HTTP 503", hosts: null, pairs: null } },
-      [],
-    )).toStrictEqual(summary);
+    expect(
+      updateCommand.renderResult(
+        { ...result, loki: { skipped: "HTTP 503", hosts: null, pairs: null } },
+        [],
+      ),
+    ).toStrictEqual(summary);
   });
 
   it("--quiet: печати нет вовсе", () => {
@@ -176,7 +179,7 @@ it("упавшие инстансы: одна строка warning, сервер
 
     expect(progress).toStrictEqual([
       "warning: failed to query servers: sl-1 (нет соединения с sl-1), " +
-      "sl-2 (timeout), sl-3 (нет соединения с sl-3)",
+        "sl-2 (timeout), sl-3 (нет соединения с sl-3)",
       "loki: пропущено (LOKI_URL не задан)",
     ]);
     expect(result.failedServers).toStrictEqual([
@@ -227,13 +230,15 @@ it("--quiet: ни строки вывода, но записи выполнен�
             wbSids: [{ client_id: 101, sid: "sid-a" }],
           },
           1: {
-            spreadsheets: [{
-              spreadsheet_id: "ss1",
-              client_id: 101,
-              title: null,
-              template_name: null,
-              is_active: true,
-            }],
+            spreadsheets: [
+              {
+                spreadsheet_id: "ss1",
+                client_id: 101,
+                title: null,
+                template_name: null,
+                is_active: true,
+              },
+            ],
           },
         });
         const result = await runUpdate({ quiet: true }, io, {
@@ -250,10 +255,12 @@ it("--quiet: ни строки вывода, но записи выполнен�
         expect(count(dbPath, "sl_spreadsheets")).toBe(1);
         expect(count(dbPath, "sl_wb_sids")).toBe(1);
         expect(count(dbPath, "loki_hosts")).toBe(2);
-        expect(result.failedServers).toStrictEqual([{
-          server: "sl-7",
-          reason: "нет соединения с sl-7",
-        }]);
+        expect(result.failedServers).toStrictEqual([
+          {
+            server: "sl-7",
+            reason: "нет соединения с sl-7",
+          },
+        ]);
       },
     );
   } finally {

@@ -85,12 +85,15 @@ async function inChat(
   chat: NonNullable<SearchPlan["chat"]>,
 ): Promise<SearchOutcome> {
   const peer = await resolveTarget(client, chat.target, chat.peer, "чат");
-  const from = plan.from === null ? null : await resolveTarget(
-    client,
-    plan.from.target,
-    plan.from.peer,
-    "отправителя",
-  );
+  const from =
+    plan.from === null
+      ? null
+      : await resolveTarget(
+          client,
+          plan.from.target,
+          plan.from.peer,
+          "отправителя",
+        );
   const found = await client.searchInChat({
     chat: peer,
     query: plan.query,

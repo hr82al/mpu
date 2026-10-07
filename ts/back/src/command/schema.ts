@@ -77,9 +77,10 @@ function readField(value: unknown, what: string): SchemaField {
     type: optionalString(record["type"]),
     default: record["default"],
     enum: Array.isArray(record["enum"]) ? record["enum"] : undefined,
-    items: typeof items === "object" && items !== null && !Array.isArray(items)
-      ? optionalString((items as Record<string, unknown>)["type"])
-      : undefined,
+    items:
+      typeof items === "object" && items !== null && !Array.isArray(items)
+        ? optionalString((items as Record<string, unknown>)["type"])
+        : undefined,
     description: optionalString(record["description"]),
   };
 }

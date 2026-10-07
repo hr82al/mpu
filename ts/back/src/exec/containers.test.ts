@@ -67,43 +67,51 @@ async function withCache(
 }
 
 it("Portainer-таргет сервера — по номеру из кэша", async () => {
-  await withCache([
-    { name: "/mp-sl-1-cli", serverNumber: 1 },
-    { name: "/mp-sl-2-cli", serverNumber: 2, endpointId: 4, url: URL_B },
-  ], (db) => {
-    expect(serverLocation(db, 2)).toStrictEqual({
-      portainerUrl: URL_B,
-      endpointId: 4,
-    });
-    expect(serverLocation(db, 9)).toStrictEqual(null);
-  });
+  await withCache(
+    [
+      { name: "/mp-sl-1-cli", serverNumber: 1 },
+      { name: "/mp-sl-2-cli", serverNumber: 2, endpointId: 4, url: URL_B },
+    ],
+    (db) => {
+      expect(serverLocation(db, 2)).toStrictEqual({
+        portainerUrl: URL_B,
+        endpointId: 4,
+      });
+      expect(serverLocation(db, 9)).toStrictEqual(null);
+    },
+  );
 });
 
 describe("контейнер по точному имени", () => {
   const db = heldScope<CacheDb>((body) =>
-    withCache([
-      { name: "mp-dt-cli", containerId: "a" },
-      // Реплики одного сервиса на одном endpoint'е — не неоднозначность:
-      // их схлопывает DISTINCT (спека).
-      { name: "wb-loader", containerId: "b" },
-      { name: "wb-loader", containerId: "c" },
-      { name: "twin", containerId: "d" },
-      {
-        name: "twin",
-        containerId: "e",
-        endpointId: 4,
-        endpointName: "farm-b",
-        url: URL_B,
-      },
-    ], body)
+    withCache(
+      [
+        { name: "mp-dt-cli", containerId: "a" },
+        // Реплики одного сервиса на одном endpoint'е — не неоднозначность:
+        // их схлопывает DISTINCT (спека).
+        { name: "wb-loader", containerId: "b" },
+        { name: "wb-loader", containerId: "c" },
+        { name: "twin", containerId: "d" },
+        {
+          name: "twin",
+          containerId: "e",
+          endpointId: 4,
+          endpointName: "farm-b",
+          url: URL_B,
+        },
+      ],
+      body,
+    ),
   );
   it("единственный", () => {
-    expect(containerLocations(db(), "mp-dt-cli")).toStrictEqual([{
-      portainerUrl: URL_A,
-      endpointId: 1,
-      endpointName: "farm-a",
-      containerName: "mp-dt-cli",
-    }]);
+    expect(containerLocations(db(), "mp-dt-cli")).toStrictEqual([
+      {
+        portainerUrl: URL_A,
+        endpointId: 1,
+        endpointName: "farm-a",
+        containerName: "mp-dt-cli",
+      },
+    ]);
   });
 
   it("реплики схлопываются", () => {
@@ -120,18 +128,21 @@ describe("контейнер по точному имени", () => {
 });
 
 it("имена по подстроке: по возрастанию, без повторов", async () => {
-  await withCache([
-    { name: "wb-loader-2", containerId: "a" },
-    { name: "wb-loader-1", containerId: "b" },
-    { name: "wb-loader-1", containerId: "c", endpointId: 4 },
-    { name: "mp-dt-cli", containerId: "d" },
-  ], (db) => {
-    expect(containerNamesLike(db, "wb-loader")).toStrictEqual([
-      "wb-loader-1",
-      "wb-loader-2",
-    ]);
-    expect(containerNamesLike(db, "zzz-no-such")).toStrictEqual([]);
-  });
+  await withCache(
+    [
+      { name: "wb-loader-2", containerId: "a" },
+      { name: "wb-loader-1", containerId: "b" },
+      { name: "wb-loader-1", containerId: "c", endpointId: 4 },
+      { name: "mp-dt-cli", containerId: "d" },
+    ],
+    (db) => {
+      expect(containerNamesLike(db, "wb-loader")).toStrictEqual([
+        "wb-loader-1",
+        "wb-loader-2",
+      ]);
+      expect(containerNamesLike(db, "zzz-no-such")).toStrictEqual([]);
+    },
+  );
 });
 
 it("порча кэша: нечисловой endpoint_id — отказ, не догадка", () => {
@@ -143,12 +154,9 @@ it("порча кэша: нечисловой endpoint_id — отказ, не �
 });
 
 it("endpoint_name допускает NULL — пустая строка в кандидате", async () => {
-  await withCache(
-    [{ name: "mp-dt-cli", endpointName: null }],
-    (db) => {
-      expect(containerLocations(db, "mp-dt-cli")[0].endpointName).toBe("");
-    },
-  );
+  await withCache([{ name: "mp-dt-cli", endpointName: null }], (db) => {
+    expect(containerLocations(db, "mp-dt-cli")[0].endpointName).toBe("");
+  });
 });
 
 it("неинициализированная кэш-БД — пустой результат, не отказ", async () => {
@@ -161,13 +169,16 @@ it("неинициализированная кэш-БД — пустой рез
 
 describe("подстрока — это подстрока: спецсимволы образца не шаблон", () => {
   const db = heldScope<CacheDb>((body) =>
-    withCache([
-      { name: "wb-loader", containerId: "a" },
-      { name: "wb_loader", containerId: "b" },
-      { name: "sl-1-cli", containerId: "c" },
-      { name: "sl%cli", containerId: "d" },
-      { name: "backslash\\name", containerId: "e" },
-    ], body)
+    withCache(
+      [
+        { name: "wb-loader", containerId: "a" },
+        { name: "wb_loader", containerId: "b" },
+        { name: "sl-1-cli", containerId: "c" },
+        { name: "sl%cli", containerId: "d" },
+        { name: "backslash\\name", containerId: "e" },
+      ],
+      body,
+    ),
   );
   // `_` и `%` в фильтре — символы имени, а не шаблон: иначе fan-out
   // живых прод-команд заходил бы в чужой контейнер (спека, `fix`).
@@ -194,17 +205,20 @@ describe("подстрока — это подстрока: спецсимвол
 });
 
 it("номера инстанс-серверов: без нуля и NULL, по возрастанию", async () => {
-  await withCache([
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-    { name: "mp-sl-0-cli", serverNumber: 0 },
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-1-api", serverNumber: 1 },
-    { name: "mp-dt-cli" },
-  ], (db) => {
-    // Main-сервер в fan-out не входит намеренно (спека `run-js`,
-    // отклонение `preserve`), контейнеры без номера — тем более.
-    expect(instanceServerNumbers(db)).toStrictEqual([1, 2]);
-  });
+  await withCache(
+    [
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+      { name: "mp-sl-0-cli", serverNumber: 0 },
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-1-api", serverNumber: 1 },
+      { name: "mp-dt-cli" },
+    ],
+    (db) => {
+      // Main-сервер в fan-out не входит намеренно (спека `run-js`,
+      // отклонение `preserve`), контейнеры без номера — тем более.
+      expect(instanceServerNumbers(db)).toStrictEqual([1, 2]);
+    },
+  );
 });
 
 describe("имя cli-контейнера сервера — из кэша, не зашито", () => {
@@ -221,12 +235,15 @@ describe("имя cli-контейнера сервера — из кэша, не
   });
 
   it("есть обе формы — побеждает первая", async () => {
-    await withCache([
-      { name: "mp-sl-9-cli", serverNumber: 9 },
-      { name: "sl-9-cli", serverNumber: 9, containerId: "id-b" },
-    ], (db) => {
-      expect(serverCliContainer(db, 9)).toBe("sl-9-cli");
-    });
+    await withCache(
+      [
+        { name: "mp-sl-9-cli", serverNumber: 9 },
+        { name: "sl-9-cli", serverNumber: 9, containerId: "id-b" },
+      ],
+      (db) => {
+        expect(serverCliContainer(db, 9)).toBe("sl-9-cli");
+      },
+    );
   });
 
   it("кэш пуст — первая форма", async () => {

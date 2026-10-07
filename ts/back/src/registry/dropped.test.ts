@@ -32,8 +32,9 @@ describe("выброшенные имена: были в слепке, нет в
       // И реализации у него нет — ни командой, ни промежуточным
       // уровнем: иначе список врал бы о выброшенном.
       expect(
-        commands.some((command) =>
-          command.path.slice(0, entry.path.length).join(" ") === name
+        commands.some(
+          (command) =>
+            command.path.slice(0, entry.path.length).join(" ") === name,
         ),
         `${name}: имя есть в реестре`,
       ).toBe(false);
@@ -43,11 +44,13 @@ describe("выброшенные имена: были в слепке, нет в
       // И тула у него не публикуется: закрытый список тоже не должен
       // помнить выброшенное имя.
       expect(
-        [...toolPolicies.ro, ...toolPolicies.rw, ...toolPolicies.destructive]
-          .some((published) =>
-            published === name ||
-            published.startsWith(`${name} `)
-          ),
+        [
+          ...toolPolicies.ro,
+          ...toolPolicies.rw,
+          ...toolPolicies.destructive,
+        ].some(
+          (published) => published === name || published.startsWith(`${name} `),
+        ),
         `${name}: имя осталось в закрытом списке публикации`,
       ).toBe(false);
       expect(entry.reason.length > 0, `${name}: причина пуста`).toBe(true);

@@ -27,17 +27,23 @@ async function run(
       void native.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const code = await lineEntry(consentOf(file))(argv, makeFakeIo(overrides), {
-    stdout: (text: string) => void out.push(text),
-    stderr: (text: string) => void err.push(text),
-  }, journal);
+  const code = await lineEntry(consentOf(file))(
+    argv,
+    makeFakeIo(overrides),
+    {
+      stdout: (text: string) => void out.push(text),
+      stderr: (text: string) => void err.push(text),
+    },
+    journal,
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), native };
 }
 
 describe("справка команды не исполняет её", () => {
-  for (
-    const argv of [["kiten", "card", "--help"], ["kiten", "card", "help"]]
-  ) {
+  for (const argv of [
+    ["kiten", "card", "--help"],
+    ["kiten", "card", "help"],
+  ]) {
     it(argv.join(" "), () =>
       withPolicyFile(async (file) => {
         const { code, stdout, stderr, native } = await run(file, argv);
@@ -45,7 +51,8 @@ describe("справка команды не исполняет её", () => {
         expect(stderr).toBe("");
         expect(native, "команда исполнялась").toStrictEqual([]);
         expect(stdout).toContain("mpu kiten card");
-      }));
+      }),
+    );
   }
 });
 
@@ -76,7 +83,8 @@ describe("непонятое слово: ближайшие и путь приё
         expect(stdout).toBe("");
         expect(stderr).toStrictEqual(text);
         expect(native).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -87,52 +95,48 @@ it("ошибка разбора печатается как есть", () =>
     expect(stderr).toBe("у ключа card нет значения\n");
   }));
 
-it(
-  "каждый путь реестра достижим: справка листа без исполнения",
-  () =>
-    withPolicyFile(async (file) => {
-      // `help` из строки убирается режимом справки, поэтому эта поверхность
-      // проверяется отдельно (отклонение спеки).
-      const leaves = [
-        ...commands.map((command) => command.path),
-        ...surfaces.map((surface) => surface.path).filter(([name]) =>
-          name !== "help"
-        ),
-      ];
-      assert(leaves.length > 200, `листов реестра ${leaves.length}`);
-      for (const path of leaves) {
-        const { code, stdout, native } = await run(file, [...path, "--help"]);
-        expect(code, path.join(" ")).toBe(0);
-        expect(native, path.join(" ")).toStrictEqual([]);
-        expect(stdout).toContain(`mpu ${path.join(" ")}`);
-      }
-    }),
-);
+it("каждый путь реестра достижим: справка листа без исполнения", () =>
+  withPolicyFile(async (file) => {
+    // `help` из строки убирается режимом справки, поэтому эта поверхность
+    // проверяется отдельно (отклонение спеки).
+    const leaves = [
+      ...commands.map((command) => command.path),
+      ...surfaces
+        .map((surface) => surface.path)
+        .filter(([name]) => name !== "help"),
+    ];
+    assert(leaves.length > 200, `листов реестра ${leaves.length}`);
+    for (const path of leaves) {
+      const { code, stdout, native } = await run(file, [...path, "--help"]);
+      expect(code, path.join(" ")).toBe(0);
+      expect(native, path.join(" ")).toStrictEqual([]);
+      expect(stdout).toContain(`mpu ${path.join(" ")}`);
+    }
+  }));
 
 /** Селекторы из ответа `messages … end json`. */
 function selectorsOf(stdout: string): string[] {
   return JSON.parse(stdout).map((line: { selector: string }) => line.selector);
 }
 
-it(
-  "messages группы — ровно её дети, когда разрешено всё",
-  () =>
-    withPolicyFile(async (file) => {
-      allowEverything(file);
-      for (const group of groups) {
-        const { code, stdout } = await run(file, [
-          ...group.path,
-          "messages",
-          GRAMMAR.close,
-          "json",
-        ]);
-        expect(code, group.path.join(" ")).toBe(0);
-        expect(selectorsOf(stdout), group.path.join(" ")).toStrictEqual(
-          childrenOf(group.path).map((child) => child.name).sort(),
-        );
-      }
-    }),
-);
+it("messages группы — ровно её дети, когда разрешено всё", () =>
+  withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const group of groups) {
+      const { code, stdout } = await run(file, [
+        ...group.path,
+        "messages",
+        GRAMMAR.close,
+        "json",
+      ]);
+      expect(code, group.path.join(" ")).toBe(0);
+      expect(selectorsOf(stdout), group.path.join(" ")).toStrictEqual(
+        childrenOf(group.path)
+          .map((child) => child.name)
+          .sort(),
+      );
+    }
+  }));
 
 it("messages корня — дети, правила, вход ask, дополнение, it и run:", () =>
   withPolicyFile(async (file) => {
@@ -143,16 +147,18 @@ it("messages корня — дети, правила, вход ask, дополн
       "json",
     ]);
     expect(code).toBe(0);
-    expect(selectorsOf(stdout)).toStrictEqual([
-      ...childrenOf([]).map((child) => child.name),
-      "policy",
-      "allow:",
-      "ask",
-      "ask:",
-      "complete:",
-      "deny:",
-      "forget:",
-      "it",
-      GRAMMAR.run,
-    ].sort());
+    expect(selectorsOf(stdout)).toStrictEqual(
+      [
+        ...childrenOf([]).map((child) => child.name),
+        "policy",
+        "allow:",
+        "ask",
+        "ask:",
+        "complete:",
+        "deny:",
+        "forget:",
+        "it",
+        GRAMMAR.run,
+      ].sort(),
+    );
   }));

@@ -67,8 +67,9 @@ describe("ответ команды совпадает с оракулом по�
       { cwd: () => repo.root },
       [repo],
     );
-    expect(answered(result).consumers.places.map((place) => place.path))
-      .toStrictEqual(CONSUMERS);
+    expect(
+      answered(result).consumers.places.map((place) => place.path),
+    ).toStrictEqual(CONSUMERS);
     expect(answered(result).consumers.total).toStrictEqual(CONSUMERS.length);
   });
 });
@@ -118,7 +119,8 @@ function brokenFiles(
   const host = ts.createCompilerHost(options);
   if (overridePath !== undefined && overrideText !== undefined) {
     const read = host.readFile.bind(host);
-    host.readFile = (file) => file === overridePath ? overrideText : read(file);
+    host.readFile = (file) =>
+      file === overridePath ? overrideText : read(file);
     const get = host.getSourceFile.bind(host);
     host.getSourceFile = (file, languageVersion, onError, shouldCreate) =>
       file === overridePath
@@ -147,8 +149,5 @@ function answered(result: { section: { kind: string } }) {
   if (result.section.kind !== "answer") {
     throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
   }
-  return result.section as Extract<
-    RefsResult["section"],
-    { kind: "answer" }
-  >;
+  return result.section as Extract<RefsResult["section"], { kind: "answer" }>;
 }

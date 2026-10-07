@@ -121,15 +121,16 @@ export class Program {
   constructor(child: ChildProcess, signal?: AbortSignal) {
     this.#child = child;
     this.pid = child.pid ?? 0;
-    this.stdin = child.stdin === null
-      ? closedWritable()
-      : Writable.toWeb(child.stdin);
-    this.stdout = child.stdout === null
-      ? emptyReadable()
-      : Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>;
-    this.stderr = child.stderr === null
-      ? emptyReadable()
-      : Readable.toWeb(child.stderr) as ReadableStream<Uint8Array>;
+    this.stdin =
+      child.stdin === null ? closedWritable() : Writable.toWeb(child.stdin);
+    this.stdout =
+      child.stdout === null
+        ? emptyReadable()
+        : (Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>);
+    this.stderr =
+      child.stderr === null
+        ? emptyReadable()
+        : (Readable.toWeb(child.stderr) as ReadableStream<Uint8Array>);
     this.status = this.#ended(signal);
   }
 

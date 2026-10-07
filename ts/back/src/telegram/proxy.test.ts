@@ -86,17 +86,15 @@ it("неподдерживаемая схема прокси", () => {
 });
 
 describe("учётные данные не попадают в текст ошибки", () => {
-  for (
-    const input of [
-      "ftp://user:s3cret@10.0.0.1:21",
-      // Пароль с литеральным «@»: ради него и делается percent-декод.
-      "socks5://user:pa%40s3cret@10.0.0.1",
-      "socks5://user:pa@s3cret@10.0.0.1",
-      // Формы, на которых разбор URL не удаётся вовсе.
-      "socks5:/user:s3cret@10.0.0.1:1080",
-      " socks5://user:s3cret@10.0.0.1",
-    ]
-  ) {
+  for (const input of [
+    "ftp://user:s3cret@10.0.0.1:21",
+    // Пароль с литеральным «@»: ради него и делается percent-декод.
+    "socks5://user:pa%40s3cret@10.0.0.1",
+    "socks5://user:pa@s3cret@10.0.0.1",
+    // Формы, на которых разбор URL не удаётся вовсе.
+    "socks5:/user:s3cret@10.0.0.1:1080",
+    " socks5://user:s3cret@10.0.0.1",
+  ]) {
     it(input, () => {
       const err = thrown(() => {
         parseProxy(input);
@@ -114,12 +112,14 @@ describe("URL для транспорта собирается обратно", 
     );
   });
   it("с учётными данными", () => {
-    expect(proxyUrl({
-      tunnel: "socks5",
-      host: "10.0.0.1",
-      port: 1080,
-      username: "us@er",
-      password: "p:ss",
-    })).toBe("socks5://us%40er:p%3Ass@10.0.0.1:1080");
+    expect(
+      proxyUrl({
+        tunnel: "socks5",
+        host: "10.0.0.1",
+        port: 1080,
+        username: "us@er",
+        password: "p:ss",
+      }),
+    ).toBe("socks5://us%40er:p%3Ass@10.0.0.1:1080");
   });
 });

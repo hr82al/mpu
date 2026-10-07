@@ -45,9 +45,11 @@ function Conflict({ method, address, snapshot, send }: ConflictProps) {
   return (
     <li className="report-line conflict">
       <span className="path">{method}</span>
-      {node?.image === undefined
-        ? <span className="definition">определения нет</span>
-        : <code className="definition">{node.image.definition}</code>}
+      {node?.image === undefined ? (
+        <span className="definition">определения нет</span>
+      ) : (
+        <code className="definition">{node.image.definition}</code>
+      )}
       <button type="button" onClick={() => send([...SYNC, "base:", address])}>
         взять базу
       </button>
@@ -59,7 +61,10 @@ function Conflict({ method, address, snapshot, send }: ConflictProps) {
 }
 
 /** Что показал последний итог: текст под кнопками и «Выполнить». */
-function Said({ last, send }: {
+function Said({
+  last,
+  send,
+}: {
   last: Outcome | undefined;
   send: (words: readonly string[]) => void;
 }) {
@@ -98,18 +103,22 @@ export function Image() {
   return (
     <main>
       <h1>Образ</h1>
-      <button type="button" onClick={() => send(DRY)}>Проверить</button>
-      <button type="button" onClick={() => send(SYNC)}>Синхронизировать</button>
+      <button type="button" onClick={() => send(DRY)}>
+        Проверить
+      </button>
+      <button type="button" onClick={() => send(SYNC)}>
+        Синхронизировать
+      </button>
       <Said last={line.last} send={send} />
-      {line.last === undefined
-        ? <p>Отчёта ещё нет</p>
-        : (
-          <ul className="report" aria-label="отчёт">
-            {reportLines(line.last.stdout).map((one, i) => (
-              <Row key={i} line={one} snapshot={reply.value} send={send} />
-            ))}
-          </ul>
-        )}
+      {line.last === undefined ? (
+        <p>Отчёта ещё нет</p>
+      ) : (
+        <ul className="report" aria-label="отчёт">
+          {reportLines(line.last.stdout).map((one, i) => (
+            <Row key={i} line={one} snapshot={reply.value} send={send} />
+          ))}
+        </ul>
+      )}
       {line.pending !== undefined && (
         <Confirm
           question={line.pending.question}

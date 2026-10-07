@@ -47,8 +47,7 @@ function loader(sub: string, method: string, what: string): Command {
     path: ["wb-loader", sub],
     keys: {},
     summary: `Загрузить в БД клиента: ${what} (WB-кабинет).`,
-    usage:
-      `mpu wb-loader ${sub} [print [local]] target: СЕЛЕКТОР sid: SID [server: sl-N] [client-id: N]`,
+    usage: `mpu wb-loader ${sub} [print [local]] target: СЕЛЕКТОР sid: SID [server: sl-N] [client-id: N]`,
     help: `Звать, когда в БД клиента надо догрузить ${what} одного
 WB-кабинета, не дожидаясь расписания загрузчика.
 

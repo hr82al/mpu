@@ -45,52 +45,60 @@ it("программа на исполнителе: печать и итог ч�
       "plus:",
       "2",
     ]);
-    expect(frames.filter((frame) => "out" in frame)).toStrictEqual([{
-      out: "7\n",
-    }]);
+    expect(frames.filter((frame) => "out" in frame)).toStrictEqual([
+      {
+        out: "7\n",
+      },
+    ]);
     expect(frames.at(-1)).toStrictEqual({ exit: 0 });
   }));
 
 it("предел строк 1: программа и её команда — без взаимного ожидания", () =>
-  withBack(async (back) => {
-    const frames = await within(
-      line(back, "/line", ["x", ASSIGN, "jsdate", SEP, "x", "isNil"]),
-      10_000,
-      "программа с командой при --lines 1",
-    );
-    expect(frames.filter((frame) => "out" in frame)).toStrictEqual([
-      { out: "false\n" },
-    ]);
-    expect(frames.at(-1)).toStrictEqual({ exit: 0 });
-  }, { lines: 1 }));
+  withBack(
+    async (back) => {
+      const frames = await within(
+        line(back, "/line", ["x", ASSIGN, "jsdate", SEP, "x", "isNil"]),
+        10_000,
+        "программа с командой при --lines 1",
+      );
+      expect(frames.filter((frame) => "out" in frame)).toStrictEqual([
+        { out: "false\n" },
+      ]);
+      expect(frames.at(-1)).toStrictEqual({ exit: 0 });
+    },
+    { lines: 1 },
+  ));
 
 it("отмена бесконечного цикла доходит кадром stop за секунду, код 130", async () => {
   const log = journal();
-  await withBack(async (back) => {
-    const client = new Client(back, "/line");
-    await client.opened();
-    client.start([
-      "1",
-      "to:",
-      "1000000000",
-      "do:",
-      DO,
-      ":i",
-      "i",
-      "print",
-      DONE,
-    ]);
-    // Цикл идёт: печать дошла, строка не кончилась.
-    await within(
-      client.frame((frame) => "out" in frame),
-      5_000,
-      "первая печать цикла",
-    );
-    const started = performance.now();
-    client.close();
-    await within(log.written(1), 5_000, "запись журнала отменённой строки");
-    const took = performance.now() - started;
-    assert(took < 1_000, `остановка заняла ${Math.round(took)} мс`);
-  }, { finishedWith: log.finishedWith });
+  await withBack(
+    async (back) => {
+      const client = new Client(back, "/line");
+      await client.opened();
+      client.start([
+        "1",
+        "to:",
+        "1000000000",
+        "do:",
+        DO,
+        ":i",
+        "i",
+        "print",
+        DONE,
+      ]);
+      // Цикл идёт: печать дошла, строка не кончилась.
+      await within(
+        client.frame((frame) => "out" in frame),
+        5_000,
+        "первая печать цикла",
+      );
+      const started = performance.now();
+      client.close();
+      await within(log.written(1), 5_000, "запись журнала отменённой строки");
+      const took = performance.now() - started;
+      assert(took < 1_000, `остановка заняла ${Math.round(took)} мс`);
+    },
+    { finishedWith: log.finishedWith },
+  );
   expect(log.codes).toStrictEqual([CANCELLED_CODE]);
 });

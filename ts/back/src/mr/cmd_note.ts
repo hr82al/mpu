@@ -20,13 +20,17 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   message: z.string().optional().describe("текст комментария"),
-  "body-file": z.string().optional().describe(
-    "файл с текстом; '-' — весь stdin, только в CLI",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({
@@ -62,9 +66,10 @@ export async function runNote(
 }
 
 export function renderNote(result: NoteResult): string {
-  return `создано: discussion ${
-    result.discussion.slice(0, 8)
-  }\n${result.url}\n`;
+  return `создано: discussion ${result.discussion.slice(
+    0,
+    8,
+  )}\n${result.url}\n`;
 }
 
 export const mrNoteCommand = defineCommand({
@@ -73,8 +78,7 @@ export const mrNoteCommand = defineCommand({
   errorName: "mr note",
   summary: "Общий комментарий к merge request'у, без привязки к строке.",
   usage: "mpu mr note [id: REF] (text: TEXT | body-file: PATH)",
-  help:
-    `Звать, когда замечание касается MR в целом. Создаёт общий тред — тот, что виден в обсуждении, а не у
+  help: `Звать, когда замечание касается MR в целом. Создаёт общий тред — тот, что виден в обсуждении, а не у
 строки диффа. Для замечания к конкретной строке есть mpu mr comment.
 
 Текст — ровно один из text: TEXT и body-file: PATH; text: stdin —

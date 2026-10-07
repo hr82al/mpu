@@ -109,7 +109,7 @@ type Fields = Record<string, unknown>;
 
 function record(value: unknown): Fields | undefined {
   return typeof value === "object" && value !== null
-    ? value as Fields
+    ? (value as Fields)
     : undefined;
 }
 

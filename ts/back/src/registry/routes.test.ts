@@ -82,8 +82,10 @@ describe("инварианты записей реестра", () => {
     // любой мутации порядка.
     const names = commands.map((command) => command.path.join(" "));
     expect(names[0], `первым идёт не xlsx ls: ${names[0]}`).toBe("xlsx ls");
-    expect(names.slice(0, 3), "порядок объявления команд изменился")
-      .toStrictEqual(["xlsx ls", "xlsx get", "xlsx open"]);
+    expect(
+      names.slice(0, 3),
+      "порядок объявления команд изменился",
+    ).toStrictEqual(["xlsx ls", "xlsx get", "xlsx open"]);
   });
 });
 
@@ -108,7 +110,7 @@ describe("тулом становится команда из закрытого
   // Публикацию решает закрытый список (`platform/mcp-server.md`), а не
   // способ исполнения; способов с порции 97 остался один.
   const names = PROFILES.flatMap((profile) =>
-    profileTools(commands, profile).map((entry) => entry.tool.name)
+    profileTools(commands, profile).map((entry) => entry.tool.name),
   );
 
   it("команда контракта — из объявления в коде", () => {
@@ -131,8 +133,9 @@ describe("тулом становится команда из закрытого
     // `mpu copy-client` в реестре есть — и с переездом на `native` она
     // объявлена контрактом, — а в закрытом списке публикации её нет:
     // мост прод → локаль агенту не отдают (fail-closed).
-    expect(commands.some((command) => command.path.join(" ") === "copy-client"))
-      .toBe(true);
+    expect(
+      commands.some((command) => command.path.join(" ") === "copy-client"),
+    ).toBe(true);
     expect(names.includes("copy_client")).toBe(false);
   });
 });

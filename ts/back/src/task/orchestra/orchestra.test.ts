@@ -45,9 +45,10 @@ it("O1: окон нет — два окна, сообщение первым а�
     await rig.step();
     for (const role of ["host", "exec"]) {
       expect(rig.tmux.keys(`demo-${role}`)).toStrictEqual([
-        `claude "${
-          message("demo", role)
-        }" --permission-mode auto --model opus --name demo-${role}`,
+        `claude "${message(
+          "demo",
+          role,
+        )}" --permission-mode auto --model opus --name demo-${role}`,
         ENTER,
       ]);
       expect(rig.tmux.panes.get(`w:demo-${role}`)?.command).toBe("claude");
@@ -129,9 +130,9 @@ it("O6: task положен, exec idle — /clear, Enter, сообщение, En
     );
     expect(rig.tmux.keys("demo-host")).toStrictEqual([]);
     assert(
-      rig.letter("exec").includes(
-        "\nВопрос хосту — mpu task question project: demo.\n",
-      ),
+      rig
+        .letter("exec")
+        .includes("\nВопрос хосту — mpu task question project: demo.\n"),
     );
   }));
 
@@ -235,9 +236,9 @@ it("O8: report не прочитан, host idle — очистка хоста", 
         "положи mpu task post project: demo\n",
     );
     assert(
-      rig.letter("host").includes(
-        "\nВопрос владельцу — mpu task owner project: demo.\n",
-      ),
+      rig
+        .letter("host")
+        .includes("\nВопрос владельцу — mpu task owner project: demo.\n"),
     );
   }));
 
@@ -294,8 +295,9 @@ it("O11: баннер Sonnet при профиле opus — окно закры�
       "--name",
       "demo-exec",
     ]);
-    expect(rig.tmux.keys("demo-exec").filter((key) => key.startsWith("/model")))
-      .toStrictEqual([]);
+    expect(
+      rig.tmux.keys("demo-exec").filter((key) => key.startsWith("/model")),
+    ).toStrictEqual([]);
   }));
 
 it("O11b: баннер Opus, в тексте роли sonnet — ничего", () =>
@@ -407,9 +409,9 @@ it("O16: task.max_busy = 1 — очищен один, второй после id
     await rig.stand.human("ask", "task", "setup", "project:", "other");
     await rig.profile("host", "other");
     await rig.profile("exec", "other");
-    rig.stand.openDb().execute(
-      "INSERT INTO config (key, value) VALUES ('task.max_busy', '1')",
-    );
+    rig.stand
+      .openDb()
+      .execute("INSERT INTO config (key, value) VALUES ('task.max_busy', '1')");
     await settled(rig);
     await settled(rig, "other");
     await rig.say("post", "x");
@@ -426,13 +428,7 @@ it("O16: task.max_busy = 1 — очищен один, второй после id
 
 it("O17: полномочия дословно и вывод decisions в первом сообщении", () =>
   withRig(async (rig) => {
-    await rig.stand.human(
-      "ask",
-      "task",
-      "setup",
-      "project:",
-      "demo",
-    );
+    await rig.stand.human("ask", "task", "setup", "project:", "demo");
     await rig.profile("exec", "demo", "powers:", "^мерж", "—", "никогда^");
     await rig.say("post", "x");
     await rig.stand.human(

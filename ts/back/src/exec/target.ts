@@ -41,17 +41,17 @@ export type ExecPlace =
 /** Готовый адрес исполнения: бэкенд выбран, конфигурация прочитана. */
 export type ExecTarget =
   | {
-    readonly kind: "ssh";
-    readonly host: string;
-    readonly user: string;
-    readonly container: string;
-  }
+      readonly kind: "ssh";
+      readonly host: string;
+      readonly user: string;
+      readonly container: string;
+    }
   | {
-    readonly kind: "portainer";
-    readonly access: PortainerAccess;
-    readonly endpointId: number;
-    readonly container: string;
-  };
+      readonly kind: "portainer";
+      readonly access: PortainerAccess;
+      readonly endpointId: number;
+      readonly container: string;
+    };
 
 /** Откуда выбор транспорта берёт всё, что ему нужно. */
 export interface TransportSources {
@@ -68,10 +68,10 @@ export interface TransportSources {
  */
 export type PortainerLookup =
   | {
-    readonly kind: "ok";
-    readonly access: PortainerAccess;
-    readonly endpointId: number;
-  }
+      readonly kind: "ok";
+      readonly access: PortainerAccess;
+      readonly endpointId: number;
+    }
   /** Ключ есть, но сервер не найден ни в кэше, ни в env-fallback'е. */
   | { readonly kind: "no-target" }
   | { readonly kind: "no-key" };
@@ -88,8 +88,8 @@ export function portainerOf(
 ): PortainerLookup {
   const apiKey = value(env, "PORTAINER_API_KEY");
   if (apiKey === undefined) return { kind: "no-key" };
-  const location = serverLocation(cache, serverNumber) ??
-    fallbackLocation(env, serverNumber);
+  const location =
+    serverLocation(cache, serverNumber) ?? fallbackLocation(env, serverNumber);
   if (location === null) return { kind: "no-target" };
   return {
     kind: "ok",
@@ -126,9 +126,7 @@ export function requirePortainer(
 export function viaOf(raw: string | undefined): Via | undefined {
   if (raw === undefined) return undefined;
   if (raw === "ssh" || raw === "portainer") return raw;
-  throw new UsageError(
-    `--via должен быть ssh|portainer, получено '${raw}'`,
-  );
+  throw new UsageError(`--via должен быть ssh|portainer, получено '${raw}'`);
 }
 
 /** Транспорт вызова; отказ — конфигурация, которой не хватает. */
@@ -193,10 +191,11 @@ function serverTarget(
   // (`platform/portainer.md`).
   const container = serverCliContainer(cache, serverNumber);
   const apiKey = value(env, "PORTAINER_API_KEY");
-  const location = apiKey === undefined
-    ? null
-    : serverLocation(cache, serverNumber) ??
-      fallbackLocation(env, serverNumber);
+  const location =
+    apiKey === undefined
+      ? null
+      : (serverLocation(cache, serverNumber) ??
+        fallbackLocation(env, serverNumber));
   if (via !== "ssh" && apiKey !== undefined && location !== null) {
     return {
       kind: "portainer",

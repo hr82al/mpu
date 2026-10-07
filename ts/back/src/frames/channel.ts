@@ -27,8 +27,7 @@ function fieldsOf(text: string): Readonly<Record<string, unknown>> | undefined {
 
 /** Номер доставки: целое неотрицательное. */
 function idOf(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) &&
-      value >= 0
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value
     : undefined;
 }

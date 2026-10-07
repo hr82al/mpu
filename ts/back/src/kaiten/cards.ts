@@ -227,11 +227,15 @@ export async function listCards(
   filter: CardFilter = {},
   options: KaitenCallOptions = {},
 ): Promise<readonly CardSummary[]> {
-  const raw = await kaitenCallPaged(access, {
-    method: "GET",
-    path: "/cards",
-    query: cardsQuery(filter),
-  }, options);
+  const raw = await kaitenCallPaged(
+    access,
+    {
+      method: "GET",
+      path: "/cards",
+      query: cardsQuery(filter),
+    },
+    options,
+  );
   return collect(raw, parseCardSummary);
 }
 
@@ -264,10 +268,14 @@ export async function listCardComments(
   cardId: number,
   options: KaitenCallOptions = {},
 ): Promise<readonly Comment[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/cards/${cardId}/comments`,
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/cards/${cardId}/comments`,
+    },
+    options,
+  );
   return collect(raw, parseComment);
 }
 
@@ -361,10 +369,14 @@ export async function listCardLocationHistory(
   cardId: number,
   options: KaitenCallOptions = {},
 ): Promise<readonly LocationChange[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/cards/${cardId}/location-history`,
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/cards/${cardId}/location-history`,
+    },
+    options,
+  );
   return collect(raw, parseLocationChange);
 }
 
@@ -472,10 +484,14 @@ export async function deleteCardFile(
   fileId: number,
   options: KaitenCallOptions = {},
 ): Promise<void> {
-  await kaitenCall(access, {
-    method: "DELETE",
-    path: `/cards/${cardId}/files/${fileId}`,
-  }, options);
+  await kaitenCall(
+    access,
+    {
+      method: "DELETE",
+      path: `/cards/${cardId}/files/${fileId}`,
+    },
+    options,
+  );
 }
 
 /**

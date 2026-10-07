@@ -301,8 +301,9 @@ class BareSource implements Source {
     if (io.stdinIsTerminal()) return new TypedLine(this.#said);
     // Ввод пришёл строкой кадра — UTF-8 верен по построению (неверный
     // отвергает клиент); BOM снимают слова, а не декодер.
-    const text = new TextDecoder("utf-8", { ignoreBOM: true })
-      .decode(await io.readStdin());
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(
+      await io.readStdin(),
+    );
     const words = wordsOf(text);
     if (words.length === 0) return new TypedLine(this.#said);
     return new StdinProgram(words);

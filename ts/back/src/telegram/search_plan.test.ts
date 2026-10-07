@@ -31,13 +31,14 @@ describe("разбор аргументов поиска", () => {
     });
   });
   it("оба адресата приводятся общим резолвом", () => {
-    expect(searchPlan({ ...ARGS, chat: "Команда", from: "@ivan" }))
-      .toStrictEqual({
-        query: "",
-        chat: { target: "Команда", peer: { kind: "title", title: "Команда" } },
-        from: { target: "@ivan", peer: { kind: "name", name: "ivan" } },
-        limit: 50,
-      });
+    expect(
+      searchPlan({ ...ARGS, chat: "Команда", from: "@ivan" }),
+    ).toStrictEqual({
+      query: "",
+      chat: { target: "Команда", peer: { kind: "title", title: "Команда" } },
+      from: { target: "@ivan", peer: { kind: "name", name: "ivan" } },
+      limit: 50,
+    });
   });
   it("запрос из одних пробелов — непустой запрос", () => {
     expect(searchPlan({ ...ARGS, query: " " }).query).toBe(" ");
@@ -92,8 +93,9 @@ describe("--limit вне диапазона отбивается до сети",
 describe("границы диапазона --limit включительны", () => {
   for (const value of ["1", "500"]) {
     it(value, () => {
-      expect(searchPlan({ ...ARGS, query: "выгрузка", limit: value }).limit)
-        .toStrictEqual(Number(value));
+      expect(
+        searchPlan({ ...ARGS, query: "выгрузка", limit: value }).limit,
+      ).toStrictEqual(Number(value));
     });
   }
 });

@@ -212,19 +212,19 @@ export async function syncClient(
     const serverNumber = fanOutNumberOf(client.server);
     const [ss, sids] = await Promise.allSettled([
       serverNumber === null
-        // Сервер клиента не распознан или это main: его таблицы не
-        // запрашиваются вовсе (инвариант «фан-аут — только N > 0»), а
-        // часть 2 считается невыполненной.
-        ? Promise.resolve(null)
+        ? // Сервер клиента не распознан или это main: его таблицы не
+          // запрашиваются вовсе (инвариант «фан-аут — только N > 0»), а
+          // часть 2 считается невыполненной.
+          Promise.resolve(null)
         : clientSpreadsheets(serverNumber, clientId, deps.openPg, limits),
       select(main.wbSids, { clientId }, limits),
     ]);
-    spreadsheets = ss.status === "fulfilled" && ss.value !== null
-      ? readSpreadsheetRows(ss.value, client.server)
-      : null;
-    wbSids = sids.status === "fulfilled"
-      ? readWbSidRows(sids.value, [client])
-      : null;
+    spreadsheets =
+      ss.status === "fulfilled" && ss.value !== null
+        ? readSpreadsheetRows(ss.value, client.server)
+        : null;
+    wbSids =
+      sids.status === "fulfilled" ? readWbSidRows(sids.value, [client]) : null;
   } finally {
     await main.close();
   }
@@ -252,9 +252,7 @@ export async function syncClient(
  * перечислять упавшие серверы в предупреждении. Второй сортировки ниже
  * нет намеренно — порядок обязан иметь ровно одно место рождения.
  */
-function fanOutNumbers(
-  clients: readonly ClientRow[],
-): readonly number[] {
+function fanOutNumbers(clients: readonly ClientRow[]): readonly number[] {
   const numbers = new Set<number>();
   for (const client of clients) {
     const number = fanOutNumberOf(client.server);

@@ -83,7 +83,7 @@ function descendants(processes: readonly Proc[], root: number): Proc[] {
   const found: Proc[] = [];
   // Родитель в выводе `ps` не обязан идти раньше потомка: круг до
   // неподвижной точки.
-  for (let grew = true; grew;) {
+  for (let grew = true; grew; ) {
     grew = false;
     for (const proc of processes) {
       if (inside.has(proc.pid) || !inside.has(proc.ppid)) continue;
@@ -110,10 +110,11 @@ export class Watchdog {
     if (root === 0) return;
     const snapshot = await source.read();
     if (snapshot.available >= threshold(snapshot.total)) return;
-    const workers = descendants(snapshot.processes, root)
-      .filter((proc) => proc.comm === comm);
+    const workers = descendants(snapshot.processes, root).filter(
+      (proc) => proc.comm === comm,
+    );
     const biggest = workers.reduce<Proc | undefined>(
-      (big, proc) => big === undefined || proc.rss > big.rss ? proc : big,
+      (big, proc) => (big === undefined || proc.rss > big.rss ? proc : big),
       undefined,
     );
     // Исполнители малы — память ест не `mpu`, убивать некого.

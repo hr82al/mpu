@@ -32,12 +32,11 @@ import { type CallDeps, runCall } from "./run.ts";
 import { ENV, envFileOf, withCache } from "./teststand.ts";
 
 /** Строки `ozon_api_keys` по клиентам: Client-Id, id и секрет Performance. */
-const KEYS: Readonly<
-  Record<number, readonly (readonly (string | null)[])[]>
-> = {
-  54: [["2129958", "p-54-id", "p-54-secret"]],
-  56: [["5600001", null, ""]],
-};
+const KEYS: Readonly<Record<number, readonly (readonly (string | null)[])[]>> =
+  {
+    54: [["2129958", "p-54-id", "p-54-secret"]],
+    56: [["5600001", null, ""]],
+  };
 
 const SECRETS = ["p-54-secret", "b-54-token"];
 
@@ -129,9 +128,10 @@ async function onStand(args: Partial<CallArgs>, given: Given = {}) {
 
 /** Ни в одном выходе нет ни секрета, ни bearer. */
 function assertNoSecret(outcome: CallResult | Error, notes: string[]): void {
-  const outputs = outcome instanceof Error
-    ? [outcome.message, errorText(outcome)]
-    : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
+  const outputs =
+    outcome instanceof Error
+      ? [outcome.message, errorText(outcome)]
+      : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
   for (const text of [...outputs, ...notes]) {
     for (const secret of SECRETS) {
       assert(!text.includes(secret), `${secret} в выводе: ${text}`);
@@ -159,7 +159,8 @@ function refusalOf(outcome: CallResult | Error) {
   };
 }
 
-const B1_STDOUT = "HTTP 200 GET api-performance.ozon.ru/api/client/campaign\n" +
+const B1_STDOUT =
+  "HTTP 200 GET api-performance.ozon.ru/api/client/campaign\n" +
   '\n{\n  "list": []\n}\n';
 
 /** Обмен и запрос B1, как их видела заглушка. */
@@ -206,13 +207,16 @@ it("B4: у кабинета нет ключей Performance — отказ, за
 });
 
 it("B5: обмен 401 — его статус и тело, секрет скрыт, код 1", async () => {
-  const { outcome, requests } = await onStand({}, {
-    exchange: () =>
-      new Response(
-        '{"error":"invalid_client","client_secret":"p-54-secret"}',
-        { status: 401 },
-      ),
-  });
+  const { outcome, requests } = await onStand(
+    {},
+    {
+      exchange: () =>
+        new Response(
+          '{"error":"invalid_client","client_secret":"p-54-secret"}',
+          { status: 401 },
+        ),
+    },
+  );
   const result = resultOf(outcome);
   expect(renderCall(result)).toStrictEqual(
     "HTTP 401 POST api-performance.ozon.ru/api/client/token\n\n" +
@@ -224,9 +228,12 @@ it("B5: обмен 401 — его статус и тело, секрет скр�
 
 it("обмен 200 без access_token — сбой без тела ответа, код 1", async () => {
   for (const body of ['{"token":"b-54-token"}', "b-54-token"]) {
-    const { outcome, requests } = await onStand({}, {
-      exchange: () => new Response(body),
-    });
+    const { outcome, requests } = await onStand(
+      {},
+      {
+        exchange: () => new Response(body),
+      },
+    );
     expect(refusalOf(outcome)).toStrictEqual({
       code: 1,
       stderr:
@@ -237,12 +244,16 @@ it("обмен 200 без access_token — сбой без тела ответа
 });
 
 it("сетевой сбой обмена — код 1, секрет в тексте сбоя скрыт", async () => {
-  const { outcome } = await onStand({}, {
-    failure: new TypeError("connection reset, client_secret=p-54-secret"),
-  });
+  const { outcome } = await onStand(
+    {},
+    {
+      failure: new TypeError("connection reset, client_secret=p-54-secret"),
+    },
+  );
   expect(refusalOf(outcome)).toStrictEqual({
     code: 1,
-    stderr: "mpu ozon perf call-ro: запрос не выполнен — connection reset, " +
+    stderr:
+      "mpu ozon perf call-ro: запрос не выполнен — connection reset, " +
       "client_secret=***\n",
   });
 });

@@ -137,7 +137,8 @@ function plannedShape(
 
 /** Строка `[info]`: числа входа и размеры (`d2-miro.md`, «Ввод/вывод»). */
 export function infoLine(fileName: string, plan: Plan): string {
-  const base = `[info] ${fileName}: ${plan.shapes.length} shapes, ` +
+  const base =
+    `[info] ${fileName}: ${plan.shapes.length} shapes, ` +
     `${plan.edges.length} edges, ${plan.markdown.length} markdown blocks; ` +
     `viewBox ${plan.diagramWidth}x${plan.diagramHeight} -> ` +
     `frame ${plan.frameWidth}x${plan.frameHeight} (scale=1.000)`;

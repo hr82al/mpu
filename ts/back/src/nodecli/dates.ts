@@ -19,13 +19,15 @@ const DEFAULT_DATE_FROM = "2025-01-01";
  * даты идут первыми среди доменных флагов (таблица спеки).
  */
 export const periodArgs = {
-  "date-from": z.string().optional().describe(
-    "начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)",
-  ),
+  "date-from": z
+    .string()
+    .optional()
+    .describe("начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)"),
   date_from: z.string().optional().describe("то же, что --date-from"),
-  "date-to": z.string().optional().describe(
-    "конец периода, YYYY-MM-DD (по умолчанию сегодня)",
-  ),
+  "date-to": z
+    .string()
+    .optional()
+    .describe("конец периода, YYYY-MM-DD (по умолчанию сегодня)"),
   date_to: z.string().optional().describe("то же, что --date-to"),
 };
 

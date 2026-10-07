@@ -201,9 +201,7 @@ describe("tail: только stderr, только у лоадер-подобны
   afterAll(() => close());
 
   it("таргет один: loader, не cli и не migrations", () => {
-    expect(asked.map((call) => call.name)).toStrictEqual([
-      "mp-wb-loader-app",
-    ]);
+    expect(asked.map((call) => call.name)).toStrictEqual(["mp-wb-loader-app"]);
   });
 
   it("запрос лога — по спеке транспорта", () => {
@@ -449,13 +447,15 @@ describe("one-shot с ненулевым кодом — предупрежден
       harness(db),
       options({
         listLive: () =>
-          Promise.resolve([{
-            id: "b",
-            names: ["/mp-sl-1-cli"],
-            state: "restarting",
-            status: "Restarting (1) 5 seconds ago",
-            image: "registry.example/app:1.2.3",
-          }]),
+          Promise.resolve([
+            {
+              id: "b",
+              names: ["/mp-sl-1-cli"],
+              state: "restarting",
+              status: "Restarting (1) 5 seconds ago",
+              image: "registry.example/app:1.2.3",
+            },
+          ]),
       }),
     );
     expect(result.exitCode).toBe(1);
@@ -526,13 +526,15 @@ describe("непокрытые спекой ветви: нет mp-строк, н
       harness(db),
       options({
         listLive: () =>
-          Promise.resolve([{
-            id: "a",
-            names: ["/cadvisor"],
-            state: "running",
-            status: "Up 3 days",
-            image: "образ",
-          }]),
+          Promise.resolve([
+            {
+              id: "a",
+              names: ["/cadvisor"],
+              state: "running",
+              status: "Up 3 days",
+              image: "образ",
+            },
+          ]),
       }),
     );
     expect(result.mpCount).toBe(0);
@@ -548,13 +550,15 @@ describe("непокрытые спекой ветви: нет mp-строк, н
       harness(db),
       options({
         listLive: () =>
-          Promise.resolve([{
-            id: "a",
-            names: ["/mp-sl-1-cli"],
-            state: "running",
-            status: "Up 3 days",
-            image: "образ",
-          }]),
+          Promise.resolve([
+            {
+              id: "a",
+              names: ["/mp-sl-1-cli"],
+              state: "running",
+              status: "Up 3 days",
+              image: "образ",
+            },
+          ]),
         fetchLogs: () => {
           throw new Error("логов спрашивать не у кого");
         },
@@ -569,7 +573,7 @@ describe("непокрытые спекой ветви: нет mp-строк, н
   it("сервер без Portainer-таргета — тот же текст, что у ps", async () => {
     const io = makeFakeIo({
       envFile: {
-        get: (name) => name === "PORTAINER_API_KEY" ? "k" : undefined,
+        get: (name) => (name === "PORTAINER_API_KEY" ? "k" : undefined),
         values: () => ({ PORTAINER_API_KEY: "k" }),
         require: () => "",
         set: () => Promise.reject(new Error("не ожидается")),

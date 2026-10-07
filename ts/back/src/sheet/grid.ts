@@ -103,10 +103,7 @@ function splitBang(
 }
 
 /** Лист по имени; неизвестное имя — ошибка компиляции. */
-export function sheetOf(
-  sheets: readonly SheetRef[],
-  title: string,
-): SheetRef {
+export function sheetOf(sheets: readonly SheetRef[], title: string): SheetRef {
   const found = sheets.find((sheet) => sheet.title === title);
   if (found === undefined) {
     throw new UsageError(`лист '${title}' не найден в таблице`);

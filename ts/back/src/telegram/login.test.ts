@@ -89,8 +89,7 @@ function makeStand(opts: {
         return Promise.reject(opts.openFailure);
       }
       return Promise.resolve({
-        signIn: opts.signIn ??
-          (() => Promise.resolve(opts.session ?? SESSION)),
+        signIn: opts.signIn ?? (() => Promise.resolve(opts.session ?? SESSION)),
         close: () => Promise.resolve(),
       });
     },

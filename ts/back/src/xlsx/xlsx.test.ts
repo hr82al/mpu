@@ -115,16 +115,14 @@ async function withSampleDir(
  * Тот же каталог на весь `describe`: создаётся в `beforeAll`, `close` — в
  * `afterAll`.
  */
-async function openSampleDir(): Promise<
-  { dir: string; close: () => Promise<void> }
-> {
+async function openSampleDir(): Promise<{
+  dir: string;
+  close: () => Promise<void>;
+}> {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   const close = () => rm(dir, { recursive: true });
   try {
-    await writeFile(
-      `${dir}/sample.xlsx`,
-      await fixtureB64("sample.xlsx.b64"),
-    );
+    await writeFile(`${dir}/sample.xlsx`, await fixtureB64("sample.xlsx.b64"));
     await copyFile(testdataUrl("broken.xlsx"), `${dir}/broken.xlsx`);
   } catch (err) {
     await close();
@@ -206,21 +204,21 @@ describe("golden: таблица эталонов спеки, байт-в-бай
     it(goldenCase.args.join(" "), async () => {
       // Плейсхолдер эталона подставляется тестом: снапшот-каталог —
       // свойство прогона, а не фикстуры (контракт спеки xlsx.md).
-      const expected = (await fixtureText(goldenCase.fixture))
-        .replaceAll(SNAPSHOT_DIR, dir);
+      const expected = (await fixtureText(goldenCase.fixture)).replaceAll(
+        SNAPSHOT_DIR,
+        dir,
+      );
       const first = makeDirCli(dir);
       const code = await first.run(...goldenCase.args);
       expect(code, first.stderr()).toStrictEqual(goldenCase.exit);
-      const got = goldenCase.stream === "stderr"
-        ? first.stderr()
-        : first.stdout();
+      const got =
+        goldenCase.stream === "stderr" ? first.stderr() : first.stdout();
       expect(got).toStrictEqual(expected);
       // Инвариант спеки: повторный вызов побитово идентичен.
       const second = makeDirCli(dir);
       await second.run(...goldenCase.args);
-      const again = goldenCase.stream === "stderr"
-        ? second.stderr()
-        : second.stdout();
+      const again =
+        goldenCase.stream === "stderr" ? second.stderr() : second.stdout();
       expect(again).toStrictEqual(got);
     });
   }
@@ -285,22 +283,13 @@ describe("get: --sheet, --from, stdin, дедупликация", () => {
     );
     expect([codeA, a.stdout()]).toStrictEqual([0, "42"]);
     const b = makeDirCli(dir);
-    const codeB = await b.run(
-      "get",
-      "-f",
-      "sample.xlsx",
-      "--sheet",
-      "Пустой",
-    );
+    const codeB = await b.run("get", "-f", "sample.xlsx", "--sheet", "Пустой");
     expect(codeB).toBe(0);
     expect(b.stdout()).toContain(`"cells": []`);
   });
   it("--from файл + аргументы, дубликаты убраны", async () => {
     const ranges = `${dir}/ranges.txt`;
-    await writeFile(
-      ranges,
-      "# комментарий\n\nДанные!B2\nДанные!A1\n",
-    );
+    await writeFile(ranges, "# комментарий\n\nДанные!B2\nДанные!A1\n");
     const cli = makeDirCli(dir);
     const code = await cli.run(
       "get",
@@ -360,13 +349,7 @@ describe("get: --sheet, --from, stdin, дедупликация", () => {
   });
   it("--from с несуществующим файлом — exit 1", async () => {
     const cli = makeDirCli(dir);
-    const code = await cli.run(
-      "get",
-      "-f",
-      "sample.xlsx",
-      "--from",
-      "нет.txt",
-    );
+    const code = await cli.run("get", "-f", "sample.xlsx", "--from", "нет.txt");
     expect(code).toBe(1);
     expect(cli.stderr()).toBe(`mpu xlsx: ranges file not found: "нет.txt"\n`);
   });

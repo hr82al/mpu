@@ -38,10 +38,12 @@ const SHA = "abc1234";
 const PRINT = "SHA256:fAkEpRiNt";
 /** Файл, который checkout подменного клона кладёт в каждый субрепо. */
 const TRACKED = { ".env.example": "UPSTREAM=1\n", "README.md": "readme\n" };
-const NOT_FOUND = "ERROR: The project you were looking for could not be " +
+const NOT_FOUND =
+  "ERROR: The project you were looking for could not be " +
   "found or you don't have permission to view it.\n\n" +
   "fatal: Could not read from remote repository.\n";
-const REFUSED = "ssh: connect to host gitlab.btlz-api.ru port 2222: " +
+const REFUSED =
+  "ssh: connect to host gitlab.btlz-api.ru port 2222: " +
   "Connection refused\r\nfatal: Could not read from remote repository.\n";
 
 const ok = (stdout = ""): ProcessOutcome => ({ code: 0, stdout, stderr: "" });
@@ -74,13 +76,13 @@ class FakeShell implements Shell {
 
   async run(argv: readonly string[]): Promise<ProcessOutcome> {
     this.calls.push([...argv]);
-    return this.answer(argv) ?? await this.act(argv);
+    return this.answer(argv) ?? (await this.act(argv));
   }
 
   /** Вызовы, начинающиеся с этих слов. */
   called(...head: string[]): string[][] {
     return this.calls.filter((argv) =>
-      head.every((word, i) => argv[i] === word)
+      head.every((word, i) => argv[i] === word),
     );
   }
 
@@ -194,9 +196,7 @@ interface Stand {
 }
 
 /** Временный `HOME` с корнем `mp`, workspace и `.gitignore`. */
-async function withStand(
-  body: (stand: Stand) => Promise<void>,
-): Promise<void> {
+async function withStand(body: (stand: Stand) => Promise<void>): Promise<void> {
   const home = await mkdtemp(join(tmpdir(), "mpu-"));
   const root = `${home}/mr/mp`;
   try {
@@ -221,7 +221,7 @@ async function run(
 ): Promise<Outcome> {
   const lines: string[] = [];
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? stand.home : undefined,
+    env: (name) => (name === "HOME" ? stand.home : undefined),
     progress: (line) => void lines.push(line),
   });
   const result = await runMpClone({ "dry-run": dryRun }, io, {
@@ -247,14 +247,20 @@ it("C1: каталогов нет — клон каждого, итог", () =>
   withStand(async (stand) => {
     const shell = new FakeShell(stand.root);
     expect(await run(stand, shell)).toStrictEqual({ lines: C1_LINES, code: 0 });
-    expect(shell.called("git", "clone").map((argv) => argv.slice(2)))
-      .toStrictEqual(
-        ["sl-back", "sw-front", "mp-config-local", "ai-tools", "opiu-service"]
-          .map((name) => [
-            `ssh://git@gitlab.btlz-api.ru:2222/wb/${name}.git`,
-            `${stand.root}/${name}`,
-          ]),
-      );
+    expect(
+      shell.called("git", "clone").map((argv) => argv.slice(2)),
+    ).toStrictEqual(
+      [
+        "sl-back",
+        "sw-front",
+        "mp-config-local",
+        "ai-tools",
+        "opiu-service",
+      ].map((name) => [
+        `ssh://git@gitlab.btlz-api.ru:2222/wb/${name}.git`,
+        `${stand.root}/${name}`,
+      ]),
+    );
   }));
 
 it("C2: второй прогон подряд — ни клона, ни записи", () =>
@@ -293,14 +299,15 @@ it("C3: ключа нет — отказ с отпечатком, ~/.ssh не т
     expect(await run(stand, shell)).toStrictEqual({
       lines: [
         "mpu mp-clone: ключа gitlab.btlz-api.ru:2222 нет в known_hosts — " +
-        `отпечаток ${PRINT}; принять: ssh-keyscan -p 2222 ` +
-        "gitlab.btlz-api.ru >> ~/.ssh/known_hosts",
+          `отпечаток ${PRINT}; принять: ssh-keyscan -p 2222 ` +
+          "gitlab.btlz-api.ru >> ~/.ssh/known_hosts",
       ],
       code: 3,
     });
     expect(shell.called("git", "ls-remote")).toStrictEqual([]);
-    expect(shell.calls.filter((argv) => argv.some((w) => w.includes(".ssh"))))
-      .toStrictEqual([]);
+    expect(
+      shell.calls.filter((argv) => argv.some((w) => w.includes(".ssh"))),
+    ).toStrictEqual([]);
     expect(await exists(`${stand.home}/.ssh`)).toBeFalsy();
   }));
 
@@ -333,17 +340,15 @@ it("C4: пустышка — копия, клон поверх, правлены
 
 it("C5: ошибка сети ls-remote — не «нет на сервере», exit 1", () =>
   withStand(async (stand) => {
-    const shell = new FakeShell(
-      stand.root,
-      (argv) =>
-        argv[1] === "ls-remote" && repoOf(argv) === "sl-back"
-          ? fail(REFUSED)
-          : undefined,
+    const shell = new FakeShell(stand.root, (argv) =>
+      argv[1] === "ls-remote" && repoOf(argv) === "sl-back"
+        ? fail(REFUSED)
+        : undefined,
     );
     expect(await run(stand, shell)).toStrictEqual({
       lines: [
         "mpu mp-clone: sl-back — git ls-remote: ssh: connect to host " +
-        "gitlab.btlz-api.ru port 2222: Connection refused",
+          "gitlab.btlz-api.ru port 2222: Connection refused",
       ],
       code: 1,
     });
@@ -357,9 +362,8 @@ it("C6: клон поверх упал после переноса .git — ка
     await writeFile(`${dummy}/.env`, "LOCAL=1\n");
     await writeFile(`${dummy}/.env.example`, "MINE=1\n");
     const before = await snapshot(dummy);
-    const shell = new FakeShell(
-      stand.root,
-      (argv) => argv.includes("checkout") ? fail("error: checkout") : undefined,
+    const shell = new FakeShell(stand.root, (argv) =>
+      argv.includes("checkout") ? fail("error: checkout") : undefined,
     );
     const backup = `${stand.home}/tmp/mp-clone-backup/${STAMP}/sw-front`;
     const { lines, code } = await run(stand, shell);
@@ -423,18 +427,20 @@ it("C8: нет .gitignore — файл с одним блоком", () =>
 
 it("C9: нет личности git — предупреждение, конфиг не тронут", () =>
   withStand(async (stand) => {
-    const shell = new FakeShell(
-      stand.root,
-      (argv) => argv[1] === "config" ? fail("", 1) : undefined,
+    const shell = new FakeShell(stand.root, (argv) =>
+      argv[1] === "config" ? fail("", 1) : undefined,
     );
     const { lines, code } = await run(stand, shell);
     expect(code).toBe(0);
-    assert(lines.includes(
-      "warning: нет личности git — git config --global user.name … && " +
-        "git config --global user.email …",
-    ));
-    expect(shell.called("git", "config").map((argv) => argv.slice(2)))
-      .toStrictEqual([["--global", "--get", "user.name"]]);
+    assert(
+      lines.includes(
+        "warning: нет личности git — git config --global user.name … && " +
+          "git config --global user.email …",
+      ),
+    );
+    expect(
+      shell.called("git", "config").map((argv) => argv.slice(2)),
+    ).toStrictEqual([["--global", "--get", "user.name"]]);
   }));
 
 it("C10: dry — план с префиксом, ls-remote есть, записей нет", () =>
@@ -481,7 +487,7 @@ it("C13: каталог со своим .git — «уже есть», ни fetch
     expect(code).toBe(0);
     expect(lines[0]).toStrictEqual(`уже есть: mpu (main ${SHA})`);
     const touched = shell.calls.filter((argv) =>
-      argv.includes(`${stand.root}/mpu`)
+      argv.includes(`${stand.root}/mpu`),
     );
     expect(touched.map((argv) => argv.slice(3))).toStrictEqual([
       ["rev-parse", "--show-toplevel"],
@@ -507,12 +513,10 @@ it("всё склонировано — к серверу не ходит, кл�
 
 it("упал git clone — exit 1 с текстом git, дальше не идёт", () =>
   withStand(async (stand) => {
-    const shell = new FakeShell(
-      stand.root,
-      (argv) =>
-        argv[1] === "clone" && repoOf(argv) === "sw-front"
-          ? fail("fatal: early EOF\n")
-          : undefined,
+    const shell = new FakeShell(stand.root, (argv) =>
+      argv[1] === "clone" && repoOf(argv) === "sw-front"
+        ? fail("fatal: early EOF\n")
+        : undefined,
     );
     const { lines, code } = await run(stand, shell);
     expect(code).toBe(1);
@@ -537,12 +541,15 @@ describe("workspace без folders и без HOME — ошибка ввода", 
       );
     }));
   it("HOME не задан", async () => {
-    const err = await rejected(() =>
-      runMpClone(
-        { "dry-run": false },
-        makeFakeIo({ env: () => undefined }),
-        { shell: new FakeShell("/nowhere"), disk: systemDisk, clock },
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runMpClone({ "dry-run": false }, makeFakeIo({ env: () => undefined }), {
+          shell: new FakeShell("/nowhere"),
+          disk: systemDisk,
+          clock,
+        }),
+      UsageError,
+    );
     expect(err.message).toBe("корень mp не найден: HOME не задан");
   });
 });

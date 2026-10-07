@@ -52,8 +52,10 @@ export class MethodAddress {
   /** Называет ли адрес метод: `kiten.mine` — и `mine`, и `mine:`. */
   names(method: Named): boolean {
     const { receiver, name } = method;
-    return receiver.join(" ") === this.#receiver.join(" ") &&
-      (name === this.#written || name === `${this.#written}:`);
+    return (
+      receiver.join(" ") === this.#receiver.join(" ") &&
+      (name === this.#written || name === `${this.#written}:`)
+    );
   }
 
   /** Слово адреса, как его набирают в ключе. */

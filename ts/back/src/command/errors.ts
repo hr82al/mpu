@@ -98,10 +98,10 @@ export function formatCommandError(
   const details = err.details === undefined ? "" : `\n${err.details}`;
   // Дословный текст внешней системы печатается без префикса: свою форму
   // он несёт сам (см. `VerbatimError`).
-  const prefix = err instanceof VerbatimError || err instanceof
-      VerbatimUsageError
-    ? ""
-    : `mpu ${name}: `;
+  const prefix =
+    err instanceof VerbatimError || err instanceof VerbatimUsageError
+      ? ""
+      : `mpu ${name}: `;
   return `${prefix}${err.message}${hint}${details}`;
 }
 

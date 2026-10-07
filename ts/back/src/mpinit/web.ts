@@ -48,9 +48,9 @@ const PAGES: ReadonlyMap<string, Address> = new Map([
 
 /** Адреса поднятых услуг web; неподнятая не проверяется. */
 export function webPages(services: readonly string[]): readonly Address[] {
-  return [...PAGES].filter(([name]) => services.includes(name)).map((
-    [, page],
-  ) => page);
+  return [...PAGES]
+    .filter(([name]) => services.includes(name))
+    .map(([, page]) => page);
 }
 
 /** Файлы стенда, которые команда читает сама; нет файла — исключение. */
@@ -152,9 +152,10 @@ export class LocalStack {
       // Нет каталога — нет файлов; compose сам скажет, чего не хватило.
       names = [];
     }
-    return names.filter((name) => name.endsWith(".env")).sort().flatMap((
-      name,
-    ) => ["--env-file", `${dir}/${name}`]);
+    return names
+      .filter((name) => name.endsWith(".env"))
+      .sort()
+      .flatMap((name) => ["--env-file", `${dir}/${name}`]);
   }
 
   /** Web-стек: окружение процесса, `--no-deps`, услуги по порядку. */
@@ -179,9 +180,8 @@ export class LocalStack {
         SW_FRONT_SRC: `${root}/sw-front`,
         SL_FRONT_SRC: `${root}/sl-front`,
         ...tag.env(),
-        SW_BACK_INTERNAL_API_URL: this.settings().get(
-          "SW_BACK_INTERNAL_API_URL",
-        ) ?? INTERNAL_API,
+        SW_BACK_INTERNAL_API_URL:
+          this.settings().get("SW_BACK_INTERNAL_API_URL") ?? INTERNAL_API,
       },
     };
   }
@@ -190,9 +190,9 @@ export class LocalStack {
 /** Имена сетей из `{{json .NetworkSettings.Networks}}`; мусор — ни одной. */
 function networksOf(json: string): readonly string[] {
   try {
-    const parsed = z.record(z.string(), z.unknown()).safeParse(
-      JSON.parse(json),
-    );
+    const parsed = z
+      .record(z.string(), z.unknown())
+      .safeParse(JSON.parse(json));
     return parsed.success ? Object.keys(parsed.data) : [];
   } catch {
     // Не JSON — сетей не видно; инфра пересоздаётся, это безопасно.
@@ -344,12 +344,15 @@ class KnownTag implements DepsTag {
   constructor(private readonly tag: string) {}
 
   async admit(context: WebContext): Promise<Admission> {
-    const probe = await context.docker.probe([
-      "docker",
-      "manifest",
-      "inspect",
-      `${NEXUS}/base-images/sw-back-deps:${this.tag}`,
-    ], context.cwd);
+    const probe = await context.docker.probe(
+      [
+        "docker",
+        "manifest",
+        "inspect",
+        `${NEXUS}/base-images/sw-back-deps:${this.tag}`,
+      ],
+      context.cwd,
+    );
     if (probe.code === 0) return WITH_SW_BACK;
     context.progress(
       `warning: sw-back: нет образа зависимостей под этот lock (${this.tag})`,

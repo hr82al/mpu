@@ -76,10 +76,7 @@ export const PERMANENT_REASONS = [
   "unknown_error",
 ] as const;
 
-export const REASONS = [
-  ...OPERATIONAL_REASONS,
-  ...PERMANENT_REASONS,
-] as const;
+export const REASONS = [...OPERATIONAL_REASONS, ...PERMANENT_REASONS] as const;
 
 /**
  * Kebab-слаг имени: имя без префикса `wb`, слова через дефис в нижнем
@@ -109,9 +106,10 @@ export function requireLoader(value: string): string {
   if ((LOADERS as readonly string[]).includes(value)) return value;
   const bySlug = loaderOfSlug(value);
   throw new UsageError(`неизвестный loader '${value}'`, {
-    hint: bySlug === undefined
-      ? `один из: ${LOADERS.join(", ")}`
-      : `используй camelCase-имя: ${bySlug}`,
+    hint:
+      bySlug === undefined
+        ? `один из: ${LOADERS.join(", ")}`
+        : `используй camelCase-имя: ${bySlug}`,
   });
 }
 
@@ -169,9 +167,8 @@ export interface TargetInput {
 export function directTarget(input: TargetInput): LoaderTarget | undefined {
   const sid = input.sid ?? (isSidLike(input.selector) ? input.selector : null);
   if (sid === null) return undefined;
-  const clientId = input.clientId === undefined
-    ? []
-    : [requireClientId(input.clientId)];
+  const clientId =
+    input.clientId === undefined ? [] : [requireClientId(input.clientId)];
   return { sids: [sid], clientIds: clientId, direct: true };
 }
 
@@ -196,7 +193,8 @@ export function cacheTarget(
       hint: "укажи --sid <sid> или обнови кэш: mpu update",
     });
   }
-  const named = sids.find((sid) => sid === input.selector) ??
+  const named =
+    sids.find((sid) => sid === input.selector) ??
     onlyMatching(sids, input.selector);
   const chosen = named === undefined ? sids : [named];
   return {
@@ -213,13 +211,10 @@ export function cacheTarget(
  */
 export function requireSingleSid(target: LoaderTarget): string {
   if (target.sids.length === 1) return target.sids[0];
-  throw new UsageError(
-    `у клиента несколько WB sid (${target.sids.length})`,
-    {
-      hint: "укажи --sid <sid>",
-      details: target.sids.map((sid) => `  --sid ${sid}`).join("\n"),
-    },
-  );
+  throw new UsageError(`у клиента несколько WB sid (${target.sids.length})`, {
+    hint: "укажи --sid <sid>",
+    details: target.sids.map((sid) => `  --sid ${sid}`).join("\n"),
+  });
 }
 
 /** Единственный sid, содержащий селектор подстрокой; иначе `undefined`. */
@@ -297,8 +292,10 @@ export function curlSnippet(
 
 /** Путь загрузчика: подстановки экранируются, как везде в `api`. */
 export function loaderPath(sid: string, slug: string, tail: string): string {
-  return `/admin/wb-loader/loaders/${encodeURIComponent(sid)}/` +
-    `${encodeURIComponent(slug)}/v1/${tail}`;
+  return (
+    `/admin/wb-loader/loaders/${encodeURIComponent(sid)}/` +
+    `${encodeURIComponent(slug)}/v1/${tail}`
+  );
 }
 
 /** Сборка состояния окна из `--from`. */

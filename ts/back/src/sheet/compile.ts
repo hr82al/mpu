@@ -55,10 +55,7 @@ type Verb = (args: Args) => readonly unknown[];
  * Компилирует скрипт целиком. Отказ любой инструкции называет её номер:
  * оператор правит скрипт, а не гадает, какая из тридцати строк не та.
  */
-export function compileScript(
-  source: string,
-  ctx: CompileContext,
-): Compiled {
+export function compileScript(source: string, ctx: CompileContext): Compiled {
   const requests: unknown[] = [];
   for (const instruction of splitScript(source)) {
     for (const request of compileOne(instruction, ctx)) requests.push(request);
@@ -95,9 +92,8 @@ function dispatch(text: string, ctx: CompileContext): readonly unknown[] {
     return [{ [tokens[0].slice(1)]: sugared(body, ctx) }];
   }
   const pair = tokens.length > 1 ? `${tokens[0]} ${tokens[1]}` : undefined;
-  const verb = pair !== undefined && VERBS[pair] !== undefined
-    ? pair
-    : tokens[0];
+  const verb =
+    pair !== undefined && VERBS[pair] !== undefined ? pair : tokens[0];
   const handler = VERBS[verb];
   if (handler === undefined) {
     // У двухсловных семейств называется пара целиком: `неизвестный
@@ -152,11 +148,7 @@ function after(text: string, token: string): string {
 }
 
 /** Обязательный токен по позиции; его отсутствие — ошибка компиляции. */
-function need(
-  tokens: readonly string[],
-  index: number,
-  what: string,
-): string {
+function need(tokens: readonly string[], index: number, what: string): string {
   const token = tokens[index];
   if (token === undefined) throw new UsageError(`нужен ${what}`);
   return token;
@@ -283,9 +275,9 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
     const value = tail.startsWith("=")
       ? cellValue(tail.slice(1).trim(), args.ctx.literal)
       : cellValue(need(args.tokens, 1, "ЗНАЧЕНИЕ"), args.ctx.literal);
-    return [cellRequest(range, { userEnteredValue: value }, [
-      "userEnteredValue",
-    ])];
+    return [
+      cellRequest(range, { userEnteredValue: value }, ["userEnteredValue"]),
+    ];
   },
 
   label: (args) => {
@@ -311,44 +303,50 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
     if (style.fields.length === 0) {
       throw new UsageError("нужен хотя бы один стиль-флаг");
     }
-    return [{
-      repeatCell: {
-        range,
-        cell: { userEnteredFormat: style.format },
-        fields: style.fields.join(","),
+    return [
+      {
+        repeatCell: {
+          range,
+          cell: { userEnteredFormat: style.format },
+          fields: style.fields.join(","),
+        },
       },
-    }];
+    ];
   },
 
   clear: (args) => {
     const range = rangeOf(args, need(args.tokens, 0, "RANGE"));
     const what = args.tokens[1] ?? "values";
-    const fields = what === "values"
-      ? "userEnteredValue"
-      : what === "formats"
-      ? "userEnteredFormat"
-      : what === "all"
-      ? "userEnteredValue,userEnteredFormat,note"
-      : rejectUnknown(what);
+    const fields =
+      what === "values"
+        ? "userEnteredValue"
+        : what === "formats"
+          ? "userEnteredFormat"
+          : what === "all"
+            ? "userEnteredValue,userEnteredFormat,note"
+            : rejectUnknown(what);
     return [{ updateCells: { range, fields } }];
   },
 
   merge: (args) => {
     const range = rangeOf(args, need(args.tokens, 0, "RANGE"));
     const how = args.tokens[1] ?? "all";
-    const mergeType = how === "all"
-      ? "MERGE_ALL"
-      : how === "rows"
-      ? "MERGE_ROWS"
-      : how === "cols"
-      ? "MERGE_COLUMNS"
-      : rejectUnknown(how);
+    const mergeType =
+      how === "all"
+        ? "MERGE_ALL"
+        : how === "rows"
+          ? "MERGE_ROWS"
+          : how === "cols"
+            ? "MERGE_COLUMNS"
+            : rejectUnknown(how);
     return [{ mergeCells: { range, mergeType } }];
   },
 
-  unmerge: (args) => [{
-    unmergeCells: { range: rangeOf(args, need(args.tokens, 0, "RANGE")) },
-  }],
+  unmerge: (args) => [
+    {
+      unmergeCells: { range: rangeOf(args, need(args.tokens, 0, "RANGE")) },
+    },
+  ],
 
   border: (args) => {
     const range = rangeOf(args, need(args.tokens, 0, "RANGE"));
@@ -412,9 +410,11 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
     return [{ deleteDuplicates: out }];
   },
 
-  trim: (args) => [{
-    trimWhitespace: { range: rangeOf(args, need(args.tokens, 0, "RANGE")) },
-  }],
+  trim: (args) => [
+    {
+      trimWhitespace: { range: rangeOf(args, need(args.tokens, 0, "RANGE")) },
+    },
+  ],
 
   validate: (args) => {
     const range = rangeOf(args, need(args.tokens, 0, "RANGE"));
@@ -451,21 +451,25 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
   unprotect: (args) => {
     const id = keyValue(need(args.tokens, 0, "id=N"), "id");
     if (id === undefined) throw new UsageError("нужен id=N");
-    return [{
-      deleteProtectedRange: {
-        protectedRangeId: number(`id=${id}`, id),
+    return [
+      {
+        deleteProtectedRange: {
+          protectedRangeId: number(`id=${id}`, id),
+        },
       },
-    }];
+    ];
   },
 
   autofill: (args) => {
     const target = arrow(args, "СПАН -> DEST");
-    return [{
-      autoFill: {
-        range: rangeOf(args, target.dest),
-        useAlternateSeries: false,
+    return [
+      {
+        autoFill: {
+          range: rangeOf(args, target.dest),
+          useAlternateSeries: false,
+        },
       },
-    }];
+    ];
   },
 
   copy: (args) => {
@@ -476,24 +480,28 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
       if (type === undefined) rejectUnknown(token);
       pasteType = `PASTE_${type.toUpperCase()}`;
     }
-    return [{
-      copyPaste: {
-        source: rangeOf(args, target.src),
-        destination: rangeOf(args, target.dest),
-        pasteType,
+    return [
+      {
+        copyPaste: {
+          source: rangeOf(args, target.src),
+          destination: rangeOf(args, target.dest),
+          pasteType,
+        },
       },
-    }];
+    ];
   },
 
   cut: (args) => {
     const target = arrow(args, "SRC -> DEST");
     for (const token of target.tail) rejectUnknown(token);
-    return [{
-      cutPaste: {
-        source: rangeOf(args, target.src),
-        destination: rangeOf(args, target.dest),
+    return [
+      {
+        cutPaste: {
+          source: rangeOf(args, target.src),
+          destination: rangeOf(args, target.dest),
+        },
       },
-    }];
+    ];
   },
 
   "find-replace": (args) => {
@@ -598,17 +606,19 @@ function dimensionVerbs(
         } else if (token === "inherit=after") inherit = false;
         else rejectUnknown(token);
       }
-      return [{
-        insertDimension: {
-          range: { ...base, startIndex: start, endIndex: end },
-          // На левом (верхнем) краю наследовать нечего, и Google
-          // отвечает отказом «range.startIndex must not be 0 if
-          // inheritFromBefore is true» — падает вся пачка, а не одна
-          // инструкция. Поэтому на нулевом индексе признак ложен при
-          // любом вводе (`sheet-batch.md`, отклонение fix).
-          inheritFromBefore: start === 0 ? false : inherit,
+      return [
+        {
+          insertDimension: {
+            range: { ...base, startIndex: start, endIndex: end },
+            // На левом (верхнем) краю наследовать нечего, и Google
+            // отвечает отказом «range.startIndex must not be 0 if
+            // inheritFromBefore is true» — падает вся пачка, а не одна
+            // инструкция. Поэтому на нулевом индексе признак ложен при
+            // любом вводе (`sheet-batch.md`, отклонение fix).
+            inheritFromBefore: start === 0 ? false : inherit,
+          },
         },
-      }];
+      ];
     },
     [`${word} delete`]: (args) => [{ deleteDimension: { range: range(args) } }],
     [`${word} move`]: (args) => {
@@ -617,16 +627,20 @@ function dimensionVerbs(
       if (at === -1 || target === undefined) {
         throw new UsageError("нужен after ИНДЕКС");
       }
-      return [{
-        moveDimension: {
-          source: range(args),
-          destinationIndex: number(`after ${target}`, target),
+      return [
+        {
+          moveDimension: {
+            source: range(args),
+            destinationIndex: number(`after ${target}`, target),
+          },
         },
-      }];
+      ];
     },
-    [`${word} autosize`]: (args) => [{
-      autoResizeDimensions: { dimensions: range(args) },
-    }],
+    [`${word} autosize`]: (args) => [
+      {
+        autoResizeDimensions: { dimensions: range(args) },
+      },
+    ],
     [`${word} resize`]: (args) => {
       let px: string | undefined;
       for (const token of args.tokens.slice(1)) {
@@ -635,22 +649,28 @@ function dimensionVerbs(
         px = value;
       }
       if (px === undefined) throw new UsageError("нужен px=N");
-      return [{
-        updateDimensionProperties: {
-          range: range(args),
-          properties: { pixelSize: number(`px=${px}`, px) },
-          fields: "pixelSize",
+      return [
+        {
+          updateDimensionProperties: {
+            range: range(args),
+            properties: { pixelSize: number(`px=${px}`, px) },
+            fields: "pixelSize",
+          },
         },
-      }];
+      ];
     },
     [`${word} hide`]: (args) => [hiddenRequest(range(args), true)],
     [`${word} show`]: (args) => [hiddenRequest(range(args), false)],
-    [`group ${word}`]: (args) => [{
-      addDimensionGroup: { range: range(args) },
-    }],
-    [`ungroup ${word}`]: (args) => [{
-      deleteDimensionGroup: { range: range(args) },
-    }],
+    [`group ${word}`]: (args) => [
+      {
+        addDimensionGroup: { range: range(args) },
+      },
+    ],
+    [`ungroup ${word}`]: (args) => [
+      {
+        deleteDimensionGroup: { range: range(args) },
+      },
+    ],
     [`append ${word}`]: (args) => {
       const count = need(args.tokens, 0, "количество");
       let title = args.ctx.defaultSheet;
@@ -659,13 +679,15 @@ function dimensionVerbs(
       if (title === undefined) {
         throw new UsageError("нужен лист: on ЛИСТ или -n");
       }
-      return [{
-        appendDimension: {
-          sheetId: sheetOf(args.ctx.sheets, title).sheetId,
-          dimension,
-          length: number(count, count),
+      return [
+        {
+          appendDimension: {
+            sheetId: sheetOf(args.ctx.sheets, title).sheetId,
+            dimension,
+            length: number(count, count),
+          },
         },
-      }];
+      ];
     },
   };
 }
@@ -685,7 +707,8 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
   freeze: (args) => {
     // Лист — первый токен, не начатый `rows=`/`cols=`, и только он:
     // второй бесключевой токен раньше молча затирал первый.
-    const named = args.tokens[0] !== undefined &&
+    const named =
+      args.tokens[0] !== undefined &&
       keyValue(args.tokens[0], "rows") === undefined &&
       keyValue(args.tokens[0], "cols") === undefined;
     const title = named ? unquote(args.tokens[0]) : args.ctx.defaultSheet;
@@ -706,15 +729,17 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
       throw new UsageError("нужен лист: freeze ЛИСТ или -n");
     }
     if (fields.length === 0) throw new UsageError("нужен rows=N и/или cols=M");
-    return [{
-      updateSheetProperties: {
-        properties: {
-          sheetId: sheetOf(args.ctx.sheets, title).sheetId,
-          gridProperties: grid,
+    return [
+      {
+        updateSheetProperties: {
+          properties: {
+            sheetId: sheetOf(args.ctx.sheets, title).sheetId,
+            gridProperties: grid,
+          },
+          fields: fields.join(","),
         },
-        fields: fields.join(","),
       },
-    }];
+    ];
   },
 
   "sheet add": (args) => {
@@ -740,21 +765,25 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
     return [{ addSheet: { properties } }];
   },
 
-  "sheet delete": (args) => [{
-    deleteSheet: {
-      sheetId: sheetByToken(args, need(args.tokens, 0, "ЛИСТ")).sheetId,
-    },
-  }],
-
-  "sheet rename": (args) => [{
-    updateSheetProperties: {
-      properties: {
-        sheetId: sheetByToken(args, need(args.tokens, 0, "СТАРОЕ")).sheetId,
-        title: unquote(need(args.tokens, 1, "НОВОЕ")),
+  "sheet delete": (args) => [
+    {
+      deleteSheet: {
+        sheetId: sheetByToken(args, need(args.tokens, 0, "ЛИСТ")).sheetId,
       },
-      fields: "title",
     },
-  }],
+  ],
+
+  "sheet rename": (args) => [
+    {
+      updateSheetProperties: {
+        properties: {
+          sheetId: sheetByToken(args, need(args.tokens, 0, "СТАРОЕ")).sheetId,
+          title: unquote(need(args.tokens, 1, "НОВОЕ")),
+        },
+        fields: "title",
+      },
+    },
+  ],
 
   "sheet dup": (args) => {
     const source = sheetByToken(args, need(args.tokens, 0, "ЛИСТ"));
@@ -768,12 +797,14 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
     const sheet = sheetByToken(args, need(args.tokens, 0, "ЛИСТ"));
     const value = keyValue(need(args.tokens, 1, "color=#hex"), "color");
     if (value === undefined) throw new UsageError("нужен color=#hex");
-    return [{
-      updateSheetProperties: {
-        properties: { sheetId: sheet.sheetId, tabColor: color(value) },
-        fields: "tabColor",
+    return [
+      {
+        updateSheetProperties: {
+          properties: { sheetId: sheet.sheetId, tabColor: color(value) },
+          fields: "tabColor",
+        },
       },
-    }];
+    ];
   },
 
   "cond add": (args) => {
@@ -782,15 +813,18 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
     const style = styleOf(args.tokens.slice(2));
     // Без стиль-флагов правило всё равно должно что-то красить: жёлтый
     // фон — умолчание рабочей версии.
-    const format = style.fields.length === 0
-      ? { backgroundColor: color("#ffeb3b") }
-      : style.format;
-    return [{
-      addConditionalFormatRule: {
-        rule: { ranges: [range], booleanRule: { condition: rule, format } },
-        index: 0,
+    const format =
+      style.fields.length === 0
+        ? { backgroundColor: color("#ffeb3b") }
+        : style.format;
+    return [
+      {
+        addConditionalFormatRule: {
+          rule: { ranges: [range], booleanRule: { condition: rule, format } },
+          index: 0,
+        },
       },
-    }];
+    ];
   },
 
   "cond clear": (args) => {
@@ -804,14 +838,16 @@ const SHEET_VERBS: Readonly<Record<string, Verb>> = {
     return [{ deleteConditionalFormatRule: { sheetId: sheet.sheetId, index } }];
   },
 
-  "name add": (args) => [{
-    addNamedRange: {
-      namedRange: {
-        name: unquote(need(args.tokens, 0, "ИМЯ")),
-        range: rangeOf(args, need(args.tokens, 1, "RANGE")),
+  "name add": (args) => [
+    {
+      addNamedRange: {
+        namedRange: {
+          name: unquote(need(args.tokens, 0, "ИМЯ")),
+          range: rangeOf(args, need(args.tokens, 1, "RANGE")),
+        },
       },
     },
-  }],
+  ],
 
   "name del": (args) => {
     const value = keyValue(need(args.tokens, 0, "id=ID"), "id");

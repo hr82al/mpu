@@ -16,11 +16,7 @@ export interface Asker {
    *
    * @param signal вопрос решён в другом месте: чтение бросается
    */
-  answer(
-    question: string,
-    kind: AskKind,
-    signal: AbortSignal,
-  ): Promise<string>;
+  answer(question: string, kind: AskKind, signal: AbortSignal): Promise<string>;
 }
 
 /**
@@ -54,9 +50,7 @@ function unlessSettled(
  *
  * @param open открыть управляющий терминал; его нет — ответа не будет
  */
-export function humanAsker(
-  open: () => Promise<TerminalIo | undefined>,
-): Asker {
+export function humanAsker(open: () => Promise<TerminalIo | undefined>): Asker {
   return {
     present: true,
     answer: async (question, kind, signal) => {

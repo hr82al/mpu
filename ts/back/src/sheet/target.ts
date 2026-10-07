@@ -62,7 +62,8 @@ const SHOWN_CANDIDATES = 10;
  * обещала источник, которого у команды нет (`sheet.md`, отклонение
  * `fix`).
  */
-const NOT_SET = "Spreadsheet не указан. Используй --spreadsheet/-s или " +
+const NOT_SET =
+  "Spreadsheet не указан. Используй --spreadsheet/-s или " +
   "установи `sheet.default`: mpu config key: sheet.default value: <id-or-name>.";
 
 /** Цель по источникам; ни один не задан — ошибка ввода. */
@@ -161,7 +162,8 @@ function onlyRow(
   value: string,
 ): SpreadsheetRow {
   if (rows.length === 1) return rows[0];
-  const shown = rows.slice(0, SHOWN_CANDIDATES)
+  const shown = rows
+    .slice(0, SHOWN_CANDIDATES)
     .map((row) => `  ${row.ssId}  ${row.title}`);
   const rest = rows.length - shown.length;
   const tail = rest > 0 ? [`  …(+${rest} more)`] : [];

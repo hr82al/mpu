@@ -98,7 +98,7 @@ const PICTURE_MIMES = [
 ] as const;
 
 /** Вид картинки. */
-export type PictureMime = typeof PICTURE_MIMES[number];
+export type PictureMime = (typeof PICTURE_MIMES)[number];
 
 /** Картинка ответа строки: вид и base64 байтов файла без переносов. */
 export interface PictureData {
@@ -114,10 +114,10 @@ export type ServerFrame =
   /** Картинка строки — после вывода, перед `exit` (`platform/picture-frame.md`). */
   | { readonly picture: PictureData }
   | {
-    readonly ask: string;
-    readonly kind?: AskKind;
-    readonly ticket?: string;
-  }
+      readonly ask: string;
+      readonly kind?: AskKind;
+      readonly ticket?: string;
+    }
   | { readonly clip: string }
   /**
    * Вопрос строки решён в другом месте — владельцем в Telegram
@@ -150,7 +150,8 @@ export function lineRequest(
   if (!isRecord(frame)) throw new BadFrame("кадр не объект JSON");
   const { words, cwd, human = false } = frame;
   if (
-    !Array.isArray(words) || !words.every((word) => typeof word === "string")
+    !Array.isArray(words) ||
+    !words.every((word) => typeof word === "string")
   ) {
     throw new BadFrame("words — не список строк");
   }
@@ -266,9 +267,12 @@ function outputFileOf(value: unknown): OutputFile {
   if (!isRecord(value)) throw new BadFrame("file не объект JSON");
   const { path, bytes, lines, slice } = value;
   if (
-    typeof path !== "string" || typeof bytes !== "number" ||
-    !Number.isSafeInteger(bytes) || typeof lines !== "number" ||
-    !Number.isSafeInteger(lines) || typeof slice !== "boolean"
+    typeof path !== "string" ||
+    typeof bytes !== "number" ||
+    !Number.isSafeInteger(bytes) ||
+    typeof lines !== "number" ||
+    !Number.isSafeInteger(lines) ||
+    typeof slice !== "boolean"
   ) {
     throw new BadFrame("у file поле не своего вида");
   }
@@ -311,8 +315,10 @@ export function refusalOf(value: unknown): RefusalData {
   const words = hint === null ? null : stringsOf(hint);
   const near = stringsOf(candidates);
   if (
-    typeof reason !== "string" || typeof text !== "string" ||
-    words === undefined || near === undefined
+    typeof reason !== "string" ||
+    typeof text !== "string" ||
+    words === undefined ||
+    near === undefined
   ) {
     throw new BadFrame("у отказа поле не своего вида");
   }
@@ -328,9 +334,10 @@ export function refusalOf(value: unknown): RefusalData {
  *   запросом и живёт до конца строки (`platform/call-context.md`), а
  *   номер при этом цел, и отказ обязан это различать
  */
-export function ticketAnswerOf(
-  data: unknown,
-): { readonly ticket: string; readonly answer: string } {
+export function ticketAnswerOf(data: unknown): {
+  readonly ticket: string;
+  readonly answer: string;
+} {
   const body = parsedJson(data);
   if (!isRecord(body)) return { ticket: "", answer: "" };
   if (CONTEXT_FIELDS.some((name) => name in body)) {
@@ -361,25 +368,25 @@ export interface OutputFile {
 
 export type Collected =
   | {
-    /** Вывод строки; отдан файлом — пусто, а место его — `file`. */
-    readonly stdout: string;
-    readonly stderr: string;
-    readonly exit: number;
-    /** Отказ строки объектом; строка не отказана — поля нет. */
-    readonly refusal?: RefusalData;
-    /** Вывод файлом; отдан целиком — поля нет. */
-    readonly file?: OutputFile;
-    /** Картинки строки по порядку; нет ни одной — поля нет. */
-    readonly pictures?: readonly PictureData[];
-  }
+      /** Вывод строки; отдан файлом — пусто, а место его — `file`. */
+      readonly stdout: string;
+      readonly stderr: string;
+      readonly exit: number;
+      /** Отказ строки объектом; строка не отказана — поля нет. */
+      readonly refusal?: RefusalData;
+      /** Вывод файлом; отдан целиком — поля нет. */
+      readonly file?: OutputFile;
+      /** Картинки строки по порядку; нет ни одной — поля нет. */
+      readonly pictures?: readonly PictureData[];
+    }
   | {
-    readonly stdout: string;
-    readonly stderr: string;
-    readonly ask: string;
-    /** Вид ответа; `line` — умолчание, и поля тогда нет. */
-    readonly kind?: AskKind;
-    readonly ticket: string;
-  };
+      readonly stdout: string;
+      readonly stderr: string;
+      readonly ask: string;
+      /** Вид ответа; `line` — умолчание, и поля тогда нет. */
+      readonly kind?: AskKind;
+      readonly ticket: string;
+    };
 
 /**
  * Собранный ответ из тела.

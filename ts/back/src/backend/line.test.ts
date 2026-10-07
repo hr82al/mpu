@@ -148,17 +148,13 @@ it("закрытая строка второго адресата не спра�
 });
 
 describe("номер: решено в чате — строка ждёт, пока решение не заберут", () => {
-  for (
-    const [name, given] of [
-      ["запрос решения", ""],
-      ["ответ по номеру, присланный позже", "n"],
-    ] as const
-  ) {
+  for (const [name, given] of [
+    ["запрос решения", ""],
+    ["ответ по номеру, присланный позже", "n"],
+  ] as const) {
     it(name, async () => {
       const tickets = new Tickets(() => "n1");
-      const { line, frames } = asked(
-        ticketAsking(tickets, AGENT_DOOR, OWNER),
-      );
+      const { line, frames } = asked(ticketAsking(tickets, AGENT_DOOR, OWNER));
       const { rival, told, decide } = chat();
       line.question("выполнить mpu x? [y/N] ", "line", rival);
       const answer = line.answer();
@@ -170,10 +166,12 @@ describe("номер: решено в чате — строка ждёт, пок
         (await settled).read({ decided: (said) => said, gone: () => "нет" }),
       ).toBe("решено в Telegram — да");
       // Решение не уходит кадром: у строки с номером доставки нет.
-      expect(frames).toStrictEqual([{
-        ask: "выполнить mpu x? [y/N] ",
-        ticket: "n1",
-      }]);
+      expect(frames).toStrictEqual([
+        {
+          ask: "выполнить mpu x? [y/N] ",
+          ticket: "n1",
+        },
+      ]);
       expect(told).toStrictEqual(["спрошен"]);
       line.resume(DETACHED, claim.answer(given));
       expect(await answer).toBe("y");
@@ -193,8 +191,9 @@ it("номер: ответ канала первым — ожидание реш
   const settled = claim.settled(new AbortController().signal);
   line.resume(DETACHED, claim.answer("y"));
   expect(await answer).toBe("y");
-  expect((await settled).read({ decided: () => "решено", gone: () => "нет" }))
-    .toBe("нет");
+  expect(
+    (await settled).read({ decided: () => "решено", gone: () => "нет" }),
+  ).toBe("нет");
   expect(told).toStrictEqual(["спрошен", "ответ канала"]);
 });
 
@@ -208,8 +207,9 @@ it("номер: запрос ушёл, не дождавшись, — строк
   const left = new AbortController();
   const settled = claim.settled(left.signal);
   left.abort();
-  expect((await settled).read({ decided: () => "решено", gone: () => "нет" }))
-    .toBe("нет");
+  expect(
+    (await settled).read({ decided: () => "решено", gone: () => "нет" }),
+  ).toBe("нет");
   expect(tickets.take("n3", HUMAN_DOOR, OWNER)).toStrictEqual(claim);
   line.resume(DETACHED, claim.answer("y"));
   expect(await answer).toBe("y");

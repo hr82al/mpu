@@ -35,8 +35,6 @@ CLAUDE_CODE_MESSAGING_SOCKET (запущена не Claude Code).`,
   argsSchema,
   resultSchema,
   run: () =>
-    Promise.reject(
-      new Error("claude-channel исполняет клиент mpu, не ядро"),
-    ),
+    Promise.reject(new Error("claude-channel исполняет клиент mpu, не ядро")),
   render: () => "",
 });

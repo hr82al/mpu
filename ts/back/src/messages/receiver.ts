@@ -265,7 +265,7 @@ export class Draft {
     const complete = shortfalls.some((missing) => missing.length === 0);
     if (shortfalls.length === 0 || complete) return this.#pairs.message();
     const fewest = shortfalls.reduce((best, next) =>
-      next.length < best.length ? next : best
+      next.length < best.length ? next : best,
     );
     throw new MessageParseError(`не хватает ключа ${fewest[0]}`);
   }

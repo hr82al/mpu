@@ -55,17 +55,21 @@ it("адрес стенда идёт мимо прокси окружения, �
     const domain = new URL(`http://localhost:${port}/ready`);
     const bodies = {
       get: (await httpGet(stand, { timeouts: TIMEOUTS, env })).text,
-      send: (await httpSend(stand, {
-        timeouts: TIMEOUTS,
-        method: "POST",
-        body: "x",
-        env,
-      })).text,
-      explicit: (await httpSend(stand, {
-        timeouts: TIMEOUTS,
-        proxy: trap.server.baseUrl,
-        env,
-      })).text,
+      send: (
+        await httpSend(stand, {
+          timeouts: TIMEOUTS,
+          method: "POST",
+          body: "x",
+          env,
+        })
+      ).text,
+      explicit: (
+        await httpSend(stand, {
+          timeouts: TIMEOUTS,
+          proxy: trap.server.baseUrl,
+          env,
+        })
+      ).text,
       domain: (await httpGet(domain, { timeouts: TIMEOUTS, env })).text,
     };
     expect(bodies).toStrictEqual({
@@ -98,10 +102,7 @@ interface Tunnel {
  * Туннель ведёт на `upstreamPort` петли, какой бы адрес ни назвали в
  * CONNECT: имя `example.test` не разрешается, а дойти до сервера надо.
  */
-async function tunnel(
-  upstreamPort: number,
-  refusal?: number,
-): Promise<Tunnel> {
+async function tunnel(upstreamPort: number, refusal?: number): Promise<Tunnel> {
   const connects: string[] = [];
   const authorizations: (string | undefined)[] = [];
   const sockets = new Set<Socket>();
@@ -245,10 +246,12 @@ it("http через прокси с учётными данными — запр
     });
     expect(text).toBe("trap");
     // Хост запроса — адрес вызова, а не прокси: прокси сам идёт к нему.
-    expect(seen).toStrictEqual([{
-      url: "http://example.test/x?q=1",
-      auth: `Basic ${btoa("u:p@ss")}`,
-    }]);
+    expect(seen).toStrictEqual([
+      {
+        url: "http://example.test/x?q=1",
+        auth: `Basic ${btoa("u:p@ss")}`,
+      },
+    ]);
   } finally {
     await trap.stop();
   }
@@ -291,8 +294,7 @@ it("прокси окружения не разбирается — отказ �
     err.message.startsWith(
       "прокси не принят клиентом — '[не адрес': адрес не разбирается",
     ),
-  )
-    .toBe(true);
+  ).toBe(true);
   expect(err.message.includes("secret"), err.message).toBe(false);
 });
 

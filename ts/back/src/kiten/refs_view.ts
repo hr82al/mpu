@@ -91,12 +91,14 @@ export function renderRefsJson(value: unknown): string {
  * подписями (`kiten-refs.md`, «Ввод/вывод»).
  */
 export function renderWhoami(user: UserView): string {
-  return [
-    `id:    ${user.id}`,
-    `name:  ${user.full_name}`,
-    `login: ${user.username}`,
-    `email: ${user.email}`,
-  ].join("\n") + "\n";
+  return (
+    [
+      `id:    ${user.id}`,
+      `name:  ${user.full_name}`,
+      `login: ${user.username}`,
+      `email: ${user.email}`,
+    ].join("\n") + "\n"
+  );
 }
 
 /** Пространства таблицей; архивное помечено `yes`, остальные — пусто. */
@@ -157,16 +159,17 @@ function renderRefTable(
   const widths = columnWidths(rows);
   const table = rows
     .map((row) =>
-      row.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd()
+      row
+        .map((cell, index) => cell.padEnd(widths[index]))
+        .join("  ")
+        .trimEnd(),
     )
     .join("\n");
   return `${table}\n(${cells.length} ${kind})\n`;
 }
 
 /** Ширина каждой колонки: длиннейшая ячейка столбца в символах. */
-function columnWidths(
-  rows: readonly (readonly string[])[],
-): readonly number[] {
+function columnWidths(rows: readonly (readonly string[])[]): readonly number[] {
   const widths = new Array<number>(rows[0].length).fill(0);
   for (const row of rows) {
     row.forEach((cell, index) => {

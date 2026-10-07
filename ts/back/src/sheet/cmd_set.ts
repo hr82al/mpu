@@ -52,17 +52,20 @@ const INPUT_OPTION: Readonly<Record<SetKind, string>> = {
 const ORDER: readonly SetKind[] = ["formula", "value"];
 
 const argsSchema = z.object({
-  range: z.string().optional().describe(
-    "A1-диапазон записи; в JSON-режиме — ЦЕЛЬ, а не диапазон",
-  ),
+  range: z
+    .string()
+    .optional()
+    .describe("A1-диапазон записи; в JSON-режиме — ЦЕЛЬ, а не диапазон"),
   value: z.string().optional().describe("значение одной ячейки"),
-  from: z.string().optional().describe(
-    "пакет: файл 'диапазон<TAB>значение'; '-' — весь stdin",
-  ),
+  from: z
+    .string()
+    .optional()
+    .describe("пакет: файл 'диапазон<TAB>значение'; '-' — весь stdin"),
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
-  literal: z.boolean().default(false).describe(
-    "значение записать как есть (RAW); JSON-режима не касается",
-  ),
+  literal: z
+    .boolean()
+    .default(false)
+    .describe("значение записать как есть (RAW); JSON-режима не касается"),
 });
 
 /**
@@ -74,12 +77,14 @@ const argsSchema = z.object({
  */
 const groupSchema = z.object({
   valueInputOption: z.string(),
-  updatedCells: z.number().nullable().describe(
-    "ячеек по ответу сервера; null — сервер не сообщил",
-  ),
-  updatedRanges: z.number().nullable().describe(
-    "диапазонов по ответу сервера; null — сервер не сообщил",
-  ),
+  updatedCells: z
+    .number()
+    .nullable()
+    .describe("ячеек по ответу сервера; null — сервер не сообщил"),
+  updatedRanges: z
+    .number()
+    .nullable()
+    .describe("диапазонов по ответу сервера; null — сервер не сообщил"),
 });
 
 const resultSchema = z.object({
@@ -87,12 +92,14 @@ const resultSchema = z.object({
   // из резолва цели, то есть говорит, куда мы писали, а не куда, по
   // словам сервера, записалось.
   spreadsheetId: z.string().describe("цель вызова по резолву, не из ответа"),
-  updatedCells: z.number().nullable().describe(
-    "всего ячеек; null — хоть одна группа величины не получила",
-  ),
-  updatedRanges: z.number().nullable().describe(
-    "всего диапазонов; null — хоть одна группа величины не получила",
-  ),
+  updatedCells: z
+    .number()
+    .nullable()
+    .describe("всего ячеек; null — хоть одна группа величины не получила"),
+  updatedRanges: z
+    .number()
+    .nullable()
+    .describe("всего диапазонов; null — хоть одна группа величины не получила"),
   // Массив всегда, даже когда запрос один: форма вывода не зависит от
   // того, смешал ли оператор типы ввода (инвариант 2).
   groups: z.array(groupSchema).describe("по группе на отправленный запрос"),
@@ -230,17 +237,13 @@ async function expand(
   const column = open[1];
   const from = Number(open[2]);
   const whole = formatRange({ tab: range.tab, span: `${column}:${column}` });
-  const reply = await callWebapp(
-    deps.webapp,
-    "spreadsheets/values/batchGet",
-    {
-      ssId,
-      ranges: [whole],
-      majorDimension: "ROWS",
-      valueRenderOption: "UNFORMATTED_VALUE",
-      dateTimeRenderOption: "SERIAL_NUMBER",
-    },
-  );
+  const reply = await callWebapp(deps.webapp, "spreadsheets/values/batchGet", {
+    ssId,
+    ranges: [whole],
+    majorDimension: "ROWS",
+    valueRenderOption: "UNFORMATTED_VALUE",
+    dateTimeRenderOption: "SERIAL_NUMBER",
+  });
   const last = lastRow(reply);
   // Ниже последней занятой строки заливать нечего: пустой столбец и
   // строка выше границы дают одну ячейку, а не тысячу.
@@ -313,7 +316,7 @@ function describe(groups: readonly Group[]): string {
     .map((group) =>
       group.updatedCells === null
         ? `${group.valueInputOption} уже записаны (сколько — сервер не сообщил)`
-        : `${group.valueInputOption} уже записаны (${group.updatedCells} ячеек)`
+        : `${group.valueInputOption} уже записаны (${group.updatedCells} ячеек)`,
     )
     .join(", ");
 }
@@ -377,9 +380,7 @@ JSON: [{"range": …, "formula"|"value": …}, …]. Тип задаёт имя
 дороже прочих. Записанные вкладки инвалидируются в кэше.
 
 Exit: 0 — успех; 1 — отказ webapp; 2 — ошибки ввода и резолва цели.`,
-  examples: [
-    "mpu sheet set range: Свод!B2 value: 42 spreadsheet: otchet",
-  ],
+  examples: ["mpu sheet set range: Свод!B2 value: 42 spreadsheet: otchet"],
   policy: "rw",
   argsSchema,
   forms: {

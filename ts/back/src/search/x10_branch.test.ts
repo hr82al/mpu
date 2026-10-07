@@ -84,7 +84,7 @@ function harness(
   };
   const progressLines: string[] = [];
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? "/home/test" : undefined,
+    env: (name) => (name === "HOME" ? "/home/test" : undefined),
     envFile: {
       get: (name) => env[name],
       values: () => ({ ...env }),
@@ -135,9 +135,10 @@ interface Step {
  * неверный ответ (спека проверяется по наблюдаемой последовательности
  * HTTP-вызовов, а не только по итоговому результату).
  */
-function sequentialSend(
-  steps: readonly Step[],
-): { send: X10Send; assertDone: () => void } {
+function sequentialSend(steps: readonly Step[]): {
+  send: X10Send;
+  assertDone: () => void;
+} {
   let i = 0;
   const send: X10Send = (url, init) => {
     if (i >= steps.length) {
@@ -217,13 +218,15 @@ function insertEmailCache(
 
 it("email-ветка, холодный кэш: login → staff-search → impersonate → workspaces", async () => {
   await withCache(
-    [{
-      clientId: 10,
-      tables: [["SS_ALPHA_0001", "Пример Альфа"], [
-        "SS_ALPHA_0002",
-        "Альфа Ozon",
-      ]],
-    }],
+    [
+      {
+        clientId: 10,
+        tables: [
+          ["SS_ALPHA_0001", "Пример Альфа"],
+          ["SS_ALPHA_0002", "Альфа Ozon"],
+        ],
+      },
+    ],
     async (db) => {
       const { io, progressLines } = harness(db);
       const now = 1_700_000_000;
@@ -239,12 +242,14 @@ it("email-ветка, холодный кэш: login → staff-search → impers
           method: "GET",
           path: `/users/staff/search?query=${encodeURIComponent(email)}`,
           token: "staff-tok",
-          data: [{
-            id: 555,
-            email,
-            name: "Alpha Target",
-            isEmailVerified: true,
-          }],
+          data: [
+            {
+              id: 555,
+              email,
+              name: "Alpha Target",
+              isEmailVerified: true,
+            },
+          ],
         },
         {
           method: "POST",
@@ -252,9 +257,10 @@ it("email-ветка, холодный кэш: login → staff-search → impers
           token: "staff-tok",
           body: {
             targetUserId: 555,
-            reason: `ТП ${
-              localDate(now * 1000, new Date().getTimezoneOffset())
-            }`,
+            reason: `ТП ${localDate(
+              now * 1000,
+              new Date().getTimezoneOffset(),
+            )}`,
           },
           data: { access_token: "imp-tok" },
         },
@@ -279,11 +285,13 @@ it("email-ветка, холодный кэш: login → staff-search → impers
       expect(target.email).toStrictEqual(email);
       expect(target.target_user_id).toBe("555");
       expect(target.owned.map((row) => row.client_id)).toStrictEqual([10, 10]);
-      expect(target.member_only).toStrictEqual([{
-        workspace_id: 11,
-        name: "WS Eleven",
-        marketplace: "ozon",
-      }]);
+      expect(target.member_only).toStrictEqual([
+        {
+          workspace_id: 11,
+          name: "WS Eleven",
+          marketplace: "ozon",
+        },
+      ]);
       expect(result.ambiguous).toStrictEqual(null);
 
       // Кэш заполнен: одна строка email→клиент, две сессии.
@@ -314,12 +322,14 @@ it("email-ветка, тёплый кэш: ни одного HTTP-вызова",
         targetName: "Warm Target",
         isEmailVerified: true,
         ownedClientIds: [10],
-        workspaces: [{
-          id: 10,
-          ownerId: 555,
-          name: "WS Ten",
-          marketplace: "wb",
-        }],
+        workspaces: [
+          {
+            id: 10,
+            ownerId: 555,
+            name: "WS Ten",
+            marketplace: "wb",
+          },
+        ],
         reason: "ТП 2026-08-01",
         fetchedAt: 1_699_000_000,
       });
@@ -348,12 +358,14 @@ it("--refresh-cache: тёплый email-кэш игнорируется, зап�
         targetName: "Stale Target",
         isEmailVerified: true,
         ownedClientIds: [10],
-        workspaces: [{
-          id: 10,
-          ownerId: 555,
-          name: "WS Ten",
-          marketplace: "wb",
-        }],
+        workspaces: [
+          {
+            id: 10,
+            ownerId: 555,
+            name: "WS Ten",
+            marketplace: "wb",
+          },
+        ],
         reason: "ТП 2026-08-01",
         fetchedAt: 1_699_000_000,
       });
@@ -370,12 +382,14 @@ it("--refresh-cache: тёплый email-кэш игнорируется, зап�
           method: "GET",
           path: `/users/staff/search?query=${encodeURIComponent(email)}`,
           token: "staff-tok-2",
-          data: [{
-            id: 555,
-            email,
-            name: "Fresh Target",
-            isEmailVerified: true,
-          }],
+          data: [
+            {
+              id: 555,
+              email,
+              name: "Fresh Target",
+              isEmailVerified: true,
+            },
+          ],
         },
         {
           method: "POST",
@@ -383,9 +397,10 @@ it("--refresh-cache: тёплый email-кэш игнорируется, зап�
           token: "staff-tok-2",
           body: {
             targetUserId: 555,
-            reason: `ТП ${
-              localDate(now * 1000, new Date().getTimezoneOffset())
-            }`,
+            reason: `ТП ${localDate(
+              now * 1000,
+              new Date().getTimezoneOffset(),
+            )}`,
           },
           data: { access_token: "imp-tok-2" },
         },
@@ -393,12 +408,14 @@ it("--refresh-cache: тёплый email-кэш игнорируется, зап�
           method: "GET",
           path: "/workspaces",
           token: "imp-tok-2",
-          data: [{
-            id: 10,
-            ownerId: 555,
-            name: "WS Ten Fresh",
-            marketplace: "wb",
-          }],
+          data: [
+            {
+              id: 10,
+              ownerId: 555,
+              name: "WS Ten Fresh",
+              marketplace: "wb",
+            },
+          ],
         },
       ]);
       const result = await runSearch(
@@ -593,9 +610,10 @@ it("--reason по умолчанию — «ТП <дата>» от подстав
   await withCache([], async (db) => {
     const { io } = harness(db);
     const now = 1_700_050_000;
-    const expectedReason = `ТП ${
-      localDate(now * 1000, new Date().getTimezoneOffset())
-    }`;
+    const expectedReason = `ТП ${localDate(
+      now * 1000,
+      new Date().getTimezoneOffset(),
+    )}`;
     const email = "reason-default@example.com";
     const { send, assertDone } = sequentialSend([
       {
@@ -671,15 +689,14 @@ it("--reason задан — уходит в тело impersonate и в выво�
 it("нет X10_LOGIN/X10_PASSWORD — отказ и ни одного запроса", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db, { X10_LOGIN: "", X10_PASSWORD: "" });
-    const err = await rejected(() =>
-      runSearch(
-        searchArgs({ value: "target@example.com" }),
-        io,
-        {
+    const err = await rejected(
+      () =>
+        runSearch(searchArgs({ value: "target@example.com" }), io, {
           send: failSend,
           nowSeconds: () => 1_700_000_000,
-        },
-      ), DomainError);
+        }),
+      DomainError,
+    );
     expect(err.message).toBe(
       "10X credentials missing: X10_LOGIN. Add to /home/test/.config/mpu/.env or export in shell.",
     );
@@ -697,15 +714,14 @@ it("401 под staff-токеном — суффикс про 10X staff-кред
         status: 401,
       },
     ]);
-    const err = await rejected(() =>
-      runSearch(
-        searchArgs({ value: "target@example.com" }),
-        io,
-        {
+    const err = await rejected(
+      () =>
+        runSearch(searchArgs({ value: "target@example.com" }), io, {
           send,
           nowSeconds: () => 1_700_000_000,
-        },
-      ), DomainError);
+        }),
+      DomainError,
+    );
     expect(err.message).toStrictEqual(
       "POST /auth/login: HTTP 401 (нужны 10X staff-креды X10_LOGIN/X10_PASSWORD," +
         " не sl-back TOKEN_*)",
@@ -740,9 +756,10 @@ it("owned-клиент вне снапшота: точечный синк раз
         token: "tok",
         body: {
           targetUserId: 42,
-          reason: `ТП ${
-            localDate(1_700_000_000_000, new Date().getTimezoneOffset())
-          }`,
+          reason: `ТП ${localDate(
+            1_700_000_000_000,
+            new Date().getTimezoneOffset(),
+          )}`,
         },
         data: { access_token: "imp-tok" },
       },

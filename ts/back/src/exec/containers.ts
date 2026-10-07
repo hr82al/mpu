@@ -157,10 +157,12 @@ function read(
 /** Есть ли таблица в схеме (приём `../logs/cache.ts`). */
 function hasTable(cache: CacheReader): boolean {
   try {
-    return cache.query(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-      TABLE,
-    ).length > 0;
+    return (
+      cache.query(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        TABLE,
+      ).length > 0
+    );
   } catch {
     // Файла БД нет вовсе либо он не открывается: для чтений транспорта
     // это тот же пустой кэш (спека, «Кэш контейнеров»).

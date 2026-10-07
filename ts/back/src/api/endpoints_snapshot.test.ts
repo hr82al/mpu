@@ -181,18 +181,26 @@ for (const half of HALVES) {
         expect(
           fields.map((field) => ({ name: field.name, type: field.type })),
           `${entry.name}: поля тела`,
-        ).toStrictEqual(entry.body_fields.map((field) => ({
-          name: field.name,
-          type: field.type,
-        })));
+        ).toStrictEqual(
+          entry.body_fields.map((field) => ({
+            name: field.name,
+            type: field.type,
+          })),
+        );
         // Обязательность — списком имён, а не поштучно: в отказе видно
         // и команду, и какое поле разошлось.
-        expect(requiredNames(fields), `${entry.name}: обязательные поля тела`)
-          .toStrictEqual(requiredNames(entry.body_fields));
-        expect(spec.body === true, `${entry.name}: признак произвольного тела`)
-          .toStrictEqual(entry.accepts_raw_body);
-        expect(spec.noAuth === true, `${entry.name}: признак no_auth`)
-          .toStrictEqual(entry.no_auth);
+        expect(
+          requiredNames(fields),
+          `${entry.name}: обязательные поля тела`,
+        ).toStrictEqual(requiredNames(entry.body_fields));
+        expect(
+          spec.body === true,
+          `${entry.name}: признак произвольного тела`,
+        ).toStrictEqual(entry.accepts_raw_body);
+        expect(
+          spec.noAuth === true,
+          `${entry.name}: признак no_auth`,
+        ).toStrictEqual(entry.no_auth);
         // Справочные тексты в объявлениях намеренно свои: у объекта они
         // писаны под его же справку, и дословная сверка запрещала бы их
         // улучшать. Поэтому проверяется НАЛИЧИЕ строки помощи там, где
@@ -202,8 +210,9 @@ for (const half of HALVES) {
         const silent = entry.body_fields
           .filter((field) => field.description !== "")
           .map((field) => field.name)
-          .filter((name) =>
-            (fields.find((field) => field.name === name)?.help ?? "") === ""
+          .filter(
+            (name) =>
+              (fields.find((field) => field.name === name)?.help ?? "") === "",
           );
         expect(
           silent,
@@ -280,7 +289,7 @@ for (const half of HALVES) {
     // ним молча.
     const snaps = half.snapshots;
     const withRequired = snaps.filter((entry) =>
-      entry.body_fields.some((field) => field.required)
+      entry.body_fields.some((field) => field.required),
     );
     expect({
       total: snaps.length,

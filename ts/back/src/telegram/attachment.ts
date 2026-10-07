@@ -28,10 +28,7 @@ export async function readAttachment(
   return { name: baseName(path), bytes: await readBytes(io, path) };
 }
 
-async function readBytes(
-  io: AttachmentIo,
-  path: string,
-): Promise<Uint8Array> {
+async function readBytes(io: AttachmentIo, path: string): Promise<Uint8Array> {
   try {
     return await io.readRegularFile(path);
   } catch (err) {

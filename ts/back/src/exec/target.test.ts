@@ -46,12 +46,14 @@ const CACHE_MP_NAME: CacheReader = {
   query: (sql, ...params) => {
     if (sql.includes("sqlite_master")) return [{ name: params[0] ?? null }];
     if (params[0] === "mp-sl-1-cli") {
-      return [{
-        portainer_url: BASE,
-        endpoint_id: 4,
-        endpoint_name: "farm",
-        container_name: "mp-sl-1-cli",
-      }];
+      return [
+        {
+          portainer_url: BASE,
+          endpoint_id: 4,
+          endpoint_name: "farm",
+          container_name: "mp-sl-1-cli",
+        },
+      ];
     }
     return params[0] === 1 ? [{ portainer_url: BASE, endpoint_id: 4 }] : [];
   },
@@ -96,11 +98,13 @@ describe("сервер: доступность транспортов решае
   const portainer = { PORTAINER_API_KEY: API_KEY };
 
   it("доступны оба — Portainer", () => {
-    expect(chooseTransport({
-      place: SERVER,
-      env: envOf({ ...ssh, ...portainer }),
-      cache: cacheOfServer(1),
-    })).toStrictEqual({
+    expect(
+      chooseTransport({
+        place: SERVER,
+        env: envOf({ ...ssh, ...portainer }),
+        cache: cacheOfServer(1),
+      }),
+    ).toStrictEqual({
       kind: "portainer",
       access: { baseUrl: BASE, apiKey: API_KEY, verifyTls: false },
       endpointId: 4,
@@ -109,11 +113,13 @@ describe("сервер: доступность транспортов решае
   });
 
   it("только ssh", () => {
-    expect(chooseTransport({
-      place: SERVER,
-      env: envOf(ssh),
-      cache: cacheOfServer(1),
-    })).toStrictEqual({
+    expect(
+      chooseTransport({
+        place: SERVER,
+        env: envOf(ssh),
+        cache: cacheOfServer(1),
+      }),
+    ).toStrictEqual({
       kind: "ssh",
       host: "10.0.0.1",
       user: "u",
@@ -149,7 +155,7 @@ describe("сервер: доступность транспортов решае
         place: SERVER,
         env: envOf(portainer),
         cache: EMPTY_CACHE,
-      })
+      }),
     ).toThrow(UsageError);
   });
 
@@ -159,7 +165,7 @@ describe("сервер: доступность транспортов решае
         place: SERVER,
         env: envOf({ sl_1: "10.0.0.1" }),
         cache: EMPTY_CACHE,
-      })
+      }),
     ).toThrow(UsageError);
   });
 });
@@ -195,11 +201,13 @@ describe("env-fallback sl_<N>_portainer", () => {
     envOf({ PORTAINER_API_KEY: API_KEY, sl_1_portainer: value });
 
   it("база и endpoint из значения", () => {
-    expect(chooseTransport({
-      place: SERVER,
-      env: withKey(`${BASE}/7`),
-      cache: EMPTY_CACHE,
-    })).toStrictEqual({
+    expect(
+      chooseTransport({
+        place: SERVER,
+        env: withKey(`${BASE}/7`),
+        cache: EMPTY_CACHE,
+      }),
+    ).toStrictEqual({
       kind: "portainer",
       access: { baseUrl: BASE, apiKey: API_KEY, verifyTls: false },
       endpointId: 7,
@@ -210,31 +218,29 @@ describe("env-fallback sl_<N>_portainer", () => {
   it("битое значение — таргета нет", () => {
     // `Number` принял бы `1e3`, `0x4`, ` 7` и пустой хвост — правило
     // спеки строже, и такое же в `../logs/snapshot.ts`.
-    for (
-      const broken of [
-        `${BASE}/abc`,
-        "no-slash",
-        "/4",
-        `${BASE}/`,
-        `${BASE}/1e3`,
-        `${BASE}/0x4`,
-        `${BASE}/ 7`,
-        `${BASE}/-1`,
-      ]
-    ) {
+    for (const broken of [
+      `${BASE}/abc`,
+      "no-slash",
+      "/4",
+      `${BASE}/`,
+      `${BASE}/1e3`,
+      `${BASE}/0x4`,
+      `${BASE}/ 7`,
+      `${BASE}/-1`,
+    ]) {
       expect(() =>
         chooseTransport({
           place: SERVER,
           env: withKey(broken),
           cache: EMPTY_CACHE,
-        })
+        }),
       ).toThrow(UsageError);
       expect(() =>
         chooseTransport({
           place: SERVER,
           env: withKey(broken),
           cache: EMPTY_CACHE,
-        })
+        }),
       ).toThrow("не задано ни");
     }
   });
@@ -262,7 +268,7 @@ describe("--via без соответствующего доступа — те�
       "portainer",
       { sl_1: "10.0.0.1", PG_MY_USER_NAME: "u" },
       "portainer: для sl-1 не задан Portainer" +
-      " (sl_1_portainer + PORTAINER_API_KEY)",
+        " (sl_1_portainer + PORTAINER_API_KEY)",
     ],
   ];
   for (const [title, via, env, message] of cases) {
@@ -314,12 +320,14 @@ describe("override транспорта", () => {
 
 describe("dev-нода: всегда ssh, override не участвует", () => {
   it("встроенные дефолты хоста и пользователя", () => {
-    expect(chooseTransport({
-      place: { kind: "dev", serverNumber: 1 },
-      env: envOf({ PORTAINER_API_KEY: API_KEY }),
-      cache: cacheOfServer(1),
-      via: "portainer",
-    })).toStrictEqual({
+    expect(
+      chooseTransport({
+        place: { kind: "dev", serverNumber: 1 },
+        env: envOf({ PORTAINER_API_KEY: API_KEY }),
+        cache: cacheOfServer(1),
+        via: "portainer",
+      }),
+    ).toStrictEqual({
       kind: "ssh",
       host: "192.168.150.8",
       user: "develop",
@@ -328,11 +336,13 @@ describe("dev-нода: всегда ssh, override не участвует", () 
   });
 
   it("env-значение старше дефолта", () => {
-    expect(chooseTransport({
-      place: { kind: "dev", serverNumber: 3 },
-      env: envOf({ DEV_NODE_HOST: "10.1.1.1", DEV_NODE_USER: "dev" }),
-      cache: EMPTY_CACHE,
-    })).toStrictEqual({
+    expect(
+      chooseTransport({
+        place: { kind: "dev", serverNumber: 3 },
+        env: envOf({ DEV_NODE_HOST: "10.1.1.1", DEV_NODE_USER: "dev" }),
+        cache: EMPTY_CACHE,
+      }),
+    ).toStrictEqual({
       kind: "ssh",
       host: "10.1.1.1",
       user: "dev",
@@ -353,15 +363,17 @@ describe("контейнер по точному имени — только Por
   };
 
   it("ssh-пути нет даже при полной ssh-конфигурации", () => {
-    expect(chooseTransport({
-      place,
-      env: envOf({
-        sl_1: "10.0.0.1",
-        PG_MY_USER_NAME: "u",
-        PORTAINER_API_KEY: API_KEY,
+    expect(
+      chooseTransport({
+        place,
+        env: envOf({
+          sl_1: "10.0.0.1",
+          PG_MY_USER_NAME: "u",
+          PORTAINER_API_KEY: API_KEY,
+        }),
+        cache: EMPTY_CACHE,
       }),
-      cache: EMPTY_CACHE,
-    })).toStrictEqual({
+    ).toStrictEqual({
       kind: "portainer",
       access: { baseUrl: BASE, apiKey: API_KEY, verifyTls: false },
       endpointId: 4,
@@ -376,7 +388,7 @@ describe("контейнер по точному имени — только Por
         env: envOf({ PORTAINER_API_KEY: API_KEY }),
         cache: EMPTY_CACHE,
         via: "ssh",
-      })
+      }),
     ).toThrow(UsageError);
     expect(() =>
       chooseTransport({
@@ -384,7 +396,7 @@ describe("контейнер по точному имени — только Por
         env: envOf({ PORTAINER_API_KEY: API_KEY }),
         cache: EMPTY_CACHE,
         via: "ssh",
-      })
+      }),
     ).toThrow("ssh не поддерживается для контейнера по имени; только для sl-N");
     expect(
       chooseTransport({
@@ -397,10 +409,12 @@ describe("контейнер по точному имени — только Por
   });
 
   it("без ключа Portainer — отказ конфигурации", () => {
-    expect(() => chooseTransport({ place, env: envOf({}), cache: EMPTY_CACHE }))
-      .toThrow(UsageError);
-    expect(() => chooseTransport({ place, env: envOf({}), cache: EMPTY_CACHE }))
-      .toThrow("PORTAINER_API_KEY не задан в ~/.config/mpu/.env");
+    expect(() =>
+      chooseTransport({ place, env: envOf({}), cache: EMPTY_CACHE }),
+    ).toThrow(UsageError);
+    expect(() =>
+      chooseTransport({ place, env: envOf({}), cache: EMPTY_CACHE }),
+    ).toThrow("PORTAINER_API_KEY не задан в ~/.config/mpu/.env");
   });
 });
 
@@ -424,8 +438,9 @@ describe("проверка TLS включается только значени�
         env,
         cache: cacheOfServer(1),
       });
-      expect(target.kind === "portainer" ? target.access.verifyTls : null)
-        .toStrictEqual(expected);
+      expect(
+        target.kind === "portainer" ? target.access.verifyTls : null,
+      ).toStrictEqual(expected);
     });
   }
 });

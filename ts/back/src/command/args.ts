@@ -111,9 +111,8 @@ export function parseArgv(
       if (!known) positional.push(arg);
       continue;
     }
-    const spec = arg.length === 2
-      ? flags.find((s) => s.form.short === arg[1])
-      : undefined;
+    const spec =
+      arg.length === 2 ? flags.find((s) => s.form.short === arg[1]) : undefined;
     if (spec === undefined) {
       if (!keepsUnknown) throw unknownOption(arg, helpHint);
       positional.push(arg);

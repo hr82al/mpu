@@ -12,7 +12,7 @@
 export const FIELD_KINDS = ["mr", "hypothesis", "done", "result"] as const;
 
 /** Вид поля — `FieldKind` глоссария. */
-export type FieldKind = typeof FIELD_KINDS[number];
+export type FieldKind = (typeof FIELD_KINDS)[number];
 
 /** Вид поля → id кастомного поля инстанса Kaiten (таблица спеки). */
 export const PROPERTY_IDS: Readonly<Record<FieldKind, number>> = {

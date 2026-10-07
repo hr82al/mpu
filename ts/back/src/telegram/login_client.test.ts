@@ -80,8 +80,9 @@ it("вход до сети: сбой криптографии печатаетс
   // Байты модуля встроены, читать нечего: сбой подделывается в
   // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
   // лишь пока модуль не поднят — до этого случая его не поднимает никто.
-  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
-    .toBe(undefined);
+  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
+    undefined,
+  );
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
   const realModule = WebAssembly.Module;
   try {
@@ -122,18 +123,20 @@ it("вход: отказ, не относящийся к криптографи�
     Reflect.set(Socket.prototype, "connect", function (this: Socket) {
       connecting.resolve();
       process.nextTick(() =>
-        this.destroy(new Error("соединение в тесте запрещено"))
+        this.destroy(new Error("соединение в тесте запрещено")),
       );
       return this;
     });
-    const signing = client.signIn("+70000000000", {
-      ask: () => Promise.resolve(undefined),
-      askSecret: () => Promise.resolve(undefined),
-      progress: () => {},
-    }).then(
-      () => "вошёл",
-      (err: unknown) => err,
-    );
+    const signing = client
+      .signIn("+70000000000", {
+        ask: () => Promise.resolve(undefined),
+        askSecret: () => Promise.resolve(undefined),
+        progress: () => {},
+      })
+      .then(
+        () => "вошёл",
+        (err: unknown) => err,
+      );
     // Гонка, а не одно ожидание соединения: откажи вход раньше попытки,
     // тест покраснел бы на проверках ниже, а не завис.
     await Promise.race([connecting.promise, signing]);
@@ -220,28 +223,29 @@ describe("вход: ожидание человека под предел пер
           await question(params);
           return {};
         });
-        Reflect.set(
-          proto,
-          "exportSession",
-          () => Promise.resolve(convertFromTelethonSession(TELETHON)),
+        Reflect.set(proto, "exportSession", () =>
+          Promise.resolve(convertFromTelethonSession(TELETHON)),
         );
         const answerLater = () => {
           asked.resolve();
           return new Promise<string>((resolve) =>
-            setTimeout(() => resolve("ответ"), 70_000)
+            setTimeout(() => resolve("ответ"), 70_000),
           );
         };
         let settled = false;
-        const signing = client.signIn("+70000000000", {
-          ask: answerLater,
-          askSecret: answerLater,
-          progress: () => {},
-        }).then(
-          (session) => session,
-          (err: unknown) => err,
-        ).finally(() => {
-          settled = true;
-        });
+        const signing = client
+          .signIn("+70000000000", {
+            ask: answerLater,
+            askSecret: answerLater,
+            progress: () => {},
+          })
+          .then(
+            (session) => session,
+            (err: unknown) => err,
+          )
+          .finally(() => {
+            settled = true;
+          });
         await Promise.race([asked.promise, signing]);
         await vi.advanceTimersByTimeAsync(70_000);
         for (let turn = 0; turn < 20 && !settled; turn++) {
@@ -389,10 +393,8 @@ it("вход: неверный пароль и неверный код — ка�
         return {};
       },
     );
-    Reflect.set(
-      proto,
-      "exportSession",
-      () => Promise.resolve(convertFromTelethonSession(TELETHON)),
+    Reflect.set(proto, "exportSession", () =>
+      Promise.resolve(convertFromTelethonSession(TELETHON)),
     );
     const session = await client.signIn("+70000000000", {
       ask: () => Promise.resolve(undefined),

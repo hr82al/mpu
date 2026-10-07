@@ -96,11 +96,8 @@ export async function cabinetsOf(
     // торговую марку — заголовок из неё осмысленнее номера.
     return {
       sid,
-      name: name !== ""
-        ? name
-        : trade !== ""
-        ? trade
-        : cabinetFallback(clientId),
+      name:
+        name !== "" ? name : trade !== "" ? trade : cabinetFallback(clientId),
       trade_mark: trade !== "" ? trade : cabinetFallback(clientId),
     };
   });
@@ -139,7 +136,8 @@ export function seedStatements(
   const email = localEmail(clientId);
   const statements: Statement[] = [
     {
-      sql: "INSERT INTO public.users (email, password, name, " +
+      sql:
+        "INSERT INTO public.users (email, password, name, " +
         "is_email_verified, created_at, updated_at) " +
         "VALUES ($1, $2, $3, true, NOW(), NOW()) " +
         "ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password, " +
@@ -148,7 +146,8 @@ export function seedStatements(
       label: "users",
     },
     {
-      sql: "INSERT INTO public.workspaces " +
+      sql:
+        "INSERT INTO public.workspaces " +
         "(id, owner_id, name, slug, marketplace, created_at, updated_at) " +
         "SELECT $1::int, u.id, $2, $3, 'Wildberries', NOW(), NOW() " +
         "FROM public.users u WHERE u.email = $4 " +
@@ -167,7 +166,8 @@ export function seedStatements(
         // `trade_mark` обязательна и умолчания не имеет — под то же
         // правило подстановки, что и пустое имя. Колонки `updated_at`
         // у этой таблицы нет вовсе.
-        sql: "INSERT INTO public.wb_cabinets " +
+        sql:
+          "INSERT INTO public.wb_cabinets " +
           "(sid, name, trade_mark, status, marketplace, workspace_id) " +
           "VALUES ($1, $2, $3, $4::\"WbTokenStatus\", 'wildberries', $5) " +
           "ON CONFLICT (sid) DO UPDATE SET name = EXCLUDED.name, " +
@@ -198,7 +198,8 @@ export function seedStatements(
       // ни задваивать, ни сообщать о снятии того, чего уже нет.
 
       {
-        sql: "DELETE FROM public.workspaces_wb_cabinets " +
+        sql:
+          "DELETE FROM public.workspaces_wb_cabinets " +
           "WHERE sid = $1 AND workspace_id <> $2",
         params: [cabinet.sid, clientId],
         label: "workspaces_wb_cabinets",
@@ -211,7 +212,8 @@ export function seedStatements(
       // причины конфликта незачем — но молчит она к любому уникальному
       // индексу таблицы, не только к первичному ключу.
       {
-        sql: "INSERT INTO public.workspaces_wb_cabinets (workspace_id, sid) " +
+        sql:
+          "INSERT INTO public.workspaces_wb_cabinets (workspace_id, sid) " +
           "VALUES ($1, $2) ON CONFLICT DO NOTHING",
         params: [clientId, cabinet.sid],
         label: "workspaces_wb_cabinets",
@@ -220,7 +222,8 @@ export function seedStatements(
         // Подписка привязана к кабинету, а не к пространству: ключ
         // `sid`, он же внешний ключ на `wb_cabinets`, а колонки
         // `workspace_id` в таблице нет вовсе.
-        sql: "INSERT INTO public.subscriptions (sid, is_paid, status, " +
+        sql:
+          "INSERT INTO public.subscriptions (sid, is_paid, status, " +
           "paid_from, paid_to, sku_active_limit, is_active, updated_at) " +
           'VALUES ($1, true, $2::public."SubscriptionStatus", CURRENT_DATE, ' +
           "CURRENT_DATE + 365, 100000, true, NOW()) " +

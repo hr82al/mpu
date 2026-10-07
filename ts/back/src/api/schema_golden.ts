@@ -41,14 +41,15 @@ export async function schemaGoldens(
       columns: columnsOf(text),
     });
   }
-  return out.sort((a, b) => a.table < b.table ? -1 : 1);
+  return out.sort((a, b) => (a.table < b.table ? -1 : 1));
 }
 
 /** Колонки из текста голдена: по имени на строку, пустые пропускаются. */
 export function columnsOf(text: string): readonly string[] {
-  return text.split("\n").map((line) => line.trim()).filter((line) =>
-    line !== ""
-  );
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
 }
 
 /** Расхождение голдена с живой схемой, по сторонам. */

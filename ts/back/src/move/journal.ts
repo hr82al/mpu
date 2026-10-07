@@ -65,10 +65,7 @@ export function moves(db: CacheDb): readonly Move[] {
  * записи — последней: журнал отвечает на вопрос «где клиент сейчас не
  * дома», а не ведёт историю (инвариант спеки).
  */
-export function recordMove(
-  db: CacheDb,
-  move: Move,
-): void {
+export function recordMove(db: CacheDb, move: Move): void {
   // Схема здесь не заводится намеренно. Спека требует: таблицы нет —
   // предупредить, что реверс станет невозможен (отклонение `fix`
   // `move-client.md`). Тихо создав схему, мы сделали бы это
@@ -89,11 +86,9 @@ export function recordMove(
 /** Удаляет запись; возвращает `true`, если она была. */
 export function forgetMove(db: CacheDb, clientId: number): boolean {
   try {
-    return db.execute(
-      "DELETE FROM client_moves WHERE client_id = ?",
-      clientId,
-    ) >
-      0;
+    return (
+      db.execute("DELETE FROM client_moves WHERE client_id = ?", clientId) > 0
+    );
   } catch (err) {
     // Нет таблицы — нечего и удалять: во всех формах отсутствие
     // таблицы читается как «записей нет» (`move-client-back.md`).

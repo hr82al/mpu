@@ -198,9 +198,7 @@ function numberValue(name: string, value: string): number {
     ? /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(value)
     : /^[+-]?\d+$/.test(value);
   if (!wellFormed || Number.isNaN(parsed)) {
-    throw new UsageError(
-      `--${name}: ожидается число, получено '${value}'`,
-    );
+    throw new UsageError(`--${name}: ожидается число, получено '${value}'`);
   }
   return parsed;
 }
@@ -219,9 +217,9 @@ function jsonValue(name: string, value: string): unknown {
     return JSON.parse(value);
   } catch (err) {
     throw new UsageError(
-      `--${name}: ожидается JSON, получено '${value.slice(0, 60)}...': ${
-        reasonOf(err)
-      }`,
+      `--${name}: ожидается JSON, получено '${value.slice(0, 60)}...': ${reasonOf(
+        err,
+      )}`,
       { cause: err },
     );
   }

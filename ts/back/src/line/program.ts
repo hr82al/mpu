@@ -42,7 +42,7 @@ function printed(
   json = false,
 ): string {
   let text = "";
-  const output: Output = { stdout: (part) => text += part, stderr: () => {} };
+  const output: Output = { stdout: (part) => (text += part), stderr: () => {} };
   PRINT.deliver(command, result, argv, json, output);
   return text;
 }
@@ -115,22 +115,27 @@ export function programCommands(
   const parents = new Set(
     nodes.map((node) => node.path.slice(0, -1).join(" ")),
   );
-  const byPath = new Map(nodes.map((node): [string, CommandNode] => {
-    const path = node.path.join(" ");
-    const own = methods.filter((one) => one.receiver.join(" ") === path);
-    return [path, {
-      leaf: node.path.length > 0 && !parents.has(path),
-      keys: new Map(
-        node.keys.map((key): [string, KeyKind] => [key.name, key.kind]),
-      ),
-      messages: node.messages.map((line) => line.selector),
-      formats: node.formats,
-      fromFile: fileKeys(node.path),
-      texts: textKeys(node.path),
-      links: ruleLinks(node),
-      methods: new Map(own.map((one) => [callWord(one.name), one])),
-    }];
-  }));
+  const byPath = new Map(
+    nodes.map((node): [string, CommandNode] => {
+      const path = node.path.join(" ");
+      const own = methods.filter((one) => one.receiver.join(" ") === path);
+      return [
+        path,
+        {
+          leaf: node.path.length > 0 && !parents.has(path),
+          keys: new Map(
+            node.keys.map((key): [string, KeyKind] => [key.name, key.kind]),
+          ),
+          messages: node.messages.map((line) => line.selector),
+          formats: node.formats,
+          fromFile: fileKeys(node.path),
+          texts: textKeys(node.path),
+          links: ruleLinks(node),
+          methods: new Map(own.map((one) => [callWord(one.name), one])),
+        },
+      ];
+    }),
+  );
   return {
     node: (path) => byPath.get(path.join(" ")),
     view: (path, result, argv) => {

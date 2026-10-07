@@ -81,7 +81,8 @@ const WB_URL: Address = {
   key: "url",
   argsSchema: urlArgs,
   usage: "url: АДРЕС",
-  help: "url: — полный адрес https://<хост><путь>[?запрос]; хост и категория " +
+  help:
+    "url: — полный адрес https://<хост><путь>[?запрос]; хост и категория " +
     "токена:\n" +
     [...HOSTS].map(([host, need]) => `  ${host} — ${need.named}`).join("\n"),
   aim(args: CallArgs): Aim {
@@ -106,7 +107,8 @@ const WB_URL: Address = {
  * Годен ли токен — литерал отбора загрузчика (спека, «Побочные эффекты»):
  * действителен, не истёк, доступ `acc` загрузчику открыт.
  */
-const USABLE = "is_valid = true AND (exp IS NULL OR exp > now()) AND " +
+const USABLE =
+  "is_valid = true AND (exp IS NULL OR exp > now()) AND " +
   "(acc IS NULL OR acc NOT IN (2, 3, 4) OR " +
   `(acc = 4 AND "for" = 'asid:932c176a-5085-5c6f-bc33-4e84cdf58d7e'))`;
 
@@ -117,9 +119,11 @@ const USABLE = "is_valid = true AND (exp IS NULL OR exp > now()) AND " +
  */
 export function tokensQuery(host: string): string {
   const need = needOf(host);
-  return "SELECT sid::text, token, read_only, " +
+  return (
+    "SELECT sid::text, token, read_only, " +
     `(${USABLE}) AS usable, ${need.fits} AS fits, acc = 4 AS service ` +
-    "FROM public.wb_tokens WHERE client_id = $1 ORDER BY sid::text";
+    "FROM public.wb_tokens WHERE client_id = $1 ORDER BY sid::text"
+  );
 }
 
 /** Годный токен кабинета глазами выбора. */
@@ -232,9 +236,7 @@ class MissingToken implements CabinetKey {
   }
 
   #refusal(): UsageError {
-    return new UsageError(
-      `у кабинета ${this.cabinet} ${this.#complaint}`,
-    );
+    return new UsageError(`у кабинета ${this.cabinet} ${this.#complaint}`);
   }
 }
 
@@ -262,8 +264,9 @@ function tokensBySid(
  */
 function complaintOf(usable: readonly Token[], need: Need): string {
   if (usable.length === 0) return `нет действующего токена${need.wanted}`;
-  return "только сервисные токены — нужен WB_CLIENT_SECRET в " +
-    "~/.config/mpu/.env";
+  return (
+    "только сервисные токены — нужен WB_CLIENT_SECRET в " + "~/.config/mpu/.env"
+  );
 }
 
 /** Заголовок из env-файла: не задан или пуст — заголовка нет. */
@@ -284,7 +287,7 @@ export function wb(preference: Preference): Marketplace {
     path: ["wb"],
     name: "WB",
     address: WB_URL,
-    usualMethod: (body) => body === undefined ? "GET" : "POST",
+    usualMethod: (body) => (body === undefined ? "GET" : "POST"),
     emptyBody: null,
     quotaHeaders: [
       "x-ratelimit-remaining",
@@ -296,9 +299,7 @@ export function wb(preference: Preference): Marketplace {
     keys: async (session: SqlSession, wanted: Wanted) => {
       const { host } = wanted.aim;
       const need = needOf(host);
-      const outcome = await session.query(tokensQuery(host), [
-        wanted.clientId,
-      ]);
+      const outcome = await session.query(tokensQuery(host), [wanted.clientId]);
       if (outcome.kind !== "rows") return [];
       const { env } = wanted;
       const secret = clientSecret(env.get("WB_CLIENT_SECRET"));
@@ -323,14 +324,12 @@ function receiverOf(preference: Preference): Receiver {
     marketplace: wb(preference),
     help: {
       cabinetId: "sid",
-      key:
-        `Токен кабинета — из public.wb_tokens сервера клиента read-only сессией:
+      key: `Токен кабинета — из public.wb_tokens сервера клиента read-only сессией:
 действующий, не истёкший, категории хоста; у call-ro — с read_only, если
 такой есть (запись тогда запрещает сам WB), у call — без read_only. Токен
 и X-Client-Secret наружу не выходят: ни в вывод, ни в журнал, ни в текст
 отказа; эхо в теле ответа заменяется на ***.`,
-      body:
-        "body: — JSON-текст тела; с ним метод по умолчанию POST, без него — GET.",
+      body: "body: — JSON-текст тела; с ним метод по умолчанию POST, без него — GET.",
       requests: "Один вызов — один запрос",
       dry: "authorization: ***",
       refusals:
@@ -347,37 +346,45 @@ function receiverOf(preference: Preference): Receiver {
  */
 export function wbMessages(deps: CallDeps) {
   return [
-    callMessage(receiverOf(READ_ONLY_FIRST), {
-      name: "call-ro",
-      policy: "ro",
-      access: new ReadList(READS),
-      summary:
-        "что сейчас отвечает ручка чтения Wildberries API под токеном кабинета клиента",
-      help: `Звать, когда нужен живой ответ Wildberries API по кабинету клиента:
+    callMessage(
+      receiverOf(READ_ONLY_FIRST),
+      {
+        name: "call-ro",
+        policy: "ro",
+        access: new ReadList(READS),
+        summary:
+          "что сейчас отвечает ручка чтения Wildberries API под токеном кабинета клиента",
+        help: `Звать, когда нужен живой ответ Wildberries API по кабинету клиента:
 что отдаёт ручка, сколько осталось квоты, какой x-ratelimit-retry. Токен
 нужной категории подставляет mpu из БД клиента — в руки его брать не
 нужно. Только ручки из списка чтения; прочие — отказ до чтения токена с
 готовой строкой mpu ask wb call.`,
-      examples: [
-        "mpu wb call-ro target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
-        "mpu wb call-ro target: 54 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01",
-        "mpu wb call-ro dry target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
-      ],
-    }, deps),
-    callMessage(receiverOf(WRITABLE_FIRST), {
-      name: "call",
-      policy: "rw",
-      access: ANY_REQUEST,
-      summary:
-        "вызвать любую ручку Wildberries API под токеном кабинета клиента (запись)",
-      help: `Звать, когда ручка меняет данные кабинета у WB (цены, карточки,
+        examples: [
+          "mpu wb call-ro target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
+          "mpu wb call-ro target: 54 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01",
+          "mpu wb call-ro dry target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
+        ],
+      },
+      deps,
+    ),
+    callMessage(
+      receiverOf(WRITABLE_FIRST),
+      {
+        name: "call",
+        policy: "rw",
+        access: ANY_REQUEST,
+        summary:
+          "вызвать любую ручку Wildberries API под токеном кабинета клиента (запись)",
+        help: `Звать, когда ручка меняет данные кабинета у WB (цены, карточки,
 кампании) или её нет в списке чтения mpu wb call-ro. Идёт только через
 дверь ask: вызов с подтверждением человека. Изменение, которое делает
 ручка, — у WB, и отменить его mpu не может.`,
-      examples: [
-        "mpu ask wb call target: 54 url: https://content-api.wildberries.ru/content/v2/get/cards/list body: {}",
-      ],
-    }, deps),
+        examples: [
+          "mpu ask wb call target: 54 url: https://content-api.wildberries.ru/content/v2/get/cards/list body: {}",
+        ],
+      },
+      deps,
+    ),
   ];
 }
 

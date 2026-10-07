@@ -29,10 +29,14 @@ function env(values: Readonly<Record<string, string>>): EnvKeys {
 }
 
 it("полная конфигурация", () => {
-  expect(telegramConfig(env({
-    ...FULL,
-    TELEGRAM_PROXY: "socks5://10.0.0.1:1080",
-  }))).toStrictEqual({
+  expect(
+    telegramConfig(
+      env({
+        ...FULL,
+        TELEGRAM_PROXY: "socks5://10.0.0.1:1080",
+      }),
+    ),
+  ).toStrictEqual({
     apiId: 12345,
     apiHash: "hash",
     session: "session-string",
@@ -77,37 +81,45 @@ it("пустая строка сессии — не авторизован", () 
 
 describe("прокси берётся по порядку источников", () => {
   it("TELEGRAM_PROXY старше HTTPS_PROXY", () => {
-    const config = telegramConfig(env({
-      ...FULL,
-      TELEGRAM_PROXY: "socks5://10.0.0.1:1080",
-      HTTPS_PROXY: "http://proxy.example:3128",
-    }));
+    const config = telegramConfig(
+      env({
+        ...FULL,
+        TELEGRAM_PROXY: "socks5://10.0.0.1:1080",
+        HTTPS_PROXY: "http://proxy.example:3128",
+      }),
+    );
     expect(config.proxy?.host).toBe("10.0.0.1");
   });
   it("HTTPS_PROXY старше https_proxy", () => {
-    const config = telegramConfig(env({
-      ...FULL,
-      HTTPS_PROXY: "http://upper.example:3128",
-      https_proxy: "http://lower.example:3128",
-    }));
+    const config = telegramConfig(
+      env({
+        ...FULL,
+        HTTPS_PROXY: "http://upper.example:3128",
+        https_proxy: "http://lower.example:3128",
+      }),
+    );
     expect(config.proxy?.host).toBe("upper.example");
   });
   it("https_proxy — последний источник", () => {
-    const config = telegramConfig(env({
-      ...FULL,
-      https_proxy: "http://lower.example:3128",
-    }));
+    const config = telegramConfig(
+      env({
+        ...FULL,
+        https_proxy: "http://lower.example:3128",
+      }),
+    );
     expect(config.proxy?.host).toBe("lower.example");
   });
 });
 
 it("секреты не попадают в текст ошибки конфигурации", () => {
   const err = thrown(() => {
-    telegramConfig(env({
-      ...FULL,
-      TELEGRAM_API_ID: "abc",
-      TELEGRAM_API_HASH: "s3cret-hash",
-    }));
+    telegramConfig(
+      env({
+        ...FULL,
+        TELEGRAM_API_ID: "abc",
+        TELEGRAM_API_HASH: "s3cret-hash",
+      }),
+    );
   }, VerbatimError);
   expect(err.message.includes("s3cret-hash")).toBe(false);
   expect(err.message.includes("session-string")).toBe(false);

@@ -33,8 +33,10 @@ import type { RawObject } from "./model.ts";
 
 /** Префикс всех вызовов одного MR. */
 function mrPath(address: MrAddress): string {
-  return `/projects/${projectPath(address.project)}/merge_requests/` +
-    `${address.iid}`;
+  return (
+    `/projects/${projectPath(address.project)}/merge_requests/` +
+    `${address.iid}`
+  );
 }
 
 /** Шапка MR: `project` берётся из адресации — API его не отдаёт. */
@@ -151,7 +153,8 @@ export async function updateDescription(
   address: MrAddress,
   description: string,
 ): Promise<MergeRequest> {
-  const path = `/projects/${projectPath(address.project)}/merge_requests/` +
+  const path =
+    `/projects/${projectPath(address.project)}/merge_requests/` +
     `${address.iid}`;
   const body = await gitlabSend(access, "PUT", path, { description });
   return mergeRequestOf(asObject(body, path), address.project);
@@ -193,7 +196,8 @@ export async function commitBranches(
   projectId: number,
   sha: string,
 ): Promise<readonly string[] | undefined> {
-  const path = `/projects/${projectId}/repository/commits/` +
+  const path =
+    `/projects/${projectId}/repository/commits/` +
     `${encodeURIComponent(sha)}/refs`;
   try {
     const raw = await gitlabGetAll(access, path, { type: "branch" });

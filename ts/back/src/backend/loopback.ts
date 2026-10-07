@@ -101,9 +101,8 @@ function acceptedOf(socket: WsSocket, raw: Duplex): AcceptedSocket {
     // По `isBinary`, а не по типу данных: под Bun `ws` подменён своей
     // реализацией, и текстовый кадр приходит там байтами.
     onMessage: (listener) =>
-      socket.on(
-        "message",
-        (data, isBinary) => listener(isBinary ? data : decoder.decode(data)),
+      socket.on("message", (data, isBinary) =>
+        listener(isBinary ? data : decoder.decode(data)),
       ),
     // `close` у `ws` приходит только после слива буфера отправки и
     // закрытия TCP, а клиент видит своё закрытие уже по ответному кадру:
@@ -301,7 +300,7 @@ export async function listenLoopback(options: {
           // цель остановки уже достигнута.
           if (err === undefined || isNotRunning(err)) resolve();
           else reject(err);
-        })
+        }),
       );
     },
   };

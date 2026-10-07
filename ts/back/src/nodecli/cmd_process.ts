@@ -26,48 +26,59 @@ const DEV = /^dev:(.*)$/;
 
 const argsSchema = z.object({
   ...commonArgs,
-  "spreadsheet-id": z.string().optional().describe(
-    "id таблицы; без него берётся из кандидатов, если он там один",
-  ),
+  "spreadsheet-id": z
+    .string()
+    .optional()
+    .describe("id таблицы; без него берётся из кандидатов, если он там один"),
   "date-from": z.string().optional().describe("начало периода, YYYY-MM-DD"),
   "date-to": z.string().optional().describe("конец периода, YYYY-MM-DD"),
   domain: z.string().optional().describe("площадка: wb либо ozon"),
   dataset: z.string().optional().describe("один датасет; строка, не список"),
-  datasets: z.array(z.string()).optional().describe(
-    "датасеты; флаг повторяется",
-  ),
+  datasets: z
+    .array(z.string())
+    .optional()
+    .describe("датасеты; флаг повторяется"),
   modules: z.array(z.string()).optional().describe("модули; флаг повторяется"),
-  "exclude-datasets": z.array(z.string()).optional().describe(
-    "датасеты-исключения; флаг повторяется",
-  ),
-  "exclude-modules": z.array(z.string()).optional().describe(
-    "модули-исключения; флаг повторяется",
-  ),
-  "with-tags": z.array(z.string()).optional().describe(
-    "теги-фильтры; флаг повторяется",
-  ),
-  "without-tags": z.array(z.string()).optional().describe(
-    "теги-исключения; флаг повторяется",
-  ),
+  "exclude-datasets": z
+    .array(z.string())
+    .optional()
+    .describe("датасеты-исключения; флаг повторяется"),
+  "exclude-modules": z
+    .array(z.string())
+    .optional()
+    .describe("модули-исключения; флаг повторяется"),
+  "with-tags": z
+    .array(z.string())
+    .optional()
+    .describe("теги-фильтры; флаг повторяется"),
+  "without-tags": z
+    .array(z.string())
+    .optional()
+    .describe("теги-исключения; флаг повторяется"),
   "no-deps": z.boolean().default(false).describe("не тянуть зависимости"),
   forced: z.boolean().default(false).describe("пересчитать принудительно"),
-  "forced-update": z.boolean().default(false).describe(
-    "принудительно обновить витрины",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "прогон метода вхолостую; это флаг метода, а не режим печати",
-  ),
+  "forced-update": z
+    .boolean()
+    .default(false)
+    .describe("принудительно обновить витрины"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("прогон метода вхолостую; это флаг метода, а не режим печати"),
   sid: z.string().optional().describe("WB-кабинет: sid"),
-  "nm-ids": z.string().optional().describe(
-    "товары WB одной строкой вида [1,2] без пробелов",
-  ),
-  skus: z.array(z.number().int()).optional().describe(
-    "SKU Ozon; флаг повторяется, уходит одним токеном [1,2]",
-  ),
+  "nm-ids": z
+    .string()
+    .optional()
+    .describe("товары WB одной строкой вида [1,2] без пробелов"),
+  skus: z
+    .array(z.number().int())
+    .optional()
+    .describe("SKU Ozon; флаг повторяется, уходит одним токеном [1,2]"),
   logs: z.string().optional().describe("уровень логов пересчёта"),
-  verbose: z.boolean().default(false).describe(
-    "напечатать inner-команду в stderr перед доставкой",
-  ),
+  verbose: z
+    .boolean()
+    .default(false)
+    .describe("напечатать inner-команду в stderr перед доставкой"),
 });
 
 type ProcessArgs = z.infer<typeof argsSchema>;
@@ -105,9 +116,7 @@ verbose печатает # inner: <команда> в stderr во всех ре�
 проверяются до сети: допустимы A-Za-z0-9 и _ . / : - , @ [ ].
 
 Exit: код inner-команды; 0 при печати; 2 — ошибки ввода и резолва.`,
-  examples: [
-    "mpu process print target: 777 dataset: wb_unit",
-  ],
+  examples: ["mpu process print target: 777 dataset: wb_unit"],
   policy: "rw",
   helpWhenBare: true,
   argsSchema,
@@ -125,7 +134,8 @@ Exit: код inner-команды; 0 при печати; 2 — ошибки в�
         flags: (context): readonly Flag[] => [
           {
             name: "spreadsheet-id",
-            value: args["spreadsheet-id"] ??
+            value:
+              args["spreadsheet-id"] ??
               context.pickOrNone((candidate) => candidate.spreadsheetId),
           },
           { name: "date-from", value: args["date-from"] },

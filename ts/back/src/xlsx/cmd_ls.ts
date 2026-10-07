@@ -8,23 +8,29 @@ import { pathNotSetError } from "./resolve.ts";
 import { renderLsLong, renderLsPlain } from "./render.ts";
 
 const argsSchema = z.object({
-  file: z.string().optional().describe(
-    "путь или алиас .xlsx; без флага источники по порядку: " +
-      "MPU_XLSX (env-файл), config xlsx.default",
-  ),
-  long: z.boolean().default(false).describe(
-    "колонки: имя, строки×колонки, #индекс (0-based)",
-  ),
+  file: z
+    .string()
+    .optional()
+    .describe(
+      "путь или алиас .xlsx; без флага источники по порядку: " +
+        "MPU_XLSX (env-файл), config xlsx.default",
+    ),
+  long: z
+    .boolean()
+    .default(false)
+    .describe("колонки: имя, строки×колонки, #индекс (0-based)"),
 });
 
 const resultSchema = z.object({
-  sheets: z.array(z.object({
-    title: z.string(),
-    /** Порядковый номер листа в книге, 0-based. */
-    index: z.number().int(),
-    rows: z.number().int(),
-    cols: z.number().int(),
-  })),
+  sheets: z.array(
+    z.object({
+      title: z.string(),
+      /** Порядковый номер листа в книге, 0-based. */
+      index: z.number().int(),
+      rows: z.number().int(),
+      cols: z.number().int(),
+    }),
+  ),
 });
 
 export const lsCommand = defineCommand({
@@ -40,9 +46,7 @@ rows/cols — фактический максимум встреченных я�
 у пустого листа 0×0.
 
 Exit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.`,
-  examples: [
-    "mpu xlsx ls long file: report.xlsx",
-  ],
+  examples: ["mpu xlsx ls long file: report.xlsx"],
   policy: "ro",
   argsSchema,
   forms: { file: { short: "f" }, long: { short: "l" } },

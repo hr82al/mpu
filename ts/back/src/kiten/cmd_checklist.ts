@@ -39,12 +39,15 @@ import {
   renderChecklistsJson,
 } from "./checklist_view.ts";
 
-const selector = z.string({ error: "нужен id: id карточки или её URL" })
+const selector = z
+  .string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
-const itemRef = z.string({
-  error: "нужен item: id пункта либо подстрока его текста",
-}).describe("ссылка на пункт: id из вывода ls либо подстрока текста");
+const itemRef = z
+  .string({
+    error: "нужен item: id пункта либо подстрока его текста",
+  })
+  .describe("ссылка на пункт: id из вывода ls либо подстрока текста");
 
 const lsArgsSchema = z.object({
   selector,
@@ -52,29 +55,35 @@ const lsArgsSchema = z.object({
 });
 
 const lsResultSchema = z.object({
-  checklists: z.array(checklistViewSchema).describe(
-    "чек-листы по возрастанию id; пункты внутри — отсортированы",
-  ),
+  checklists: z
+    .array(checklistViewSchema)
+    .describe("чек-листы по возрастанию id; пункты внутри — отсортированы"),
 });
 
 const addArgsSchema = z.object({
   selector,
-  name: z.string({ error: "нужен name: название чек-листа" })
+  name: z
+    .string({ error: "нужен name: название чек-листа" })
     .describe("название чек-листа; совпадение с существующим точное"),
-  item: z.array(z.string()).default([]).describe(
-    "текст пункта; ключ повторяется, пункты добавляются в порядке ключей",
-  ),
+  item: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "текст пункта; ключ повторяется, пункты добавляются в порядке ключей",
+    ),
 });
 
 const addResultSchema = z.object({
   name: z.string().describe("название чек-листа, как его вернул сервер"),
-  checklistId: z.number().int().describe(
-    "id чек-листа: созданного либо его же",
-  ),
+  checklistId: z
+    .number()
+    .int()
+    .describe("id чек-листа: созданного либо его же"),
   created: z.boolean().describe("создан ли чек-лист этим вызовом"),
-  added: z.number().int().describe(
-    "сколько пунктов создано: уже имевшиеся тексты не в счёт",
-  ),
+  added: z
+    .number()
+    .int()
+    .describe("сколько пунктов создано: уже имевшиеся тексты не в счёт"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
@@ -219,7 +228,7 @@ function locateItem(
 
   const needle = ref.toLowerCase();
   const hits = items.filter(({ item }) =>
-    item.text.toLowerCase().includes(needle)
+    item.text.toLowerCase().includes(needle),
   );
   if (hits.length === 1) return hits[0];
   if (hits.length > 1) {
@@ -244,8 +253,8 @@ async function resolveChecklist(
 ): Promise<ChecklistTarget> {
   try {
     const card = await getCard(access, cardId);
-    const existing = orderedChecklists(card.checklists).find((checklist) =>
-      checklist.name === name
+    const existing = orderedChecklists(card.checklists).find(
+      (checklist) => checklist.name === name,
     );
     if (existing !== undefined) return { checklist: existing, created: false };
     return {
@@ -358,9 +367,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
 ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten checklist ls id: 10000001 end json",
-  ],
+  examples: ["mpu kiten checklist ls id: 10000001 end json"],
   policy: "ro",
   argsSchema: lsArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -437,9 +444,7 @@ ${ITEM_HELP}
 ${ENV_KEYS}
 
 ${MARK_EXIT}`,
-  examples: [
-    "mpu kiten checklist check id: 10000001 item: Ревью",
-  ],
+  examples: ["mpu kiten checklist check id: 10000001 item: Ревью"],
   policy: "rw",
   argsSchema: markArgsSchema,
   forms: {
@@ -469,9 +474,7 @@ ${ITEM_HELP}
 ${ENV_KEYS}
 
 ${MARK_EXIT}`,
-  examples: [
-    "mpu kiten checklist uncheck id: 10000001 item: 66470402",
-  ],
+  examples: ["mpu kiten checklist uncheck id: 10000001 item: 66470402"],
   policy: "rw",
   argsSchema: markArgsSchema,
   forms: {

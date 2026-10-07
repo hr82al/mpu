@@ -151,9 +151,9 @@ function calls(seen: readonly CapturedRequest[]): readonly string[] {
 
 /** Тела запросов в порядке обращения; GET пропущены. */
 function bodies(seen: readonly CapturedRequest[]): readonly unknown[] {
-  return seen.filter((request) => request.method !== "GET").map((request) =>
-    JSON.parse(request.body)
-  );
+  return seen
+    .filter((request) => request.method !== "GET")
+    .map((request) => JSON.parse(request.body));
 }
 
 /** Текст ошибки так, как его напечатает точка входа, с переводом строки. */
@@ -171,8 +171,9 @@ describe("checklist ls: сортировка, обе формы вывода и 
   it("таблица — голден побайтово", async () => {
     const { io, seen, stop } = await cardStand([goldenChecklist()]);
     try {
-      expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
-        .toStrictEqual(await golden("ls-stdout.txt"));
+      expect(
+        await output(kitenChecklistLsCommand, [SELECTOR], io),
+      ).toStrictEqual(await golden("ls-stdout.txt"));
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
       await stop();
@@ -182,8 +183,9 @@ describe("checklist ls: сортировка, обе формы вывода и 
   it("--json — голден побайтово", async () => {
     const { io, stop } = await cardStand([goldenChecklist()]);
     try {
-      expect(await output(kitenChecklistLsCommand, [SELECTOR, "--json"], io))
-        .toStrictEqual(await golden("ls-json-stdout.txt"));
+      expect(
+        await output(kitenChecklistLsCommand, [SELECTOR, "--json"], io),
+      ).toStrictEqual(await golden("ls-json-stdout.txt"));
     } finally {
       await stop();
     }
@@ -192,26 +194,29 @@ describe("checklist ls: сортировка, обе формы вывода и 
   it("чек-листов нет — голден и пустой массив", async () => {
     const { io, stop } = await cardStand([]);
     try {
-      expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
-        .toStrictEqual(await golden("ls-empty-stdout.txt"));
-      expect(await output(kitenChecklistLsCommand, [SELECTOR, "--json"], io))
-        .toBe("[]\n");
+      expect(
+        await output(kitenChecklistLsCommand, [SELECTOR], io),
+      ).toStrictEqual(await golden("ls-empty-stdout.txt"));
+      expect(
+        await output(kitenChecklistLsCommand, [SELECTOR, "--json"], io),
+      ).toBe("[]\n");
     } finally {
       await stop();
     }
   });
 
   it("чек-лист без пунктов — заголовок и одна шапка", async () => {
-    const { io, stop } = await cardStand([{
-      id: LIST_ID,
-      name: "Пусто",
-      items: [],
-    }]);
+    const { io, stop } = await cardStand([
+      {
+        id: LIST_ID,
+        name: "Пусто",
+        items: [],
+      },
+    ]);
     try {
-      expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
-        .toStrictEqual(
-          `Пусто · 0/0 (checklist id ${LIST_ID})\n id  ✓  text \n`,
-        );
+      expect(
+        await output(kitenChecklistLsCommand, [SELECTOR], io),
+      ).toStrictEqual(`Пусто · 0/0 (checklist id ${LIST_ID})\n id  ✓  text \n`);
     } finally {
       await stop();
     }
@@ -241,11 +246,12 @@ describe("checklist ls: сортировка, обе формы вывода и 
     ]);
     try {
       const text = await output(kitenChecklistLsCommand, [SELECTOR], io);
-      expect(text.split("\n").filter((line) => line.includes("checklist id")))
-        .toStrictEqual([
-          `Первый · 0/1 (checklist id ${LIST_ID})`,
-          `Второй · 0/1 (checklist id ${SECOND_LIST_ID})`,
-        ]);
+      expect(
+        text.split("\n").filter((line) => line.includes("checklist id")),
+      ).toStrictEqual([
+        `Первый · 0/1 (checklist id ${LIST_ID})`,
+        `Второй · 0/1 (checklist id ${SECOND_LIST_ID})`,
+      ]);
     } finally {
       await stop();
     }
@@ -282,19 +288,22 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("пункт без sort_order идёт как с нулевым", async () => {
-    const { io, stop } = await cardStand([{
-      id: LIST_ID,
-      name: "Проверки",
-      items: [
-        rawItem(2, "второй", { sort_order: 1 }),
-        rawItem(1, "первый", { sort_order: undefined }),
-      ],
-    }]);
+    const { io, stop } = await cardStand([
+      {
+        id: LIST_ID,
+        name: "Проверки",
+        items: [
+          rawItem(2, "второй", { sort_order: 1 }),
+          rawItem(1, "первый", { sort_order: undefined }),
+        ],
+      },
+    ]);
     try {
       const text = await output(kitenChecklistLsCommand, [SELECTOR], io);
-      const ids = text.split("\n").slice(2, 4).map((line) =>
-        line.trim().split(/\s+/)[0]
-      );
+      const ids = text
+        .split("\n")
+        .slice(2, 4)
+        .map((line) => line.trim().split(/\s+/)[0]);
       expect(ids).toStrictEqual(["1", "2"]);
     } finally {
       await stop();
@@ -312,15 +321,19 @@ describe("checklist add: создание, идемпотентность и sor
     });
     try {
       expect(
-        await output(kitenChecklistAddCommand, [
-          SELECTOR,
-          "-n",
-          "Проверки",
-          "-i",
-          "Тест написан",
-          "-i",
-          "Гейты зелёные",
-        ], io),
+        await output(
+          kitenChecklistAddCommand,
+          [
+            SELECTOR,
+            "-n",
+            "Проверки",
+            "-i",
+            "Тест написан",
+            "-i",
+            "Гейты зелёные",
+          ],
+          io,
+        ),
       ).toStrictEqual(await expected("add-created-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -349,15 +362,19 @@ describe("checklist add: создание, идемпотентность и sor
     });
     try {
       expect(
-        await output(kitenChecklistAddCommand, [
-          SELECTOR,
-          "-n",
-          "Проверки",
-          "-i",
-          "Тест написан",
-          "-i",
-          "Третий пункт",
-        ], io),
+        await output(
+          kitenChecklistAddCommand,
+          [
+            SELECTOR,
+            "-n",
+            "Проверки",
+            "-i",
+            "Тест написан",
+            "-i",
+            "Третий пункт",
+          ],
+          io,
+        ),
       ).toStrictEqual(await expected("add-existing-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -398,15 +415,19 @@ describe("checklist add: создание, идемпотентность и sor
   it("все тексты уже есть — ни одного POST пункта", async () => {
     const { io, seen, stop } = await cardStand([goldenChecklist()]);
     try {
-      const text = await output(kitenChecklistAddCommand, [
-        SELECTOR,
-        "-n",
-        "Проверки",
-        "-i",
-        "Тест написан",
-        "-i",
-        "Третий пункт",
-      ], io);
+      const text = await output(
+        kitenChecklistAddCommand,
+        [
+          SELECTOR,
+          "-n",
+          "Проверки",
+          "-i",
+          "Тест написан",
+          "-i",
+          "Третий пункт",
+        ],
+        io,
+      );
       expect(text).toContain("(существующий, id 11960707)");
       expect(text).toContain("добавлено пунктов: 0");
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
@@ -423,15 +444,19 @@ describe("checklist add: создание, идемпотентность и sor
         Response.json({ id: 66835645, ...JSON.parse(body) }),
     });
     try {
-      const text = await output(kitenChecklistAddCommand, [
-        SELECTOR,
-        "-n",
-        "Проверки",
-        "-i",
-        "Тест написан",
-        "-i",
-        "Тест написан",
-      ], io);
+      const text = await output(
+        kitenChecklistAddCommand,
+        [
+          SELECTOR,
+          "-n",
+          "Проверки",
+          "-i",
+          "Тест написан",
+          "-i",
+          "Тест написан",
+        ],
+        io,
+      );
       expect(text).toContain("добавлено пунктов: 1");
       expect(bodies(seen)).toStrictEqual([
         { name: "Проверки" },
@@ -471,21 +496,22 @@ describe("checklist add: создание, идемпотентность и sor
   it("одноимённые чек-листы — берётся меньший id", async () => {
     // Фейк отдаёт их по убыванию id: выбор «первый в ответе сервера»
     // взял бы больший и упёрся бы в незаданный маршрут его пунктов.
-    const { io, seen, stop } = await cardStand([
-      { id: SECOND_LIST_ID, name: "Проверки", items: [] },
-      { id: LIST_ID, name: "Проверки", items: [] },
-    ], {
-      [`POST ${itemsPath(LIST_ID)}`]: (body) =>
-        Response.json({ id: 66835645, ...JSON.parse(body) }),
-    });
+    const { io, seen, stop } = await cardStand(
+      [
+        { id: SECOND_LIST_ID, name: "Проверки", items: [] },
+        { id: LIST_ID, name: "Проверки", items: [] },
+      ],
+      {
+        [`POST ${itemsPath(LIST_ID)}`]: (body) =>
+          Response.json({ id: 66835645, ...JSON.parse(body) }),
+      },
+    );
     try {
-      const text = await output(kitenChecklistAddCommand, [
-        SELECTOR,
-        "-n",
-        "Проверки",
-        "-i",
-        "Тест написан",
-      ], io);
+      const text = await output(
+        kitenChecklistAddCommand,
+        [SELECTOR, "-n", "Проверки", "-i", "Тест написан"],
+        io,
+      );
       expect(text).toContain(`(существующий, id ${LIST_ID})`);
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -499,8 +525,9 @@ describe("checklist add: создание, идемпотентность и sor
   it("без --name — ошибка ввода до сети", async () => {
     const { io, seen, stop } = await cardStand([]);
     try {
-      await expect(kitenChecklistAddCommand.invoke([SELECTOR], io)).rejects
-        .toThrow(UsageError);
+      await expect(
+        kitenChecklistAddCommand.invoke([SELECTOR], io),
+      ).rejects.toThrow(UsageError);
       expect(calls(seen)).toStrictEqual([]);
     } finally {
       await stop();
@@ -545,8 +572,9 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   it("по подстроке — голден и состав вызовов", async () => {
     const { io, baseUrl, seen, stop } = await markStand();
     try {
-      expect(await output(kitenChecklistCheckCommand, [SELECTOR, "Тест"], io))
-        .toStrictEqual(await expected("check-stdout.txt", baseUrl));
+      expect(
+        await output(kitenChecklistCheckCommand, [SELECTOR, "Тест"], io),
+      ).toStrictEqual(await expected("check-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
         `PATCH ${itemPath(LIST_ID, 66835645)}`,
@@ -574,13 +602,12 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
 
   it("uncheck — голден и тело запроса", async () => {
     const { io, baseUrl, seen, stop } = await markStand([
-      goldenChecklist([
-        rawItem(66835645, "Тест написан", { checked: true }),
-      ]),
+      goldenChecklist([rawItem(66835645, "Тест написан", { checked: true })]),
     ]);
     try {
-      expect(await output(kitenChecklistUncheckCommand, [SELECTOR, "Тест"], io))
-        .toStrictEqual(await expected("uncheck-stdout.txt", baseUrl));
+      expect(
+        await output(kitenChecklistUncheckCommand, [SELECTOR, "Тест"], io),
+      ).toStrictEqual(await expected("uncheck-stdout.txt", baseUrl));
       expect(bodies(seen)).toStrictEqual([{ checked: false }]);
     } finally {
       await stop();

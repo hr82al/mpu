@@ -104,9 +104,8 @@ async function withDesk(
   const desk = new PermissionDesk({
     questions,
     transcripts: new Transcripts({ files: DISK_FILES, clock }),
-    windows: options.tmux === undefined
-      ? NO_WINDOWS
-      : new Windows(options.tmux),
+    windows:
+      options.tmux === undefined ? NO_WINDOWS : new Windows(options.tmux),
     sessions,
     clock,
   });
@@ -139,14 +138,12 @@ async function withDesk(
 
 /** Решение одной строкой stdout. */
 function decision(fields: Readonly<Record<string, unknown>>): string {
-  return `${
-    JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PermissionRequest",
-        decision: fields,
-      },
-    })
-  }\n`;
+  return `${JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: fields,
+    },
+  })}\n`;
 }
 
 const UNDECIDED = "mpu claude-hook permission-request: без решения — ";
@@ -155,15 +152,15 @@ const UNDECIDED = "mpu claude-hook permission-request: без решения —
 const TMUX_A: TmuxRun = (args) =>
   Promise.resolve(
     JSON.stringify(args) ===
-        JSON.stringify([
-          "-S",
-          "/tmp/tmux-1000/default",
-          "display-message",
-          "-p",
-          "-t",
-          "%7",
-          "#S:#I #W",
-        ])
+      JSON.stringify([
+        "-S",
+        "/tmp/tmux-1000/default",
+        "display-message",
+        "-p",
+        "-t",
+        "%7",
+        "#S:#I #W",
+      ])
       ? "w:2 claude\n"
       : undefined,
   );
@@ -174,26 +171,29 @@ const BASH_TEXT = "Create probe file\ntouch /tmp/x1.txt";
 const BASH_HEAD = "🔐 Bash — mpu-bot · ozon · w:2 claude";
 
 it("1–2: вопрос о праве с вариантами терминала; «Yes» — allow", async () => {
-  await withDesk(async ({ bot, ask, payload }) => {
-    const told = ask(await payload("live-permission-bash.json"), TMUX_ENV);
-    await bot.called(1);
-    expect(bot.calls[0]).toStrictEqual({
-      method: "send",
-      message: 0,
-      text: `${BASH_HEAD}\n${BASH_TEXT}`,
-      buttons: [["Yes", "Yes, always: Bash(touch /tmp/x1.txt)"], ["No"]],
-      data: [["r1:1:0:0", "r1:1:0:1"], ["r1:1:0:2"]],
-    });
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-    expect(await told).toStrictEqual({
-      stdout: decision({ behavior: "allow" }),
-      stderr: "",
-    });
-    await bot.called(3);
-    expect(bot.calls[2].text).toStrictEqual(
-      `${BASH_HEAD}\n${BASH_TEXT}\n✅ Yes — из чата`,
-    );
-  }, { tmux: TMUX_A });
+  await withDesk(
+    async ({ bot, ask, payload }) => {
+      const told = ask(await payload("live-permission-bash.json"), TMUX_ENV);
+      await bot.called(1);
+      expect(bot.calls[0]).toStrictEqual({
+        method: "send",
+        message: 0,
+        text: `${BASH_HEAD}\n${BASH_TEXT}`,
+        buttons: [["Yes", "Yes, always: Bash(touch /tmp/x1.txt)"], ["No"]],
+        data: [["r1:1:0:0", "r1:1:0:1"], ["r1:1:0:2"]],
+      });
+      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+      expect(await told).toStrictEqual({
+        stdout: decision({ behavior: "allow" }),
+        stderr: "",
+      });
+      await bot.called(3);
+      expect(bot.calls[2].text).toStrictEqual(
+        `${BASH_HEAD}\n${BASH_TEXT}\n✅ Yes — из чата`,
+      );
+    },
+    { tmux: TMUX_A },
+  );
 });
 
 it("3: подсказка — allow и updatedPermissions как пришла", async () => {
@@ -255,37 +255,43 @@ async function bashLines(id: string): Promise<readonly string[]> {
 }
 
 it("6: tool_result вызова в транскрипте — снят «решено в терминале»", async () => {
-  await withDesk(async ({ bot, clock, append, ask, payload }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(toolResult("toolu_A"));
-    clock.fire(WATCH_MS);
-    expect(await told).toStrictEqual({
-      stdout: "",
-      stderr: `${UNDECIDED}решено в терминале\n`,
-    });
-    await bot.called(2);
-    assert(bot.calls[1].text.endsWith("\n✅ решено в терминале"));
-    // Снятие — не позже 2 с: хвост смотрится чаще.
-    assert(WATCH_MS <= 2000);
-    expect(clock.asked.includes(WATCH_MS)).toBe(true);
-  }, { lines: await bashLines("toolu_A") });
+  await withDesk(
+    async ({ bot, clock, append, ask, payload }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(toolResult("toolu_A"));
+      clock.fire(WATCH_MS);
+      expect(await told).toStrictEqual({
+        stdout: "",
+        stderr: `${UNDECIDED}решено в терминале\n`,
+      });
+      await bot.called(2);
+      assert(bot.calls[1].text.endsWith("\n✅ решено в терминале"));
+      // Снятие — не позже 2 с: хвост смотрится чаще.
+      assert(WATCH_MS <= 2000);
+      expect(clock.asked.includes(WATCH_MS)).toBe(true);
+    },
+    { lines: await bashLines("toolu_A") },
+  );
 });
 
 it("D.5: соседний tool_result и недописанная строка вопрос не снимают", async () => {
-  await withDesk(async ({ bot, clock, append, transcript, ask, payload }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(toolResult("toolu_other"));
-    // Ответ на наш вызов, ещё без перевода строки: строка не дописана.
-    await appendFile(transcript, toolResult("toolu_A"));
-    await turn(clock, told);
-    expect(bot.calls.length).toBe(1);
-    await appendFile(transcript, "\n");
-    await withdrawnBy(clock, told);
-  }, { lines: await bashLines("toolu_A") });
+  await withDesk(
+    async ({ bot, clock, append, transcript, ask, payload }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(toolResult("toolu_other"));
+      // Ответ на наш вызов, ещё без перевода строки: строка не дописана.
+      await appendFile(transcript, toolResult("toolu_A"));
+      await turn(clock, told);
+      expect(bot.calls.length).toBe(1);
+      await appendFile(transcript, "\n");
+      await withdrawnBy(clock, told);
+    },
+    { lines: await bashLines("toolu_A") },
+  );
 });
 
 /**
@@ -332,59 +338,75 @@ it("R1c-1: tool_use дописан после постановки — снят�
 it("R1c-2: старый вызов с ответом — чужой; новый, дописанный, — вызов вопроса", async () => {
   const old = await bashLines("toolu_A");
   const [use] = (await bashLines("toolu_B")).slice(-1);
-  await withDesk(async ({ bot, clock, append, payload, ask }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(use);
-    await turn(clock, told);
-    expect(bot.calls.length).toBe(1);
-    await append(toolResult("toolu_B"));
-    await withdrawnBy(clock, told);
-  }, { lines: [...old, toolResult("toolu_A")] });
+  await withDesk(
+    async ({ bot, clock, append, payload, ask }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(use);
+      await turn(clock, told);
+      expect(bot.calls.length).toBe(1);
+      await append(toolResult("toolu_B"));
+      await withdrawnBy(clock, told);
+    },
+    { lines: [...old, toolResult("toolu_A")] },
+  );
 });
 
 it("R1c-3: старый вызов с ответом, нового нет — вопрос не снимается", async () => {
-  const lines = [...await bashLines("toolu_A"), toolResult("toolu_A")];
-  await withDesk(async ({ bot, clock, append, payload, ask }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(toolResult("toolu_A"));
-    await turn(clock, told);
-    expect(bot.calls.length).toBe(1);
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-    expect((await told).stdout).toStrictEqual(decision({ behavior: "allow" }));
-  }, { lines });
+  const lines = [...(await bashLines("toolu_A")), toolResult("toolu_A")];
+  await withDesk(
+    async ({ bot, clock, append, payload, ask }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(toolResult("toolu_A"));
+      await turn(clock, told);
+      expect(bot.calls.length).toBe(1);
+      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+      expect((await told).stdout).toStrictEqual(
+        decision({ behavior: "allow" }),
+      );
+    },
+    { lines },
+  );
 });
 
 it("R1c: id вызова повторён в файле — ответ закрывает все вхождения", async () => {
   const old = await bashLines("toolu_A");
   const lines = [...old, old.at(-1) ?? "", toolResult("toolu_A")];
-  await withDesk(async ({ bot, clock, append, payload, ask }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(toolResult("toolu_A"));
-    await turn(clock, told);
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-    expect((await told).stdout).toStrictEqual(decision({ behavior: "allow" }));
-  }, { lines });
+  await withDesk(
+    async ({ bot, clock, append, payload, ask }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(toolResult("toolu_A"));
+      await turn(clock, told);
+      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+      expect((await told).stdout).toStrictEqual(
+        decision({ behavior: "allow" }),
+      );
+    },
+    { lines },
+  );
 });
 
 it("R1c-5: два открытых одинаковых вызова — вопрос у самого раннего", async () => {
   const [useD] = (await bashLines("toolu_D")).slice(-1);
-  const lines = [...await bashLines("toolu_C"), useD];
-  await withDesk(async ({ bot, clock, append, payload, ask }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await append(toolResult("toolu_D"));
-    await turn(clock, told);
-    expect(bot.calls.length).toBe(1);
-    await append(toolResult("toolu_C"));
-    await withdrawnBy(clock, told);
-  }, { lines });
+  const lines = [...(await bashLines("toolu_C")), useD];
+  await withDesk(
+    async ({ bot, clock, append, payload, ask }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await append(toolResult("toolu_D"));
+      await turn(clock, told);
+      expect(bot.calls.length).toBe(1);
+      await append(toolResult("toolu_C"));
+      await withdrawnBy(clock, told);
+    },
+    { lines },
+  );
 });
 
 it("7 (S10): несколько вариантов — галочки, «Готово», answers через «, »", async () => {
@@ -399,13 +421,15 @@ it("7 (S10): несколько вариантов — галочки, «Гот�
       pressUpdate(2, 111, "r1:1:0:1"),
       pressUpdate(3, 111, "r1:1:0:ok"),
     ]);
-    expect((await told).stdout).toStrictEqual(decision({
-      behavior: "allow",
-      updatedInput: {
-        questions: JSON.parse(stdin).tool_input.questions,
-        answers: { "Какой размер?": "S, M" },
-      },
-    }));
+    expect((await told).stdout).toStrictEqual(
+      decision({
+        behavior: "allow",
+        updatedInput: {
+          questions: JSON.parse(stdin).tool_input.questions,
+          answers: { "Какой размер?": "S, M" },
+        },
+      }),
+    );
   });
 });
 
@@ -440,30 +464,35 @@ it("8 (S12), R2a-10: два вопроса — два шага, заголово
       "❓ Размер 2/2 — mpu-bot · ozon",
     );
     bot.deliver([textUpdate(2, 111, "XL", 1)]);
-    expect((await told).stdout).toStrictEqual(decision({
-      behavior: "allow",
-      updatedInput: {
-        questions,
-        answers: { "Какой цвет?": "Синий", "Какой размер?": "XL" },
-      },
-    }));
+    expect((await told).stdout).toStrictEqual(
+      decision({
+        behavior: "allow",
+        updatedInput: {
+          questions,
+          answers: { "Какой цвет?": "Синий", "Какой размер?": "XL" },
+        },
+      }),
+    );
   });
 });
 
 describe("9 (S8): вне tmux и без названия — только проект; ничего — голова", () => {
   it("cwd sl-back", () =>
-    withDesk(async ({ bot, ask, payload }) => {
-      const told = ask(
-        await payload("live-permission-bash.json", {
-          cwd: "/home/user/mr/mp/sl-back/",
-        }),
-        { TMUX_PANE: "%7" },
-      );
-      await bot.called(1);
-      expect(bot.calls[0].text.split("\n")[0]).toBe("🔐 Bash — sl-back");
-      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-      await told;
-    }, { lines: [], tmux: TMUX_A }));
+    withDesk(
+      async ({ bot, ask, payload }) => {
+        const told = ask(
+          await payload("live-permission-bash.json", {
+            cwd: "/home/user/mr/mp/sl-back/",
+          }),
+          { TMUX_PANE: "%7" },
+        );
+        await bot.called(1);
+        expect(bot.calls[0].text.split("\n")[0]).toBe("🔐 Bash — sl-back");
+        bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+        await told;
+      },
+      { lines: [], tmux: TMUX_A },
+    ));
   it("ничего «откуда»", () =>
     withDesk(async ({ bot, ask, payload }) => {
       const told = ask(
@@ -489,21 +518,27 @@ describe("заголовок: MCP-тул, автоназвание, длинно
     ],
     [
       "Bash",
-      ['{"type":"custom-title","customTitle":"очень-длинное-имя-сессии-claude"}'],
+      [
+        '{"type":"custom-title","customTitle":"очень-длинное-имя-сессии-claude"}',
+      ],
       "🔐 Bash — очень-длинное-имя-сесси… · ozon",
     ],
   ];
   for (const [tool, lines, head] of cases) {
     it(head, () =>
-      withDesk(async ({ bot, ask, payload }) => {
-        const told = ask(
-          await payload("live-permission-bash.json", { tool_name: tool }),
-        );
-        await bot.called(1);
-        expect(bot.calls[0].text.split("\n")[0]).toStrictEqual(head);
-        bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-        await told;
-      }, { lines }));
+      withDesk(
+        async ({ bot, ask, payload }) => {
+          const told = ask(
+            await payload("live-permission-bash.json", { tool_name: tool }),
+          );
+          await bot.called(1);
+          expect(bot.calls[0].text.split("\n")[0]).toStrictEqual(head);
+          bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+          await told;
+        },
+        { lines },
+      ),
+    );
   }
 });
 
@@ -567,38 +602,44 @@ it("10 (S16): бот не настроен — без решения, файло
 });
 
 it("голден транскрипта: название — последнее custom-title; ответ в терминале снимает", async () => {
-  const lines = (await readFile(
-    testdata("transcript-titles-and-ask-answered.jsonl"),
-    "utf8",
-  )).trimEnd().split("\n");
+  const lines = (
+    await readFile(testdata("transcript-titles-and-ask-answered.jsonl"), "utf8")
+  )
+    .trimEnd()
+    .split("\n");
   // Порядок пробы 10: `tool_use` записан до вопроса, `tool_result` из
   // терминала дописывается во время ожидания. Живая проба 2026-10-06
   // показала и обратный: `tool_use` после постановки (тесты R1c).
   const asked = lines.slice(0, 4);
   const answered = lines[4];
   const input = JSON.parse(asked[3]).message.content[0].input;
-  await withDesk(async ({ bot, clock, append, payload, ask }) => {
-    // В payload `multiSelect` — после `options`, в транскрипте — до:
-    // равенство входа — по значению.
-    const [question] = input.questions;
-    const told = ask(
-      await payload("live-permission-ask-user-question-single.json", {
-        tool_input: {
-          questions: [{
-            question: question.question,
-            header: question.header,
-            options: question.options,
-            multiSelect: question.multiSelect,
-          }],
-        },
-      }),
-    );
-    await bot.called(1);
-    expect(bot.calls[0].text.split("\n")[0]).toBe("❓ День — mpu-bot · ozon");
-    await clock.paused(WATCH_MS);
-    await append(answered);
-    await withdrawnBy(clock, told);
-  }, { lines: asked });
+  await withDesk(
+    async ({ bot, clock, append, payload, ask }) => {
+      // В payload `multiSelect` — после `options`, в транскрипте — до:
+      // равенство входа — по значению.
+      const [question] = input.questions;
+      const told = ask(
+        await payload("live-permission-ask-user-question-single.json", {
+          tool_input: {
+            questions: [
+              {
+                question: question.question,
+                header: question.header,
+                options: question.options,
+                multiSelect: question.multiSelect,
+              },
+            ],
+          },
+        }),
+      );
+      await bot.called(1);
+      expect(bot.calls[0].text.split("\n")[0]).toBe("❓ День — mpu-bot · ozon");
+      await clock.paused(WATCH_MS);
+      await append(answered);
+      await withdrawnBy(clock, told);
+    },
+    { lines: asked },
+  );
 });
 
 it("живая подсказка Read //dev/** — подпись и updatedPermissions", async () => {
@@ -611,10 +652,12 @@ it("живая подсказка Read //dev/** — подпись и updatedPer
       ["No"],
     ]);
     bot.deliver([pressUpdate(1, 111, "r1:1:0:1")]);
-    expect((await told).stdout).toStrictEqual(decision({
-      behavior: "allow",
-      updatedPermissions: JSON.parse(stdin).permission_suggestions,
-    }));
+    expect((await told).stdout).toStrictEqual(
+      decision({
+        behavior: "allow",
+        updatedPermissions: JSON.parse(stdin).permission_suggestions,
+      }),
+    );
   });
 });
 
@@ -647,8 +690,9 @@ describe("строка оборвана до вопроса и остановк�
     const gone = new AbortController();
     gone.abort();
     const bot = new FakeBot();
-    expect(await stderrOf(make(bot).reply(stdin, () => undefined, gone.signal)))
-      .toStrictEqual(expired);
+    expect(
+      await stderrOf(make(bot).reply(stdin, () => undefined, gone.signal)),
+    ).toStrictEqual(expired);
     expect(bot.calls).toStrictEqual([]);
   });
   it("стол остановлен до вопроса", async () => {
@@ -665,20 +709,23 @@ describe("строка оборвана до вопроса и остановк�
 });
 
 it("транскрипт перестал читаться во время ожидания — ответ из чата доходит", async () => {
-  await withDesk(async ({ bot, clock, transcript, payload, ask }) => {
-    const told = ask(await payload("live-permission-bash.json"));
-    await bot.called(1);
-    await clock.paused(WATCH_MS);
-    await chmod(transcript, 0o000);
-    clock.fire(WATCH_MS);
-    await clock.paused(WATCH_MS);
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-    expect(await told).toStrictEqual({
-      stdout: decision({ behavior: "allow" }),
-      stderr: "",
-    });
-    await chmod(transcript, 0o600);
-  }, { lines: await bashLines("toolu_A") });
+  await withDesk(
+    async ({ bot, clock, transcript, payload, ask }) => {
+      const told = ask(await payload("live-permission-bash.json"));
+      await bot.called(1);
+      await clock.paused(WATCH_MS);
+      await chmod(transcript, 0o000);
+      clock.fire(WATCH_MS);
+      await clock.paused(WATCH_MS);
+      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+      expect(await told).toStrictEqual({
+        stdout: decision({ behavior: "allow" }),
+        stderr: "",
+      });
+      await chmod(transcript, 0o600);
+    },
+    { lines: await bashLines("toolu_A") },
+  );
 });
 
 /**

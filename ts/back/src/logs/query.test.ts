@@ -78,25 +78,33 @@ describe("LogQL: порядок частей и экранирование", () 
   });
 
   it("хост, сервис и потоки — один label-блок через запятую", () => {
-    expect(buildLogQl(parts({
-      host: "sl-1",
-      service: "wb-loader",
-      noStdout: true,
-      noStderr: true,
-    }))).toStrictEqual(
+    expect(
+      buildLogQl(
+        parts({
+          host: "sl-1",
+          service: "wb-loader",
+          noStdout: true,
+          noStderr: true,
+        }),
+      ),
+    ).toStrictEqual(
       '{host="sl-1",compose_service="wb-loader",stream!="stdout",' +
         'stream!="stderr"}',
     );
   });
 
   it("фильтры: greps, regexes, client, level — в этом порядке", () => {
-    expect(buildLogQl(parts({
-      host: "sl-1",
-      greps: ["первый", "второй"],
-      regexes: ["ERR.*"],
-      client: 4326,
-      level: "ERROR",
-    }))).toStrictEqual(
+    expect(
+      buildLogQl(
+        parts({
+          host: "sl-1",
+          greps: ["первый", "второй"],
+          regexes: ["ERR.*"],
+          client: 4326,
+          level: "ERROR",
+        }),
+      ),
+    ).toStrictEqual(
       '{host="sl-1"} |= `первый` |= `второй` |~ `ERR.*` |= `4326`' +
         ' | detected_level="error"',
     );

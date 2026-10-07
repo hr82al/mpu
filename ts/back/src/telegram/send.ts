@@ -64,9 +64,10 @@ async function deliver(
   plan: SendPlan,
 ): Promise<ClientMessage> {
   // Отказ клиента оформлен портом сеанса; здесь его не переоформляют.
-  const album = plan.attachments.length === 0
-    ? [await client.sendText(to, plan.text, plan.markdown)]
-    : await client.sendDocuments(to, documents(plan), plan.markdown);
+  const album =
+    plan.attachments.length === 0
+      ? [await client.sendText(to, plan.text, plan.markdown)]
+      : await client.sendDocuments(to, documents(plan), plan.markdown);
   const last = album.at(-1);
   if (last === undefined) {
     throw configError("Telegram не вернул ни одного сообщения");
@@ -84,7 +85,7 @@ function documents(plan: SendPlan): readonly OutgoingDocument[] {
   return plan.attachments.map((attachment, index) =>
     plan.text === "" || index !== last
       ? attachment
-      : { ...attachment, caption: plan.text }
+      : { ...attachment, caption: plan.text },
   );
 }
 

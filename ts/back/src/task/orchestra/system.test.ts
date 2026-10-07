@@ -158,7 +158,7 @@ it("сигнал во время шага — цикл кончается без
 it("пауза без сигнала — по сроку", async () => {
   fakeTimers();
   let over = false;
-  const waiting = pause(1000).then(() => over = true);
+  const waiting = pause(1000).then(() => (over = true));
   await vi.advanceTimersByTimeAsync(999);
   expect(over).toBe(false);
   await vi.advanceTimersByTimeAsync(1);

@@ -46,8 +46,9 @@ it("resolveXlsxPath: порядок источников — flag, env, config",
     path: "/a.xlsx",
     source: "flag",
   });
-  expect(resolveXlsxPath({ ...all, flagValue: undefined }).resolved)
-    .toStrictEqual({ path: "/b.xlsx", source: "env" });
+  expect(
+    resolveXlsxPath({ ...all, flagValue: undefined }).resolved,
+  ).toStrictEqual({ path: "/b.xlsx", source: "env" });
   expect(
     resolveXlsxPath({ ...all, flagValue: undefined, envValue: undefined })
       .resolved,
@@ -83,10 +84,12 @@ it("resolveXlsxPath: пустая строка — источник пропущ
 });
 
 it("resolveXlsxPath: алиас найден — путь алиаса и его имя", () => {
-  const report = resolveXlsxPath(sources({
-    flagValue: "otchet",
-    aliasPath: (name) => name === "otchet" ? "~/docs/o.xlsx" : undefined,
-  }));
+  const report = resolveXlsxPath(
+    sources({
+      flagValue: "otchet",
+      aliasPath: (name) => (name === "otchet" ? "~/docs/o.xlsx" : undefined),
+    }),
+  );
   expect(report.resolved).toStrictEqual({
     path: "/home/u/docs/o.xlsx",
     source: "flag",

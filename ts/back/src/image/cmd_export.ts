@@ -13,9 +13,10 @@ export const EXPORT_PATH: readonly string[] = ["image", "export"];
 
 /** Аргументы строки `image export` после разбора цепочкой. */
 export const exportArgsSchema = z.object({
-  dir: z.string().optional().describe(
-    "каталог файлов; умолчание — ключ конфига image.dir",
-  ),
+  dir: z
+    .string()
+    .optional()
+    .describe("каталог файлов; умолчание — ключ конфига image.dir"),
 });
 
 /** Аргументы выгрузки. */

@@ -110,8 +110,9 @@ function inputOf(
   columnTitles: Readonly<Record<number, string>>,
   url: (cardId: number) => string,
 ): StatusInput {
-  const column = card.columnTitle ??
-    (card.columnId === null ? null : columnTitles[card.columnId] ?? null);
+  const column =
+    card.columnTitle ??
+    (card.columnId === null ? null : (columnTitles[card.columnId] ?? null));
   return {
     id: card.id,
     title: card.title ?? "",
@@ -217,7 +218,7 @@ export async function harvest(
     .filter((boardId): boardId is number => boardId !== null);
   const columnTitles = await resolveTitles(unknown);
   const inputs = collected.map((item) =>
-    inputOf(item.card, item.source, columnTitles, url)
+    inputOf(item.card, item.source, columnTitles, url),
   );
 
   const dropped = await droppedComments(api, inputs, commentOnly, myId);
@@ -226,8 +227,8 @@ export async function harvest(
     minutes,
     minutesByRole,
     oldestFeedAt,
-    feedComplete: oldestFeedAt === null ||
-      momentOf(oldestFeedAt) <= windows.since,
+    feedComplete:
+      oldestFeedAt === null || momentOf(oldestFeedAt) <= windows.since,
   };
 }
 
@@ -247,9 +248,9 @@ async function droppedComments(
   for (const [cardId, onlyComment] of commentOnly) {
     if (!onlyComment) continue;
     const sources = new Set(
-      inputs.filter((input) => input.id === cardId).map((input) =>
-        input.source
-      ),
+      inputs
+        .filter((input) => input.id === cardId)
+        .map((input) => input.source),
     );
     if (sources.size === 1 && sources.has("activity")) feedOnly.add(cardId);
   }
@@ -280,9 +281,9 @@ export async function columnTitlesFor(
 ): Promise<Readonly<Record<number, string>>> {
   const titles: Record<number, string> = {};
   const known = new Set<number>();
-  for (
-    const row of db.query("SELECT id, board_id, title FROM kaiten_columns")
-  ) {
+  for (const row of db.query(
+    "SELECT id, board_id, title FROM kaiten_columns",
+  )) {
     const id = row.id;
     const boardId = row.board_id;
     if (typeof id !== "number" || typeof row.title !== "string") continue;

@@ -159,7 +159,7 @@ class Sent implements Message {
    * кнопок.
    */
   async setAside(chat: Chat, text: Rendered): Promise<Message> {
-    return await chat.close(this.#id, text) ? new SetAside(this.#id) : this;
+    return (await chat.close(this.#id, text)) ? new SetAside(this.#id) : this;
   }
 
   write(answer: () => Notice): Notice {
@@ -226,7 +226,7 @@ export class Question implements Waiting {
 
   write(text: string): Notice {
     return this.#message.write(() =>
-      this.#current().reply.write(text, this.#events)
+      this.#current().reply.write(text, this.#events),
     );
   }
 
@@ -300,15 +300,15 @@ export class Question implements Waiting {
 
   #card(): Card {
     const step = this.#current();
-    const described = step.options.some((option) =>
-      option.description !== undefined
+    const described = step.options.some(
+      (option) => option.description !== undefined,
     );
     const lines = described
       ? step.options.map((option) =>
-        option.description === undefined
-          ? `• ${option.label}`
-          : `• ${option.label} — ${option.description}`
-      )
+          option.description === undefined
+            ? `• ${option.label}`
+            : `• ${option.label} — ${option.description}`,
+        )
       : [];
     const title = this.#form.title.line(
       step.head,
@@ -326,7 +326,7 @@ export class Question implements Waiting {
         data: String(
           new ButtonData(this.#run, this.#number, this.#step, button.key),
         ),
-      }))
+      })),
     );
   }
 }

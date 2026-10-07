@@ -118,7 +118,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
   };
-  const channel = channelOf(line.stance, output, [...line.answers ?? []]);
+  const channel = channelOf(line.stance, output, [...(line.answers ?? [])]);
   const journal = {
     nativeCall: () => {},
     note: () => {},
@@ -135,12 +135,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     rootMethods: [],
     memory: NO_CALLER,
     refusal: NO_REFUSAL,
-  })(
-    line.words,
-    makeFakeIo(line.io ?? {}),
-    output,
-    journal,
-  );
+  })(line.words, makeFakeIo(line.io ?? {}), output, journal);
   return { stdout: out.join(""), stderr: err.join(""), code };
 }
 
@@ -158,8 +153,7 @@ async function viaClient(line: Line, back: TestBack): Promise<Seen> {
     // Вопрос клиент показывает на управляющем терминале, монолит — в
     // stderr; у человека это одно и то же устройство (`cli-client.md`,
     // «Канал и токен»), и сверка складывает их так же.
-    stderr: run.asked.map((one) => one.question).join("") +
-      run.stderr.join(""),
+    stderr: run.asked.map((one) => one.question).join("") + run.stderr.join(""),
     code,
   };
   for (const token of [back.token, back.agentToken]) {
@@ -177,12 +171,16 @@ describe("клиент и прямое исполнение дают одно и
     }`;
     it(name, () =>
       withPolicyFile((file) =>
-        withBack(async (back) => {
-          const expected = await viaLine(line, file);
-          expect(await viaClient(line, back)).toStrictEqual(expected);
-          expect(rulesOf(back.policyFile)).toStrictEqual(rulesOf(file));
-        }, { io: line.io })
-      ));
+        withBack(
+          async (back) => {
+            const expected = await viaLine(line, file);
+            expect(await viaClient(line, back)).toStrictEqual(expected);
+            expect(rulesOf(back.policyFile)).toStrictEqual(rulesOf(file));
+          },
+          { io: line.io },
+        ),
+      ),
+    );
   }
 });
 
@@ -190,10 +188,13 @@ it("правило без основного токена: отказ, файл 
   withBack(async (back) => {
     rulesOf(back.policyFile);
     const before = await readFile(back.policyFile);
-    const seen = await viaClient({
-      words: ["allow:", "kiten ls"],
-      stance: "agent",
-    }, back);
+    const seen = await viaClient(
+      {
+        words: ["allow:", "kiten ls"],
+        stance: "agent",
+      },
+      back,
+    );
     expect(seen).toStrictEqual({
       stdout: "",
       stderr: "изменить правила может только человек\n",

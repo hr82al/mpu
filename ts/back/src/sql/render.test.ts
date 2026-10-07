@@ -12,7 +12,10 @@ import { renderOutcome, type SqlOutcome } from "./render.ts";
 const NULLS: SqlOutcome = {
   kind: "rows",
   columns: ["n", "t", "u"],
-  rows: [[1, null, "ы"], [22, "xx", null]],
+  rows: [
+    [1, null, "ы"],
+    [22, "xx", null],
+  ],
 };
 
 const EMPTY: SqlOutcome = {
@@ -40,15 +43,23 @@ describe("ASCII-таблица: эталоны канала байт в байт
       "перевод строки в значении не экранируется",
       ESCAPES,
     ],
-    ["semi-first-stdout.txt", "результат первого оператора", {
-      kind: "rows",
-      columns: ["a"],
-      rows: [[1]],
-    }],
-    ["noresultset-stdout.txt", "запрос без набора строк", {
-      kind: "done",
-      rowcount: -1,
-    }],
+    [
+      "semi-first-stdout.txt",
+      "результат первого оператора",
+      {
+        kind: "rows",
+        columns: ["a"],
+        rows: [[1]],
+      },
+    ],
+    [
+      "noresultset-stdout.txt",
+      "запрос без набора строк",
+      {
+        kind: "done",
+        rowcount: -1,
+      },
+    ],
   ];
   for (const [name, title, outcome] of cases) {
     it(`${name}: ${title}`, async () => {
@@ -84,8 +95,9 @@ describe("--md: эталоны канала байт в байт", () => {
 
 describe("формы, эталонов которым канал не даёт", () => {
   it("0 строк в --json — пустой массив", () => {
-    expect(renderOutcome({ kind: "rows", columns: ["n"], rows: [] }, "json"))
-      .toBe("[]\n");
+    expect(
+      renderOutcome({ kind: "rows", columns: ["n"], rows: [] }, "json"),
+    ).toBe("[]\n");
   });
   it("без набора строк в --json — одна строка", () => {
     expect(renderOutcome({ kind: "done", rowcount: 3 }, "json")).toBe(
@@ -106,11 +118,16 @@ describe("формы, эталонов которым канал не даёт",
     expect(text.endsWith("\n(130000 rows)\n")).toBe(true);
   });
   it("ширина колонки считается по кодовым точкам", () => {
-    expect(renderOutcome({
-      kind: "rows",
-      columns: ["c"],
-      rows: [["日本"], ["x"]],
-    }, "table")).toBe("c \n--\n日本\nx \n(2 rows)\n");
+    expect(
+      renderOutcome(
+        {
+          kind: "rows",
+          columns: ["c"],
+          rows: [["日本"], ["x"]],
+        },
+        "table",
+      ),
+    ).toBe("c \n--\n日本\nx \n(2 rows)\n");
   });
   it("значение без JSON-представления — текстовой формой", () => {
     // Ячейка приходит уже приведённой драйвером (`pg.ts`), но структуры

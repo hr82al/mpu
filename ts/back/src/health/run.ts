@@ -51,12 +51,14 @@ export type HealthIo = Pick<CommandIo, "envFile" | "openCacheDb">;
 export const argsSchema = z.object({
   selector: z.string().describe("sl-N или клиент-селектор"),
   tail: z.number().default(30).describe("строк лога на контейнер"),
-  since: z.string().optional().describe(
-    "окно логов: <число>{s|m|h|d} назад либо unix-ts",
-  ),
-  all: z.boolean().default(false).describe(
-    "tail у всех демонов, не только лоадер-подобных",
-  ),
+  since: z
+    .string()
+    .optional()
+    .describe("окно логов: <число>{s|m|h|d} назад либо unix-ts"),
+  all: z
+    .boolean()
+    .default(false)
+    .describe("tail у всех демонов, не только лоадер-подобных"),
 });
 
 const rowSchema = z.object({
@@ -68,10 +70,12 @@ const rowSchema = z.object({
 const tailSchema = z.object({
   name: z.string(),
   /** stderr контейнера; пусто — окно без записей. */
-  text: z.string().describe(
-    "последние строки stderr, не больше, чем `tail` этого вызова: текст " +
-      "усечён им, а сколько строк в логе всего, источник не сообщает",
-  ),
+  text: z
+    .string()
+    .describe(
+      "последние строки stderr, не больше, чем `tail` этого вызова: текст " +
+        "усечён им, а сколько строк в логе всего, источник не сообщает",
+    ),
   /** Сбой получения логов; на код выхода не влияет. */
   error: z.string().nullable(),
 });
@@ -117,7 +121,7 @@ export async function runHealth(
   const list = options.listLive ?? listContainers;
   const health = classify(
     await portainer(() =>
-      list(target.access, target.endpointId, LIST_TIMEOUTS)
+      list(target.access, target.endpointId, LIST_TIMEOUTS),
     ),
     args.all,
   );

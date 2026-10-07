@@ -60,11 +60,13 @@ export async function runComplete(
   if (args[0] === "init") return init(args.slice(1), proc);
   const cut = args.indexOf("--");
   const options = cut < 0 ? args : args.slice(0, cut);
-  const snapshot = options.length === 2 && options[0] === "--snapshot"
-    ? options[1]
-    : proc.snapshotPath;
+  const snapshot =
+    options.length === 2 && options[0] === "--snapshot"
+      ? options[1]
+      : proc.snapshotPath;
   if (
-    cut < 0 || (options.length !== 0 && options.length !== 2) ||
+    cut < 0 ||
+    (options.length !== 0 && options.length !== 2) ||
     (options.length === 2 && options[0] !== "--snapshot")
   ) {
     proc.stderr("mpu-complete: нужен -- и слова\n");

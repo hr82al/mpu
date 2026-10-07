@@ -24,10 +24,14 @@ describe("разбор диапазона: лист, span и весь лист",
     ["весь лист именем", "Отчёт", { tab: "Отчёт" }],
     ["весь лист с '!'", "Отчёт!", { tab: "Отчёт" }],
     ["имя в кавычках", "'Мой лист'!A1", { tab: "Мой лист", span: "A1" }],
-    ["кавычка внутри имени", "'Лист ''один'''!A1", {
-      tab: "Лист 'один'",
-      span: "A1",
-    }],
+    [
+      "кавычка внутри имени",
+      "'Лист ''один'''!A1",
+      {
+        tab: "Лист 'один'",
+        span: "A1",
+      },
+    ],
     ["span без листа", "A1:B2", { span: "A1:B2" }],
     ["ссылка на ячейку без листа", "B2", { span: "B2" }],
   ];
@@ -108,16 +112,20 @@ describe("границы span'а: открытые концы закрывают
 });
 
 it("закрытая форма адреса собирается по границам", () => {
-  expect(closedAddress("Sheet1", {
-    firstRow: 1,
-    firstColumn: 1,
-    lastRow: 1000,
-    lastColumn: 1,
-  })).toBe("Sheet1!A1:A1000");
-  expect(closedAddress("Мой лист", {
-    firstRow: 2,
-    firstColumn: 2,
-    lastRow: 3,
-    lastColumn: 4,
-  })).toBe("'Мой лист'!B2:D3");
+  expect(
+    closedAddress("Sheet1", {
+      firstRow: 1,
+      firstColumn: 1,
+      lastRow: 1000,
+      lastColumn: 1,
+    }),
+  ).toBe("Sheet1!A1:A1000");
+  expect(
+    closedAddress("Мой лист", {
+      firstRow: 2,
+      firstColumn: 2,
+      lastRow: 3,
+      lastColumn: 4,
+    }),
+  ).toBe("'Мой лист'!B2:D3");
 });

@@ -30,21 +30,24 @@ it("вход при init: сбой криптографии — пропуск �
   // пакета `@mtcute/wasm`. После первой удачной инициализации `initSync`
   // ничего не делает, поэтому подмена действует лишь пока модуль не
   // поднят: это проверяется до неё, иначе случай ничего не проверит.
-  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
-    .toBe(undefined);
+  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
+    undefined,
+  );
   const realModule = WebAssembly.Module;
   Reflect.set(WebAssembly, "Module", function () {
     throw new Error("нет встроенного модуля");
   });
   let reason: string | null;
   try {
-    reason = await runTelegramLogin(makeFakeIo({
-      envFile,
-      // Человек за терминалом есть, но отвечает пустым: вход дойдёт до
-      // ленивой загрузки криптографии, а она и проверяется.
-      prompt: promptAnswering({ line: "", secret: "" }),
-      progress: (line) => void progress.push(line),
-    }));
+    reason = await runTelegramLogin(
+      makeFakeIo({
+        envFile,
+        // Человек за терминалом есть, но отвечает пустым: вход дойдёт до
+        // ленивой загрузки криптографии, а она и проверяется.
+        prompt: promptAnswering({ line: "", secret: "" }),
+        progress: (line) => void progress.push(line),
+      }),
+    );
   } finally {
     Reflect.set(WebAssembly, "Module", realModule);
   }

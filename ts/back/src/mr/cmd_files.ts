@@ -20,9 +20,12 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   json: z.boolean().default(false).describe("массив объектов JSON"),
 });
 
@@ -73,8 +76,9 @@ function rowOf(file: ChangedFile): FileRow {
 /** Имя файла в таблице; переименование показывается обоими путями. */
 export function fileLabel(file: FileRow): string {
   const target = file.new_path === "" ? file.old_path : file.new_path;
-  return file.status === "R" && file.old_path !== "" &&
-      file.old_path !== file.new_path
+  return file.status === "R" &&
+    file.old_path !== "" &&
+    file.old_path !== file.new_path
     ? `${file.old_path} → ${file.new_path}`
     : target;
 }
@@ -91,8 +95,10 @@ export function renderFiles(result: FilesResult, json: boolean): string {
   const table = renderTable(["ST", "+", "-", "FILE"], rows);
   const additions = result.files.reduce((sum, f) => sum + f.additions, 0);
   const deletions = result.files.reduce((sum, f) => sum + f.deletions, 0);
-  return `${table}(${result.files.length} files, ` +
-    `+${additions} / -${deletions})\n`;
+  return (
+    `${table}(${result.files.length} files, ` +
+    `+${additions} / -${deletions})\n`
+  );
 }
 
 export const mrFilesCommand = defineCommand({
@@ -121,10 +127,7 @@ deletions} в том же порядке, что и таблица.
 
 Exit: 0 — успех, в том числе у MR без изменённых файлов; 2 —
 нераспознанный id:; 1 — отказ GitLab, ненайденный MR.`,
-  examples: [
-    "mpu mr files",
-    "mpu mr files id: 456 end json",
-  ],
+  examples: ["mpu mr files", "mpu mr files id: 456 end json"],
   policy: "ro",
   argsSchema,
   resultSchema,

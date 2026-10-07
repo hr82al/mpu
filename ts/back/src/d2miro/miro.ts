@@ -28,7 +28,10 @@
 /** Отказ службы, который повтором не лечится. */
 export class MiroError extends Error {
   override readonly name = "MiroError";
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -89,9 +92,9 @@ export class MiroBoard {
     boardId: string,
     private readonly token: string,
   ) {
-    this.#base = `https://api.miro.com/v2/boards/${
-      encodeURIComponent(boardId)
-    }`;
+    this.#base = `https://api.miro.com/v2/boards/${encodeURIComponent(
+      boardId,
+    )}`;
   }
 
   /** Число повторов — итог обязан называть его числом (спека). */
@@ -149,8 +152,8 @@ export class MiroBoard {
       return await this.io.fetch(`${this.#base}${path}`, {
         method,
         headers: {
-          "authorization": `Bearer ${this.token}`,
-          "accept": "application/json",
+          authorization: `Bearer ${this.token}`,
+          accept: "application/json",
           ...(body === undefined ? {} : { "content-type": "application/json" }),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -168,15 +171,15 @@ export class MiroBoard {
   private async pause(response: Response, attempt: number): Promise<void> {
     this.#retries++;
     const header = Number(response.headers.get("retry-after"));
-    const seconds = response.status === 429 && Number.isFinite(header) &&
-        header > 0
-      ? Math.min(header, MAX_SLEEP_S)
-      : backoffSeconds(attempt);
+    const seconds =
+      response.status === 429 && Number.isFinite(header) && header > 0
+        ? Math.min(header, MAX_SLEEP_S)
+        : backoffSeconds(attempt);
     this.io.note(
       response.status === 429
         ? `[miro] 429 rate-limit, sleep ${seconds}s`
         : `[miro] ${response.status} from service, retry ${attempt} in ` +
-          `${seconds}s`,
+            `${seconds}s`,
     );
     await this.io.sleep(seconds * 1000);
   }
@@ -214,11 +217,13 @@ export class MiroBoard {
     const items: MiroItem[] = [];
     let cursor: string | undefined;
     do {
-      const query = `${path}&limit=${PAGE}` +
+      const query =
+        `${path}&limit=${PAGE}` +
         (cursor === undefined ? "" : `&cursor=${encodeURIComponent(cursor)}`);
-      const reply = await this.json<
-        { data?: unknown[]; cursor?: string }
-      >("GET", query);
+      const reply = await this.json<{ data?: unknown[]; cursor?: string }>(
+        "GET",
+        query,
+      );
       for (const raw of reply.data ?? []) items.push(itemOf(raw));
       cursor = reply.cursor === "" ? undefined : reply.cursor;
     } while (cursor !== undefined);

@@ -147,11 +147,8 @@ export class Session implements Line {
   }
 
   dispatch(report: Report, view: View, order: Order): Promise<Outcome> {
-    return this.#consented(
-      report,
-      view,
-      order,
-      async () => report.exit(await this.#dispatch(view, order)),
+    return this.#consented(report, view, order, async () =>
+      report.exit(await this.#dispatch(view, order)),
     );
   }
 
@@ -178,10 +175,8 @@ export class Session implements Line {
 
   /** Сообщение корня обычного взгляда: у двери его нет. */
   listRules(report: Report): Promise<Outcome> {
-    return this.#ruled(
-      report,
-      NORMAL,
-      () => this.#guarded(report, () => report.value(this.#book.list())),
+    return this.#ruled(report, NORMAL, () =>
+      this.#guarded(report, () => report.value(this.#book.list())),
     );
   }
 
@@ -189,9 +184,8 @@ export class Session implements Line {
   change(report: Report, path: RulePath, change: Change): Promise<Outcome> {
     return this.#channel.amend(change.question(path, selectorFirstWriters), {
       yes: () =>
-        this.#guarded(
-          report,
-          () => report.value(change.apply(this.#book, path)),
+        this.#guarded(report, () =>
+          report.value(change.apply(this.#book, path)),
         ),
       no: () =>
         this.#refuse(

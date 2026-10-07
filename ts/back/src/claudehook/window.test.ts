@@ -27,15 +27,17 @@ it("подпись окна: сокет до запятой, панель кли
     env({ TMUX: "/tmp/tmux-1000/default,4242,0", TMUX_PANE: "%3" }),
   );
   expect(caption).toStrictEqual(["w:4 probe"]);
-  expect(calls).toStrictEqual([[
-    "-S",
-    "/tmp/tmux-1000/default",
-    "display-message",
-    "-p",
-    "-t",
-    "%3",
-    "#S:#I #W",
-  ]]);
+  expect(calls).toStrictEqual([
+    [
+      "-S",
+      "/tmp/tmux-1000/default",
+      "display-message",
+      "-p",
+      "-t",
+      "%3",
+      "#S:#I #W",
+    ],
+  ]);
 });
 
 describe("нет TMUX, нет TMUX_PANE, tmux молчит — места нет", () => {
@@ -50,11 +52,10 @@ describe("нет TMUX, нет TMUX_PANE, tmux молчит — места нет
     ["пустой ответ", { TMUX: "/s,1,0", TMUX_PANE: "%3" }, "\n"],
   ];
   for (const [name, values, said] of cases) {
-    it(
-      name,
-      async () =>
-        expect(await new Windows(tmux(said).run).captionOf(env(values)))
-          .toStrictEqual([]),
+    it(name, async () =>
+      expect(
+        await new Windows(tmux(said).run).captionOf(env(values)),
+      ).toStrictEqual([]),
     );
   }
 });

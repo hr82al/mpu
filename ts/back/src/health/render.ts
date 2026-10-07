@@ -14,27 +14,21 @@ export function renderHealth(result: HealthResult): string {
     `=== ${result.server}: ${result.mpCount} mp-* containers ===\n`,
     renderTable(
       ["NAME", "STATE", "STATUS"],
-      result.rows.map((row) => [
-        row.name,
-        row.state,
-        row.status,
-      ]),
+      result.rows.map((row) => [row.name, row.state, row.status]),
     ),
   ];
   if (result.oneShot.length > 0) {
     blocks.push(
       "✓ One-shot containers (completed normally):\n" +
-        result.oneShot
-          .map((row) => `  ${row.name}: ${row.status}\n`)
-          .join(""),
+        result.oneShot.map((row) => `  ${row.name}: ${row.status}\n`).join(""),
     );
   }
   if (result.notRunning.length > 0) {
     blocks.push(
       "⚠️  Containers not in 'running' state:\n" +
         result.notRunning
-          .map((row) =>
-            `  ${row.name}: state=${row.state} status=${row.status}\n`
+          .map(
+            (row) => `  ${row.name}: state=${row.state} status=${row.status}\n`,
           )
           .join(""),
     );
@@ -49,15 +43,20 @@ export function renderHealth(result: HealthResult): string {
  * второе на код выхода не влияет.
  */
 function tailBlock(result: HealthResult): string {
-  const header = `=== tail --${result.tail} (stderr) for ` +
+  const header =
+    `=== tail --${result.tail} (stderr) for ` +
     `${result.tails.length} container(s) ===\n`;
-  return header + result.tails
-    .map((tail) => {
-      const title = `--- ${tail.name} (stderr, tail=${result.tail}) ---\n`;
-      if (tail.error !== null) return `${title}  (logs error: ${tail.error})\n`;
-      return tail.text === ""
-        ? `${title}  (no stderr in window)\n`
-        : `${title}${tail.text}`;
-    })
-    .join("");
+  return (
+    header +
+    result.tails
+      .map((tail) => {
+        const title = `--- ${tail.name} (stderr, tail=${result.tail}) ---\n`;
+        if (tail.error !== null)
+          return `${title}  (logs error: ${tail.error})\n`;
+        return tail.text === ""
+          ? `${title}  (no stderr in window)\n`
+          : `${title}${tail.text}`;
+      })
+      .join("")
+  );
 }

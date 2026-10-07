@@ -41,7 +41,8 @@ export function strangersOf(
 
 /** Сервисы из stdout `docker compose … config --services`. */
 export function composeServicesOf(stdout: string): readonly string[] {
-  return stdout.split("\n").map((line) => line.trim()).filter((line) =>
-    line !== ""
-  );
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
 }

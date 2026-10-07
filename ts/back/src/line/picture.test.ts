@@ -21,7 +21,8 @@ import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { type Ran, runOnStand, unmarked, withStand } from "./testprogram.ts";
 
 /** stdout `telegram file` для сообщения 43 (`S43`). */
-const S43 = '{"path": "/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg", ' +
+const S43 =
+  '{"path": "/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg", ' +
   '"name": "photo-43.jpg", "size": 10, "mime": "image/jpeg"}\n';
 
 const JPEG: PictureData = { mime: "image/jpeg", data: "/9j/4AAQSkZJRg==" };
@@ -60,7 +61,7 @@ function onStand(body: (run: Run, dir: string) => Promise<void>) {
       } finally {
         await rm(dir, { recursive: true });
       }
-    })
+    }),
   );
 }
 
@@ -105,7 +106,10 @@ describe("вид картинки — по байтам файла (P5–P10)", 
 });
 
 describe("граница предела на строку (P11, P12)", () => {
-  for (const [id, count] of [[56, 1], [57, 0]]) {
+  for (const [id, count] of [
+    [56, 1],
+    [57, 0],
+  ]) {
     it(`сообщение ${id}`, () =>
       onStand(async (run) => {
         const ran = await run(file(id));
@@ -132,7 +136,8 @@ describe("сумма по программе: блок у той, что пом�
         for (const name of ["43-photo-43.jpg", "56-photo-56.jpg"]) {
           await stat(`${dir}/-1000000000101-${name}`);
         }
-      }));
+      }),
+    );
   }
 });
 

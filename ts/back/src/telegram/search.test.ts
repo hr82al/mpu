@@ -251,8 +251,9 @@ describe("отказ резолва называет свой предмет", (
       () => findMessages(failing, plan({ chat: target("Команда") })),
       VerbatimError,
     );
-    expect(err.message.startsWith("telegram: не удалось найти чат"))
-      .toStrictEqual(true);
+    expect(
+      err.message.startsWith("telegram: не удалось найти чат"),
+    ).toStrictEqual(true);
   });
   it("--from — отправителя", async () => {
     const err = await rejected(

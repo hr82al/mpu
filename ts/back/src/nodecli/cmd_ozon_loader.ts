@@ -21,9 +21,10 @@ import {
 
 const argsSchema = z.object({
   ...commonArgs,
-  "seller-client-id": z.array(z.string()).optional().describe(
-    "кабинет Ozon; у load-data флаг повторяется",
-  ),
+  "seller-client-id": z
+    .array(z.string())
+    .optional()
+    .describe("кабинет Ozon; у load-data флаг повторяется"),
 });
 
 /**
@@ -95,8 +96,7 @@ function loader(sub: string, method: string, what: string): Command {
     path: ["ozon-loader", sub],
     keys: {},
     summary: `Загрузить в БД клиента: ${what} (Ozon-кабинет).`,
-    usage:
-      `mpu ozon-loader ${sub} [print [local]] target: СЕЛЕКТОР seller-client-id: S`,
+    usage: `mpu ozon-loader ${sub} [print [local]] target: СЕЛЕКТОР seller-client-id: S`,
     help: `Звать, когда в БД клиента надо догрузить ${what} одного
 Ozon-кабинета, не дожидаясь расписания загрузчика.
 
@@ -123,10 +123,12 @@ ${DELIVERY}
         {
           service: "ozonLoader",
           method,
-          flags: () => [{
-            name: "seller-client-id",
-            value: onlySeller(args["seller-client-id"]),
-          }],
+          flags: () => [
+            {
+              name: "seller-client-id",
+              value: onlySeller(args["seller-client-id"]),
+            },
+          ],
         },
         commonArgsOf(args),
         io,
@@ -206,9 +208,7 @@ function sellers(value: readonly string[] | undefined): readonly string[] {
 function onlySeller(value: readonly string[] | undefined): string {
   const list = sellers(value);
   if (list.length > 1) {
-    throw new UsageError(
-      "--seller-client-id повторяется только у load-data",
-    );
+    throw new UsageError("--seller-client-id повторяется только у load-data");
   }
   return list[0];
 }

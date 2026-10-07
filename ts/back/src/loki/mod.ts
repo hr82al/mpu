@@ -67,9 +67,9 @@ const EMPTY_SERIES: LokiSeries = { hosts: [], pairs: [] };
  * путь конкатенацией `baseUrl + path`, и лишний `/` сложил бы двойной
  * слэш в адресе.
  */
-export function requireLokiAccess(
-  envFile: { readonly get: (name: string) => string | undefined },
-): LokiAccess {
+export function requireLokiAccess(envFile: {
+  readonly get: (name: string) => string | undefined;
+}): LokiAccess {
   const rawUrl = envFile.get("LOKI_URL");
   if (rawUrl === undefined || rawUrl === "") {
     throw new LokiError("LOKI_URL не задан");
@@ -287,8 +287,8 @@ function parseEntries(text: string): readonly LogEntry[] {
 function labelsOf(value: unknown): Readonly<Record<string, string>> {
   if (!isRecord(value)) return {};
   return Object.fromEntries(
-    Object.entries(value).filter((pair): pair is [string, string] =>
-      typeof pair[1] === "string"
+    Object.entries(value).filter(
+      (pair): pair is [string, string] => typeof pair[1] === "string",
     ),
   );
 }

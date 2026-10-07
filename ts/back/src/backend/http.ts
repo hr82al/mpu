@@ -144,10 +144,10 @@ interface Gathered {
 type Tail =
   | { readonly exit: number }
   | {
-    readonly ask: string;
-    readonly kind?: AskKind;
-    readonly ticket?: string;
-  };
+      readonly ask: string;
+      readonly kind?: AskKind;
+      readonly ticket?: string;
+    };
 
 /**
  * Собранный ответ: копит потоки, отдаёт один объект в конце. Уход
@@ -225,9 +225,8 @@ async function assembled(
   client: Client,
   { stdout, stderr, refused, tail, pictures }: Gathered,
 ): Promise<Response> {
-  const output = "exit" in tail
-    ? await client.outlet().settle(stdout)
-    : { stdout };
+  const output =
+    "exit" in tail ? await client.outlet().settle(stdout) : { stdout };
   // Поле границы: у строки без картинок его нет вовсе.
   const pictured = pictures.length === 0 ? {} : { pictures };
   return new Response(
@@ -244,13 +243,16 @@ interface Range {
 }
 
 function rangesOf(accept: string): Range[] {
-  return accept.split(",").map((part) => {
-    const [media, ...params] = part.split(";").map((one) => one.trim());
-    const [type = "", subtype = ""] = media.toLowerCase().split("/");
-    const weight = params.find((param) => param.startsWith("q="));
-    const q = weight === undefined ? 1 : Number(weight.slice(2));
-    return { type, subtype, q: Number.isFinite(q) ? q : 0 };
-  }).filter((range) => range.type !== "");
+  return accept
+    .split(",")
+    .map((part) => {
+      const [media, ...params] = part.split(";").map((one) => one.trim());
+      const [type = "", subtype = ""] = media.toLowerCase().split("/");
+      const weight = params.find((param) => param.startsWith("q="));
+      const q = weight === undefined ? 1 : Number(weight.slice(2));
+      return { type, subtype, q: Number.isFinite(q) ? q : 0 };
+    })
+    .filter((range) => range.type !== "");
 }
 
 /**

@@ -40,29 +40,35 @@ import {
 } from "./comment_text.ts";
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен id: id карточки или её URL" })
+  selector: z
+    .string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   message: z.string().optional().describe("текст комментария (GFM markdown)"),
-  "body-file": z.string().optional().describe(
-    "файл с текстом комментария; '-' — stdin",
-  ),
-  file: z.array(z.string()).default([]).describe(
-    "вложение: путь к файлу; флаг повторяется",
-  ),
-  to: z.array(z.string()).default([]).describe(
-    "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом комментария; '-' — stdin"),
+  file: z
+    .array(z.string())
+    .default([])
+    .describe("вложение: путь к файлу; флаг повторяется"),
+  to: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется",
+    ),
 });
 
 const resultSchema = z.object({
   id: z.number().describe("id созданного комментария из ответа сервера"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
-  attachments: z.array(z.string()).describe(
-    "имена приложенных файлов в порядке ключей file:",
-  ),
-  recipients: z.array(z.string()).describe(
-    "реально упомянутые адресаты; литеральный @all сюда не входит",
-  ),
+  attachments: z
+    .array(z.string())
+    .describe("имена приложенных файлов в порядке ключей file:"),
+  recipients: z
+    .array(z.string())
+    .describe("реально упомянутые адресаты; литеральный @all сюда не входит"),
 });
 
 /** Разобранные аргументы вызова. */
@@ -75,9 +81,8 @@ type KitenCommentResult = z.infer<typeof resultSchema>;
  * Срез порта исполнения: доступ к Kaiten, три источника ввода (stdin,
  * текстовый файл, вложение обычным файлом) и служебная строка хода.
  */
-type CommentIo =
-  & AccessIo
-  & Pick<
+type CommentIo = AccessIo &
+  Pick<
     CommandIo,
     "progress" | "readRegularFile" | "readTextFile" | "readStdin"
   >;
@@ -111,16 +116,17 @@ async function runKitenComment(
       recipients,
       ownerHandle === null ? body : expandAllInText(body, ownerHandle),
     );
-    const comment = attachments.length === 0
-      ? await createCardComment(access, cardId, text)
-      : await createCardCommentWithFiles(access, cardId, text, attachments);
+    const comment =
+      attachments.length === 0
+        ? await createCardComment(access, cardId, text)
+        : await createCardCommentWithFiles(access, cardId, text, attachments);
     return {
       id: comment.id,
       cardUrl: cardUrl(access, cardId),
       attachments: attachments.map((file) => file.name),
       // Литеральный `@all` адресатом не стал: владельца у карточки нет.
-      recipients: recipients.filter((handle) =>
-        handle.toLowerCase() !== "@all"
+      recipients: recipients.filter(
+        (handle) => handle.toLowerCase() !== "@all",
       ),
     };
   } catch (err) {
@@ -163,9 +169,10 @@ function textSource(
 
 /** Текст источника; заданный явно, он не бывает пустым. */
 async function readBody(io: CommentIo, source: TextSource): Promise<string> {
-  const text = source.kind === "message"
-    ? source.text
-    : await readBodyFile(io, source.path);
+  const text =
+    source.kind === "message"
+      ? source.text
+      : await readBodyFile(io, source.path);
   if (text.trim() === "") throw new UsageError("пустой текст комментария");
   return text;
 }

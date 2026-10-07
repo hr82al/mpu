@@ -22,8 +22,9 @@ const THREADS = [
 ];
 
 it("точный id побеждает, регистр не важен", () => {
-  expect(matchDiscussion(THREADS, THREADS[0].id.toUpperCase()).id)
-    .toStrictEqual(THREADS[0].id);
+  expect(
+    matchDiscussion(THREADS, THREADS[0].id.toUpperCase()).id,
+  ).toStrictEqual(THREADS[0].id);
 });
 
 it("однозначный префикс от шести символов", () => {

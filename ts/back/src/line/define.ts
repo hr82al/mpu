@@ -265,10 +265,8 @@ export class Definition implements ImageLine {
       return MISWRITTEN;
     }
     const { method, reach } = checked;
-    return await ruled(
-      context,
-      [...this.#receiver, DEFINE],
-      () => written(context, method, reach),
+    return await ruled(context, [...this.#receiver, DEFINE], () =>
+      written(context, method, reach),
     );
   }
 
@@ -394,7 +392,10 @@ function unclaimed(
   const taken = (selector: string) =>
     own.has(selector) || isProtocol(selector) || root.reserves(selector);
   const parts = name.includes(":")
-    ? name.split(":").filter((part) => part !== "").map((part) => `${part}:`)
+    ? name
+        .split(":")
+        .filter((part) => part !== "")
+        .map((part) => `${part}:`)
     : [name];
   let understood = 0;
   while (understood < parts.length && taken(parts[understood])) understood++;
@@ -417,9 +418,9 @@ function unclaimed(
  * взгляд (`allow`) — `allow`, иначе `ask`.
  */
 function seedOf(
-  reach: (
-    into: { command(path: readonly string[], links: readonly string[]): void },
-  ) => void,
+  reach: (into: {
+    command(path: readonly string[], links: readonly string[]): void;
+  }) => void,
   book: RuleBook,
 ): Verdict {
   const found: (readonly string[])[] = [];
@@ -483,7 +484,7 @@ class Forgetting implements ImageLine {
 
   settle(context: ImageContext): Promise<number> {
     const method = context.methods.find((one) =>
-      one.named(this.#receiver, this.#written)
+      one.named(this.#receiver, this.#written),
     );
     if (method === undefined) {
       const at = this.#receiver.join(" ");
@@ -492,14 +493,13 @@ class Forgetting implements ImageLine {
         : `${this.#written}:`;
       const address = lineText(ROOT_TEXT, [...this.#receiver, FORGET]);
       context.journaled();
-      plainRefusal("нет метода", `${address} у ${at} нет метода ${name}`)
-        .tell(context.speech);
+      plainRefusal("нет метода", `${address} у ${at} нет метода ${name}`).tell(
+        context.speech,
+      );
       return Promise.resolve(FAILED);
     }
-    return ruled(
-      context,
-      [...this.#receiver, FORGET],
-      () => forgotten(context, method),
+    return ruled(context, [...this.#receiver, FORGET], () =>
+      forgotten(context, method),
     );
   }
 }

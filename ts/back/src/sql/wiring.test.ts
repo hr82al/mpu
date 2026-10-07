@@ -21,15 +21,20 @@ async function cli(argv: readonly string[], io: CommandIo) {
   const out: string[] = [];
   const err: string[] = [];
   const journaled: OutputPolicy[] = [];
-  const code = await runCli(argv, io, {
-    stdout: (text) => void out.push(text),
-    stderr: (text) => void err.push(text),
-  }, {
-    nativeCall: (command) => void journaled.push(command),
-    note: () => {},
-    executedBy: () => {},
-    log: NO_INVOKE_LOG,
-  });
+  const code = await runCli(
+    argv,
+    io,
+    {
+      stdout: (text) => void out.push(text),
+      stderr: (text) => void err.push(text),
+    },
+    {
+      nativeCall: (command) => void journaled.push(command),
+      note: () => {},
+      executedBy: () => {},
+      log: NO_INVOKE_LOG,
+    },
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), journaled };
 }
 
@@ -78,7 +83,7 @@ it("вызов без аргументов: код 2 и что делать", as
 describe("собственный --json команда разбирает сама", () => {
   const io = makeFakeIo({
     envFile: {
-      get: (name) => ({ pg_1: "10.0.0.1" } as Record<string, string>)[name],
+      get: (name) => (({ pg_1: "10.0.0.1" }) as Record<string, string>)[name],
       values: () => ({}),
       require: (name) =>
         name === "pg_1" ? "10.0.0.1" : name === "PG_MY_USER_NAME" ? "u" : "p",
@@ -89,10 +94,7 @@ describe("собственный --json команда разбирает сам
   it("конфликт с --md виден команде", async () => {
     // Перехвати точка входа общий параметр — команда увидела бы только
     // `--md`, и объявленная спекой проверка была бы недостижима.
-    const run = await cli(
-      ["sql-ro", "sl-1", "SELECT 1", "--json", "--md"],
-      io,
-    );
+    const run = await cli(["sql-ro", "sl-1", "SELECT 1", "--json", "--md"], io);
     expect(run.code).toBe(2);
     expect(run.stderr).toBe("mpu sql-ro: --json и --md взаимоисключающие\n");
   });
@@ -120,7 +122,10 @@ it("ошибка резолва: строка ошибки и список ка�
         "INSERT INTO sl_clients (client_id, server, is_active, is_locked," +
           " is_deleted, synced_at) VALUES (7, 'sl-1', 1, 0, 0, 0)",
       );
-      for (const [ssId, server] of [["ss-a", "sl-1"], ["ss-b", "sl-2"]]) {
+      for (const [ssId, server] of [
+        ["ss-a", "sl-1"],
+        ["ss-b", "sl-2"],
+      ]) {
         seed.execute(
           "INSERT INTO sl_spreadsheets (ss_id, client_id, title," +
             " template_name, is_active, server, synced_at)" +

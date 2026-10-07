@@ -41,11 +41,17 @@ const ioOf = (db: CacheDb) =>
 
 /** Одна вкладка в кэше заданного размера. */
 async function tab(db: CacheDb, ssId: string, name: string, rows: number) {
-  await writeTab(db, ssId, name, {
-    values: [Array.from({ length: rows }, (_, at) => `значение ${at}`)],
-    formulas: [[""]],
-    dims: { rows, cols: 1 },
-  }, 1_700_000_000);
+  await writeTab(
+    db,
+    ssId,
+    name,
+    {
+      values: [Array.from({ length: rows }, (_, at) => `значение ${at}`)],
+      formulas: [[""]],
+      dims: { rows, cols: 1 },
+    },
+    1_700_000_000,
+  );
 }
 
 /** Строка метаданных, какую кладёт чтение листов. */
@@ -195,12 +201,10 @@ it("таблиц кэша нет — обе команды успешны и г�
   await withDb(async (db) => {
     const cleared = await sheetCacheClearCommand.invoke([], ioOf(db));
     const shown = await sheetCacheInfoCommand.invoke([], ioOf(db));
-    for (
-      const text of [
-        sheetCacheClearCommand.renderResult(cleared, []),
-        sheetCacheInfoCommand.renderResult(shown, []),
-      ]
-    ) {
+    for (const text of [
+      sheetCacheClearCommand.renderResult(cleared, []),
+      sheetCacheInfoCommand.renderResult(shown, []),
+    ]) {
       expect(text).toContain("кэша нет: таблицы не заведены");
       expect(text).toContain("mpu init");
     }
@@ -210,11 +214,10 @@ it("таблиц кэша нет — обе команды успешны и г�
 it("цель не резолвится — код 2 и ни одного удаления", async () => {
   await withDb(async (db) => {
     await tab(db, SS, "Лист1", 3);
-    const err = await rejected(() =>
-      sheetCacheClearCommand.invoke(
-        ["-s", "нет-такой"],
-        ioOf(db),
-      ), UsageError);
+    const err = await rejected(
+      () => sheetCacheClearCommand.invoke(["-s", "нет-такой"], ioOf(db)),
+      UsageError,
+    );
     expect(err.message).toContain("нет-такой");
     // Резолв идёт до всякого удаления: неразобранная цель не стоит кэша.
     expect(tabsOf(db, SS)).toBe(1);

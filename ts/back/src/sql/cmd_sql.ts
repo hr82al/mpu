@@ -26,7 +26,8 @@ export const sqlCommand = defineCommand({
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary: "Выполнить SQL (write-capable) на PG, выбранном по селектору.",
-  usage: `mpu sql [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
+  usage:
+    `mpu sql [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать, когда запрос пишет: INSERT/UPDATE/DELETE/DDL исполняются и
 фиксируются в БД клиента, поэтому строка спрашивает подтверждение

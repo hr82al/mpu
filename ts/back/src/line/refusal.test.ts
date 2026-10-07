@@ -67,16 +67,10 @@ async function parsedReason(file: string, words: readonly string[]) {
 const HINTED: readonly (readonly [string, readonly string[]])[] = [
   ["значение без ключа", ["kiten", "comment", "55", "ok"]],
   ["формат флагом", ["kiten", "ls", "--md"]],
-  ["короткий флаг", [
-    "kiten",
-    "comment",
-    "id:",
-    "55",
-    "text:",
-    "ok",
-    "-m",
-    "x",
-  ]],
+  [
+    "короткий флаг",
+    ["kiten", "comment", "id:", "55", "text:", "ok", "-m", "x"],
+  ],
   ["snake_case", ["kiten", "ls", "--date_from", "2026-01-01"]],
   ["прежнее имя ключа", ["mr", "create", "--title", "t", "--target", "main"]],
   ["прежнее имя сообщения", ["kiten", "selectors"]],
@@ -87,15 +81,18 @@ const HINTED: readonly (readonly [string, readonly string[]])[] = [
   ["селектор перед подкомандой", ["ozon-jobs", "sl-2", "show"]],
   ["ближайшее унарное", ["kitn", "ls"]],
   ["ближайший ключ", ["kiten", "card", "idd:", "1"]],
-  ["файл — ключом", [
-    "api",
-    "get-ss-values",
-    "id:",
-    "ss1",
-    "body:",
-    GRAMMAR.literal,
-    `${GRAMMAR.variable}req.json`,
-  ]],
+  [
+    "файл — ключом",
+    [
+      "api",
+      "get-ss-values",
+      "id:",
+      "ss1",
+      "body:",
+      GRAMMAR.literal,
+      `${GRAMMAR.variable}req.json`,
+    ],
+  ],
 ];
 
 describe("у каждого вида с подсказкой: текст — stderr, hint — не тот же отказ", () => {
@@ -111,7 +108,8 @@ describe("у каждого вида с подсказкой: текст — std
         expect(again, refusal.hint?.join(" ")).not.toStrictEqual(
           refusal.reason,
         );
-      }));
+      }),
+    );
   }
 });
 
@@ -136,7 +134,8 @@ describe("отказ без подсказки: hint null, текст — stderr
         const [refusal] = got.refusals;
         expect(`${refusal.text}\n`).toStrictEqual(got.stderr);
         expect([refusal.reason, refusal.hint]).toStrictEqual([reason, null]);
-      }));
+      }),
+    );
   }
 });
 
@@ -177,7 +176,8 @@ describe("сколько — limit: у всех «сколько» (long-output.
         expect(got.code).toBe(2);
         expect(got.stderr).toStrictEqual(`${text}\n`);
         expect(got.refusals.map((one) => one.hint)).toStrictEqual([hint]);
-      }));
+      }),
+    );
   }
 });
 

@@ -48,11 +48,9 @@ export class ScriptedWorker {
       kill: (signal) => {
         this.signals.push(signal);
         if (signal === "SIGTERM" && this.#stubborn) return;
-        this.end(killedStatus(signal)).catch(
-          () => {
-            // Провод уже закрыт сценарием — конец уже наступил.
-          },
-        );
+        this.end(killedStatus(signal)).catch(() => {
+          // Провод уже закрыт сценарием — конец уже наступил.
+        });
       },
     };
   }

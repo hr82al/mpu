@@ -70,16 +70,14 @@ it("отказ РАЗДЕЛА выбирается по порядку пере�
     // из обоих воркеров, и лёгкий отвечает раньше по времени. Назвать
     // надо первый по перечню — иначе текст ошибки зависел бы от того,
     // какой репозиторий больше.
-    const err = await rejected(() =>
-      collectName(
-        "f0",
-        { repo: undefined, dir: "нет-каталога" },
-        200,
-        [
+    const err = await rejected(
+      () =>
+        collectName("f0", { repo: undefined, dir: "нет-каталога" }, 200, [
           heavy,
           light,
-        ],
-      ), UsageError);
+        ]),
+      UsageError,
+    );
     expect(err.message).toBe(
       "каталога 'нет-каталога' нет в a-heavy на вне git",
     );
@@ -115,12 +113,15 @@ it("отказ ОТМЕТКИ выбирается по порядку пере�
         return Promise.reject(new DomainError("отметка b-early"));
       },
     };
-    const err = await rejected(() =>
-      runName(
-        { name: "f0", in: undefined, limit: 200 },
-        { cwd: () => light.root },
-        [first, second],
-      ), DomainError);
+    const err = await rejected(
+      () =>
+        runName(
+          { name: "f0", in: undefined, limit: 200 },
+          { cwd: () => light.root },
+          [first, second],
+        ),
+      DomainError,
+    );
     expect(err.message).toBe("отметка a-late");
   } finally {
     await rm(temp, { recursive: true });

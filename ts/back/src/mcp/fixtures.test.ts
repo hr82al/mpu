@@ -46,7 +46,8 @@ it("в testdata нет копий, которых нет в канале", async
   for (const entry of await readdir(copyDir, { withFileTypes: true })) {
     // Снапшоты `tools/list` — не копии канала, а эталоны реализации.
     if (
-      entry.name.startsWith("tools-ro") || entry.name.startsWith("tools-rw")
+      entry.name.startsWith("tools-ro") ||
+      entry.name.startsWith("tools-rw")
     ) {
       continue;
     }

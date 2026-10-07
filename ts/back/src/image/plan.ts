@@ -290,10 +290,8 @@ class ToFile implements Action {
     const done = await applier.writeFile(this.#method);
     const { key } = this;
     return [
-      done.entry(
-        this.#word,
-        key,
-        () => applier.archive(key, this.#method.hash),
+      done.entry(this.#word, key, () =>
+        applier.archive(key, this.#method.hash),
       ),
     ];
   }
@@ -623,17 +621,19 @@ export class Plan {
       ...files.keys(),
       ...sides.archive.keys(),
     ]);
-    this.#actions = [...keys].filter((key) => !skipped.has(key)).map((key) => {
-      const base = bases.get(key);
-      const file = files.get(key);
-      return decide(
-        key,
-        base === undefined ? NO_BASE : baseHeld(base),
-        file === undefined ? NO_FILE : fileHeld(file),
-        sides.archive.get(key) ?? NONE,
-        prefer,
-      );
-    });
+    this.#actions = [...keys]
+      .filter((key) => !skipped.has(key))
+      .map((key) => {
+        const base = bases.get(key);
+        const file = files.get(key);
+        return decide(
+          key,
+          base === undefined ? NO_BASE : baseHeld(base),
+          file === undefined ? NO_FILE : fileHeld(file),
+          sides.archive.get(key) ?? NONE,
+          prefer,
+        );
+      });
     this.#unread = sides.files.unread;
     this.#baseCount = sides.base.length;
     this.#fileCount = sides.files.files.length;
@@ -665,10 +665,10 @@ export class Plan {
       this.#actions.flatMap((action) => action.defining()),
     );
     const entries: Entry[] = this.#unread.map((one) =>
-      unreadEntry(one.path, one.reason)
+      unreadEntry(one.path, one.reason),
     );
     for (const action of this.#actions) {
-      entries.push(...await action.apply(applier, defined));
+      entries.push(...(await action.apply(applier, defined)));
     }
     const matched = this.#actions.filter((action) => action.matched()).length;
     return new Report(entries, matched);

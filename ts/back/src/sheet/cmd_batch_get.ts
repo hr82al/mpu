@@ -20,17 +20,20 @@ import { targetOf } from "./sources.ts";
 import { callWebapp } from "./webapp.ts";
 
 const argsSchema = z.object({
-  expression: z.array(z.string()).default([]).describe(
-    "инструкция скрипта; флаг повторяем, части склеиваются",
-  ),
+  expression: z
+    .array(z.string())
+    .default([])
+    .describe("инструкция скрипта; флаг повторяем, части склеиваются"),
   from: z.string().optional().describe("файл со скриптом; '-' — весь stdin"),
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
-  sheet: z.string().optional().describe(
-    "лист по умолчанию для диапазонов без '!'",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать поля вызовов и не делать их",
-  ),
+  sheet: z
+    .string()
+    .optional()
+    .describe("лист по умолчанию для диапазонов без '!'"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("напечатать поля вызовов и не делать их"),
 });
 
 const resultSchema = z.object({
@@ -82,15 +85,21 @@ export async function runBatchGet(
   }
 
   const webapp = { url: webappUrl(io), note: io.note, post: options.post };
-  const values = plan.ranges.length === 0 ? null : await callWebapp(
-    webapp,
-    "spreadsheets/values/batchGet",
-    valuesCall(target.ss_id, plan),
-  );
-  const meta = metaPlan(plan) === null ? null : metaOf(
-    await callWebapp(webapp, "spreadsheets/get", { ssId: target.ss_id }),
-    plan,
-  );
+  const values =
+    plan.ranges.length === 0
+      ? null
+      : await callWebapp(
+          webapp,
+          "spreadsheets/values/batchGet",
+          valuesCall(target.ss_id, plan),
+        );
+  const meta =
+    metaPlan(plan) === null
+      ? null
+      : metaOf(
+          await callWebapp(webapp, "spreadsheets/get", { ssId: target.ss_id }),
+          plan,
+        );
   return { ...head, values, meta };
 }
 

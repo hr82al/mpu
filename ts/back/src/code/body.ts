@@ -121,7 +121,7 @@ function ownerOf(ts: typeof TS, node: FunctionNode): TS.Node {
   // переменная или свойство, в котором он лежит: строка нужна та, что
   // видит читатель.
   return ts.isVariableDeclaration(node.parent) ||
-      ts.isPropertyAssignment(node.parent)
+    ts.isPropertyAssignment(node.parent)
     ? node.parent
     : node;
 }
@@ -237,8 +237,10 @@ function isLocal(
   const declaration = symbol?.declarations?.[0];
   if (declaration === undefined) return false;
   if (declaration.getSourceFile() !== owner.getSourceFile()) return false;
-  return declaration.getStart() >= owner.getStart() &&
-    declaration.getEnd() <= owner.getEnd();
+  return (
+    declaration.getStart() >= owner.getStart() &&
+    declaration.getEnd() <= owner.getEnd()
+  );
 }
 
 /** Тексты комментариев тела по порядку появления. */
@@ -271,19 +273,22 @@ function commentsIn(
 
 /** Узел документирующего комментария — он же часть дерева, не тривия. */
 function isJsDoc(ts: typeof TS, kind: TS.SyntaxKind): boolean {
-  return kind >= ts.SyntaxKind.FirstJSDocNode &&
-    kind <= ts.SyntaxKind.LastJSDocNode;
+  return (
+    kind >= ts.SyntaxKind.FirstJSDocNode && kind <= ts.SyntaxKind.LastJSDocNode
+  );
 }
 
 function isLiteralKind(ts: typeof TS, kind: TS.SyntaxKind): boolean {
-  return kind === ts.SyntaxKind.StringLiteral ||
+  return (
+    kind === ts.SyntaxKind.StringLiteral ||
     kind === ts.SyntaxKind.NumericLiteral ||
     kind === ts.SyntaxKind.BigIntLiteral ||
     kind === ts.SyntaxKind.NoSubstitutionTemplateLiteral ||
     kind === ts.SyntaxKind.RegularExpressionLiteral ||
     kind === ts.SyntaxKind.TemplateHead ||
     kind === ts.SyntaxKind.TemplateMiddle ||
-    kind === ts.SyntaxKind.TemplateTail;
+    kind === ts.SyntaxKind.TemplateTail
+  );
 }
 
 /**
@@ -310,7 +315,8 @@ export function difference(query: Body, other: Body): string {
 }
 
 function commentDifference(query: Body, other: Body): readonly string[] {
-  const same = query.comments.length === other.comments.length &&
+  const same =
+    query.comments.length === other.comments.length &&
     query.comments.every((text, index) => text === other.comments[index]);
   if (same) return [];
   if (other.comments.length === 0) return ["комментарий снят"];
@@ -331,7 +337,8 @@ function literalDifference(query: Body, other: Body): readonly string[] {
 }
 
 function nameDifference(query: Body, other: Body): readonly string[] {
-  const same = query.names.length === other.names.length &&
+  const same =
+    query.names.length === other.names.length &&
     query.names.every((name, index) => name === other.names[index]);
   return same ? [] : ["имена различаются"];
 }

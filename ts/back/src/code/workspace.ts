@@ -59,16 +59,13 @@ export function readRepos(root: string, run: RunGit): readonly Repo[] {
   if (found.length === 0) {
     throw new VerbatimError("mpu code: в рабочей области нет репозиториев");
   }
-  return found.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  return found.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /** Репозиторий, внутри которого лежит каталог `dir`. */
-export function repoOf(
-  repos: readonly Repo[],
-  dir: string,
-): Repo | undefined {
-  return repos.find((repo) =>
-    dir === repo.root || dir.startsWith(`${repo.root}/`)
+export function repoOf(repos: readonly Repo[], dir: string): Repo | undefined {
+  return repos.find(
+    (repo) => dir === repo.root || dir.startsWith(`${repo.root}/`),
   );
 }
 

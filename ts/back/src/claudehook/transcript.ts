@@ -74,13 +74,19 @@ function clipped(title: string): string {
 /** Равенство значений JSON без учёта порядка ключей. */
 function same(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) || Array.isArray(b)) {
-    return Array.isArray(a) && Array.isArray(b) && a.length === b.length &&
-      a.every((item, i) => same(item, b[i]));
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => same(item, b[i]))
+    );
   }
   if (isFields(a) && isFields(b)) {
     const keys = Object.keys(a);
-    return keys.length === Object.keys(b).length &&
-      keys.every((key) => Object.hasOwn(b, key) && same(a[key], b[key]));
+    return (
+      keys.length === Object.keys(b).length &&
+      keys.every((key) => Object.hasOwn(b, key) && same(a[key], b[key]))
+    );
   }
   return a === b;
 }
@@ -121,10 +127,12 @@ function recordsOf(bytes: Uint8Array): {
 function callIds(record: Fields, call: ToolUse): readonly string[] {
   if (record.type !== "assistant") return [];
   return blocksOf(record).flatMap((block) =>
-    block.type === "tool_use" && typeof block.id === "string" &&
-      block.name === call.name && same(block.input, call.input)
+    block.type === "tool_use" &&
+    typeof block.id === "string" &&
+    block.name === call.name &&
+    same(block.input, call.input)
       ? [block.id]
-      : []
+      : [],
   );
 }
 
@@ -134,7 +142,7 @@ function resultIds(record: Fields): readonly string[] {
   return blocksOf(record).flatMap((block) =>
     block.type === "tool_result" && typeof block.tool_use_id === "string"
       ? [block.tool_use_id]
-      : []
+      : [],
   );
 }
 
@@ -216,8 +224,8 @@ export class CallAnswered implements Sign {
       const answered = resultIds(record);
       // Ответ снимает все вхождения id: повтор id в файле не воскрешает
       // отвеченный вызов.
-      open = [...open, ...callIds(record, this.#call)].filter((id) =>
-        !answered.includes(id)
+      open = [...open, ...callIds(record, this.#call)].filter(
+        (id) => !answered.includes(id),
       );
     }
     return open.length === 0 ? new Seeking(this.#call) : new Bound(open[0]);
@@ -241,7 +249,7 @@ function typedInput(record: Fields): boolean {
 
 /** Ждём набранного ввода; памяти нет — один экземпляр. */
 const AWAITING_INPUT: Watch = {
-  take: (record) => typedInput(record) ? ANSWERED : AWAITING_INPUT,
+  take: (record) => (typedInput(record) ? ANSWERED : AWAITING_INPUT),
   done: () => false,
 };
 
@@ -252,13 +260,15 @@ const AWAITING_INPUT: Watch = {
 export const TYPED_INPUT: Sign = { watchOf: () => AWAITING_INPUT };
 
 /** Последние `custom-title` и `ai-title` по записям. */
-function titlesOf(
-  records: readonly Fields[],
-): { readonly custom?: string; readonly ai?: string } {
+function titlesOf(records: readonly Fields[]): {
+  readonly custom?: string;
+  readonly ai?: string;
+} {
   let found: { custom?: string; ai?: string } = {};
   for (const record of records) {
     if (
-      record.type === "custom-title" && typeof record.customTitle === "string"
+      record.type === "custom-title" &&
+      typeof record.customTitle === "string"
     ) {
       found = { ...found, custom: record.customTitle };
     }

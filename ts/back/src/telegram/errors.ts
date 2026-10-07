@@ -77,9 +77,7 @@ export function cryptoFailure(err: CryptoInitError): VerbatimError {
  * он сюда и ходит: без различения по типу сюда попал бы и дефект своего
  * кода.
  */
-export function layerFailure(
-  err: unknown,
-): VerbatimError | VerbatimUsageError {
+export function layerFailure(err: unknown): VerbatimError | VerbatimUsageError {
   if (err instanceof CryptoInitError) return cryptoFailure(err);
   // Своё оформление слоя — и доменное, и ошибка ввода: второй слой
   // обёртки не только исказил бы текст, но и понизил бы код 2 до 1.

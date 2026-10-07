@@ -37,9 +37,8 @@ export class Inbox {
     const path = `${this.#dir}/${name}`;
     // Каталог есть — используется как есть: права чужого каталога не
     // правятся. `mode` режет umask, но 0700 он только сужает.
-    await writing(
-      path,
-      () => mkdir(this.#dir, { recursive: true, mode: 0o700 }),
+    await writing(path, () =>
+      mkdir(this.#dir, { recursive: true, mode: 0o700 }),
     );
     // Временное имя не содержит имени вложения: длинное имя плюс суффикс
     // упёрлось бы в предел длины имени файла раньше самого файла.

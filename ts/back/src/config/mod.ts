@@ -64,11 +64,7 @@ export function configValue(db: CacheDb, key: string): string | undefined {
 }
 
 /** Записывает значение ключа; таблицы нет — она создаётся. */
-export function setConfigValue(
-  db: CacheDb,
-  key: string,
-  value: string,
-): void {
+export function setConfigValue(db: CacheDb, key: string, value: string): void {
   db.bootstrap();
   db.execute(
     "INSERT INTO config (key, value) VALUES (?, ?)" +
@@ -93,8 +89,9 @@ export function aliasPath(db: CacheDb, name: string): string | undefined {
 
 /** Все алиасы по имени: порядок — алфавитный, как в выводе `alias ls`. */
 export function aliases(db: CacheDb): readonly Alias[] {
-  return read(db, "SELECT name, path FROM xlsx_aliases ORDER BY name")
-    .map((row) => ({ name: String(row.name), path: String(row.path) }));
+  return read(db, "SELECT name, path FROM xlsx_aliases ORDER BY name").map(
+    (row) => ({ name: String(row.name), path: String(row.path) }),
+  );
 }
 
 /** Добавляет или заменяет алиас; таблицы нет — она создаётся. */

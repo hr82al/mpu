@@ -26,19 +26,22 @@ import {
 
 const argsSchema = z.object({
   title: z.string({ error: "нужен title:" }).describe("заголовок MR"),
-  target: z.string({ error: "нужен into:" }).describe(
-    "ветка назначения, куда вливать",
-  ),
-  source: z.string().optional().describe(
-    "исходная ветка; без ключа — текущая ветка каталога",
-  ),
-  project: z.string().optional().describe(
-    "проект group/repo; без ключа — из git remote origin",
-  ),
+  target: z
+    .string({ error: "нужен into:" })
+    .describe("ветка назначения, куда вливать"),
+  source: z
+    .string()
+    .optional()
+    .describe("исходная ветка; без ключа — текущая ветка каталога"),
+  project: z
+    .string()
+    .optional()
+    .describe("проект group/repo; без ключа — из git remote origin"),
   message: z.string().optional().describe("описание MR; необязательно"),
-  "body-file": z.string().optional().describe(
-    "файл с описанием; '-' — весь stdin, только в CLI",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с описанием; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({
@@ -91,9 +94,9 @@ export async function runCreate(
   const runGit = options.runGit ?? spawnGit;
   const context: ResolveContext = { access, cwd: io.cwd(), runGit };
   try {
-    const project = args.project ??
-      await projectFromRemote(context, "укажи --project");
-    const source = args.source ?? await currentBranch(context, runGit);
+    const project =
+      args.project ?? (await projectFromRemote(context, "укажи --project"));
+    const source = args.source ?? (await currentBranch(context, runGit));
     const mr = await createMergeRequest(access, project, {
       source_branch: source,
       target_branch: args.target,
@@ -115,10 +118,12 @@ export async function runCreate(
 }
 
 export function renderCreate(result: CreateResult): string {
-  return `создан MR ${result.project}!${result.iid} — ${result.title} ` +
+  return (
+    `создан MR ${result.project}!${result.iid} — ${result.title} ` +
     `[${result.state}]\n` +
     `branch: ${result.source_branch} → ${result.target_branch}\n` +
-    `${result.url}\n`;
+    `${result.url}\n`
+  );
 }
 
 export const mrCreateCommand = defineCommand({

@@ -16,11 +16,7 @@ import { resolveTarget, type Target, type TargetSources } from "./target.ts";
 /** Срез порта: кэш-БД, env-файл, локальные настройки и stdin. */
 export type SheetIo = Pick<
   CommandIo,
-  | "envFile"
-  | "openCacheDb"
-  | "readTextFile"
-  | "readStdin"
-  | "note"
+  "envFile" | "openCacheDb" | "readTextFile" | "readStdin" | "note"
 >;
 
 /** Источники резолва поверх открытой кэш-БД. */
@@ -82,10 +78,7 @@ function rowOf(row: Record<string, unknown>) {
  * Переменных окружения среди источников нет вовсе — ни из процесса, ни
  * из env-файла (`sheet.md`, «Открытые вопросы»).
  */
-export function targetOf(
-  db: CacheDb,
-  flag: string | undefined,
-): Target {
+export function targetOf(db: CacheDb, flag: string | undefined): Target {
   return resolveTarget(
     { flag, config: configValue(db, "sheet.default") },
     cacheSources(db),
@@ -103,10 +96,10 @@ export async function rangeStrings(
   from: string | undefined,
 ): Promise<readonly string[]> {
   if (from === undefined) return args;
-  const text = from === "-"
-    ? await readTextStdin(io)
-    : await fileText(io, from);
-  const lines = text.split("\n")
+  const text =
+    from === "-" ? await readTextStdin(io) : await fileText(io, from);
+  const lines = text
+    .split("\n")
     .map((line) => line.trim())
     // Пустые строки и комментарии пропускаются: список диапазонов
     // ведут руками, и в нём остаются пометки.

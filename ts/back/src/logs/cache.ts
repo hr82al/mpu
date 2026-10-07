@@ -57,12 +57,14 @@ export function openLogsCache(io: CacheIo): LogsCache & Disposable {
     hosts: () =>
       column(rows("loki_hosts", "SELECT host FROM loki_hosts ORDER BY host")),
     services: (host) =>
-      column(rows(
-        "loki_services_by_host",
-        "SELECT service FROM loki_services_by_host" +
-          " WHERE host = ? ORDER BY service",
-        host,
-      )),
+      column(
+        rows(
+          "loki_services_by_host",
+          "SELECT service FROM loki_services_by_host" +
+            " WHERE host = ? ORDER BY service",
+          host,
+        ),
+      ),
     hasService: (name) =>
       rows(
         "loki_services_by_host",
@@ -89,10 +91,12 @@ export function openLogsCache(io: CacheIo): LogsCache & Disposable {
 
 /** Есть ли таблица в схеме: её отсутствие — пустой кэш, а не отказ. */
 function hasTable(db: CacheDb, name: string): boolean {
-  return db.query(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-    name,
-  ).length > 0;
+  return (
+    db.query(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      name,
+    ).length > 0
+  );
 }
 
 /** Первый столбец выборки строками. */

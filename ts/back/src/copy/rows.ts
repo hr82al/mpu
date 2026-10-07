@@ -137,7 +137,8 @@ export function insertsOf(
       return `(${places.join(", ")})`;
     });
     out.push({
-      sql: `INSERT INTO public.${table} (${names}) VALUES\n  ` +
+      sql:
+        `INSERT INTO public.${table} (${names}) VALUES\n  ` +
         `${tuples.join(",\n  ")}`,
       params,
       label: table,
@@ -147,9 +148,10 @@ export function insertsOf(
 }
 
 /** Набор строк результата; иначе пусто. */
-function rowsOf(
-  outcome: SqlOutcome,
-): { columns: readonly string[]; rows: readonly (readonly unknown[])[] } {
+function rowsOf(outcome: SqlOutcome): {
+  columns: readonly string[];
+  rows: readonly (readonly unknown[])[];
+} {
   return outcome.kind === "rows"
     ? { columns: outcome.columns, rows: outcome.rows }
     : { columns: [], rows: [] };
@@ -157,8 +159,8 @@ function rowsOf(
 
 /** Первая колонка всех строк как строки. */
 export function firstColumn(outcome: SqlOutcome): readonly string[] {
-  return rowsOf(outcome).rows
-    .map((row) => row[0])
+  return rowsOf(outcome)
+    .rows.map((row) => row[0])
     .filter((value) => value !== null && value !== undefined)
     .map(String);
 }
@@ -189,7 +191,7 @@ export async function tableStatements(
     select.params,
   );
   const selected = rowsOf(outcome);
-  const oids = outcome.kind === "rows" ? outcome.oids ?? [] : [];
+  const oids = outcome.kind === "rows" ? (outcome.oids ?? []) : [];
   return {
     count: { table, rows: selected.rows.length },
     statements: [

@@ -27,25 +27,45 @@ function env(values: Readonly<Record<string, string>>) {
 
 describe("маршрут по селектору: первое совпадение побеждает", () => {
   const cases: readonly [string, string, ReturnType<typeof routeOf>][] = [
-    ["dev:42", "dev с хвостом-числом даёт client_id", {
-      kind: "dev",
-      clientId: 42,
-    }],
-    ["dev:foo", "dev с нечисловым хвостом — без client_id, не ошибка", {
-      kind: "dev",
-      clientId: null,
-    }],
-    ["dev:", "пустой хвост — тот же dev без client_id", {
-      kind: "dev",
-      clientId: null,
-    }],
-    ["dev:-1", "отрицательный хвост числом не считается", {
-      kind: "dev",
-      clientId: null,
-    }],
-    ["  WorkSpaces ", "sw-алиас без учёта регистра и краевых пробелов", {
-      kind: "sw",
-    }],
+    [
+      "dev:42",
+      "dev с хвостом-числом даёт client_id",
+      {
+        kind: "dev",
+        clientId: 42,
+      },
+    ],
+    [
+      "dev:foo",
+      "dev с нечисловым хвостом — без client_id, не ошибка",
+      {
+        kind: "dev",
+        clientId: null,
+      },
+    ],
+    [
+      "dev:",
+      "пустой хвост — тот же dev без client_id",
+      {
+        kind: "dev",
+        clientId: null,
+      },
+    ],
+    [
+      "dev:-1",
+      "отрицательный хвост числом не считается",
+      {
+        kind: "dev",
+        clientId: null,
+      },
+    ],
+    [
+      "  WorkSpaces ",
+      "sw-алиас без учёта регистра и краевых пробелов",
+      {
+        kind: "sw",
+      },
+    ],
     ["swpg", "алиас из списка", { kind: "sw" }],
     ["sl-0", "сервер целиком — обычный маршрут", { kind: "normal" }],
     ["swimming", "не алиас, а обычный селектор", { kind: "normal" }],
@@ -110,17 +130,19 @@ describe("адрес сервера стенда: ключи и умолчани
   });
   it("пустое значение равнозначно отсутствию ключа", () => {
     expect(() =>
-      serverTarget(env({ pg_1: "10.0.0.2", PG_MY_USER_NAME: "" }), 1)
+      serverTarget(env({ pg_1: "10.0.0.2", PG_MY_USER_NAME: "" }), 1),
     ).toThrow(UsageError);
     expect(() =>
-      serverTarget(env({ pg_1: "10.0.0.2", PG_MY_USER_NAME: "" }), 1)
+      serverTarget(env({ pg_1: "10.0.0.2", PG_MY_USER_NAME: "" }), 1),
     ).toThrow("PG_MAIN_USER_NAME");
   });
   it("битый порт — ошибка ввода, а не молчаливое умолчание", () => {
-    expect(() => serverTarget(env({ ...full, PG_PORT: "не-число" }), 3))
-      .toThrow(UsageError);
-    expect(() => serverTarget(env({ ...full, PG_PORT: "не-число" }), 3))
-      .toThrow("PG_PORT: ожидался номер порта, задано 'не-число'");
+    expect(() =>
+      serverTarget(env({ ...full, PG_PORT: "не-число" }), 3),
+    ).toThrow(UsageError);
+    expect(() =>
+      serverTarget(env({ ...full, PG_PORT: "не-число" }), 3),
+    ).toThrow("PG_PORT: ожидался номер порта, задано 'не-число'");
   });
 });
 
@@ -138,20 +160,22 @@ describe("адрес dev-стенда: свои ключи и свои умол�
     );
   });
   it("ключи env-файла перекрывают умолчания", () => {
-    const target = devTarget(env({
-      DEV_PG_HOST: "10.1.1.1",
-      DEV_PG_PORT: "5555",
-      DEV_PG_DB: "dev2",
-      ...creds,
-    }));
+    const target = devTarget(
+      env({
+        DEV_PG_HOST: "10.1.1.1",
+        DEV_PG_PORT: "5555",
+        DEV_PG_DB: "dev2",
+        ...creds,
+      }),
+    );
     expect([target.port, target.database]).toStrictEqual([5555, "dev2"]);
   });
   it("креды стенда dev не подставляются из общих", () => {
     expect(() =>
-      devTarget(env({ DEV_PG_HOST: "10.1.1.1", PG_MAIN_USER_NAME: "общий" }))
+      devTarget(env({ DEV_PG_HOST: "10.1.1.1", PG_MAIN_USER_NAME: "общий" })),
     ).toThrow(UsageError);
     expect(() =>
-      devTarget(env({ DEV_PG_HOST: "10.1.1.1", PG_MAIN_USER_NAME: "общий" }))
+      devTarget(env({ DEV_PG_HOST: "10.1.1.1", PG_MAIN_USER_NAME: "общий" })),
     ).toThrow("DEV_PG_USER");
   });
 });

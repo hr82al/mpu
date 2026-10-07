@@ -146,11 +146,7 @@ interface State {
   deliver(delivery: Delivery, frame: ServerFrame): void;
   ready(delivery: Delivery): Promise<void>;
   wait(line: Line, question: Question): Promise<string | undefined>;
-  execute(
-    line: Line,
-    slot: Slot,
-    run: () => Promise<number>,
-  ): Promise<number>;
+  execute(line: Line, slot: Slot, run: () => Promise<number>): Promise<number>;
   /** Клиент перестал слушать. */
   lost(line: Line): void;
 }
@@ -288,10 +284,7 @@ export class Line implements Output {
    * Исполнение строки, когда в пределе одновременности нашлось место и
    * строка к этому времени ещё открыта. Место держится до кадра `exit`.
    */
-  async execute(
-    run: () => Promise<number>,
-    lines: Lines,
-  ): Promise<number> {
+  async execute(run: () => Promise<number>, lines: Lines): Promise<number> {
     const slot = await lines.enter();
     let code: number;
     try {

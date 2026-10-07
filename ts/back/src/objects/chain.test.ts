@@ -37,9 +37,10 @@ it("справка к методу не исполняет его", async () => 
 it("help и --help последним словом дают один текст", async () => {
   const { root } = testTree();
   const texts = new Set<unknown>();
-  for (
-    const words of [["kiten", "card", "help"], ["kiten", "card", "--help"]]
-  ) {
+  for (const words of [
+    ["kiten", "card", "help"],
+    ["kiten", "card", "--help"],
+  ]) {
     const outcome = await runChain(words, root);
     texts.add("value" in outcome ? outcome.value : outcome);
   }
@@ -48,20 +49,18 @@ it("help и --help последним словом дают один текст"
 
 describe("help не последним словом — отказ с готовой строкой", () => {
   const { root } = testTree();
-  for (
-    const [words, error] of [
-      [
-        ["help", "kiten", "card"],
-        "mpu help: не понимает kiten; справка — последним словом: " +
+  for (const [words, error] of [
+    [
+      ["help", "kiten", "card"],
+      "mpu help: не понимает kiten; справка — последним словом: " +
         "mpu kiten card help",
-      ],
-      [
-        ["kiten", "help", "card"],
-        "mpu kiten help: не понимает card; справка — последним словом: " +
+    ],
+    [
+      ["kiten", "help", "card"],
+      "mpu kiten help: не понимает card; справка — последним словом: " +
         "mpu kiten card help",
-      ],
-    ] as const
-  ) {
+    ],
+  ] as const) {
     it(words.join(" "), async () => {
       expect(said(await runChain(words, root))).toStrictEqual({
         error,
@@ -75,11 +74,12 @@ const DOC = { purpose: "проба", help: "Справка: проба." };
 
 it("ключевое сообщение объекту с видом звена — непонятое", async () => {
   const { root } = testTree();
-  expect(said(await runChain(["kiten", "card", "nope:", "1"], root)))
-    .toStrictEqual({
-      error: "mpu kiten card: не понимает nope:",
-      code: 2,
-    });
+  expect(
+    said(await runChain(["kiten", "card", "nope:", "1"], root)),
+  ).toStrictEqual({
+    error: "mpu kiten card: не понимает nope:",
+    code: 2,
+  });
 });
 
 it("ближайших не больше трёх, при равном расстоянии — по алфавиту", async () => {
@@ -102,11 +102,12 @@ it("порог ближайших — от длины селектора: кор
     ["itt", "mpu: не понимает itt; ближайшие: it"],
   ] as const;
   for (const [word, error] of cases) {
-    expect(said(await runChain([word], origin(DOC, shape, null))))
-      .toStrictEqual({
-        error,
-        code: 2,
-      });
+    expect(
+      said(await runChain([word], origin(DOC, shape, null))),
+    ).toStrictEqual({
+      error,
+      code: 2,
+    });
   }
 });
 

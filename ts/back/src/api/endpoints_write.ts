@@ -719,8 +719,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
       {
         name: "dataset",
         type: "json",
-        help:
-          'JSON {"name": "<datasetName>"} — обновить один датасет/лист; опустить — обновить всю таблицу (все активные датасеты)',
+        help: 'JSON {"name": "<datasetName>"} — обновить один датасет/лист; опустить — обновить всю таблицу (все активные датасеты)',
       },
     ],
     noAuth: true,
@@ -902,9 +901,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     name: "update-client-ss-dataset",
     method: "PATCH",
     path: "/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
-    fields: [
-      { name: "is_active", type: "boolean", help: "is_active flag" },
-    ],
+    fields: [{ name: "is_active", type: "boolean", help: "is_active flag" }],
     body: true,
   },
   {

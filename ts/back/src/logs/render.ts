@@ -55,8 +55,9 @@ export function formatEntries(
   timestamps: boolean,
 ): string {
   return entries
-    .map((entry) =>
-      `${timestamps ? `${isoOf(entry.tsNs)} ` : ""}${text(entry.line)}\n`
+    .map(
+      (entry) =>
+        `${timestamps ? `${isoOf(entry.tsNs)} ` : ""}${text(entry.line)}\n`,
     )
     .join("");
 }

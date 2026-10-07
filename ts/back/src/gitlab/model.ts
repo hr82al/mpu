@@ -100,7 +100,7 @@ function integer(raw: RawObject, key: string): number | null {
 function object(raw: RawObject, key: string): RawObject | undefined {
   const value = raw[key];
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as RawObject
+    ? (value as RawObject)
     : undefined;
 }
 
@@ -223,8 +223,9 @@ export function discussionOf(raw: RawObject): Discussion | undefined {
   const id = text(raw, "id");
   if (id === null) return undefined;
   const notes = (Array.isArray(raw.notes) ? raw.notes : [])
-    .filter((note): note is RawObject =>
-      typeof note === "object" && note !== null && !Array.isArray(note)
+    .filter(
+      (note): note is RawObject =>
+        typeof note === "object" && note !== null && !Array.isArray(note),
     )
     .map(noteOf)
     .filter((note) => !note.system);

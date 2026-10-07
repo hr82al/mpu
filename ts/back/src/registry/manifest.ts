@@ -66,7 +66,8 @@ function readNode(raw: unknown, index: number): ManifestNode {
   const node = asRecord(raw, what);
   const path = node["path"];
   if (
-    !Array.isArray(path) || path.length === 0 ||
+    !Array.isArray(path) ||
+    path.length === 0 ||
     path.some((part) => typeof part !== "string")
   ) {
     throw new ManifestError(`${what}: path не массив строк`);

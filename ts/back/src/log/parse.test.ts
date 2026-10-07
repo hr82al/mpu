@@ -65,8 +65,9 @@ it("текст, похожий на закрывающий маркер чужо
   expect(records.length).toBe(1);
   expect(records[0].runId).toBe("real-1");
   expect(records[0].exitCode).toBe(0);
-  expect(records[0].text.includes("--- end run=чужой-id exit=0 dur=1s ---"))
-    .toBe(true);
+  expect(
+    records[0].text.includes("--- end run=чужой-id exit=0 dur=1s ---"),
+  ).toBe(true);
 });
 
 it("оборванная запись (нет закрывающего маркера): печатается тем, что накопилось, следующая не съедена", () => {

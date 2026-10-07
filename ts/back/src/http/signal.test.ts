@@ -53,9 +53,11 @@ it("уже отменённый сигнал — вызов не уходит", 
     return new Response("");
   });
   try {
-    await expect(httpSend(new URL(`${server.baseUrl}/`), {
-      signal: AbortSignal.abort(),
-    })).rejects.toThrow(HttpCallError);
+    await expect(
+      httpSend(new URL(`${server.baseUrl}/`), {
+        signal: AbortSignal.abort(),
+      }),
+    ).rejects.toThrow(HttpCallError);
   } finally {
     await server.stop();
   }

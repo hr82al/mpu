@@ -49,11 +49,10 @@ const DENO_SUFFIXES: readonly string[] = [".ts", ".tsx"];
  * ветке и прочитанный на другой, уверенно врёт.
  */
 export function findProjects(repoRoot: string): readonly Project[] {
-  return walkFiles(repoRoot, Object.keys(PROJECT_KINDS))
-    .map((relative) => ({
-      kind: PROJECT_KINDS[relative.slice(relative.lastIndexOf("/") + 1)],
-      path: `${repoRoot}/${relative}`,
-    }));
+  return walkFiles(repoRoot, Object.keys(PROJECT_KINDS)).map((relative) => ({
+    kind: PROJECT_KINDS[relative.slice(relative.lastIndexOf("/") + 1)],
+    path: `${repoRoot}/${relative}`,
+  }));
 }
 
 /** Код диагностики TypeScript «в конфигурации не нашлось файлов». */
@@ -107,9 +106,10 @@ export function buildProgram(
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new ProjectBuildError(
-      `конфигурация проекта ${shown} не читается: ${
-        ts.flattenDiagnosticMessageText(read.error.messageText, " ")
-      }`,
+      `конфигурация проекта ${shown} не читается: ${ts.flattenDiagnosticMessageText(
+        read.error.messageText,
+        " ",
+      )}`,
     );
   }
   const config = asRecord(read.config);
@@ -123,9 +123,10 @@ export function buildProgram(
   const broken = parsed.errors.find((error) => error.code !== NO_INPUTS);
   if (broken !== undefined) {
     throw new ProjectBuildError(
-      `конфигурация проекта ${shown} не разбирается: ${
-        ts.flattenDiagnosticMessageText(broken.messageText, " ")
-      }`,
+      `конфигурация проекта ${shown} не разбирается: ${ts.flattenDiagnosticMessageText(
+        broken.messageText,
+        " ",
+      )}`,
     );
   }
   if (!covers(parsed.fileNames, window)) return { kind: "outside" };
@@ -161,16 +162,15 @@ function denoProgram(
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new ProjectBuildError(
-      `конфигурация проекта ${shown} не читается: ${
-        ts.flattenDiagnosticMessageText(read.error.messageText, " ")
-      }`,
+      `конфигурация проекта ${shown} не читается: ${ts.flattenDiagnosticMessageText(
+        read.error.messageText,
+        " ",
+      )}`,
     );
   }
   const excluded = excludesOf(asRecord(read.config));
-  const files = walkFiles(
-    dir,
-    DENO_SUFFIXES,
-    (relative) => isExcluded(relative, excluded),
+  const files = walkFiles(dir, DENO_SUFFIXES, (relative) =>
+    isExcluded(relative, excluded),
   ).map((relative) => `${dir}/${relative}`);
   // Ни одного исходника — проектом такая конфигурация не считается, как
   // и `tsconfig.json` с пустым списком файлов.
@@ -228,7 +228,7 @@ function artefactExcludes(config: Record<string, unknown>): readonly string[] {
  */
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? { ...value as Record<string, unknown> }
+    ? { ...(value as Record<string, unknown>) }
     : {};
 }
 

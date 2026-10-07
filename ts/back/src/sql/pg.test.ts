@@ -26,11 +26,7 @@ import {
 } from "./session.ts";
 
 /** Ошибка сервера как её отдаёт драйвер: SQLSTATE и позиция строками. */
-function serverError(
-  message: string,
-  code: string,
-  position?: string,
-): Error {
+function serverError(message: string, code: string, position?: string): Error {
   const err = new driver.DatabaseError(message, message.length, "error");
   Object.assign(err, { code, position });
   return err;
@@ -44,7 +40,10 @@ const ROWS = {
     { name: "a", dataTypeID: 23 },
     { name: "b", dataTypeID: 25 },
   ],
-  rows: [[1, "x"], [2, null]],
+  rows: [
+    [1, "x"],
+    [2, null],
+  ],
   rowCount: 2,
   command: "SELECT",
 };
@@ -57,7 +56,10 @@ describe("форма ответа зависит от числа операто�
       kind: "rows",
       columns: ["a", "b"],
       oids: [23, 25],
-      rows: [[1, "x"], [2, null]],
+      rows: [
+        [1, "x"],
+        [2, null],
+      ],
     });
   });
 
@@ -68,7 +70,10 @@ describe("форма ответа зависит от числа операто�
       kind: "rows",
       columns: ["a", "b"],
       oids: [23, 25],
-      rows: [[1, "x"], [2, null]],
+      rows: [
+        [1, "x"],
+        [2, null],
+      ],
     });
     expect(outcomeAt([ROWS, SET], 1)).toStrictEqual({
       kind: "done",
@@ -214,8 +219,12 @@ describe("опции подключения: read-only и независимос
   });
 
   it("адрес и креды — из аргумента, а не из окружения", () => {
-    expect([options.host, options.port, options.database, options.user])
-      .toStrictEqual(["10.0.0.1", 6432, "wb", "u"]);
+    expect([
+      options.host,
+      options.port,
+      options.database,
+      options.user,
+    ]).toStrictEqual(["10.0.0.1", 6432, "wb", "u"]);
   });
 
   it("прочие опции заданы явно: окружение их не решает", () => {
@@ -299,12 +308,12 @@ describe("пользовательский текст исполняется в�
     // пользователя и два после, метка не из его ввода.
     expect(client.sent).toStrictEqual([
       "BEGIN READ ONLY;\n" +
-      "SELECT current_setting('transaction_read_only');\n" +
-      "SAVEPOINT mpu_sql_ro;\n" +
-      "SELECT 1 AS a; SELECT 2 AS b\n" +
-      ";\n" +
-      "ROLLBACK TO SAVEPOINT mpu_sql_ro;\n" +
-      "ROLLBACK",
+        "SELECT current_setting('transaction_read_only');\n" +
+        "SAVEPOINT mpu_sql_ro;\n" +
+        "SELECT 1 AS a; SELECT 2 AS b\n" +
+        ";\n" +
+        "ROLLBACK TO SAVEPOINT mpu_sql_ro;\n" +
+        "ROLLBACK",
     ]);
   });
 
@@ -330,13 +339,17 @@ describe("пользовательский текст исполняется в�
     const other = { ...ROWS, fields: [{ name: "z" }], rows: [[9]] };
     const client = fakeClient(() => [BEGIN, READ_ONLY, MARK, ROWS, other]);
     const session = await openPgSession(TARGET, "read-only", client.open);
-    expect(await session.run("SELECT 1 AS a, 'x' AS b; SELECT 9 AS z"))
-      .toStrictEqual({
-        kind: "rows",
-        columns: ["a", "b"],
-        oids: [23, 25],
-        rows: [[1, "x"], [2, null]],
-      });
+    expect(
+      await session.run("SELECT 1 AS a, 'x' AS b; SELECT 9 AS z"),
+    ).toStrictEqual({
+      kind: "rows",
+      columns: ["a", "b"],
+      oids: [23, 25],
+      rows: [
+        [1, "x"],
+        [2, null],
+      ],
+    });
     await session.close();
   });
 
@@ -345,11 +358,12 @@ describe("пользовательский текст исполняется в�
     // ней не пережил бы вызова: служебный текст уходит как есть.
     const client = fakeClient(() => SET);
     const session = await openPgSession(TARGET, "read-only", client.open);
-    expect(await session.query('SET search_path TO "schema_42", public'))
-      .toStrictEqual({
-        kind: "done",
-        rowcount: -1,
-      });
+    expect(
+      await session.query('SET search_path TO "schema_42", public'),
+    ).toStrictEqual({
+      kind: "done",
+      rowcount: -1,
+    });
     await session.close();
     expect(client.sent).toStrictEqual([
       'SET search_path TO "schema_42", public',
@@ -400,7 +414,7 @@ describe("отказы обёртки различаются по SQLSTATE", () 
           serverError(
             "cannot execute UPDATE in a read-only transaction",
             "25006",
-          )
+          ),
         ),
       WriteRefusedError,
     );
@@ -414,27 +428,24 @@ describe("отказы обёртки различаются по SQLSTATE", () 
         run((text) =>
           text.includes("ROLLBACK TO SAVEPOINT mpu_sql_ro")
             ? serverError("no such savepoint", "25P01")
-            : wrapped(ROWS)
+            : wrapped(ROWS),
         ),
       TransactionEndedError,
     );
   });
 
-  it(
-    "3B001 на снятии метки — вместо транзакции вызова открыта чужая",
-    async () => {
-      // Второй путь того же обхода: `COMMIT; BEGIN …` не закрывает
-      // транзакцию, а подменяет её, и метки в новой нет. Смысл тот же,
-      // класс тот же — различение по коду, текст сервера тут другой.
-      await rejected(
-        () =>
-          run(() =>
-            serverError('savepoint "mpu_sql_ro" does not exist', "3B001")
-          ),
-        TransactionEndedError,
-      );
-    },
-  );
+  it("3B001 на снятии метки — вместо транзакции вызова открыта чужая", async () => {
+    // Второй путь того же обхода: `COMMIT; BEGIN …` не закрывает
+    // транзакцию, а подменяет её, и метки в новой нет. Смысл тот же,
+    // класс тот же — различение по коду, текст сервера тут другой.
+    await rejected(
+      () =>
+        run(() =>
+          serverError('savepoint "mpu_sql_ro" does not exist', "3B001"),
+        ),
+      TransactionEndedError,
+    );
+  });
 
   it("чужой код с тем же словом — не класс метки", async () => {
     // Слово «savepoint» в сообщении сервера ничего не решает: класс
@@ -449,13 +460,16 @@ describe("отказы обёртки различаются по SQLSTATE", () 
   it("25001 — текстом сервера, как прочие коды", async () => {
     // Одним кодом приходит и попытка снять режим, и `VACUUM` в блоке
     // транзакции: различать их не требуется.
-    const err = await rejected(() =>
-      run(() =>
-        serverError(
-          "cannot set transaction read-write mode inside a read-only transaction",
-          "25001",
-        )
-      ), DbError);
+    const err = await rejected(
+      () =>
+        run(() =>
+          serverError(
+            "cannot set transaction read-write mode inside a read-only transaction",
+            "25001",
+          ),
+        ),
+      DbError,
+    );
     expect(err.message).toBe(
       "cannot set transaction read-write mode inside a read-only transaction",
     );
@@ -464,14 +478,17 @@ describe("отказы обёртки различаются по SQLSTATE", () 
   it("позиция ошибки считается по тексту пользователя", async () => {
     // Сервер считает позицию по всему отправленному тексту; в выводе
     // обёртки быть не должно — указатель встаёт под местом ошибки.
-    const err = await rejected(() =>
-      run((text) =>
-        serverError(
-          'relation "nonexistent_table_xyz" does not exist',
-          "42P01",
-          String(text.indexOf("nonexistent_table_xyz") + 1),
-        )
-      ), DbError);
+    const err = await rejected(
+      () =>
+        run((text) =>
+          serverError(
+            'relation "nonexistent_table_xyz" does not exist',
+            "42P01",
+            String(text.indexOf("nonexistent_table_xyz") + 1),
+          ),
+        ),
+      DbError,
+    );
     expect(err.message).toStrictEqual(
       'relation "nonexistent_table_xyz" does not exist\n' +
         "LINE 1: SELECT * FROM nonexistent_table_xyz\n" +
@@ -486,7 +503,7 @@ describe("пишущая сессия: транзакция вызова тре�
 
   it("успех: открытие, текст пользователя, фиксация", async () => {
     const client = fakeClient((text) =>
-      text.startsWith("UPDATE") ? UPDATE : TX
+      text.startsWith("UPDATE") ? UPDATE : TX,
     );
     const session = await openPgSession(TARGET, "write", client.open);
     const outcome = await session.run("UPDATE t SET a = 1 WHERE 1=0");
@@ -503,7 +520,7 @@ describe("пишущая сессия: транзакция вызова тре�
 
   it("ошибка: вместо фиксации откат", async () => {
     const client = fakeClient((text) =>
-      text.startsWith("SELEC") ? serverError("syntax error", "42601", "1") : TX
+      text.startsWith("SELEC") ? serverError("syntax error", "42601", "1") : TX,
     );
     const session = await openPgSession(TARGET, "write", client.open);
     const failure = session.run("SELEC 1");
@@ -516,14 +533,15 @@ describe("пишущая сессия: транзакция вызова тре�
 
   it("многооператорный текст — результат первого", async () => {
     const client = fakeClient((text) =>
-      text.startsWith("UPDATE") ? [UPDATE, ROWS] : TX
+      text.startsWith("UPDATE") ? [UPDATE, ROWS] : TX,
     );
     const session = await openPgSession(TARGET, "write", client.open);
-    expect(await session.run("UPDATE t SET a = 1; SELECT 1 AS a, 2 AS b"))
-      .toStrictEqual({
-        kind: "done",
-        rowcount: 0,
-      });
+    expect(
+      await session.run("UPDATE t SET a = 1; SELECT 1 AS a, 2 AS b"),
+    ).toStrictEqual({
+      kind: "done",
+      rowcount: 0,
+    });
     await session.close();
   });
 
@@ -550,8 +568,8 @@ describe("пишущая сессия: транзакция вызова тре�
       text === "COMMIT"
         ? serverError("deferred constraint violated", "23505")
         : text.startsWith("INSERT")
-        ? UPDATE
-        : TX
+          ? UPDATE
+          : TX,
     );
     const session = await openPgSession(TARGET, "write", client.open);
     const failure = session.run("INSERT INTO t VALUES 1");
@@ -569,7 +587,7 @@ describe("пишущая сессия: транзакция вызова тре�
 
   it("отказ открытия транзакции — ошибка БД", async () => {
     const client = fakeClient((text) =>
-      text === "BEGIN" ? serverError("terminating connection", "57P01") : TX
+      text === "BEGIN" ? serverError("terminating connection", "57P01") : TX,
     );
     const session = await openPgSession(TARGET, "write", client.open);
     const failure = session.run("UPDATE t SET a = 1");
@@ -640,14 +658,17 @@ describe("runMany: одна транзакция на список, значен
   it("отказ оператора — ROLLBACK и номер с меткой", async () => {
     const boom = serverError("нельзя", "22P02");
     const client = fakeClient((text) =>
-      text.startsWith("INSERT") ? boom : done
+      text.startsWith("INSERT") ? boom : done,
     );
     const session = await openPgSession(TARGET, "write", client.open);
-    const err = await rejected(() =>
-      session.runMany([
-        { sql: "DELETE FROM t", label: "t" },
-        { sql: "INSERT INTO t VALUES ($1)", params: [1], label: "t" },
-      ]), StatementError);
+    const err = await rejected(
+      () =>
+        session.runMany([
+          { sql: "DELETE FROM t", label: "t" },
+          { sql: "INSERT INTO t VALUES ($1)", params: [1], label: "t" },
+        ]),
+      StatementError,
+    );
     expect(err.index).toBe(1);
     expect(err.label).toBe("t");
     // Откат обязателен: без него соединение осталось бы в прерванной

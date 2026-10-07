@@ -59,7 +59,10 @@ it("записей нет — отчёт говорит об этом, а не �
 it("дедуп по карточке: побеждает наибольший момент", () => {
   const early: CardMove = { ...MOVES[0], column: "Разработка", movedAt: 1 };
   const late: CardMove = { ...MOVES[0], column: "Готово", movedAt: 2 };
-  for (const order of [[early, late], [late, early]]) {
+  for (const order of [
+    [early, late],
+    [late, early],
+  ]) {
     const lines = reportText(order, DAY, EMPTY_STYLE).split("\n");
     expect(lines.length).toBe(3);
     expect(lines[2].endsWith("— Готово ✅")).toBe(true);
@@ -77,7 +80,9 @@ it("порядок — по моменту и id карточки, по убыв
     [at(1, 100), at(3, 200), at(2, 200)],
     DAY,
     EMPTY_STYLE,
-  ).split("\n").slice(2);
+  )
+    .split("\n")
+    .slice(2);
   expect(lines.map((line) => line.slice(0, 14))).toStrictEqual([
     "1. [карточка 3",
     "2. [карточка 2",
@@ -124,7 +129,7 @@ it("замена имени колонки идёт раньше выбора э
 it("переопределение эмодзи старше правил, регистр не важен", () => {
   const line = reportText([{ ...MOVES[0], column: "Готово" }], DAY, {
     columnMap: {},
-    emoji: { "готово": "🎉" },
+    emoji: { готово: "🎉" },
   }).split("\n")[2];
   expect(line.endsWith("— Готово 🎉"), line).toBe(true);
 });
@@ -132,7 +137,7 @@ it("переопределение эмодзи старше правил, ре�
 it("переопределение эмодзи опознаётся по ключу, а не по отличию", () => {
   const line = reportText([{ ...MOVES[0], column: "Готово" }], DAY, {
     columnMap: {},
-    emoji: { "Готово": "Готово" },
+    emoji: { Готово: "Готово" },
   }).split("\n")[2];
   // Правило 1 старше «готово → ✅», даже когда значение равно имени.
   expect(line.endsWith("— Готово Готово"), line).toBe(true);
@@ -179,17 +184,25 @@ describe("усечение режет по границе целых строк"
 
 describe("стиль отчёта из env-файла", () => {
   it("объекты разбираются", () => {
-    expect(reportStyle({
-      columns: '{"col-42": "Ревью"}',
-      emoji: '{"Готово": "🎉"}',
-    })).toStrictEqual({
+    expect(
+      reportStyle({
+        columns: '{"col-42": "Ревью"}',
+        emoji: '{"Готово": "🎉"}',
+      }),
+    ).toStrictEqual({
       columnMap: { "col-42": "Ревью" },
-      emoji: { "Готово": "🎉" },
+      emoji: { Готово: "🎉" },
     });
   });
-  for (
-    const raw of [undefined, "", "  ", "не json", "[1,2]", '"строка"', "null"]
-  ) {
+  for (const raw of [
+    undefined,
+    "",
+    "  ",
+    "не json",
+    "[1,2]",
+    '"строка"',
+    "null",
+  ]) {
     it(`переопределений нет: ${String(raw)}`, () => {
       expect(reportStyle({ columns: raw, emoji: raw })).toStrictEqual({
         columnMap: {},

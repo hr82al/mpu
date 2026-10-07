@@ -187,9 +187,9 @@ function composeHead(facts: PlanFacts, stack: StackSpec): string[] {
 function overridesOf(facts: PlanFacts, stack: StackSpec): readonly string[] {
   if (facts.localStackDir === undefined) return [];
   const dir = facts.localStackDir;
-  return stack.overrides.map((name) => `${dir}/overrides/${name}`).filter(
-    facts.exists,
-  );
+  return stack.overrides
+    .map((name) => `${dir}/overrides/${name}`)
+    .filter(facts.exists);
 }
 
 /** Core-стек, готовый к подъёму: шаг `up` и всё, что проверяется вокруг. */
@@ -232,9 +232,9 @@ export function coreStacks(facts: PlanFacts): readonly CoreStack[] {
  * бы за имя команды.
  */
 export function stepLine(step: Step): string {
-  const env = Object.entries(step.env ?? {}).map(([name, value]) =>
-    `${name}=${quoteArg(value)} `
-  ).join("");
+  const env = Object.entries(step.env ?? {})
+    .map(([name, value]) => `${name}=${quoteArg(value)} `)
+    .join("");
   const command = `$ ${env}${shellCommand(step.argv)}`;
   return step.comment === undefined ? command : `${command}  ${step.comment}`;
 }

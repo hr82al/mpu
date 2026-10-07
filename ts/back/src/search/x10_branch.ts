@@ -81,9 +81,7 @@ async function byEmail(
   }
   const token = await staffToken(deps);
   const users = await staffSearch(deps, token, email);
-  const exact = users.filter(
-    (user) => user.email.toLowerCase() === email,
-  );
+  const exact = users.filter((user) => user.email.toLowerCase() === email);
   if (exact.length === 0) {
     throw new DomainError(
       `10X staff search: нет пользователя с точным email '${email}'` +
@@ -105,16 +103,12 @@ async function byEmail(
  * `access`: там селектор — client_id или кабинет, то есть его можно
  * сопоставить со строкой email-кэша, не спрашивая 10X.
  */
-async function bySelector(
-  deps: X10Deps,
-  query: X10Query,
-): Promise<X10Outcome> {
+async function bySelector(deps: X10Deps, query: X10Query): Promise<X10Outcome> {
   const scope = effectiveScope(query.value, query.scope);
   if (scope === "access" && !query.refreshCache) {
     const clientId = clientIdOfSelector(deps.db, query.value);
-    const email = clientId === null
-      ? null
-      : cachedEmailOfClient(deps.db, clientId);
+    const email =
+      clientId === null ? null : cachedEmailOfClient(deps.db, clientId);
     if (email !== null) {
       const cached = cachedTarget(deps.db, email);
       if (cached !== null) return { kind: "target", target: cached };
@@ -278,9 +272,10 @@ function parseWorkspaces(
   try {
     const parsed = JSON.parse(textOf(raw));
     return Array.isArray(parsed)
-      ? parsed.filter((item): item is Readonly<Record<string, unknown>> =>
-        typeof item === "object" && item !== null && !Array.isArray(item)
-      )
+      ? parsed.filter(
+          (item): item is Readonly<Record<string, unknown>> =>
+            typeof item === "object" && item !== null && !Array.isArray(item),
+        )
       : [];
   } catch {
     return [];

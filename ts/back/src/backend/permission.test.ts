@@ -68,51 +68,61 @@ const LAST_EXPIRED = "\n⌛ истёк — ответьте в терминал�
 it("15 (D.8): три ждущих вопроса — шестнадцать строк идут без ожидания места", async () => {
   const bot = new FakeBot();
   const held = gate();
-  await withBack(async (back) => {
-    const stdin = await bashPayload();
-    const hooks = [];
-    for (let index = 0; index < 3; index++) {
-      hooks.push(await hookLine(back, stdin));
-    }
-    // Голова ряда показана, двое ждут за ней: все три строки в ядре.
-    await within(bot.called(3), 5000, "три вопроса в ряду");
-    expect(bot.calls[2].text.endsWith("\nещё ждут: 2")).toBe(true);
-    const lines = [];
-    for (let index = 0; index < 16; index++) {
-      const client = new Client(back, "/line");
-      await client.opened();
-      client.start(["xlsx", "ls", "file:", `/${index}.xlsx`]);
-      lines.push(client);
-    }
-    await within(held.entered(16), 5000, "шестнадцать строк исполняются");
-    held.release();
-    for (const line of lines) await line.finished();
-    for (const hook of hooks) hook.close();
-  }, { questions: fakeQuestions(bot), io: held.io });
+  await withBack(
+    async (back) => {
+      const stdin = await bashPayload();
+      const hooks = [];
+      for (let index = 0; index < 3; index++) {
+        hooks.push(await hookLine(back, stdin));
+      }
+      // Голова ряда показана, двое ждут за ней: все три строки в ядре.
+      await within(bot.called(3), 5000, "три вопроса в ряду");
+      expect(bot.calls[2].text.endsWith("\nещё ждут: 2")).toBe(true);
+      const lines = [];
+      for (let index = 0; index < 16; index++) {
+        const client = new Client(back, "/line");
+        await client.opened();
+        client.start(["xlsx", "ls", "file:", `/${index}.xlsx`]);
+        lines.push(client);
+      }
+      await within(held.entered(16), 5000, "шестнадцать строк исполняются");
+      held.release();
+      for (const line of lines) await line.finished();
+      for (const hook of hooks) hook.close();
+    },
+    { questions: fakeQuestions(bot), io: held.io },
+  );
 });
 
 it("11: обрыв строки клиентом — сообщение «истёк»", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const hook = await hookLine(back, await bashPayload());
-    await within(bot.called(1), 5000, "вопрос показан");
-    hook.close();
-    await within(bot.called(2), 5000, "правка в «истёк»");
-    assert(bot.calls[1].text.endsWith(LAST_EXPIRED), bot.calls[1].text);
-    // Содержимое stdin не попадает в журнал вызовов: исполнения у строки
-    // нет, записи — тоже.
-    expect(back.called).toStrictEqual([]);
-    expect(back.logged.filter((text) => text.includes("touch /tmp/x1.txt")))
-      .toStrictEqual([]);
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const hook = await hookLine(back, await bashPayload());
+      await within(bot.called(1), 5000, "вопрос показан");
+      hook.close();
+      await within(bot.called(2), 5000, "правка в «истёк»");
+      assert(bot.calls[1].text.endsWith(LAST_EXPIRED), bot.calls[1].text);
+      // Содержимое stdin не попадает в журнал вызовов: исполнения у строки
+      // нет, записи — тоже.
+      expect(back.called).toStrictEqual([]);
+      expect(
+        back.logged.filter((text) => text.includes("touch /tmp/x1.txt")),
+      ).toStrictEqual([]);
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("остановка сервера с ждущим вопросом — не ждёт срока, сообщение «истёк»", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    await hookLine(back, await bashPayload());
-    await within(bot.called(1), 5000, "вопрос показан");
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      await hookLine(back, await bashPayload());
+      await within(bot.called(1), 5000, "вопрос показан");
+    },
+    { questions: fakeQuestions(bot) },
+  );
   expect(bot.calls.length).toBe(2);
   assert(bot.calls[1].text.endsWith(LAST_EXPIRED), bot.calls[1].text);
 });
@@ -123,14 +133,17 @@ it("D.4: служба под tmux, клиент вне — окна в заго�
     TMUX: "/tmp/tmux-1000/default,1,0",
     TMUX_PANE: "%1",
   };
-  await withBack(async (back) => {
-    const hook = await hookLine(back, await bashPayload());
-    await within(bot.called(1), 5000, "вопрос показан");
-    expect(bot.calls[0].text.split("\n")[0]).toBe("🔐 Bash — ozon");
-    hook.close();
-  }, {
-    questions: fakeQuestions(bot),
-    io: { env: (name) => service[name] },
-    windows: new Windows(() => Promise.resolve("w:9 служба\n")),
-  });
+  await withBack(
+    async (back) => {
+      const hook = await hookLine(back, await bashPayload());
+      await within(bot.called(1), 5000, "вопрос показан");
+      expect(bot.calls[0].text.split("\n")[0]).toBe("🔐 Bash — ozon");
+      hook.close();
+    },
+    {
+      questions: fakeQuestions(bot),
+      io: { env: (name) => service[name] },
+      windows: new Windows(() => Promise.resolve("w:9 служба\n")),
+    },
+  );
 });

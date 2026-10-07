@@ -192,7 +192,7 @@ class Walk implements Walker {
           path,
           object: this.#refused(() => this.#pending.help(before).text()),
         }),
-      })
+      }),
     );
   }
 

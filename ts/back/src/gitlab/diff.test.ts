@@ -50,13 +50,14 @@ it("несколько hunk'ов: каждый заголовок задаёт �
     " сто",
     "+двести",
   ].join("\n");
-  expect(parseDiffLines(diff).map((line) => [line.oldLine, line.newLine]))
-    .toStrictEqual([
-      [1, undefined],
-      [undefined, 1],
-      [100, 200],
-      [undefined, 201],
-    ]);
+  expect(
+    parseDiffLines(diff).map((line) => [line.oldLine, line.newLine]),
+  ).toStrictEqual([
+    [1, undefined],
+    [undefined, 1],
+    [100, 200],
+    [undefined, 201],
+  ]);
   expect(countDiff(diff)).toStrictEqual({ additions: 2, deletions: 1 });
 });
 

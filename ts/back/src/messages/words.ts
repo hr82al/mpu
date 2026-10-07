@@ -509,8 +509,8 @@ function wordOf(text: string): Word {
  */
 export function literalWords(text: string): string[] {
   const word = wordOf(text);
-  const plain = word instanceof Bare && word.literal() === text &&
-    !text.startsWith("-");
+  const plain =
+    word instanceof Bare && word.literal() === text && !text.startsWith("-");
   return plain ? [text] : [GRAMMAR.literal, text];
 }
 

@@ -205,13 +205,15 @@ describe("readSpreadsheetRows: невалидный spreadsheet_id — PgRowErro
       thrown(
         () =>
           readSpreadsheetRows(
-            [{
-              spreadsheet_id: ssId,
-              client_id: 1,
-              title: "t",
-              template_name: null,
-              is_active: true,
-            }],
+            [
+              {
+                spreadsheet_id: ssId,
+                client_id: 1,
+                title: "t",
+                template_name: null,
+                is_active: true,
+              },
+            ],
             "sl-1",
           ),
         PgRowError,
@@ -257,13 +259,15 @@ it("readWbSidRows: повторяющиеся (client_id, sid) не схлопы
 it("writeSnapshot: записывает поля клиентов, таблиц и sid'ов вместе с synced_at", async () => {
   await withDb((db) => {
     const snapshot: Snapshot = {
-      clients: [{
-        clientId: 1,
-        server: "sl-1",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 1,
-      }],
+      clients: [
+        {
+          clientId: 1,
+          server: "sl-1",
+          isActive: 1,
+          isLocked: 0,
+          isDeleted: 1,
+        },
+      ],
       spreadsheets: [
         {
           ssId: "ss1",
@@ -307,43 +311,69 @@ it("writeSnapshot: записывает поля клиентов, таблиц 
 
 it("writeSnapshot: повторный прогон с другой выборкой полностью замещает прежний снапшот", async () => {
   await withDb((db) => {
-    writeSnapshot(db, {
-      clients: [
-        { clientId: 1, server: "sl-1", isActive: 1, isLocked: 0, isDeleted: 0 },
-        { clientId: 2, server: "sl-2", isActive: 1, isLocked: 0, isDeleted: 0 },
-      ],
-      spreadsheets: [
-        {
-          ssId: "ss1",
-          clientId: 1,
-          title: "A",
-          templateName: null,
-          isActive: 1,
-          server: "sl-1",
-        },
-      ],
-      wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
-    }, 1000);
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 1,
+            server: "sl-1",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+          {
+            clientId: 2,
+            server: "sl-2",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+        ],
+        wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
+      },
+      1000,
+    );
 
-    writeSnapshot(db, {
-      clients: [{
-        clientId: 3,
-        server: "sl-3",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 0,
-      }],
-      spreadsheets: [],
-      wbSids: [],
-    }, 2000);
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 3,
+            server: "sl-3",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [],
+        wbSids: [],
+      },
+      2000,
+    );
 
     // Ни одной строки прошлого прогона: клиенты 1 и 2, ss1 и sid-1 исчезли.
-    expect(plainRows(db.query("SELECT client_id FROM sl_clients")))
-      .toStrictEqual([{
+    expect(
+      plainRows(db.query("SELECT client_id FROM sl_clients")),
+    ).toStrictEqual([
+      {
         client_id: 3,
-      }]);
-    expect(plainRows(db.query("SELECT ss_id FROM sl_spreadsheets")))
-      .toStrictEqual([]);
+      },
+    ]);
+    expect(
+      plainRows(db.query("SELECT ss_id FROM sl_spreadsheets")),
+    ).toStrictEqual([]);
     expect(plainRows(db.query("SELECT sid FROM sl_wb_sids"))).toStrictEqual([]);
   });
 });
@@ -351,92 +381,125 @@ it("writeSnapshot: повторный прогон с другой выборк�
 it("writeSnapshot: self-heal — пишет и на БД без таблиц снапшота", async () => {
   await withDb((db) => {
     // bootstrap намеренно не вызван — таблиц снапшота ещё нет.
-    thrown(
-      () => db.query("SELECT * FROM sl_clients"),
-      Error,
-      "no such table",
+    thrown(() => db.query("SELECT * FROM sl_clients"), Error, "no such table");
+
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 1,
+            server: "sl-1",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [],
+        wbSids: [],
+      },
+      1000,
     );
 
-    writeSnapshot(db, {
-      clients: [{
-        clientId: 1,
-        server: "sl-1",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 0,
-      }],
-      spreadsheets: [],
-      wbSids: [],
-    }, 1000);
-
-    expect(plainRows(db.query("SELECT client_id FROM sl_clients")))
-      .toStrictEqual([{
+    expect(
+      plainRows(db.query("SELECT client_id FROM sl_clients")),
+    ).toStrictEqual([
+      {
         client_id: 1,
-      }]);
+      },
+    ]);
   });
 });
 
 it("upsertClient: обновляет своего клиента, соседнего не трогает", async () => {
   await withDb((db) => {
-    writeSnapshot(db, {
-      clients: [
-        { clientId: 1, server: "sl-1", isActive: 1, isLocked: 0, isDeleted: 0 },
-        { clientId: 2, server: "sl-2", isActive: 1, isLocked: 0, isDeleted: 0 },
-      ],
-      spreadsheets: [
-        {
-          ssId: "ss1",
-          clientId: 1,
-          title: "A",
-          templateName: null,
-          isActive: 1,
-          server: "sl-1",
-        },
-        {
-          ssId: "ss2",
-          clientId: 2,
-          title: "B",
-          templateName: null,
-          isActive: 1,
-          server: "sl-2",
-        },
-      ],
-      wbSids: [
-        { sid: "sid-1", clientId: 1, server: "sl-1" },
-        { sid: "sid-2", clientId: 2, server: "sl-2" },
-      ],
-    }, 1000);
-
-    upsertClient(db, {
-      client: {
-        clientId: 1,
-        server: "sl-1",
-        isActive: 0,
-        isLocked: 1,
-        isDeleted: 0,
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 1,
+            server: "sl-1",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+          {
+            clientId: 2,
+            server: "sl-2",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+          {
+            ssId: "ss2",
+            clientId: 2,
+            title: "B",
+            templateName: null,
+            isActive: 1,
+            server: "sl-2",
+          },
+        ],
+        wbSids: [
+          { sid: "sid-1", clientId: 1, server: "sl-1" },
+          { sid: "sid-2", clientId: 2, server: "sl-2" },
+        ],
       },
-      spreadsheets: [
-        {
-          ssId: "ss1",
-          clientId: 1,
-          title: "A2",
-          templateName: "t",
-          isActive: 0,
-          server: "sl-1",
-        },
-      ],
-      wbSids: [{ sid: "sid-1b", clientId: 1, server: "sl-1" }],
-    }, 2000);
+      1000,
+    );
 
-    expect(plainRows(db.query(
-      "SELECT client_id, is_active, is_locked, synced_at FROM sl_clients ORDER BY client_id",
-    ))).toStrictEqual([
+    upsertClient(
+      db,
+      {
+        client: {
+          clientId: 1,
+          server: "sl-1",
+          isActive: 0,
+          isLocked: 1,
+          isDeleted: 0,
+        },
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A2",
+            templateName: "t",
+            isActive: 0,
+            server: "sl-1",
+          },
+        ],
+        wbSids: [{ sid: "sid-1b", clientId: 1, server: "sl-1" }],
+      },
+      2000,
+    );
+
+    expect(
+      plainRows(
+        db.query(
+          "SELECT client_id, is_active, is_locked, synced_at FROM sl_clients ORDER BY client_id",
+        ),
+      ),
+    ).toStrictEqual([
       { client_id: 1, is_active: 0, is_locked: 1, synced_at: 2000 },
       { client_id: 2, is_active: 1, is_locked: 0, synced_at: 1000 },
     ]);
-    expect(plainRows(db.query(
-      "SELECT ss_id, client_id, title, synced_at FROM sl_spreadsheets ORDER BY ss_id",
-    ))).toStrictEqual([
+    expect(
+      plainRows(
+        db.query(
+          "SELECT ss_id, client_id, title, synced_at FROM sl_spreadsheets ORDER BY ss_id",
+        ),
+      ),
+    ).toStrictEqual([
       { ss_id: "ss1", client_id: 1, title: "A2", synced_at: 2000 },
       { ss_id: "ss2", client_id: 2, title: "B", synced_at: 1000 },
     ]);
@@ -456,121 +519,136 @@ it("upsertClient: обновляет своего клиента, соседне
 
 it("upsertClient: строки клиента, исчезнувшие из выборки, не удаляются", async () => {
   await withDb((db) => {
-    writeSnapshot(db, {
-      clients: [{
-        clientId: 1,
-        server: "sl-1",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 0,
-      }],
-      spreadsheets: [
-        {
-          ssId: "ss1",
-          clientId: 1,
-          title: "A",
-          templateName: null,
-          isActive: 1,
-          server: "sl-1",
-        },
-        {
-          ssId: "ss-gone",
-          clientId: 1,
-          title: "Gone",
-          templateName: null,
-          isActive: 1,
-          server: "sl-1",
-        },
-      ],
-      wbSids: [
-        { sid: "sid-1", clientId: 1, server: "sl-1" },
-        { sid: "sid-gone", clientId: 1, server: "sl-1" },
-      ],
-    }, 1000);
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 1,
+            server: "sl-1",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+          {
+            ssId: "ss-gone",
+            clientId: 1,
+            title: "Gone",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+        ],
+        wbSids: [
+          { sid: "sid-1", clientId: 1, server: "sl-1" },
+          { sid: "sid-gone", clientId: 1, server: "sl-1" },
+        ],
+      },
+      1000,
+    );
 
     // Новая выборка клиента 1 без ss-gone/sid-gone: upsert не чистит.
-    upsertClient(db, {
-      client: {
-        clientId: 1,
-        server: "sl-1",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 0,
-      },
-      spreadsheets: [
-        {
-          ssId: "ss1",
+    upsertClient(
+      db,
+      {
+        client: {
           clientId: 1,
-          title: "A",
-          templateName: null,
-          isActive: 1,
           server: "sl-1",
+          isActive: 1,
+          isLocked: 0,
+          isDeleted: 0,
         },
-      ],
-      wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
-    }, 2000);
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+        ],
+        wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
+      },
+      2000,
+    );
 
     expect(
       plainRows(db.query("SELECT ss_id FROM sl_spreadsheets ORDER BY ss_id")),
-    )
-      .toStrictEqual([
-        { ss_id: "ss-gone" },
-        { ss_id: "ss1" },
-      ]);
-    expect(plainRows(db.query("SELECT sid FROM sl_wb_sids ORDER BY sid")))
-      .toStrictEqual([
-        { sid: "sid-1" },
-        { sid: "sid-gone" },
-      ]);
+    ).toStrictEqual([{ ss_id: "ss-gone" }, { ss_id: "ss1" }]);
+    expect(
+      plainRows(db.query("SELECT sid FROM sl_wb_sids ORDER BY sid")),
+    ).toStrictEqual([{ sid: "sid-1" }, { sid: "sid-gone" }]);
   });
 });
 
 it("upsertClient: spreadsheets/wbSids = null — часть не выполнена, старые строки нетронуты", async () => {
   await withDb((db) => {
-    writeSnapshot(db, {
-      clients: [{
-        clientId: 1,
-        server: "sl-1",
-        isActive: 1,
-        isLocked: 0,
-        isDeleted: 0,
-      }],
-      spreadsheets: [
-        {
-          ssId: "ss1",
-          clientId: 1,
-          title: "A",
-          templateName: null,
-          isActive: 1,
-          server: "sl-1",
-        },
-      ],
-      wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
-    }, 1000);
-
-    upsertClient(db, {
-      client: {
-        clientId: 1,
-        server: "sl-1",
-        isActive: 0,
-        isLocked: 0,
-        isDeleted: 0,
+    writeSnapshot(
+      db,
+      {
+        clients: [
+          {
+            clientId: 1,
+            server: "sl-1",
+            isActive: 1,
+            isLocked: 0,
+            isDeleted: 0,
+          },
+        ],
+        spreadsheets: [
+          {
+            ssId: "ss1",
+            clientId: 1,
+            title: "A",
+            templateName: null,
+            isActive: 1,
+            server: "sl-1",
+          },
+        ],
+        wbSids: [{ sid: "sid-1", clientId: 1, server: "sl-1" }],
       },
-      spreadsheets: null,
-      wbSids: null,
-    }, 2000);
+      1000,
+    );
+
+    upsertClient(
+      db,
+      {
+        client: {
+          clientId: 1,
+          server: "sl-1",
+          isActive: 0,
+          isLocked: 0,
+          isDeleted: 0,
+        },
+        spreadsheets: null,
+        wbSids: null,
+      },
+      2000,
+    );
 
     expect(
       plainRows(
         db.query("SELECT is_active FROM sl_clients WHERE client_id = 1"),
       ),
-    )
-      .toStrictEqual([
-        { is_active: 0 },
-      ]);
-    expect(plainRows(db.query(
-      "SELECT ss_id, synced_at FROM sl_spreadsheets WHERE client_id = 1",
-    ))).toStrictEqual([{ ss_id: "ss1", synced_at: 1000 }]);
+    ).toStrictEqual([{ is_active: 0 }]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT ss_id, synced_at FROM sl_spreadsheets WHERE client_id = 1",
+        ),
+      ),
+    ).toStrictEqual([{ ss_id: "ss1", synced_at: 1000 }]);
     expect(
       plainRows(
         db.query("SELECT sid, synced_at FROM sl_wb_sids WHERE client_id = 1"),

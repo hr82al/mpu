@@ -13,7 +13,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { renderName, runName } from "./cmd_name.ts";
 import type { Repo } from "./workspace.ts";
 
-const PROJECT = '{"compilerOptions":{"strict":true,"noEmit":true},' +
+const PROJECT =
+  '{"compilerOptions":{"strict":true,"noEmit":true},' +
   '"include":["src/**/*"]}\n';
 
 /** Репозиторий с tsconfig-проектом из заданных файлов. */
@@ -35,9 +36,13 @@ async function repoWith(
 
 async function name(repo: Repo, what: string): Promise<string> {
   return renderName(
-    await runName({ name: what, in: "r", limit: 200 }, {
-      cwd: () => repo.root,
-    }, [repo]),
+    await runName(
+      { name: what, in: "r", limit: 200 },
+      {
+        cwd: () => repo.root,
+      },
+      [repo],
+    ),
   );
 }
 
@@ -76,8 +81,10 @@ describe("перегрузка — отдельная запись, реализ
   });
 
   it("расхождение возвратов помечено", () => {
-    expect(text.includes("типы возврата: string, number — различаются"), text)
-      .toBe(true);
+    expect(
+      text.includes("типы возврата: string, number — различаются"),
+      text,
+    ).toBe(true);
   });
 });
 

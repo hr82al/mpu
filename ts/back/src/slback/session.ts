@@ -41,12 +41,10 @@ export interface SlbackSession {
    * `useCache: false` — читать кэш нельзя, но перезаписать надо: так
    * `get-token` с обоими флагами меняет пользователя в кэше.
    */
-  readonly token: (
-    opts?: {
-      readonly overrides?: CredentialOverrides;
-      readonly useCache?: boolean;
-    },
-  ) => Promise<string>;
+  readonly token: (opts?: {
+    readonly overrides?: CredentialOverrides;
+    readonly useCache?: boolean;
+  }) => Promise<string>;
   /**
    * Вызов эндпоинта под Bearer-токеном; результат — разобранный JSON.
    *
@@ -112,13 +110,15 @@ export function openSlback(
 
 /** Непустой `accessToken` из ответа логина; иначе — отказ с телом ответа. */
 function accessTokenOf(response: unknown): string {
-  const value = typeof response === "object" && response !== null
-    ? (response as Record<string, unknown>)["accessToken"]
-    : undefined;
+  const value =
+    typeof response === "object" && response !== null
+      ? (response as Record<string, unknown>)["accessToken"]
+      : undefined;
   if (typeof value === "string" && value !== "") return value;
   throw new NoAccessTokenError(
-    `sl-back login: нет accessToken в ответе: ${
-      truncate(JSON.stringify(response) ?? "", RESPONSE_LIMIT)
-    }`,
+    `sl-back login: нет accessToken в ответе: ${truncate(
+      JSON.stringify(response) ?? "",
+      RESPONSE_LIMIT,
+    )}`,
   );
 }

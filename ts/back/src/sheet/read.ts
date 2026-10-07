@@ -92,7 +92,7 @@ function parseTabs(reply: Readonly<Record<string, unknown>>): TabInfo[] {
 
 function asRecord(value: unknown): Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null
-    ? value as Readonly<Record<string, unknown>>
+    ? (value as Readonly<Record<string, unknown>>)
     : {};
 }
 
@@ -176,8 +176,8 @@ async function tabPayload(
   }
   // Имя кавычится тем же правилом, что и везде: `Мой лист!A1:Z1000`
   // Sheets API не разберёт (атом, «A1-диапазоны»).
-  const whole = `${quoteTab(info.title)}!A1:${columnLetters(info.cols)}` +
-    `${info.rows}`;
+  const whole =
+    `${quoteTab(info.title)}!A1:${columnLetters(info.cols)}` + `${info.rows}`;
   const values = await fetchLayer(deps, ssId, [whole], "values");
   const formulas = await fetchLayer(deps, ssId, [whole], "formulas");
   const payload: TabPayload = {
@@ -201,17 +201,13 @@ async function fetchLayer(
     readonly cells: readonly (readonly unknown[])[];
   }[]
 > {
-  const reply = await callWebapp(
-    deps.webapp,
-    "spreadsheets/values/batchGet",
-    {
-      ssId,
-      ranges,
-      majorDimension: "ROWS",
-      valueRenderOption: renderOptionOf(layer),
-      dateTimeRenderOption: "SERIAL_NUMBER",
-    },
-  );
+  const reply = await callWebapp(deps.webapp, "spreadsheets/values/batchGet", {
+    ssId,
+    ranges,
+    majorDimension: "ROWS",
+    valueRenderOption: renderOptionOf(layer),
+    dateTimeRenderOption: "SERIAL_NUMBER",
+  });
   const list = Array.isArray(reply.valueRanges) ? reply.valueRanges : [];
   return list.map((item) => {
     const record = asRecord(item);

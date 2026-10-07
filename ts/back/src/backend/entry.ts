@@ -19,7 +19,8 @@ import type { Launcher, Markers } from "../worker/mod.ts";
 /** Чтение и запись файла токена. */
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
 
-const USAGE = "mpu-back: использование: deno task back [--port <число>] " +
+const USAGE =
+  "mpu-back: использование: deno task back [--port <число>] " +
   "[--lines <число>] [--worker <путь>]\n";
 
 /** Отказ запуска: предел строк назван, но негоден (`--lines 0`). */
@@ -60,11 +61,11 @@ export interface BackProcess {
 /** С чем поднимать сервер либо готовый отказ в stderr. */
 type Startup =
   | {
-    readonly port: number;
-    readonly lines: number;
-    /** Программа исполнителя из `--worker`; не названа — умолчание. */
-    readonly worker?: string;
-  }
+      readonly port: number;
+      readonly lines: number;
+      /** Программа исполнителя из `--worker`; не названа — умолчание. */
+      readonly worker?: string;
+    }
   | { readonly refusal: string };
 
 /** Целое из значения флага; не целое — `undefined`. */

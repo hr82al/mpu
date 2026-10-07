@@ -16,17 +16,17 @@ export function renderPs(
   const rows = result.containers.map((container) =>
     live
       ? [
-        container.name,
-        container.state,
-        container.status ?? "",
-        container.image,
-      ]
+          container.name,
+          container.state,
+          container.status ?? "",
+          container.image,
+        ]
       : [
-        container.endpoint ?? "?",
-        container.name,
-        container.state,
-        container.image,
-      ]
+          container.endpoint ?? "?",
+          container.name,
+          container.state,
+          container.image,
+        ],
   );
   if (form === "json") return json(result);
   if (form === "tsv") {
@@ -37,12 +37,9 @@ export function renderPs(
   if (live && rows.length === 0) return "(no containers)\n";
   if (rows.length === 0) return "";
   return renderTable(
-    live ? ["NAME", "STATE", "STATUS", "IMAGE"] : [
-      "ENDPOINT",
-      "NAME",
-      "STATE",
-      "IMAGE",
-    ],
+    live
+      ? ["NAME", "STATE", "STATUS", "IMAGE"]
+      : ["ENDPOINT", "NAME", "STATE", "IMAGE"],
     rows,
   );
 }
@@ -55,17 +52,17 @@ function json(result: PsResult): string {
   const items = result.containers.map((container) =>
     result.source === "live"
       ? {
-        name: container.name,
-        state: container.state,
-        status: container.status ?? "",
-        image: container.image,
-      }
+          name: container.name,
+          state: container.state,
+          status: container.status ?? "",
+          image: container.image,
+        }
       : {
-        endpoint: container.endpoint ?? "?",
-        name: container.name,
-        state: container.state,
-        image: container.image,
-      }
+          endpoint: container.endpoint ?? "?",
+          name: container.name,
+          state: container.state,
+          image: container.image,
+        },
   );
   return `${JSON.stringify(items, null, 2)}\n`;
 }

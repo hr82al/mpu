@@ -208,8 +208,10 @@ export function fakeConfigDb(
   if (entries.length > 0) {
     handle.bootstrap();
     for (const [key, value] of entries) {
-      db.prepare("INSERT INTO config (key, value) VALUES (?, ?)")
-        .run(key, value);
+      db.prepare("INSERT INTO config (key, value) VALUES (?, ?)").run(
+        key,
+        value,
+      );
     }
   }
   return () => handle;

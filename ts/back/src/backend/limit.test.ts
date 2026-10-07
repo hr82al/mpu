@@ -84,91 +84,110 @@ function gate() {
 
 it("две строки идут разом: быстрая не ждёт долгую", async () => {
   const slow = gate();
-  await withBack(async (back) => {
-    const long = await open(back, READING("/a.xlsx"));
-    await slow.entered(1);
-    // Пока первая стоит на чтении, вторая доходит до своего кадра
-    // `exit` — при очереди «по одной» она не начала бы исполняться.
-    const quick = await open(back, ["version"]);
-    const frames = await within(quick.finished(), 5000, "exit быстрой строки");
-    expect(frames.at(-1)).toStrictEqual({ exit: 0 });
-    expect(long.frames.some((frame) => "exit" in frame)).toBe(false);
-    slow.release();
-    await long.finished();
-    expect(slow.reads).toStrictEqual(["/a.xlsx"]);
-  }, { io: slow.io });
+  await withBack(
+    async (back) => {
+      const long = await open(back, READING("/a.xlsx"));
+      await slow.entered(1);
+      // Пока первая стоит на чтении, вторая доходит до своего кадра
+      // `exit` — при очереди «по одной» она не начала бы исполняться.
+      const quick = await open(back, ["version"]);
+      const frames = await within(
+        quick.finished(),
+        5000,
+        "exit быстрой строки",
+      );
+      expect(frames.at(-1)).toStrictEqual({ exit: 0 });
+      expect(long.frames.some((frame) => "exit" in frame)).toBe(false);
+      slow.release();
+      await long.finished();
+      expect(slow.reads).toStrictEqual(["/a.xlsx"]);
+    },
+    { io: slow.io },
+  );
 });
 
 it("предел: лишняя строка начинает, как только место освободилось", async () => {
   const held = gate();
   const third = awaited("/третья.xlsx");
-  await withBack(async (back) => {
-    const busy = [];
-    for (let index = 0; index < 2; index++) {
-      busy.push(await open(back, READING(`/${index}.xlsx`)));
-    }
-    await held.entered(2);
-    // Третья строка при пределе два не исполняется: мест нет.
-    const extra = await open(back, READING("/третья.xlsx"));
-    await within(third.reached, 5000, "журнал третьей строки");
-    expect(held.reads).toStrictEqual(["/0.xlsx", "/1.xlsx"]);
-    held.release();
-    await extra.finished();
-    expect(held.reads).toStrictEqual(["/0.xlsx", "/1.xlsx", "/третья.xlsx"]);
-    for (const line of busy) await line.finished();
-  }, { io: held.io, lines: 2, begun: third.begun });
+  await withBack(
+    async (back) => {
+      const busy = [];
+      for (let index = 0; index < 2; index++) {
+        busy.push(await open(back, READING(`/${index}.xlsx`)));
+      }
+      await held.entered(2);
+      // Третья строка при пределе два не исполняется: мест нет.
+      const extra = await open(back, READING("/третья.xlsx"));
+      await within(third.reached, 5000, "журнал третьей строки");
+      expect(held.reads).toStrictEqual(["/0.xlsx", "/1.xlsx"]);
+      held.release();
+      await extra.finished();
+      expect(held.reads).toStrictEqual(["/0.xlsx", "/1.xlsx", "/третья.xlsx"]);
+      for (const line of busy) await line.finished();
+    },
+    { io: held.io, lines: 2, begun: third.begun },
+  );
 });
 
 it("строка, упавшая исключением, не мешает соседним", async () => {
-  await withBack(async (back) => {
-    const broken = await open(back, READING("/взрыв.xlsx"));
-    expect((await broken.finished()).at(-1)).toStrictEqual({ exit: 1 });
-    // Место в пределе отпущено, сервер жив: соседняя строка проходит.
-    const next = await open(back, ["version"]);
-    expect((await next.finished()).at(-1)).toStrictEqual({ exit: 0 });
-    expect(back.diagnosed).toStrictEqual([]);
-  }, {
-    io: {
-      readFile: () => Promise.reject(new Error("диск взорвался")),
+  await withBack(
+    async (back) => {
+      const broken = await open(back, READING("/взрыв.xlsx"));
+      expect((await broken.finished()).at(-1)).toStrictEqual({ exit: 1 });
+      // Место в пределе отпущено, сервер жив: соседняя строка проходит.
+      const next = await open(back, ["version"]);
+      expect((await next.finished()).at(-1)).toStrictEqual({ exit: 0 });
+      expect(back.diagnosed).toStrictEqual([]);
     },
-    lines: 1,
-  });
+    {
+      io: {
+        readFile: () => Promise.reject(new Error("диск взорвался")),
+      },
+      lines: 1,
+    },
+  );
 });
 
 it("строка, закрытая до своего места, отпускает его следующей", async () => {
   const held = gate();
   const second = awaited("/b.xlsx");
-  await withBack(async (back) => {
-    const first = await open(back, READING("/a.xlsx"));
-    await held.entered(1);
-    const closed = await open(back, READING("/b.xlsx"));
-    await within(second.reached, 5000, "журнал строки B");
-    closed.close();
-    await closed.closed();
-    held.release();
-    await first.finished();
-    const next = await open(back, ["version"]);
-    const frames = await within(next.finished(), 5000, "exit строки C");
-    expect(frames.at(-1)).toStrictEqual({ exit: 0 });
-    // Закрытая строка не исполнялась: её файла никто не читал.
-    expect(held.reads).toStrictEqual(["/a.xlsx"]);
-  }, { io: held.io, lines: 1, begun: second.begun });
+  await withBack(
+    async (back) => {
+      const first = await open(back, READING("/a.xlsx"));
+      await held.entered(1);
+      const closed = await open(back, READING("/b.xlsx"));
+      await within(second.reached, 5000, "журнал строки B");
+      closed.close();
+      await closed.closed();
+      held.release();
+      await first.finished();
+      const next = await open(back, ["version"]);
+      const frames = await within(next.finished(), 5000, "exit строки C");
+      expect(frames.at(-1)).toStrictEqual({ exit: 0 });
+      // Закрытая строка не исполнялась: её файла никто не читал.
+      expect(held.reads).toStrictEqual(["/a.xlsx"]);
+    },
+    { io: held.io, lines: 1, begun: second.begun },
+  );
 });
 
 it("строка, ждущая ответа, места не занимает", async () => {
-  await withBack(async (back) => {
-    askOn(back, "xlsx alias ls");
-    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
-    await a.frame((frame) => "ask" in frame);
-    const b = await open(back, ["version"]);
-    const bFrames = await within(b.finished(), 5000, "exit строки B");
-    expect(bFrames.at(-1)).toStrictEqual({ exit: 0 });
-    expect(a.frames.some((frame) => "exit" in frame)).toBe(false);
-    a.answer("y");
-    const aFrames = await a.finished();
-    expect(aFrames.at(-1)).toStrictEqual({ exit: 0 });
-    expect(back.called).toStrictEqual(["xlsx alias ls"]);
-  }, { lines: 1 });
+  await withBack(
+    async (back) => {
+      askOn(back, "xlsx alias ls");
+      const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
+      await a.frame((frame) => "ask" in frame);
+      const b = await open(back, ["version"]);
+      const bFrames = await within(b.finished(), 5000, "exit строки B");
+      expect(bFrames.at(-1)).toStrictEqual({ exit: 0 });
+      expect(a.frames.some((frame) => "exit" in frame)).toBe(false);
+      a.answer("y");
+      const aFrames = await a.finished();
+      expect(aFrames.at(-1)).toStrictEqual({ exit: 0 });
+      expect(back.called).toStrictEqual(["xlsx alias ls"]);
+    },
+    { lines: 1 },
+  );
 });
 
 it("ответа нет 120 секунд — не подтверждено, команда не вызвана", async () => {

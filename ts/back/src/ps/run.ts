@@ -31,22 +31,22 @@ const TIMEOUTS: RequestTimeouts = {
 };
 
 /** Порт исполнения глазами команды. */
-export type PsIo = Pick<
-  CommandIo,
-  "envFile" | "openCacheDb" | "progress"
->;
+export type PsIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress">;
 
 export const argsSchema = z.object({
-  selector: z.string().optional().describe(
-    "sl-N или клиент-селектор; без него — снапшот кэша без сети",
-  ),
-  filter: z.string().optional().describe(
-    "буквальная подстрока имени контейнера",
-  ),
+  selector: z
+    .string()
+    .optional()
+    .describe("sl-N или клиент-селектор; без него — снапшот кэша без сети"),
+  filter: z
+    .string()
+    .optional()
+    .describe("буквальная подстрока имени контейнера"),
   json: z.boolean().default(false).describe("массив объектов JSON"),
-  tsv: z.boolean().default(false).describe(
-    "колонки через табуляцию, без шапки",
-  ),
+  tsv: z
+    .boolean()
+    .default(false)
+    .describe("колонки через табуляцию, без шапки"),
 });
 
 /** Строка вывода; `endpoint` и `status` есть не в обоих режимах. */
@@ -98,10 +98,7 @@ export async function runPs(
  * первое значит «инициализации не было» (exit 1), второе — «ферма
  * пуста», и это успех (спека, «Ввод/вывод»).
  */
-function fromCache(
-  filter: string | undefined,
-  io: PsIo,
-): readonly Container[] {
+function fromCache(filter: string | undefined, io: PsIo): readonly Container[] {
   io.progress("# кэш — запусти `mpu init` для обновления");
   using db = io.openCacheDb();
   const rows = query(db, filter);
@@ -112,9 +109,10 @@ function fromCache(
 }
 
 function query(db: CacheDb, filter: string | undefined): readonly Container[] {
-  const where = filter === undefined
-    ? ""
-    : ` WHERE container_name LIKE ? ESCAPE '${LIKE_ESCAPE}'`;
+  const where =
+    filter === undefined
+      ? ""
+      : ` WHERE container_name LIKE ? ESCAPE '${LIKE_ESCAPE}'`;
   const params = filter === undefined ? [] : [`%${escapeLike(filter)}%`];
   try {
     return db
@@ -127,9 +125,8 @@ function query(db: CacheDb, filter: string | undefined): readonly Container[] {
       .map((row) => ({
         // NULL endpoint'а печатается вопросом, а NULL прочих — пустым:
         // так их различает эталон канала.
-        endpoint: typeof row.endpoint_name === "string"
-          ? row.endpoint_name
-          : "?",
+        endpoint:
+          typeof row.endpoint_name === "string" ? row.endpoint_name : "?",
         name: String(row.container_name),
         state: typeof row.state === "string" ? row.state : "",
         status: null,
@@ -139,10 +136,9 @@ function query(db: CacheDb, filter: string | undefined): readonly Container[] {
     // Ошибка кэш-БД — доменная (exit 1), а не пустой ответ: пустой кэш
     // и отсутствие таблицы значат разное.
     const reason = err instanceof Error ? err.message : String(err);
-    throw new DomainError(
-      `SQLite error: ${reason} — запусти \`mpu init\``,
-      { cause: err instanceof Error ? err : undefined },
-    );
+    throw new DomainError(`SQLite error: ${reason} — запусти \`mpu init\``, {
+      cause: err instanceof Error ? err : undefined,
+    });
   }
 }
 
@@ -161,8 +157,9 @@ function query(db: CacheDb, filter: string | undefined): readonly Container[] {
  * отклонения»), и на них два режима отвечают одинаково.
  */
 function matches(name: string, filter: string | undefined): boolean {
-  return filter === undefined ||
-    name.toLowerCase().includes(filter.toLowerCase());
+  return (
+    filter === undefined || name.toLowerCase().includes(filter.toLowerCase())
+  );
 }
 
 /** Живой список: резолв сервера, Portainer-таргет, один GET. */
@@ -179,19 +176,21 @@ async function fromLive(
   const list = options.listLive ?? listContainers;
   try {
     const containers = await list(target.access, target.endpointId, TIMEOUTS);
-    return containers
-      .map((container) => ({
-        endpoint: null,
-        name: containerName(container.names),
-        state: container.state,
-        status: container.status,
-        image: container.image,
-      }))
-      .filter((container) => matches(container.name, filter))
-      // Сравнение кодовых точек, а не `localeCompare`: тот зависит от
-      // локали ICU и ослабляет пунктуацию, а кэш-режим сортирует
-      // бинарным `ORDER BY` — порядок двух режимов обязан совпадать.
-      .toSorted((left, right) => left.name < right.name ? -1 : 1);
+    return (
+      containers
+        .map((container) => ({
+          endpoint: null,
+          name: containerName(container.names),
+          state: container.state,
+          status: container.status,
+          image: container.image,
+        }))
+        .filter((container) => matches(container.name, filter))
+        // Сравнение кодовых точек, а не `localeCompare`: тот зависит от
+        // локали ICU и ослабляет пунктуацию, а кэш-режим сортирует
+        // бинарным `ORDER BY` — порядок двух режимов обязан совпадать.
+        .toSorted((left, right) => (left.name < right.name ? -1 : 1))
+    );
   } catch (err) {
     if (err instanceof PortainerError) {
       throw new DomainError(`portainer error: ${err.message}`, { cause: err });

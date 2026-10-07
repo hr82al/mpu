@@ -19,11 +19,7 @@ import { openFixture } from "./testing.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Прогон команды на фикстуре: рабочий каталог — корень репозитория. */
-async function refs(
-  repo: Repo,
-  address: string,
-  limit = 200,
-): Promise<string> {
+async function refs(repo: Repo, address: string, limit = 200): Promise<string> {
   const result = await runRefs({ address, limit }, { cwd: () => repo.root }, [
     repo,
   ]);

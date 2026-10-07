@@ -27,12 +27,14 @@ describe("маркировка идентификатора и вид чата",
   for (const item of MARKED) {
     it(item.peerType, () => {
       expect(markedId(item.peerType, item.rawId)).toStrictEqual(item.id);
-      expect(dialogOf({
-        peerType: item.peerType,
-        rawId: item.rawId,
-        title: "Чат",
-        username: null,
-      })).toStrictEqual({
+      expect(
+        dialogOf({
+          peerType: item.peerType,
+          rawId: item.rawId,
+          title: "Чат",
+          username: null,
+        }),
+      ).toStrictEqual({
         id: item.id,
         title: "Чат",
         kind: item.kind,

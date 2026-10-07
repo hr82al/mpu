@@ -227,16 +227,17 @@ function firstSet(env: ProxyEnv, names: readonly string[]): string | undefined {
 function bypassed(url: URL, list: string): boolean {
   const host = hostOf(url).toLowerCase();
   const port = String(portOf(url));
-  return list.split(",").map((entry) => entry.trim().toLowerCase()).some(
-    (entry) => {
+  return list
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .some((entry) => {
       if (entry === "*") return true;
       const [name, entryPort] = splitPort(entry.replace(/^\*?\./, ""));
       if (name === "" || (entryPort !== undefined && entryPort !== port)) {
         return false;
       }
       return host === name || host.endsWith(`.${name}`);
-    },
-  );
+    });
 }
 
 /** Запись `хост:порт` — хост и порт; без порта — `undefined` вторым. */
@@ -261,9 +262,9 @@ function parsedProxy(proxy: string): ParsedProxy {
   if (url.username === "" && url.password === "") return { url };
   let pair: string;
   try {
-    pair = `${decodeURIComponent(url.username)}:${
-      decodeURIComponent(url.password)
-    }`;
+    pair = `${decodeURIComponent(url.username)}:${decodeURIComponent(
+      url.password,
+    )}`;
   } catch (err) {
     throw new UnusableProxyError(proxy, "учётные данные не раскодируются", {
       cause: err,
@@ -288,7 +289,8 @@ function proxyUrl(proxy: string): URL {
     });
   }
   if (
-    url.protocol !== "http:" && url.protocol !== "https:" &&
+    url.protocol !== "http:" &&
+    url.protocol !== "https:" &&
     !SOCKS.has(url.protocol)
   ) {
     throw new UnusableProxyError(

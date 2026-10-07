@@ -19,12 +19,18 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
-  file: z.string().optional().describe(
-    "подстрока пути: только файлы, чей старый или новый путь её содержит",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
+  file: z
+    .string()
+    .optional()
+    .describe(
+      "подстрока пути: только файлы, чей старый или новый путь её содержит",
+    ),
   json: z.boolean().default(false).describe("массив объектов JSON"),
 });
 
@@ -59,18 +65,18 @@ export async function runDiff(
   } catch (err) {
     throw asCommandError(io, err);
   }
-  const selected = args.file === undefined
-    ? files
-    : files.filter((file) =>
-      file.new_path.includes(args.file as string) ||
-      file.old_path.includes(args.file as string)
-    );
+  const selected =
+    args.file === undefined
+      ? files
+      : files.filter(
+          (file) =>
+            file.new_path.includes(args.file as string) ||
+            file.old_path.includes(args.file as string),
+        );
   if (selected.length === 0 && args.file !== undefined) {
     // Отказ, а не пустой вывод: подстрока набрана человеком, и молчание
     // здесь неотличимо от «файл не менялся».
-    throw new DomainError(
-      `нет изменённых файлов по подстроке '${args.file}'`,
-    );
+    throw new DomainError(`нет изменённых файлов по подстроке '${args.file}'`);
   }
   return { files: selected.map(fileOf) };
 }
@@ -99,8 +105,8 @@ export function renderDiff(result: DiffResult, json: boolean): string {
   if (json) return `${JSON.stringify(result.files, null, 2)}\n`;
   if (result.files.length === 0) return "(MR без изменённых файлов)\n";
   const blocks = result.files.map((file) => {
-    const header = `diff --git a/${file.old_path} b/${file.new_path}` +
-      suffixOf(file);
+    const header =
+      `diff --git a/${file.old_path} b/${file.new_path}` + suffixOf(file);
     // Пустой дифф — binary-файл: сказать об этом прямо дешевле, чем
     // заставлять оператора гадать, почему блок пуст.
     const body = file.diff.replace(/\n+$/, "");
@@ -140,10 +146,7 @@ renamed_file, deleted_file} — уже после фильтра.
 Exit: 0 — успех, в том числе у MR без изменённых файлов; 2 —
 нераспознанный id:; 1 — отказ GitLab, ненайденный MR, пустой результат
 фильтра file:.`,
-  examples: [
-    "mpu mr diff",
-    "mpu mr diff file: loader.ts id: 456",
-  ],
+  examples: ["mpu mr diff", "mpu mr diff file: loader.ts id: 456"],
   policy: "ro",
   argsSchema,
   resultSchema,

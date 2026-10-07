@@ -58,10 +58,7 @@ it("3: правка назначения в файле — база из фай�
     await sync.synced();
     const path = `${sync.dir}/kiten/cardsIn:.mpu`;
     const text = await readFile(path, "utf8");
-    await writeFile(
-      path,
-      text.replace("^мои в колонке^", "^мои карточки^"),
-    );
+    await writeFile(path, text.replace("^мои в колонке^", "^мои карточки^"));
     const ran = await sync.run(SYNC);
     expect([ran.exit, ran.stdout]).toStrictEqual([
       0,
@@ -128,7 +125,7 @@ it("7: image.db удалена — новый метод из каждого ф�
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       0,
       "новый метод\tkiten cardsIn:\nновый метод\tkiten mine\nновый метод\tkiten shipped\n" +
-      "совпало 0, изменено 3, конфликтов 0\n",
+        "совпало 0, изменено 3, конфликтов 0\n",
     ]);
     expect(ruleOf(sync.policy, "kiten cardsIn:")).toBe("allow");
     // Повтор после записи файл → база: хэш архива — хэш метода базы.
@@ -148,21 +145,19 @@ it("8–9: каталог очищен — отказ массового уда�
       2,
       "",
       QUESTION +
-      "mpu image sync: удалилось бы 3 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n",
+        "mpu image sync: удалилось бы 3 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n",
     ]);
     expect(refused.refusals.map((one) => [one.reason, one.hint])).toStrictEqual(
-      [[
-        "удалилось бы",
-        ["ask", "image", "sync", "deletes:", "allow"],
-      ]],
+      [["удалилось бы", ["ask", "image", "sync", "deletes:", "allow"]]],
     );
     expect(await readFile(sync.imageFile)).toStrictEqual(before);
-    expect(outcome(await sync.run("ask image sync deletes: allow")))
-      .toStrictEqual([
-        0,
-        "удалён метод\tkiten cardsIn:\nудалён метод\tkiten mine\nудалён метод\tkiten shipped\n" +
+    expect(
+      outcome(await sync.run("ask image sync deletes: allow")),
+    ).toStrictEqual([
+      0,
+      "удалён метод\tkiten cardsIn:\nудалён метод\tkiten mine\nудалён метод\tkiten shipped\n" +
         "совпало 0, изменено 3, конфликтов 0\n",
-      ]);
+    ]);
     for (const path of ["kiten cardsIn:", "kiten mine", "kiten shipped"]) {
       expect(ruleOf(sync.policy, path), path).toStrictEqual(undefined);
     }
@@ -188,22 +183,10 @@ it("10, 46: удалён с обеих сторон — строка архив�
 /** Строки `файл не разобран` при синхронизированных трёх методах. */
 const UNREAD: readonly (readonly [string, string, string])[] = [
   ["11", "kiten/x:.mpu", "в файле нет строки определения"],
-  [
-    "12",
-    "kiten/ls.mpu",
-    "mpu kiten define: ls у kiten уже есть",
-  ],
+  ["12", "kiten/ls.mpu", "mpu kiten define: ls у kiten уже есть"],
   ["53a", "kiten/foo:.mpu", "в файле kiten bar, ждали kiten foo:"],
-  [
-    "55",
-    "nope/x.mpu",
-    "mpu nope define: метод — только у команды или группы",
-  ],
-  [
-    "43",
-    "kiten/x.mpu",
-    "файл не в UTF-8: байт 0xC3 на смещении 6",
-  ],
+  ["55", "nope/x.mpu", "mpu nope define: метод — только у команды или группы"],
+  ["43", "kiten/x.mpu", "файл не в UTF-8: байт 0xC3 на смещении 6"],
 ];
 
 /** Содержимое файлов для строк `UNREAD`. */
@@ -213,14 +196,7 @@ const UNREAD_TEXT: Record<string, string | Uint8Array> = {
   "kiten/foo:.mpu": "kiten define: bar purpose: ^x^ do kiten ls done",
   "nope/x.mpu": "nope define: x purpose: ^x^ do kiten ls done",
   "kiten/x.mpu": new Uint8Array([
-    0x6b,
-    0x69,
-    0x74,
-    0x65,
-    0x6e,
-    0x20,
-    0xc3,
-    0x20,
+    0x6b, 0x69, 0x74, 0x65, 0x6e, 0x20, 0xc3, 0x20,
   ]),
 };
 
@@ -241,7 +217,8 @@ describe("11, 12, 43, 53, 55: неразобранный файл — строк
           1,
           `файл не разобран\t${path}\t${reason}\nсовпало 3, изменено 0, конфликтов 0\n`,
         ]);
-      }));
+      }),
+    );
   }
 });
 
@@ -279,12 +256,10 @@ describe("14: метод зовёт метод этого же запуска �
     "kiten/a.mpu": "kiten define: a purpose: ^a^ do kiten b done",
     "kiten/b.mpu": "kiten define: b purpose: ^b^ do kiten ls done",
   };
-  for (
-    const order of [["kiten/a.mpu", "kiten/b.mpu"], [
-      "kiten/b.mpu",
-      "kiten/a.mpu",
-    ]]
-  ) {
+  for (const order of [
+    ["kiten/a.mpu", "kiten/b.mpu"],
+    ["kiten/b.mpu", "kiten/a.mpu"],
+  ]) {
     it(order.join(" → "), () =>
       withSync(async (sync) => {
         for (const path of order) await put(sync.dir, path, files[path]);
@@ -298,7 +273,8 @@ describe("14: метод зовёт метод этого же запуска �
           0,
           "совпало 2, изменено 0, конфликтов 0\n",
         ]);
-      }));
+      }),
+    );
   }
 });
 
@@ -310,14 +286,15 @@ it("15: каталог без права записи — сбой по мето
     const ran = await sync.run(SYNC);
     const lines = ran.stdout.split("\n");
     expect(ran.exit).toBe(1);
-    expect(lines.map((line) => line.split("\t").slice(0, 2).join("\t")))
-      .toStrictEqual([
-        "сбой\tkiten cardsIn:",
-        "сбой\tkiten mine",
-        "сбой\tkiten shipped",
-        "совпало 0, изменено 0, конфликтов 0",
-        "",
-      ]);
+    expect(
+      lines.map((line) => line.split("\t").slice(0, 2).join("\t")),
+    ).toStrictEqual([
+      "сбой\tkiten cardsIn:",
+      "сбой\tkiten mine",
+      "сбой\tkiten shipped",
+      "совпало 0, изменено 0, конфликтов 0",
+      "",
+    ]);
     assert(lines[0].split("\t")[2].length > 0, lines[0]);
     await chmod(`${sync.dir}/kiten`, 0o755);
     expect(outcome(await sync.run(SYNC))).toStrictEqual([0, FIRST]);
@@ -346,9 +323,7 @@ it("18, 48: другой каталог — свой архив; вложенн�
   withSync(async (sync) => {
     await sync.synced();
     const other = `${sync.dir}/other`;
-    const set = await sync.run(
-      `ask config key: image.dir value: ${other}`,
-    );
+    const set = await sync.run(`ask config key: image.dir value: ${other}`);
     expect(set.exit, set.stderr).toBe(0);
     expect(outcome(await sync.run(SYNC))).toStrictEqual([0, FIRST]);
     expect((await tree(other))["kiten/cardsIn:.mpu"]).toStrictEqual(
@@ -359,9 +334,11 @@ it("18, 48: другой каталог — свой архив; вложенн�
       "mpu other kiten define: метод — только у команды или группы";
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       1,
-      ["cardsIn:", "mine", "shipped"].map((name) =>
-        `файл не разобран\tother/kiten/${name}.mpu\t${refusal}\n`
-      ).join("") + "совпало 3, изменено 0, конфликтов 0\n",
+      ["cardsIn:", "mine", "shipped"]
+        .map(
+          (name) => `файл не разобран\tother/kiten/${name}.mpu\t${refusal}\n`,
+        )
+        .join("") + "совпало 3, изменено 0, конфликтов 0\n",
     ]);
   }));
 
@@ -408,7 +385,8 @@ describe("21–22: без ask — адресный отказ двери", () =>
           "",
           `mpu ${line}: требует подтверждения — вызывай mpu ask ${line}\n`,
         ]);
-      }));
+      }),
+    );
   }
 });
 
@@ -436,9 +414,11 @@ it("31, 53: справка, messages корня (группы — E10, export_te
       help.stdout,
     );
     assert(
-      help.stdout.replaceAll("\n", " ").includes(
-        "Звать после правки файлов методов или перед коммитом каталога образа: в отличие от ручного копирования видит, какая сторона изменилась с прошлого раза, и ничего не теряет — метод, изменённый с обеих сторон, не трогает.",
-      ),
+      help.stdout
+        .replaceAll("\n", " ")
+        .includes(
+          "Звать после правки файлов методов или перед коммитом каталога образа: в отличие от ручного копирования видит, какая сторона изменилась с прошлого раза, и ничего не теряет — метод, изменённый с обеих сторон, не трогает.",
+        ),
       help.stdout,
     );
     assert(help.stdout.includes("Варианты:\n  dry "), help.stdout);
@@ -461,7 +441,7 @@ it("34–35: мусор вместо файла не удаляет метод �
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       1,
       "файл не разобран\tkiten/cardsIn:.mpu\tв файле нет строки определения\n" +
-      "совпало 2, изменено 0, конфликтов 0\n",
+        "совпало 2, изменено 0, конфликтов 0\n",
     ]);
     expect(await readFile(sync.imageFile)).toStrictEqual(before);
     expect(ruleOf(sync.policy, "kiten cardsIn:")).toBe("allow");
@@ -472,7 +452,7 @@ it("34–35: мусор вместо файла не удаляет метод �
       2,
       "",
       QUESTION +
-      "mpu image sync: удалилось бы 2 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n",
+        "mpu image sync: удалилось бы 2 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n",
     ]);
   }));
 
@@ -484,7 +464,7 @@ it("36: define: получателя deny — сбой, база и архив �
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       1,
       "сбой\tkiten pingAll\tзапрещено правилом «kiten define:»\n" +
-      "совпало 0, изменено 0, конфликтов 0\n",
+        "совпало 0, изменено 0, конфликтов 0\n",
     ]);
     expect(ruleOf(sync.policy, "kiten pingAll")).toStrictEqual(undefined);
     using image = Image.at(sync.imageFile);
@@ -501,7 +481,7 @@ it("37: forget: получателя deny — сбой, метод в базе",
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       1,
       "сбой\tkiten mine\tзапрещено правилом «kiten forget:»\n" +
-      "совпало 2, изменено 0, конфликтов 0\n",
+        "совпало 2, изменено 0, конфликтов 0\n",
     ]);
     expect(ruleOf(sync.policy, "kiten mine")).toBe("allow");
   }));
@@ -522,10 +502,9 @@ it("41: BOM и \\r\\n — те же слова, файл не переписан
       0,
       "совпало 3, изменено 0, конфликтов 0\n",
     ]);
-    expect(new Uint8Array(await readFile(`${sync.dir}/kiten/mine.mpu`)))
-      .toStrictEqual(
-        bytes,
-      );
+    expect(
+      new Uint8Array(await readFile(`${sync.dir}/kiten/mine.mpu`)),
+    ).toStrictEqual(bytes);
   }));
 
 it("42: неразрывный пробел — часть слова, повтор совпадает", () =>
@@ -538,16 +517,14 @@ it("42: неразрывный пробел — часть слова, повт�
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       0,
       "новый файл\tkiten cardsIn:\nновый файл\tkiten mine\nновый файл\tkiten nb\n" +
-      "новый файл\tkiten shipped\nсовпало 0, изменено 4, конфликтов 0\n",
+        "новый файл\tkiten shipped\nсовпало 0, изменено 4, конфликтов 0\n",
     ]);
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       0,
       "совпало 4, изменено 0, конфликтов 0\n",
     ]);
     assert(
-      (await readFile(`${sync.dir}/kiten/nb.mpu`, "utf8")).includes(
-        "^a b^",
-      ),
+      (await readFile(`${sync.dir}/kiten/nb.mpu`, "utf8")).includes("^a b^"),
     );
   }));
 
@@ -561,7 +538,7 @@ it("44: имя файла без двоеточия — не тот метод",
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       1,
       "файл не разобран\tkiten/cardsIn.mpu\tв файле kiten cardsIn:, ждали kiten cardsIn\n" +
-      "совпало 3, изменено 0, конфликтов 0\n",
+        "совпало 3, изменено 0, конфликтов 0\n",
     ]);
   }));
 
@@ -582,10 +559,12 @@ it("49: посев image sync — ask, пути image нет", () =>
       path: string;
       verdict: string;
     }[];
-    expect(rules.filter((rule) => rule.path === "image sync")).toStrictEqual([{
-      path: "image sync",
-      verdict: "ask",
-    }]);
+    expect(rules.filter((rule) => rule.path === "image sync")).toStrictEqual([
+      {
+        path: "image sync",
+        verdict: "ask",
+      },
+    ]);
     expect(rules.filter((rule) => rule.path === "image")).toStrictEqual([]);
   }));
 
@@ -688,7 +667,7 @@ describe("Конфликт на этот запуск: base:/files: выбира
       },
       "ask image sync files: kiten.mine files: kiten.shipped",
       "база из файла\tkiten mine\nбаза из файла\tkiten shipped\n" +
-      "совпало 1, изменено 2, конфликтов 0\n",
+        "совпало 1, изменено 2, конфликтов 0\n",
     ],
   ];
   for (const [name, given, line, expected, exit = 0] of cases) {
@@ -697,7 +676,8 @@ describe("Конфликт на этот запуск: base:/files: выбира
         await sync.synced();
         await given(sync);
         expect(outcome(await sync.run(line))).toStrictEqual([exit, expected]);
-      }));
+      }),
+    );
   }
 });
 
@@ -713,12 +693,13 @@ it("Конфликт: kiten.mine называет и mine, и mine:", () =>
     await editFile(sync, "mine:");
     await redefine(sync, "mine");
     await redefine(sync, "mine:", "do :x kiten ls done");
-    expect(outcome(await sync.run("ask image sync files: kiten.mine")))
-      .toStrictEqual([
-        0,
-        "база из файла\tkiten mine\nбаза из файла\tkiten mine:\n" +
+    expect(
+      outcome(await sync.run("ask image sync files: kiten.mine")),
+    ).toStrictEqual([
+      0,
+      "база из файла\tkiten mine\nбаза из файла\tkiten mine:\n" +
         "совпало 2, изменено 2, конфликтов 0\n",
-      ]);
+    ]);
   }));
 
 describe("Конфликт: неверный адрес — отказ до вопроса, код 2", () => {
@@ -747,7 +728,8 @@ describe("Конфликт: неверный адрес — отказ до во
           "",
           stderr,
         ]);
-      }));
+      }),
+    );
   }
 });
 
@@ -770,10 +752,11 @@ async function removeFiles(sync: Sync, count: number) {
 }
 
 describe("Предохранители: N из M удалений стороны", () => {
-  const passes: readonly (readonly [number, number])[] = [[1, 3], [1, 2], [
-    2,
-    4,
-  ]];
+  const passes: readonly (readonly [number, number])[] = [
+    [1, 3],
+    [1, 2],
+    [2, 4],
+  ];
   for (const [deleted, of] of passes) {
     it(`${deleted} из ${of} — проходит`, () =>
       withSync(async (sync) => {
@@ -784,7 +767,10 @@ describe("Предохранители: N из M удалений стороны
         assert(ran.stdout.includes(`изменено ${deleted},`), ran.stdout);
       }));
   }
-  const refused: readonly (readonly [number, number])[] = [[2, 3], [3, 5]];
+  const refused: readonly (readonly [number, number])[] = [
+    [2, 3],
+    [3, 5],
+  ];
   for (const [deleted, of] of refused) {
     it(`${deleted} из ${of} — отказ`, () =>
       withSync(async (sync) => {
@@ -795,7 +781,7 @@ describe("Предохранители: N из M удалений стороны
           2,
           "",
           QUESTION +
-          `mpu image sync: удалилось бы ${deleted} из ${of} методов (база) — вызывай mpu ask image sync deletes: allow\n`,
+            `mpu image sync: удалилось бы ${deleted} из ${of} методов (база) — вызывай mpu ask image sync deletes: allow\n`,
         ]);
       }));
   }
@@ -807,7 +793,7 @@ describe("Предохранители: N из M удалений стороны
       expect([ran.exit, ran.stderr]).toStrictEqual([
         2,
         QUESTION +
-        "mpu image sync: удалилось бы 1 из 1 методов (файлы) — вызывай mpu ask image sync deletes: allow\n",
+          "mpu image sync: удалилось бы 1 из 1 методов (файлы) — вызывай mpu ask image sync deletes: allow\n",
       ]);
     }));
   it("10 из 10, deletes: allow — проходит", () =>
@@ -830,32 +816,24 @@ describe("Предохранители: N из M удалений стороны
       expect(outcome(await sync.run(SYNC))).toStrictEqual([
         0,
         "удалён метод\tkiten m1\nудалён файл\tkiten m3\n" +
-        "совпало 1, изменено 2, конфликтов 0\n",
+          "совпало 1, изменено 2, конфликтов 0\n",
       ]);
     }));
-  it(
-    "dry, 3 из 5 — тот же отказ, в совете dry",
-    () =>
-      withSync(async (sync) => {
-        await syncedMany(sync, 5);
-        await removeFiles(sync, 3);
-        const ran = await sync.run("ask image sync dry");
-        expect([ran.exit, ran.stdout, ran.stderr]).toStrictEqual([
-          2,
-          "",
-          "выполнить mpu image sync dry? [y/N] " +
+  it("dry, 3 из 5 — тот же отказ, в совете dry", () =>
+    withSync(async (sync) => {
+      await syncedMany(sync, 5);
+      await removeFiles(sync, 3);
+      const ran = await sync.run("ask image sync dry");
+      expect([ran.exit, ran.stdout, ran.stderr]).toStrictEqual([
+        2,
+        "",
+        "выполнить mpu image sync dry? [y/N] " +
           "mpu image sync dry: удалилось бы 3 из 5 методов (база) — вызывай mpu ask image sync dry deletes: allow\n",
-        ]);
-        expect(ran.refusals.map((one) => one.hint)).toStrictEqual([[
-          "ask",
-          "image",
-          "sync",
-          "dry",
-          "deletes:",
-          "allow",
-        ]]);
-      }),
-  );
+      ]);
+      expect(ran.refusals.map((one) => one.hint)).toStrictEqual([
+        ["ask", "image", "sync", "dry", "deletes:", "allow"],
+      ]);
+    }));
 });
 
 it("Файл метода: получатель из двух звеньев — вложенный каталог", () =>
@@ -916,7 +894,8 @@ describe("голдены testdata/image-sync: справка и messages — п�
         expect(ran.stdout).toStrictEqual(
           await readFile(new URL(name, GOLDENS), "utf8"),
         );
-      }));
+      }),
+    );
   }
 });
 
@@ -928,17 +907,15 @@ it("команда реестра image sync вне ядра не исполня
 
 it("отчёт: по получателю, затем по имени — не по склейке", () =>
   withSync(async (sync) => {
-    for (
-      const line of [
-        "ask kiten define: mine purpose: ^мои^ do kiten ls done",
-        "ask kiten ls define: inColumn purpose: ^к^ do :c kiten ls where: column is: @c done",
-      ]
-    ) {
+    for (const line of [
+      "ask kiten define: mine purpose: ^мои^ do kiten ls done",
+      "ask kiten ls define: inColumn purpose: ^к^ do :c kiten ls where: column is: @c done",
+    ]) {
       expect((await sync.run(line)).exit).toBe(0);
     }
     expect(outcome(await sync.run(SYNC))).toStrictEqual([
       0,
       "новый файл\tkiten mine\nновый файл\tkiten ls inColumn:\n" +
-      "совпало 0, изменено 2, конфликтов 0\n",
+        "совпало 0, изменено 2, конфликтов 0\n",
     ]);
   }));

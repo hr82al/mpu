@@ -30,11 +30,7 @@ function method(receiver: string, name: string, source: string): MethodSource {
 }
 
 const METHODS: readonly MethodSource[] = [
-  method(
-    "kiten",
-    "cardsIn:",
-    "do :col kiten ls where: column is: @col done",
-  ),
+  method("kiten", "cardsIn:", "do :col kiten ls where: column is: @col done"),
   method("kiten", "mine", "do kiten ls done"),
   method("kiten", "next:", "do :n @n plus: 1 done"),
   method("kiten", "sum:with:", "do :a :b @a plus: @b done"),
@@ -82,7 +78,8 @@ const COMMANDS: Commands = {
     data: (): Data =>
       collectionOf((result as { rows: unknown[] }).rows, {
         text: (items) =>
-          items.map((item) => `${(item.data() as { title: string }).title}\n`)
+          items
+            .map((item) => `${(item.data() as { title: string }).title}\n`)
             .join(""),
       }),
     formats: () => ["json"],
@@ -118,7 +115,7 @@ async function run(line: string, refuse = 0): Promise<Ran> {
   const end = await runProgram(line.split(" "), {
     commands: COMMANDS,
     core: core(lines, refuse),
-    print: (text) => out += text,
+    print: (text) => (out += text),
     signal: new AbortController().signal,
     pace: new Every(20, () => performance.now()),
     naming: TYPED,
@@ -130,10 +127,10 @@ it("вызов метода: согласие ядра, затем тело со
   const ran = await run("kiten cardsIn: review end size");
   expect(ran.out).toBe("2\n");
   expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
-  expect(ran.lines).toStrictEqual([["kiten", "cardsIn:", "review"], [
-    "kiten",
-    "ls",
-  ]]);
+  expect(ran.lines).toStrictEqual([
+    ["kiten", "cardsIn:", "review"],
+    ["kiten", "ls"],
+  ]);
 });
 
 it("унарный метод и метод у команды", async () => {

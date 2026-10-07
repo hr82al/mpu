@@ -16,14 +16,14 @@ export function renderTable(
   rows: readonly (readonly string[])[],
 ): string {
   const widths = header.map((title, column) =>
-    Math.max(title.length, ...rows.map((row) => row[column].length))
+    Math.max(title.length, ...rows.map((row) => row[column].length)),
   );
   return [header, ...rows]
     .map((row) =>
       row
         .map((cell, column) => cell.padEnd(widths[column]))
         .join(GAP)
-        .trimEnd()
+        .trimEnd(),
     )
     .map((line) => `${line}\n`)
     .join("");

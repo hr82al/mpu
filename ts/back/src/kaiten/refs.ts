@@ -152,10 +152,14 @@ export async function listSpaces(
   access: KaitenAccess,
   options: KaitenCallOptions = {},
 ): Promise<readonly Space[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: "/spaces",
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: "/spaces",
+    },
+    options,
+  );
   return collect(raw, parseSpace);
 }
 
@@ -165,10 +169,14 @@ export async function listBoardLanes(
   boardId: number,
   options: KaitenCallOptions = {},
 ): Promise<readonly Lane[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/boards/${boardId}/lanes`,
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/boards/${boardId}/lanes`,
+    },
+    options,
+  );
   return collect(raw, parseLane);
 }
 
@@ -178,10 +186,14 @@ export async function listBoardColumns(
   boardId: number,
   options: KaitenCallOptions = {},
 ): Promise<readonly Column[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/boards/${boardId}/columns`,
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/boards/${boardId}/columns`,
+    },
+    options,
+  );
   return collect(raw, parseColumn);
 }
 
@@ -193,10 +205,14 @@ export async function listCustomProperties(
   access: KaitenAccess,
   options: KaitenCallOptions = {},
 ): Promise<readonly CustomProperty[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: "/company/custom-properties",
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: "/company/custom-properties",
+    },
+    options,
+  );
   return collect(raw, parseCustomProperty);
 }
 

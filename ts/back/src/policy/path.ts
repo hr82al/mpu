@@ -38,8 +38,10 @@ export class RulePath {
 
   /** Начало ли этот путь пути строки — по звеньям. */
   covers(links: readonly string[]): boolean {
-    return this.#links.length <= links.length &&
-      this.#links.every((link, i) => link === links[i]);
+    return (
+      this.#links.length <= links.length &&
+      this.#links.every((link, i) => link === links[i])
+    );
   }
 
   /** Длиннее ли этот путь пути `other`: длинное совпадение сильнее. */

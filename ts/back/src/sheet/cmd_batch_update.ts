@@ -21,27 +21,31 @@ import { targetOf } from "./sources.ts";
 import { callWebapp } from "./webapp.ts";
 
 const argsSchema = z.object({
-  expression: z.array(z.string()).default([]).describe(
-    "инструкция скрипта; флаг повторяем, части склеиваются",
-  ),
+  expression: z
+    .array(z.string())
+    .default([])
+    .describe("инструкция скрипта; флаг повторяем, части склеиваются"),
   from: z.string().optional().describe("файл со скриптом; '-' — весь stdin"),
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
-  sheet: z.string().optional().describe(
-    "лист по умолчанию для диапазонов без '!'",
-  ),
-  literal: z.boolean().default(false).describe(
-    "значения всегда строки: ни чисел, ни формул, ни булевых",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать запросы и не отправлять их",
-  ),
+  sheet: z
+    .string()
+    .optional()
+    .describe("лист по умолчанию для диапазонов без '!'"),
+  literal: z
+    .boolean()
+    .default(false)
+    .describe("значения всегда строки: ни чисел, ни формул, ни булевых"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("напечатать запросы и не отправлять их"),
 });
 
 const resultSchema = z.object({
   spreadsheetId: z.string().describe("идентификатор таблицы"),
-  requests: z.array(z.unknown()).describe(
-    "скомпилированные запросы по порядку",
-  ),
+  requests: z
+    .array(z.unknown())
+    .describe("скомпилированные запросы по порядку"),
   dryRun: z.boolean().describe("вызов был печатью, отправки не было"),
   // `null`, а не отсутствие ключа: результат обязан пережить
   // сериализацию без потерь (контракт команды, инвариант 6), а

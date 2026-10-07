@@ -203,8 +203,7 @@ export async function projectFromRemote(
   if (remote.host !== expected) {
     // Порт в сверке не участвует: ssh-remote ходит по своему.
     throw new MrRefError(
-      `git remote смотрит на '${remote.host}', а не на '${expected}' — ` +
-        hint,
+      `git remote смотрит на '${remote.host}', а не на '${expected}' — ` + hint,
       false,
     );
   }

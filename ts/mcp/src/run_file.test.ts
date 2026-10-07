@@ -21,10 +21,7 @@ async function withHome(body: (home: string) => Promise<void>) {
     await mkdir(`${home}/w`);
     await writeFile(`${home}/.config/mpu/mcp-token`, SECRET);
     await writeFile(`${home}/w/x.mpu`, "@col print");
-    await writeFile(
-      `${home}/w/y.mpu`,
-      "ask kiten comment id: 11 text: a",
-    );
+    await writeFile(`${home}/w/y.mpu`, "ask kiten comment id: 11 text: a");
     await body(home);
   } finally {
     await rm(home, { recursive: true });
@@ -39,7 +36,7 @@ function viaMcp(home: string, words: readonly string[]) {
       withClient(stack, async (client) => {
         result = await call(stack, client, "mpu", { words });
       }),
-    { io: { env: (name) => name === "HOME" ? home : undefined } },
+    { io: { env: (name) => (name === "HOME" ? home : undefined) } },
   ).then(() => {
     if (result === undefined) throw new Error("тул не ответил");
     return result;
@@ -82,7 +79,7 @@ it("MCP run: — ask в тексте без elicitation: спросить нек
     const content = result.structuredContent as Record<string, unknown>;
     expect([content.stderr, content.exit]).toStrictEqual([
       "mpu kiten comment id: 11 text: a: нужно подтверждение, а спросить " +
-      "некого\n",
+        "некого\n",
       1,
     ]);
   }));

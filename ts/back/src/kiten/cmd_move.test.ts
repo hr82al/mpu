@@ -170,8 +170,9 @@ describe("move без осей — отказ до сети, раньше сел
       () => kitenMoveCommand.invoke([String(CARD_ID)], makeFakeIo({})),
       UsageError,
     );
-    expect(`${formatCommandError(kitenMoveCommand.errorName, err)}\n`)
-      .toStrictEqual(await golden("err-no-axis-stderr.txt"));
+    expect(
+      `${formatCommandError(kitenMoveCommand.errorName, err)}\n`,
+    ).toStrictEqual(await golden("err-no-axis-stderr.txt"));
   });
   it("негодный селектор без осей — отказ про оси", async () => {
     const err = await rejected(
@@ -185,13 +186,14 @@ describe("move без осей — отказ до сети, раньше сел
 });
 
 it("move с осью, но негодным селектором — отказ про селектор", async () => {
-  const err = await rejected(() =>
-    kitenMoveCommand.invoke(
-      ["abc", "--column", "Готово"],
-      makeFakeIo({}),
-    ), UsageError);
-  expect(`${formatCommandError(kitenMoveCommand.errorName, err)}\n`)
-    .toStrictEqual(await golden("err-selector-stderr.txt"));
+  const err = await rejected(
+    () =>
+      kitenMoveCommand.invoke(["abc", "--column", "Готово"], makeFakeIo({})),
+    UsageError,
+  );
+  expect(
+    `${formatCommandError(kitenMoveCommand.errorName, err)}\n`,
+  ).toStrictEqual(await golden("err-selector-stderr.txt"));
 });
 
 describe("ready --dry-run: намерение без единой мутации", () => {
@@ -273,9 +275,12 @@ it("ready на текущей колонке — релог двумя PATCH", a
       text,
     ).toBe(true);
     // Сосед слева от «Готово» — «В работе», затем возврат в цель.
-    expect(patches(st)).toStrictEqual([{ column_id: 5620662 }, {
-      column_id: READY_ID,
-    }]);
+    expect(patches(st)).toStrictEqual([
+      { column_id: 5620662 },
+      {
+        column_id: READY_ID,
+      },
+    ]);
     expect(moveRows(st).length).toBe(1);
   } finally {
     await st.stop();
@@ -283,12 +288,12 @@ it("ready на текущей колонке — релог двумя PATCH", a
 });
 
 it("review берёт свою колонку из ключа env-файла", async () => {
-  const st = await stand([
-    card(BACKLOG_ID, "Бэклог"),
-    card(5620662, "В работе"),
-  ], {
-    KITEN_REVIEW_COLUMN: "В работе",
-  });
+  const st = await stand(
+    [card(BACKLOG_ID, "Бэклог"), card(5620662, "В работе")],
+    {
+      KITEN_REVIEW_COLUMN: "В работе",
+    },
+  );
   try {
     await output(kitenReviewCommand, [String(CARD_ID)], st.io);
     expect(patches(st)).toStrictEqual([{ column_id: 5620662 }]);
@@ -343,9 +348,12 @@ it("move --column с текущей колонкой — релог", async () =
       st.io,
     );
     expect(text.includes(" (релог) · "), text).toBe(true);
-    expect(patches(st)).toStrictEqual([{ column_id: 5620662 }, {
-      column_id: READY_ID,
-    }]);
+    expect(patches(st)).toStrictEqual([
+      { column_id: 5620662 },
+      {
+        column_id: READY_ID,
+      },
+    ]);
   } finally {
     await st.stop();
   }
@@ -354,11 +362,11 @@ it("move --column с текущей колонкой — релог", async () =
 it("нерезолвящийся REF — отказ ввода без мутаций", async () => {
   const st = await stand([card(BACKLOG_ID, "Бэклог")]);
   try {
-    const err = await rejected(() =>
-      kitenMoveCommand.invoke(
-        [String(CARD_ID), "--column", "Архив"],
-        st.io,
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        kitenMoveCommand.invoke([String(CARD_ID), "--column", "Архив"], st.io),
+      UsageError,
+    );
     expect(err.message).toBe(
       "column 'Архив' не найден — см. `mpu kiten columns`",
     );
@@ -388,9 +396,12 @@ it("релог возвращает карточку одной колонкой
       [String(CARD_ID), "--column", "Готово", "--lane", "Веб"],
       st.io,
     );
-    expect(patches(st)).toStrictEqual([{ column_id: 5620662 }, {
-      column_id: READY_ID,
-    }]);
+    expect(patches(st)).toStrictEqual([
+      { column_id: 5620662 },
+      {
+        column_id: READY_ID,
+      },
+    ]);
   } finally {
     await st.stop();
   }

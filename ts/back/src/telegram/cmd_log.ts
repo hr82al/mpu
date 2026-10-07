@@ -16,11 +16,13 @@ import { botConfig } from "./bot_config.ts";
 import { inputError } from "./errors.ts";
 
 const argsSchema = z.object({
-  message: z.string({ error: "нужен text: текст заметки либо '-'" })
+  message: z
+    .string({ error: "нужен text: текст заметки либо '-'" })
     .describe("текст заметки; '-' — весь stdin, только в CLI"),
-  file: z.string().optional().describe(
-    "вложение: путь к файлу; ровно один, флаг не повторяется",
-  ),
+  file: z
+    .string()
+    .optional()
+    .describe("вложение: путь к файлу; ровно один, флаг не повторяется"),
 });
 
 const resultSchema = z.object({
@@ -53,9 +55,10 @@ export async function logMessage(
   args: LogArgs,
   io: Pick<CommandIo, "readStdin" | "readRegularFile">,
 ): Promise<BotMessage> {
-  const text = args.message === "-"
-    ? new TextDecoder().decode(await io.readStdin())
-    : args.message;
+  const text =
+    args.message === "-"
+      ? new TextDecoder().decode(await io.readStdin())
+      : args.message;
   if (args.file === undefined) {
     if (text.trim() === "") throw inputError("нужен непустой MESSAGE");
     return { kind: "text", text };
@@ -130,9 +133,7 @@ http, https, socks5, socks5h; socks4 не принимается (у mpu telegra
 через MTProto — работает).
 
 Exit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — ошибка ввода.`,
-  examples: [
-    'mpu telegram log text: "разбор за среду" file: /tmp/разбор.md',
-  ],
+  examples: ['mpu telegram log text: "разбор за среду" file: /tmp/разбор.md'],
   policy: "rw",
   logsArguments: false,
   // Вывод пишется: в нём только номер отправленного сообщения, ввода в

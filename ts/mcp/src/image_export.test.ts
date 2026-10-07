@@ -30,26 +30,35 @@ it("E4: агентский вызов — исполнено без вопрос
     await mkdir(`${home}/mr/mp/mpu`, { recursive: true });
     await withStack(
       (stack) =>
-        withClient(stack, async (client) => {
-          for (const words of AS_IN_FOUR) {
-            const done = await call(stack, client, "mpu", { words });
-            expect(done.isError, JSON.stringify(done)).toBe(false);
-          }
-          const reply = await collected(
-            stack.back,
-            await post(stack.back, "/agent/line", {
-              words: ["image", "export"],
-              cwd: process.cwd(),
-              human: false,
-            }, { accept: "application/json", agent: true }),
-          );
-          expect([reply.exit, reply.stdout, reply.stderr]).toStrictEqual([
-            0,
-            "файл из базы\tkiten mine\nсовпало 2, изменено 1, конфликтов 0\n",
-            "",
-          ]);
-        }, () => ({ action: "accept", content: {} })),
-      { io: { env: (name) => name === "HOME" ? home : undefined } },
+        withClient(
+          stack,
+          async (client) => {
+            for (const words of AS_IN_FOUR) {
+              const done = await call(stack, client, "mpu", { words });
+              expect(done.isError, JSON.stringify(done)).toBe(false);
+            }
+            const reply = await collected(
+              stack.back,
+              await post(
+                stack.back,
+                "/agent/line",
+                {
+                  words: ["image", "export"],
+                  cwd: process.cwd(),
+                  human: false,
+                },
+                { accept: "application/json", agent: true },
+              ),
+            );
+            expect([reply.exit, reply.stdout, reply.stderr]).toStrictEqual([
+              0,
+              "файл из базы\tkiten mine\nсовпало 2, изменено 1, конфликтов 0\n",
+              "",
+            ]);
+          },
+          () => ({ action: "accept", content: {} }),
+        ),
+      { io: { env: (name) => (name === "HOME" ? home : undefined) } },
     );
   } finally {
     await rm(home, { recursive: true });

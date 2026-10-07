@@ -60,7 +60,9 @@ export class NewestPages {
     const fresh = page.filter((entry) => !this.#seen.has(keyOf(entry)));
     for (const entry of page) this.#seen.add(keyOf(entry));
     this.#entries.push(...fresh);
-    const done = fresh.length === 0 || page.length < asked ||
+    const done =
+      fresh.length === 0 ||
+      page.length < asked ||
       this.#entries.length >= this.#limit;
     // Граница — самая старая запись страницы: `+ 1` держит её внутри
     // окна при любой трактовке конца у источника, а повтор отбрасывает
@@ -106,18 +108,15 @@ export async function readNewest(
 /** Та же запись: время, метки потока и текст. */
 function keyOf(entry: LogEntry): string {
   const labels = Object.entries(entry.labels).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0
+    a < b ? -1 : a > b ? 1 : 0,
   );
   return JSON.stringify([entry.tsNs, labels, entry.line]);
 }
 
 /** Наименьшее время страницы; страница непуста — иначе `take` не спросит. */
 function oldestNs(page: readonly LogEntry[]): bigint {
-  return page.reduce(
-    (oldest, entry) => {
-      const ns = BigInt(entry.tsNs);
-      return ns < oldest ? ns : oldest;
-    },
-    BigInt(page[0].tsNs),
-  );
+  return page.reduce((oldest, entry) => {
+    const ns = BigInt(entry.tsNs);
+    return ns < oldest ? ns : oldest;
+  }, BigInt(page[0].tsNs));
 }

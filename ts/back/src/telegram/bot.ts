@@ -40,11 +40,11 @@ export interface BotSent {
 export type BotMessage =
   | { readonly kind: "text"; readonly text: string }
   | {
-    readonly kind: "document";
-    /** Подпись документа; пустая — документ уходит без неё. */
-    readonly caption: string;
-    readonly file: Attachment;
-  };
+      readonly kind: "document";
+      /** Подпись документа; пустая — документ уходит без неё. */
+      readonly caption: string;
+      readonly file: Attachment;
+    };
 
 /** Описания, при которых отказ означает «диалог с ботом не начат». */
 const NEEDS_START = ["chat not found", "bot was blocked"];
@@ -70,9 +70,10 @@ export async function sendBotMessage(
     if (!(err instanceof BotCallError)) throw err;
     throw configError(err.explain(failureWords(config)), { cause: err });
   }
-  const id = typeof result === "object" && result !== null
-    ? (result as { message_id?: unknown }).message_id
-    : undefined;
+  const id =
+    typeof result === "object" && result !== null
+      ? (result as { message_id?: unknown }).message_id
+      : undefined;
   if (typeof id !== "number") {
     throw configError("bot API не сообщил номер сообщения");
   }

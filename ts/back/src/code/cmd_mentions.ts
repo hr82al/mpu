@@ -24,7 +24,10 @@ const DEFAULT_LIMIT = 200;
 const argsSchema = z.object({
   path: z.string().min(1, "нужен путь"),
   in: z.string().optional(),
-  limit: z.number().int().positive("--limit ожидает положительное целое")
+  limit: z
+    .number()
+    .int()
+    .positive("--limit ожидает положительное целое")
     .default(DEFAULT_LIMIT),
 });
 
@@ -107,10 +110,9 @@ export async function runMentions(
 
 /** Текст ответа: по разделу на репозиторий, каждый со своей отметкой. */
 export function renderMentions(result: MentionsResult): string {
-  return `${
-    result.sections.map((section) => renderSection(result.path, section))
-      .join("\n\n")
-  }\n`;
+  return `${result.sections
+    .map((section) => renderSection(result.path, section))
+    .join("\n\n")}\n`;
 }
 
 function renderSection(

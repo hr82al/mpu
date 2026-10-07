@@ -48,7 +48,8 @@ export interface LoaderOptions {
 
 type LoaderIo = CommandIo;
 
-const selector = z.string({ error: "нужен СЕЛЕКТОР" })
+const selector = z
+  .string({ error: "нужен СЕЛЕКТОР" })
   .describe("селектор: sid, client_id, таблица, заголовок");
 
 const targetForms = {
@@ -59,11 +60,13 @@ const targetForms = {
 
 const callResult = z.object({
   sid: z.string(),
-  call: z.object({
-    method: z.string(),
-    path: z.string(),
-    body: z.unknown(),
-  }).describe("запрос, который команда делает или напечатала"),
+  call: z
+    .object({
+      method: z.string(),
+      path: z.string(),
+      body: z.unknown(),
+    })
+    .describe("запрос, который команда делает или напечатала"),
   printed: z.boolean().describe("вызов только напечатан"),
   response: z.unknown().describe("ответ сервера; у печати — null"),
 });
@@ -138,13 +141,17 @@ function renderCall(result: CallResult, extra: readonly string[] = []): string {
 const blockedArgs = z.object({
   loader: z.string().optional().describe("фильтр по загрузчику (camelCase)"),
   reason: z.string().optional().describe("фильтр по причине блокировки"),
-  "only-permanent": z.boolean().default(false).describe(
-    "только причины, требующие ручного снятия",
-  ),
+  "only-permanent": z
+    .boolean()
+    .default(false)
+    .describe("только причины, требующие ручного снятия"),
   sid: z.string().optional().describe("фильтр по кабинету"),
-  server: z.string().optional().describe(
-    "клиентский постфильтр по инстансу (wb-N); в тело запроса не идёт",
-  ),
+  server: z
+    .string()
+    .optional()
+    .describe(
+      "клиентский постфильтр по инстансу (wb-N); в тело запроса не идёт",
+    ),
   print: z.boolean().default(false).describe("напечатать вызов и выйти"),
 });
 
@@ -170,11 +177,17 @@ export async function runBlocked(
   const filter = blockedFilter(args);
   // `--server` в тело не входит никогда: это клиентский постфильтр
   // (спека, инвариант).
-  return await perform(io, options, args.sid ?? "", {
-    method: "POST",
-    path: FIND_PATH,
-    body: { filter },
-  }, args.print);
+  return await perform(
+    io,
+    options,
+    args.sid ?? "",
+    {
+      method: "POST",
+      path: FIND_PATH,
+      body: { filter },
+    },
+    args.print,
+  );
 }
 
 export const wbLoaderBlockedCommand = defineCommand({
@@ -214,7 +227,8 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — негодное имя 
 
 const statusArgs = z.object({
   selector,
-  loader: z.string({ error: "нужен LOADER: kebab-слаг загрузчика" })
+  loader: z
+    .string({ error: "нужен LOADER: kebab-слаг загрузчика" })
     .describe("загрузчик kebab-слагом (cards, adv-fullstats, …)"),
   sid: z.string().optional().describe("явный WB sid: прямой режим"),
   "client-id": z.string().optional().describe("сузить селектор до клиента"),
@@ -233,16 +247,24 @@ async function runOnLoader(
   body?: unknown,
 ): Promise<CallResult> {
   const slug = requireSlug(args.loader);
-  const sid = requireSingleSid(targetOf(io, {
-    selector: args.selector,
-    sid: args.sid,
-    clientId: args["client-id"],
-  }));
-  return await perform(io, options, sid, {
-    method,
-    path: loaderPath(sid, slug, tail),
-    body,
-  }, args.print);
+  const sid = requireSingleSid(
+    targetOf(io, {
+      selector: args.selector,
+      sid: args.sid,
+      clientId: args["client-id"],
+    }),
+  );
+  return await perform(
+    io,
+    options,
+    sid,
+    {
+      method,
+      path: loaderPath(sid, slug, tail),
+      body,
+    },
+    args.print,
+  );
 }
 
 export const wbLoaderStatusCommand = defineCommand({
@@ -297,7 +319,8 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода 
 
 const configArgs = z.object({
   selector,
-  loader: z.string({ error: "нужен LOADER: kebab-слаг загрузчика" })
+  loader: z
+    .string({ error: "нужен LOADER: kebab-слаг загрузчика" })
     .describe("загрузчик kebab-слагом"),
   sid: z.string().optional().describe("явный WB sid: прямой режим"),
   "client-id": z.string().optional().describe("сузить селектор до клиента"),
@@ -317,10 +340,15 @@ type ConfigArgs = z.infer<typeof configArgs>;
 export function configMode(
   args: ConfigArgs,
 ): "read" | "enable" | "disable" | "reset" {
-  const given = ([["enable", args.enable], ["disable", args.disable], [
-    "reset",
-    args.reset,
-  ]] as const).filter(([, on]) => on).map(([name]) => name);
+  const given = (
+    [
+      ["enable", args.enable],
+      ["disable", args.disable],
+      ["reset", args.reset],
+    ] as const
+  )
+    .filter(([, on]) => on)
+    .map(([name]) => name);
   if (given.length === 0) return "read";
   if (given.length > 1) {
     throw new UsageError(
@@ -388,17 +416,17 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — два флага сра
 
 const resetArgs = z.object({
   selector,
-  loader: z.string({ error: "нужен LOADER: kebab-слаг загрузчика" })
+  loader: z
+    .string({ error: "нужен LOADER: kebab-слаг загрузчика" })
     .describe("загрузчик kebab-слагом"),
   sid: z.string().optional().describe("явный WB sid: прямой режим"),
   "client-id": z.string().optional().describe("сузить селектор до клиента"),
   state: z.string().optional().describe("частичное состояние как есть (JSON)"),
-  from: z.string().optional().describe(
-    "дата начала окна YYYY-MM-DD; только для загрузчиков по датам",
-  ),
-  "and-load": z.boolean().default(false).describe(
-    "следом дёрнуть форс-прогон",
-  ),
+  from: z
+    .string()
+    .optional()
+    .describe("дата начала окна YYYY-MM-DD; только для загрузчиков по датам"),
+  "and-load": z.boolean().default(false).describe("следом дёрнуть форс-прогон"),
   print: z.boolean().default(false).describe("напечатать вызов и выйти"),
 });
 
@@ -408,11 +436,14 @@ const resetResult = callResult.extend({
   // обязана показать всю работу, которую команда бы сделала, и брать
   // это ей больше неоткуда (`ts/CLAUDE.md`, «Величина берётся там, где
   // совершается работа» — тот же довод про вывод).
-  loadCall: z.object({
-    method: z.string(),
-    path: z.string(),
-    body: z.unknown(),
-  }).nullable().describe("вызов форс-прогона; без and-load — null"),
+  loadCall: z
+    .object({
+      method: z.string(),
+      path: z.string(),
+      body: z.unknown(),
+    })
+    .nullable()
+    .describe("вызов форс-прогона; без and-load — null"),
 });
 
 type ResetArgs = z.infer<typeof resetArgs>;
@@ -505,18 +536,16 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — state: вместе с f
   run: (args: ResetArgs, io: LoaderIo) => runReset(args, io),
   render: (result: ResetResult) => {
     if (!result.printed || result.loadCall === null) return renderCall(result);
-    return curlSnippet([
-      callOf(result.call),
-      callOf(result.loadCall),
-    ]);
+    return curlSnippet([callOf(result.call), callOf(result.loadCall)]);
   },
 });
 
 const resumeArgs = z.object({
   selector,
-  loader: z.string().optional().describe(
-    "загрузчик camelCase; без него — показ",
-  ),
+  loader: z
+    .string()
+    .optional()
+    .describe("загрузчик camelCase; без него — показ"),
   sid: z.string().optional().describe("явный WB sid: прямой режим"),
   "client-id": z.string().optional().describe("сузить селектор до клиента"),
   all: z.boolean().default(false).describe("снять блокировки со всех"),
@@ -525,15 +554,23 @@ const resumeArgs = z.object({
 
 const resumeResult = z.object({
   printed: z.boolean().describe("вызовы только напечатаны"),
-  calls: z.array(z.object({
-    method: z.string(),
-    path: z.string(),
-    body: z.unknown(),
-  })).describe("вызовы в порядке исполнения; показ — по одному на кабинет"),
-  entries: z.array(z.object({
-    sid: z.string(),
-    response: z.unknown(),
-  })).describe("ответ по каждому кабинету; у печати — null"),
+  calls: z
+    .array(
+      z.object({
+        method: z.string(),
+        path: z.string(),
+        body: z.unknown(),
+      }),
+    )
+    .describe("вызовы в порядке исполнения; показ — по одному на кабинет"),
+  entries: z
+    .array(
+      z.object({
+        sid: z.string(),
+        response: z.unknown(),
+      }),
+    )
+    .describe("ответ по каждому кабинету; у печати — null"),
 });
 
 type ResumeArgs = z.infer<typeof resumeArgs>;
@@ -549,9 +586,8 @@ export async function runResume(
       advice: "оставь что-то одно",
     });
   }
-  const loader = args.loader === undefined
-    ? undefined
-    : requireLoader(args.loader);
+  const loader =
+    args.loader === undefined ? undefined : requireLoader(args.loader);
   const target = targetOf(io, {
     selector: args.selector,
     sid: args.sid,
@@ -566,10 +602,12 @@ export async function runResume(
     const sid = requireSingleSid(target);
     const filter: Record<string, unknown> = { sid };
     if (loader !== undefined) filter.loader = loader;
-    return await resumeCalls(io, options, args.print, [{
-      sid,
-      call: { method: "POST", path: RESUME_PATH, body: { filter } },
-    }]);
+    return await resumeCalls(io, options, args.print, [
+      {
+        sid,
+        call: { method: "POST", path: RESUME_PATH, body: { filter } },
+      },
+    ]);
   }
   return await resumeCalls(
     io,
@@ -649,11 +687,13 @@ Exit: 0 — успех; 1 — отказ sl-back (403 — не хватает р
   // сделанного — тот же дефект, что чинили в печати `--and-load`.
   render: (result: ResumeResult) =>
     result.printed
-      ? curlSnippet(result.calls.map((call) => ({
-        method: call.method,
-        path: call.path,
-        body: call.body ?? undefined,
-      })))
+      ? curlSnippet(
+          result.calls.map((call) => ({
+            method: call.method,
+            path: call.path,
+            body: call.body ?? undefined,
+          })),
+        )
       : `${JSON.stringify(result.entries, null, 2)}\n`,
 });
 

@@ -77,8 +77,10 @@ it("unsetConfigValue: идемпотентно, пустое значение �
     unsetConfigValue(db, "sheet.cache.tab_ttl");
     expect(configValue(db, "sheet.cache.tab_ttl")).toStrictEqual(undefined);
     setConfigValue(db, "sheet.cache.tab_ttl", "");
-    expect(configValue(db, "sheet.cache.tab_ttl"), "пустое — умолчание")
-      .toStrictEqual(undefined);
+    expect(
+      configValue(db, "sheet.cache.tab_ttl"),
+      "пустое — умолчание",
+    ).toStrictEqual(undefined);
   }));
 
 it("алиасы: upsert, алфавитный порядок, удаление по факту", () =>

@@ -24,10 +24,14 @@ export function resolvePath(
   // читать его значило бы молча отдавать умолчания. Оба источника
   // снимаются за одно открытие: `resolve --json` печатает все три
   // источника, включая config, даже когда победил флаг.
-  const store = readPreferences(io, (db) => ({
-    configValue: configValue(db, "xlsx.default"),
-    aliases: new Map(aliases(db).map((a) => [a.name, a.path])),
-  }), { configValue: undefined, aliases: new Map<string, string>() });
+  const store = readPreferences(
+    io,
+    (db) => ({
+      configValue: configValue(db, "xlsx.default"),
+      aliases: new Map(aliases(db).map((a) => [a.name, a.path])),
+    }),
+    { configValue: undefined, aliases: new Map<string, string>() },
+  );
   return resolveXlsxPath({
     flagValue,
     envValue: io.envFile.get("MPU_XLSX"),

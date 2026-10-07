@@ -15,9 +15,9 @@ body {
 .node {
   display: flex;
   flex-wrap: wrap;
-  gap: .5rem;
+  gap: 0.5rem;
   align-items: baseline;
-  padding: .15rem 0;
+  padding: 0.15rem 0;
 }
 .path {
   font-family: ui-monospace, monospace;
@@ -25,11 +25,11 @@ body {
 }
 .summary,
 .origin {
-  opacity: .75;
+  opacity: 0.75;
 }
 .verdict {
-  padding: 0 .4rem;
-  border-radius: .3rem;
+  padding: 0 0.4rem;
+  border-radius: 0.3rem;
   color: #fff;
 }
 .verdict-allow {
@@ -43,19 +43,19 @@ body {
 }
 .own,
 .mixed {
-  font-size: .85em;
+  font-size: 0.85em;
   border: 1px solid currentColor;
-  border-radius: .3rem;
-  padding: 0 .3rem;
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
 }
 .actions {
   display: inline-flex;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / .4);
+  background: rgb(0 0 0 / 0.4);
   display: grid;
   place-items: center;
 }
@@ -63,11 +63,11 @@ body {
   background: Canvas;
   color: CanvasText;
   padding: 1.5rem;
-  border-radius: .5rem;
+  border-radius: 0.5rem;
   max-width: 36rem;
 }
 .dialog-actions {
   display: flex;
-  gap: .5rem;
+  gap: 0.5rem;
   justify-content: flex-end;
 }

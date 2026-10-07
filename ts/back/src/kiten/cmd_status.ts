@@ -70,26 +70,37 @@ import {
 type StatusIo = AccessIo & Pick<CommandIo, "openCacheDb" | "progress">;
 
 const argsSchema = z.object({
-  since: z.string().default("7d").describe(
-    "окно активности: <число>{s|m|h|d} или unix-ts",
-  ),
-  "time-since": z.string().default("365d").describe(
-    "окно суммы колонки ВРЕМЯ; независимо от --since",
-  ),
-  out: z.enum(["matrix", "group", "json", "md", "url"]).default("matrix")
+  since: z
+    .string()
+    .default("7d")
+    .describe("окно активности: <число>{s|m|h|d} или unix-ts"),
+  "time-since": z
+    .string()
+    .default("365d")
+    .describe("окно суммы колонки ВРЕМЯ; независимо от --since"),
+  out: z
+    .enum(["matrix", "group", "json", "md", "url"])
+    .default("matrix")
     .describe("форма вывода"),
-  stage: z.string().optional().describe(
-    "только один этап: queue|estimate|work|review|test|dev|preprod|done",
-  ),
+  stage: z
+    .string()
+    .optional()
+    .describe(
+      "только один этап: queue|estimate|work|review|test|dev|preprod|done",
+    ),
   board: z.string().optional().describe("доска: ID или подстрока названия"),
-  source: z.enum(["assigned", "time", "activity", "touch"]).optional()
+  source: z
+    .enum(["assigned", "time", "activity", "touch"])
+    .optional()
     .describe("почему карточка в выдаче"),
-  only: z.enum(["open", "done"]).optional().describe(
-    "только незавершённые или только завершённые",
-  ),
-  format: z.string().optional().describe(
-    "строка на карточку; перекрывает формат после end",
-  ),
+  only: z
+    .enum(["open", "done"])
+    .optional()
+    .describe("только незавершённые или только завершённые"),
+  format: z
+    .string()
+    .optional()
+    .describe("строка на карточку; перекрывает формат после end"),
 });
 
 const rowSchema = z.object({
@@ -218,36 +229,45 @@ export async function runKitenStatus(
       (id) => cardUrl(access, id),
       (boardIds) =>
         columnTitlesFor(db, api, boardIds, (boardId, columns) => {
-          writeBoardRows(db, "kaiten_columns", {
-            boardIds: [boardId],
-            rows: columns.map((column: Column) => ({
-              id: column.id,
-              boardId: column.boardId,
-              title: column.title,
-            })),
-          }, now);
+          writeBoardRows(
+            db,
+            "kaiten_columns",
+            {
+              boardIds: [boardId],
+              rows: columns.map((column: Column) => ({
+                id: column.id,
+                boardId: column.boardId,
+                title: column.title,
+              })),
+            },
+            now,
+          );
         }),
-    )
+    ),
   );
 
   const merged = mergeInputs(collected.inputs, collected.minutes, stageMap(io));
   const visible = merged.filter((row) => inWindow(row, since));
-  const rows = sortRows(applyFilters(visible, {
-    stage,
-    board: args.board === undefined ? undefined : boardTitle(db, args.board),
-    source: args.source as StatusSource | "touch" | undefined,
-    only: args.only,
-  }));
+  const rows = sortRows(
+    applyFilters(visible, {
+      stage,
+      board: args.board === undefined ? undefined : boardTitle(db, args.board),
+      source: args.source as StatusSource | "touch" | undefined,
+      only: args.only,
+    }),
+  );
 
   if (!collected.feedComplete && collected.oldestFeedAt !== null) {
     // Предупреждение уходит при любой форме вывода: в json/md/url
     // выдача иначе молча выглядит полной (отклонение `fix`).
     io.progress(
-      `mpu kiten status: лента действий прочитана только до ${
-        collected.oldestFeedAt.slice(0, 10)
-      } (предел ${
-        feedLimit(since, now)
-      } страниц); карточки, которые я лишь комментировал раньше этой даты,` +
+      `mpu kiten status: лента действий прочитана только до ${collected.oldestFeedAt.slice(
+        0,
+        10,
+      )} (предел ${feedLimit(
+        since,
+        now,
+      )} страниц); карточки, которые я лишь комментировал раньше этой даты,` +
         " могли не попасть в выдачу",
     );
   }
@@ -405,9 +425,7 @@ function stageMap(io: StatusIo): Readonly<Record<string, Stage>> {
     return {};
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    io.progress(
-      "mpu kiten status: KITEN_STAGE_MAP должен быть JSON-объектом",
-    );
+    io.progress("mpu kiten status: KITEN_STAGE_MAP должен быть JSON-объектом");
     return {};
   }
   return stageMapOf(parsed as Readonly<Record<string, unknown>>);
@@ -429,9 +447,9 @@ function stageArg(raw: string): Stage {
   const stage = stageFromInput(raw);
   if (stage === null) {
     throw new UsageError(
-      `неизвестный этап '${raw}'; допустимо: ${
-        Object.keys(STAGE_ALIASES).join(", ")
-      }`,
+      `неизвестный этап '${raw}'; допустимо: ${Object.keys(STAGE_ALIASES).join(
+        ", ",
+      )}`,
     );
   }
   return stage;

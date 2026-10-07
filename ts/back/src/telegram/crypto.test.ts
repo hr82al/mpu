@@ -28,15 +28,13 @@ describe("встроенный модуль не прочитан — свой �
   // граф модулей по файлам).
   const refusals = [
     ["модуль не найден в сборке", () => new Error("нет встроенного модуля")],
-    [
-      "модуль испорчен",
-      () => compileError(new Uint8Array([0, 1, 2, 3])),
-    ],
+    ["модуль испорчен", () => compileError(new Uint8Array([0, 1, 2, 3]))],
   ] as const;
   for (const [name, refusal] of refusals) {
     it(name, async () => {
-      expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
-        .toBe(undefined);
+      expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
+        undefined,
+      );
       const cause = refusal();
       const real = WebAssembly.Module;
       Reflect.set(WebAssembly, "Module", function () {
@@ -84,8 +82,10 @@ it("криптография Telegram поднимается без сети: wa
   } finally {
     globalThis.fetch = realFetch;
   }
-  expect(asked, `инициализация ходила в сеть: ${String(failure)}`)
-    .toStrictEqual([]);
+  expect(
+    asked,
+    `инициализация ходила в сеть: ${String(failure)}`,
+  ).toStrictEqual([]);
   expect(failure).toStrictEqual(undefined);
   // Модуль в деле: шифр IGE, ради которого wasm и грузится, обратим.
   const key = new Uint8Array(32).fill(7);
@@ -127,8 +127,7 @@ describe("встроенный wasm — ровно тот, что у @mtcute/was
       expect(
         bytes.equals(await readFile(new URL(name, PACKAGE))),
         "файл пакета",
-      )
-        .toBe(true);
+      ).toBe(true);
     });
   }
 });

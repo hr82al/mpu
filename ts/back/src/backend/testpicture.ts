@@ -88,7 +88,7 @@ async function serveStand(wire: Wire, io: CommandIo, dir: string) {
   const replayed: Wire = {
     lines: async function* () {
       yield first.value;
-      for (let next = await lines.next(); next.done !== true;) {
+      for (let next = await lines.next(); next.done !== true; ) {
         yield next.value;
         next = await lines.next();
       }

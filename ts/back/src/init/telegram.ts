@@ -18,10 +18,7 @@ import type { CommandIo } from "../command/mod.ts";
 import { loginFailureReason, runTelegramLoginStep } from "../telegram/mod.ts";
 
 /** Срез порта: ровно то, что нужно самому входу. */
-export type TelegramIo = Pick<
-  CommandIo,
-  "envFile" | "progress" | "prompt"
->;
+export type TelegramIo = Pick<CommandIo, "envFile" | "progress" | "prompt">;
 
 /**
  * Выполняет вход. `null` — сессия записана либо уже была; иначе
@@ -31,9 +28,7 @@ export type TelegramIo = Pick<
  * заканчивается своим кодом независимо от Telegram. Причина при этом
  * называется — молчаливого пропуска не бывает.
  */
-export async function runTelegramLogin(
-  io: TelegramIo,
-): Promise<string | null> {
+export async function runTelegramLogin(io: TelegramIo): Promise<string | null> {
   try {
     const result = await runTelegramLoginStep(io);
     return result.status === "skipped" ? result.reason : null;

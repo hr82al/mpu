@@ -17,10 +17,7 @@ import {
 import { rowsOf, type SearchRow } from "./row.ts";
 
 /** Порт исполнения глазами локального режима. */
-export type LocalIo = Pick<
-  CommandIo,
-  "envFile" | "openCacheDb" | "progress"
->;
+export type LocalIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress">;
 
 /** Что локальный режим знает о вызове. */
 export interface LocalQuery {

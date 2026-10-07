@@ -57,10 +57,9 @@ const KEPT = "прежнее имя входа";
  * Вариант, названный не именем флага (`platform/variants.md`, таблица):
  * вход → имя варианта.
  */
-const VARIANT_NAMES: ReadonlyMap<string, string> = new Map([[
-  "dry-run",
-  "dry",
-]]);
+const VARIANT_NAMES: ReadonlyMap<string, string> = new Map([
+  ["dry-run", "dry"],
+]);
 
 /** Позиционный селектор без объявления — `target:`. */
 const SELECTOR = "selector";
@@ -208,9 +207,10 @@ class Renamed implements Spelling {
   refusal(value: KeyValue, pairs: readonly string[]): Refusal {
     // Словарный ключ назван смыслом (`текст — ключом`), прочий — именем.
     const label = DICTIONARY.get(this.#spec.name);
-    const said = label === undefined
-      ? `--${this.old} — теперь ключ ${this.#spec.name}`
-      : `${label} — ключом`;
+    const said =
+      label === undefined
+        ? `--${this.old} — теперь ключ ${this.#spec.name}`
+        : `${label} — ключом`;
     return hinted(said, [...pairs, ...written(this.#spec, value)], RENAMED);
   }
 }
@@ -251,9 +251,7 @@ class AsChoice implements Spelling {
   refusal(value: KeyValue, pairs: readonly string[]): Refusal {
     const name = String(value);
     if (this.#names.includes(name)) return beforeKeys(name, pairs);
-    return new Refusal(
-      `варианта ${name} нет; есть: ${this.#names.join(", ")}`,
-    );
+    return new Refusal(`варианта ${name} нет; есть: ${this.#names.join(", ")}`);
   }
 }
 
@@ -276,9 +274,10 @@ class Snake implements Spelling {
 
   refusal(value: KeyValue, pairs: readonly string[]): Refusal {
     const flag = `--${this.#dashed}`;
-    const words = this.kind === "flag"
-      ? [flag]
-      : valuesOf(value).flatMap((one) => [flag, one]);
+    const words =
+      this.kind === "flag"
+        ? [flag]
+        : valuesOf(value).flatMap((one) => [flag, one]);
     return hinted("ключ через дефис", [...pairs, ...words]);
   }
 }
@@ -466,18 +465,20 @@ export class Keys {
     this.#texts = new Set(command.texts);
     // Режим объявляет свои ключи сам и берёт только их входы.
     const declared = new Map(
-      Object.entries(mode === WHOLE_COMMAND ? command.keys ?? {} : mode.keys)
-        .map(([key, value]) => {
-          const rename = renameOf(value);
-          return [rename.input, { key, why: rename.why }] as const;
-        }),
+      Object.entries(
+        mode === WHOLE_COMMAND ? (command.keys ?? {}) : mode.keys,
+      ).map(([key, value]) => {
+        const rename = renameOf(value);
+        return [rename.input, { key, why: rename.why }] as const;
+      }),
     );
     const names = new Set(command.inputs.map((input) => input.name));
-    const inputs = mode === WHOLE_COMMAND
-      ? command.inputs
-      : command.inputs.filter((input) => declared.has(input.name));
+    const inputs =
+      mode === WHOLE_COMMAND
+        ? command.inputs
+        : command.inputs.filter((input) => declared.has(input.name));
     this.#entries = inputs.map((input) =>
-      this.#entryOf(command, input, declared.get(input.name), names)
+      this.#entryOf(command, input, declared.get(input.name), names),
     );
     this.#specs = this.#entries.flatMap((entry) => entry.specs);
     this.#variants = this.#entries.flatMap((entry) => entry.variants);
@@ -485,7 +486,8 @@ export class Keys {
     // при `target:`), — ключ: написанием его не прочесть.
     const current = new Set(this.#specs.map((spec) => spec.name));
     this.#spellings = new Map(
-      this.#entries.flatMap((entry) => entry.spellings)
+      this.#entries
+        .flatMap((entry) => entry.spellings)
         .filter((spelling) => !current.has(spelling.old))
         .map((spelling) => [spelling.old, spelling]),
     );
@@ -557,7 +559,8 @@ export class Keys {
       spellings.push(new Snake(snake, spec.kind, dashed));
     }
     if (dashed !== name) spellings.push(new Snake(name, spec.kind, dashed));
-    const renamed = input.form.positional === undefined &&
+    const renamed =
+      input.form.positional === undefined &&
       spec.name !== dashed &&
       !spec.name.startsWith("no-");
     if (renamed) spellings.push(new Renamed(dashed, spec));
@@ -587,8 +590,8 @@ export class Keys {
     const placement = positional
       ? POSITIONAL
       : kind === "flag"
-      ? new FlagPlacement(`--${name}`)
-      : new OptionPlacement(input.name);
+        ? new FlagPlacement(`--${name}`)
+        : new OptionPlacement(input.name);
     return {
       name,
       input: input.name,
@@ -632,16 +635,17 @@ export class Keys {
       keys: Object.fromEntries(
         this.#specs.map((spec) => [spec.name, spec.kind]),
       ),
-      required: this.#specs.filter((spec) => spec.required).map((spec) =>
-        spec.name
-      ),
+      required: this.#specs
+        .filter((spec) => spec.required)
+        .map((spec) => spec.name),
       purposes: Object.fromEntries(
         this.#specs.map((spec) => [spec.name, spec.purpose]),
       ),
       reasons: Object.fromEntries(
         this.#specs.map((spec) => [spec.name, spec.why]),
       ),
-      prompts: this.#specs.filter((spec) => spec.input === this.#terminal)
+      prompts: this.#specs
+        .filter((spec) => spec.input === this.#terminal)
         .map((spec) => spec.name),
       texts: this.texts(),
     };
@@ -687,8 +691,11 @@ export class Keys {
    */
   toResult(named: Named, result: Pick<ResultSide, "selects">): boolean {
     const keys = Object.keys(named.args());
-    return !keys.some((key) => this.#known(key)) &&
-      this.missing({}) === undefined && result.selects(named.selector());
+    return (
+      !keys.some((key) => this.#known(key)) &&
+      this.missing({}) === undefined &&
+      result.selects(named.selector())
+    );
   }
 
   /**
@@ -700,7 +707,7 @@ export class Keys {
     const entries = Object.entries(named.args());
     const kept = entries.filter(([key]) => this.#known(key));
     const pairs = kept.flatMap(([key, value]) =>
-      written(this.#spec(key), value)
+      written(this.#spec(key), value),
     );
     for (const [at, [key, value]] of entries.entries()) {
       if (this.#formats.has(key)) {
@@ -892,7 +899,7 @@ export class Keys {
     }
     const spec = this.#shorts.get(word);
     if (spec === undefined) return undefined;
-    const value = spec.kind === "flag" ? true : after[0] ?? "";
+    const value = spec.kind === "flag" ? true : (after[0] ?? "");
     if (DICTIONARY.has(spec.name) && spec.placement !== POSITIONAL) {
       const label = DICTIONARY.get(spec.name);
       const words = written(spec, value);
@@ -1046,11 +1053,12 @@ function choiceEntry(
   input: InputSpec,
   names: readonly string[],
 ): Entry {
-  const variants = names.map((name) =>
-    new Variant(name, command.choices[name].purpose, input.name, [
-      `--${input.name}`,
-      name,
-    ])
+  const variants = names.map(
+    (name) =>
+      new Variant(name, command.choices[name].purpose, input.name, [
+        `--${input.name}`,
+        name,
+      ]),
   );
   return {
     input: input.name,

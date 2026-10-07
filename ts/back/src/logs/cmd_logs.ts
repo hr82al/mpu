@@ -61,44 +61,60 @@ const FOLLOW_WINDOW_MS = 10_000;
 const LIST = "ls";
 
 const argsSchema = z.object({
-  selector: z.string().optional().describe(
-    "sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title |" +
-      " имя сервиса; не задан — все хосты",
-  ),
-  service: z.string().optional().describe(
-    "loki: значение compose_service; portainer: подстрока имени" +
-      " контейнера",
-  ),
+  selector: z
+    .string()
+    .optional()
+    .describe(
+      "sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title |" +
+        " имя сервиса; не задан — все хосты",
+    ),
+  service: z
+    .string()
+    .optional()
+    .describe(
+      "loki: значение compose_service; portainer: подстрока имени" +
+        " контейнера",
+    ),
   via: z.string().default("loki").describe("источник: loki | portainer"),
   tail: z.number().default(200).describe("сколько последних строк, > 0"),
-  since: z.string().optional().describe(
-    "10m/1h/30s/2d или unix-ts; loki по умолчанию 5m",
-  ),
+  since: z
+    .string()
+    .optional()
+    .describe("10m/1h/30s/2d или unix-ts; loki по умолчанию 5m"),
   timestamps: z.boolean().default(false).describe("префикс времени у строк"),
   "no-stdout": z.boolean().default(false).describe("не показывать stdout"),
   "no-stderr": z.boolean().default(false).describe("не показывать stderr"),
-  grep: z.array(z.string()).default([]).describe(
-    "loki: подстрока (LogQL |=); повторяемый, AND",
-  ),
-  "grep-regex": z.array(z.string()).default([]).describe(
-    "loki: regex по строке (LogQL |~); повторяемый, AND",
-  ),
-  grep_regex: z.array(z.string()).default([]).describe(
-    "то же, что --grep-regex (второе написание оригинала)",
-  ),
-  level: z.string().optional().describe(
-    "loki: detected_level — error/warn/info/debug",
-  ),
-  client: z.number().optional().describe(
-    "loki: client_id подстрокой десятичной записи — совпадёт и порт" +
-      " (cross-service)",
-  ),
-  follow: z.boolean().default(false).describe(
-    "следить за новыми записями; не через тул mpu-mcp, только loki",
-  ),
-  json: z.boolean().default(false).describe(
-    "результат JSON; у follow — JSON Lines, запись на строку",
-  ),
+  grep: z
+    .array(z.string())
+    .default([])
+    .describe("loki: подстрока (LogQL |=); повторяемый, AND"),
+  "grep-regex": z
+    .array(z.string())
+    .default([])
+    .describe("loki: regex по строке (LogQL |~); повторяемый, AND"),
+  grep_regex: z
+    .array(z.string())
+    .default([])
+    .describe("то же, что --grep-regex (второе написание оригинала)"),
+  level: z
+    .string()
+    .optional()
+    .describe("loki: detected_level — error/warn/info/debug"),
+  client: z
+    .number()
+    .optional()
+    .describe(
+      "loki: client_id подстрокой десятичной записи — совпадёт и порт" +
+        " (cross-service)",
+    ),
+  follow: z
+    .boolean()
+    .default(false)
+    .describe("следить за новыми записями; не через тул mpu-mcp, только loki"),
+  json: z
+    .boolean()
+    .default(false)
+    .describe("результат JSON; у follow — JSON Lines, запись на строку"),
 });
 
 const resultSchema = z.object({
@@ -107,31 +123,40 @@ const resultSchema = z.object({
   /** Имена `ls`-режимов; вне их — пусто. */
   names: z.array(z.string()).readonly(),
   /** Записи разового запроса по возрастанию времени; вне его — пусто. */
-  entries: z.array(
-    z.object({
-      tsNs: z.string(),
-      line: z.string(),
-      labels: z.record(z.string(), z.string()),
-    }),
-  ).readonly().describe(
-    "перечень усечён `limit:` (вход tail): последние N записей окна, а " +
-      "сколько их в окне всего, источник не сообщает",
-  ),
+  entries: z
+    .array(
+      z.object({
+        tsNs: z.string(),
+        line: z.string(),
+        labels: z.record(z.string(), z.string()),
+      }),
+    )
+    .readonly()
+    .describe(
+      "перечень усечён `limit:` (вход tail): последние N записей окна, а " +
+        "сколько их в окне всего, источник не сообщает",
+    ),
   /** Снимок Portainer; вне legacy-пути — null. */
-  snapshot: z.object({
-    container: z.string(),
-    timestamps: z.boolean().describe(
-      "Docker ставил метку времени в начало строк",
-    ),
-    stdout: z.string().describe(
-      "последние строки stdout, не больше `limit:`; сколько их в логе " +
-        "всего, Docker не сообщает",
-    ),
-    stderr: z.string().describe(
-      "последние строки stderr, не больше `limit:`; сколько их в логе " +
-        "всего, Docker не сообщает",
-    ),
-  }).nullable(),
+  snapshot: z
+    .object({
+      container: z.string(),
+      timestamps: z
+        .boolean()
+        .describe("Docker ставил метку времени в начало строк"),
+      stdout: z
+        .string()
+        .describe(
+          "последние строки stdout, не больше `limit:`; сколько их в логе " +
+            "всего, Docker не сообщает",
+        ),
+      stderr: z
+        .string()
+        .describe(
+          "последние строки stderr, не больше `limit:`; сколько их в логе " +
+            "всего, Docker не сообщает",
+        ),
+    })
+    .nullable(),
 });
 
 /** Разобранные аргументы `mpu logs`. */
@@ -365,9 +390,10 @@ async function runLoki(
 ): Promise<LogsResult> {
   const tail = requireTail(args.tail);
   const since = args.since === undefined ? undefined : parseSince(args.since);
-  const client = args.client === undefined
-    ? undefined
-    : requireInteger(args.client, "--client");
+  const client =
+    args.client === undefined
+      ? undefined
+      : requireInteger(args.client, "--client");
   const access = requireLoki(io);
   const logql = buildLogQl({
     host: hostOf(place.hostArg, cache, io),
@@ -388,18 +414,21 @@ async function runLoki(
     // бывает вовсе (`platform/line-cancel.md`). Вывод идёт тем же
     // портом потока, что и у команд транспорта, — поэтому кадры
     // уходят клиенту по мере появления, а не по концу строки.
-    await followEntries({
-      read: (query) => read(access, query),
-      now,
-      wait: options.wait ?? waitFor,
-      stream: options.stream ?? streamOf(io),
-      signal: options.signal ?? io.signal,
-    }, {
-      logql,
-      startMs: windowStartMs(since, now(), FOLLOW_WINDOW_MS),
-      limit: tail,
-      printer: args.json ? JSON_LINES : textEntries(args.timestamps),
-    });
+    await followEntries(
+      {
+        read: (query) => read(access, query),
+        now,
+        wait: options.wait ?? waitFor,
+        stream: options.stream ?? streamOf(io),
+        signal: options.signal ?? io.signal,
+      },
+      {
+        logql,
+        startMs: windowStartMs(since, now(), FOLLOW_WINDOW_MS),
+        limit: tail,
+        printer: args.json ? JSON_LINES : textEntries(args.timestamps),
+      },
+    );
     return { ...EMPTY, kind: "follow" };
   }
 
@@ -451,9 +480,7 @@ async function runSnapshot(
     throw new UsageError("portainer требует target:");
   }
   if (place.service === undefined) {
-    throw new UsageError(
-      "portainer требует service:",
-    );
+    throw new UsageError("portainer требует service:");
   }
   if (args.follow) {
     throw new UsageError("follow не поддерживается с portainer");
@@ -461,8 +488,10 @@ async function runSnapshot(
   // Отклонение-fix спеки: оригинал молча игнорировал фильтры Loki на
   // этом пути, и вывод выглядел отфильтрованным.
   if (
-    args.grep.length > 0 || args["grep-regex"].length > 0 ||
-    args.grep_regex.length > 0 || args.level !== undefined ||
+    args.grep.length > 0 ||
+    args["grep-regex"].length > 0 ||
+    args.grep_regex.length > 0 ||
+    args.level !== undefined ||
     args.client !== undefined
   ) {
     throw new UsageError(
@@ -486,9 +515,10 @@ async function runSnapshot(
       stderr: !args["no-stderr"],
       tail,
       timestamps: args.timestamps,
-      sinceUnix: since === undefined
-        ? undefined
-        : Math.floor(windowStartMs(since, now(), 0) / 1000),
+      sinceUnix:
+        since === undefined
+          ? undefined
+          : Math.floor(windowStartMs(since, now(), 0) / 1000),
     },
   );
   // stderr-часть снимка печатается здесь: рендер отдаёт только stdout,
@@ -573,10 +603,12 @@ function withRecords(
     case "entries":
       return { ...result, entries: recordEntries(records as LogRecord[]) };
     case "snapshot":
-      return result.snapshot === null ? result : {
-        ...result,
-        snapshot: recordSnapshot(result.snapshot, records as LogRecord[]),
-      };
+      return result.snapshot === null
+        ? result
+        : {
+            ...result,
+            snapshot: recordSnapshot(result.snapshot, records as LogRecord[]),
+          };
     case "follow":
       return result;
     default: {

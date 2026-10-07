@@ -36,16 +36,17 @@ describe("копии фикстур совпадают с каналом спе�
   for (const [channel, names] of Object.entries(CHANNELS)) {
     for (const name of names) {
       it(`${channel}/${name}`, async () => {
-        expect(await readFile(new URL(name, copyDir(channel)), "utf8"))
-          .toStrictEqual(
-            await readFile(
-              new URL(
-                `../../../docs/specs/fixtures/${channel}/${name}`,
-                import.meta.url,
-              ),
-              "utf8",
+        expect(
+          await readFile(new URL(name, copyDir(channel)), "utf8"),
+        ).toStrictEqual(
+          await readFile(
+            new URL(
+              `../../../docs/specs/fixtures/${channel}/${name}`,
+              import.meta.url,
             ),
-          );
+            "utf8",
+          ),
+        );
       });
     }
   }
@@ -55,9 +56,9 @@ describe("в testdata нет копий, которых нет в канале",
   for (const [channel, names] of Object.entries(CHANNELS)) {
     it(channel, async () => {
       const found: string[] = [];
-      for (
-        const entry of await readdir(copyDir(channel), { withFileTypes: true })
-      ) {
+      for (const entry of await readdir(copyDir(channel), {
+        withFileTypes: true,
+      })) {
         found.push(entry.name);
       }
       expect(found.sort()).toStrictEqual([...names].sort());

@@ -18,7 +18,8 @@ const KEY_VALUE = "123";
 
 function messages(help: string): string[] {
   const [, section = ""] = help.split("Сообщения:\n");
-  return section.split("\n")
+  return section
+    .split("\n")
     .filter((line) => line.length > 0)
     .map((line) => line.trim().split(/\s+/)[0]);
 }
@@ -27,7 +28,9 @@ function wordsFor(selector: string): string[] {
   const sample = LINK_WORDS[selector];
   if (sample !== undefined) return [sample];
   if (!selector.endsWith(":")) return [selector];
-  return selector.split(":").filter((key) => key.length > 0)
+  return selector
+    .split(":")
+    .filter((key) => key.length > 0)
     .flatMap((key) => [`${key}:`, KEY_VALUE]);
 }
 
@@ -72,8 +75,8 @@ async function visit(
   const listed = messages(await textOf(root, sending(words, "--help")));
   assert("value" in own);
   expect(
-    JSON.parse(String(own.value)).map((line: { selector: string }) =>
-      line.selector
+    JSON.parse(String(own.value)).map(
+      (line: { selector: string }) => line.selector,
     ),
     words.join(" "),
   ).toStrictEqual(listed.filter((s) => !s.startsWith("<")));

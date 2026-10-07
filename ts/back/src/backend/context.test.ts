@@ -95,12 +95,9 @@ it("ввод полем кадра: доходит до команды, как �
 
 it("ввод: пустая строка — это ввод", () =>
   withBack(async (back) => {
-    expect(await lineWith(back, ["confirm", "yes"], { stdin: "" }))
-      .toStrictEqual([
-        { err: "\n" },
-        { out: "" },
-        { exit: 0 },
-      ]);
+    expect(
+      await lineWith(back, ["confirm", "yes"], { stdin: "" }),
+    ).toStrictEqual([{ err: "\n" }, { out: "" }, { exit: 0 }]);
   }));
 
 describe("ввод больше предела: отказ до исполнения, по обеим дверям", () => {
@@ -111,10 +108,9 @@ describe("ввод больше предела: отказ до исполнен
   ];
   it("WebSocket", () =>
     withBack(async (back) => {
-      expect(await lineWith(back, ["confirm", "yes"], { stdin: big }))
-        .toStrictEqual([
-          ...refusal,
-        ]);
+      expect(
+        await lineWith(back, ["confirm", "yes"], { stdin: big }),
+      ).toStrictEqual([...refusal]);
       // Строка не исполнялась: команда не вызвана.
       expect(back.called).toStrictEqual([]);
     }));
@@ -185,7 +181,8 @@ describe("ширина без терминала и вне границ — от
           { exit: 2 },
         ]);
         expect(back.called).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -209,27 +206,31 @@ it("переменные: имя вне списка — отказ по име�
     });
     expect(back.seen.some((text) => text.includes("/дом-клиента"))).toBe(false);
     // Цель подключения к базе не принимается тем же правилом.
-    expect(await lineWith(back, ["version"], { env: { PGHOST: "прод" } }))
-      .toStrictEqual([
-        { err: "mpu-back: переменная вне списка: PGHOST\n" },
-        { exit: 2 },
-      ]);
+    expect(
+      await lineWith(back, ["version"], { env: { PGHOST: "прод" } }),
+    ).toStrictEqual([
+      { err: "mpu-back: переменная вне списка: PGHOST\n" },
+      { exit: 2 },
+    ]);
   }));
 
 it("переменные действуют на свою строку и не трогают сервер", async () => {
   const before = process.env.COLUMNS;
   process.env.COLUMNS = "60";
   try {
-    await withGitlab(async (back) => {
-      // Строка А со своей шириной: 200 знакомест — заголовок целиком.
-      const own = await lineWith(back, MR_WORDS, { env: { COLUMNS: "200" } });
-      expect(String(own[0].out)).toContain(`${LONG_TITLE}\n`);
-      // Строка Б без поля: окружение сервера, то есть 60.
-      const next = await lineWith(back, MR_WORDS, {});
-      expect(String(next[0].out)).toContain("feat(scope…\n");
-      // Окружение процесса сервера не изменилось.
-      expect(process.env.COLUMNS).toBe("60");
-    }, { env: (name: string) => process.env[name] });
+    await withGitlab(
+      async (back) => {
+        // Строка А со своей шириной: 200 знакомест — заголовок целиком.
+        const own = await lineWith(back, MR_WORDS, { env: { COLUMNS: "200" } });
+        expect(String(own[0].out)).toContain(`${LONG_TITLE}\n`);
+        // Строка Б без поля: окружение сервера, то есть 60.
+        const next = await lineWith(back, MR_WORDS, {});
+        expect(String(next[0].out)).toContain("feat(scope…\n");
+        // Окружение процесса сервера не изменилось.
+        expect(process.env.COLUMNS).toBe("60");
+      },
+      { env: (name: string) => process.env[name] },
+    );
   } finally {
     if (before === undefined) delete process.env.COLUMNS;
     else process.env.COLUMNS = before;
@@ -238,14 +239,20 @@ it("переменные действуют на свою строку и не �
 
 it("вопрос по номеру: исполнение видит тот же контекст", () =>
   withBack(async (back) => {
-    expect((await line(back, "/line", ["ask:", "confirm"], ["y"])).at(-1))
-      .toStrictEqual({ exit: 0 });
-    const responses = await httpLine(back, "/line", {
-      words: ["ask", "confirm", "yes"],
-      cwd: process.cwd(),
-      human: true,
-      stdin: "через номер\n",
-    }, ["y"]);
+    expect(
+      (await line(back, "/line", ["ask:", "confirm"], ["y"])).at(-1),
+    ).toStrictEqual({ exit: 0 });
+    const responses = await httpLine(
+      back,
+      "/line",
+      {
+        words: ["ask", "confirm", "yes"],
+        cwd: process.cwd(),
+        human: true,
+        stdin: "через номер\n",
+      },
+      ["y"],
+    );
     const [asked, resumed] = responses;
     expect(asked.length).toBe(1);
     expect(asked[0].ask).toBe("выполнить mpu confirm yes? [y/N] ");

@@ -209,8 +209,8 @@ export class Actor {
 
   #watchBusy(cue: Cue): Promise<void> {
     const since = cue.role.busySince();
-    const quiet = this.#hands.clock.now() -
-      Math.max(since, cue.course.lastAt());
+    const quiet =
+      this.#hands.clock.now() - Math.max(since, cue.course.lastAt());
     if (quiet <= HOUR_MS) return Promise.resolve();
     return this.#tell(
       `busy@${since}`,
@@ -345,8 +345,11 @@ function launched(
   message: string,
   profile: ProfileRecord,
 ): boolean {
-  return screen.showsPrompt(message) && screen.shows(profile.model) &&
-    (profile.mode !== "auto" || screen.showsAutoMode());
+  return (
+    screen.showsPrompt(message) &&
+    screen.shows(profile.model) &&
+    (profile.mode !== "auto" || screen.showsAutoMode())
+  );
 }
 
 /**

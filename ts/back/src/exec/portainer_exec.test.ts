@@ -55,11 +55,12 @@ function border(answers: {
   const sent: Sent[] = [];
   let inspected = 0;
   const http: HttpCall = (url, options) => {
-    const body = typeof options.body === "string"
-      ? options.body
-      : options.body === undefined
-      ? ""
-      : new TextDecoder("latin1").decode(options.body);
+    const body =
+      typeof options.body === "string"
+        ? options.body
+        : options.body === undefined
+          ? ""
+          : new TextDecoder("latin1").decode(options.body);
     sent.push({
       url: url.toString(),
       method: options.method ?? "GET",
@@ -212,11 +213,7 @@ describe("успешный прогон: exec, стрим, код выхода, 
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
-      Cmd: [
-        "sh",
-        "-c",
-        "echo $$ > /tmp/__MPU_PSSH_PID; exec sh -c 'echo hi'",
-      ],
+      Cmd: ["sh", "-c", "echo $$ > /tmp/__MPU_PSSH_PID; exec sh -c 'echo hi'"],
     });
   });
 
@@ -391,12 +388,14 @@ it("отказ создания exec после доставки stdin: убор
     status: 500,
   });
   const { output } = sink();
-  await expect(run({
-    http,
-    open: channelOf([]),
-    output,
-    stdin: encoder.encode("тело\n"),
-  })).rejects.toThrow(DomainError);
+  await expect(
+    run({
+      http,
+      open: channelOf([]),
+      output,
+      stdin: encoder.encode("тело\n"),
+    }),
+  ).rejects.toThrow(DomainError);
   expect(JSON.parse(sent[sent.length - 1].body).Cmd[2]).toBe(
     "rm -f /tmp/__MPU_PSSH_PID /tmp/__MPU_PSSH_STDIN",
   );
@@ -438,7 +437,7 @@ describe("фоновый запуск: скрипт архивом, exec без 
       "sh",
       "-c",
       "nohup node /tmp/mpu-run-0a1b2c3d.mjs" +
-      " > /tmp/mpu-run-0a1b2c3d.log 2>&1 < /dev/null &",
+        " > /tmp/mpu-run-0a1b2c3d.log 2>&1 < /dev/null &",
     ]);
   });
 

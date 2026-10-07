@@ -8,19 +8,22 @@ import { expect, test } from "vitest";
 import { sendLine, type Transport } from "./api.ts";
 import { json } from "./testkit.tsx";
 
-const S43 = '{"path": "/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg", ' +
+const S43 =
+  '{"path": "/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg", ' +
   '"name": "photo-43.jpg", "size": 10, "mime": "image/jpeg"}\n';
 
 test("P18: ответ с картинкой — вывод как у CLI, картинки нет", async () => {
   const transport: Transport = {
     base: "http://mpu.localhost",
     fetch: () =>
-      Promise.resolve(json({
-        stdout: S43,
-        stderr: "",
-        exit: 0,
-        pictures: [{ mime: "image/jpeg", data: "/9j/4AAQSkZJRg==" }],
-      })),
+      Promise.resolve(
+        json({
+          stdout: S43,
+          stderr: "",
+          exit: 0,
+          pictures: [{ mime: "image/jpeg", data: "/9j/4AAQSkZJRg==" }],
+        }),
+      ),
   };
   const reply = await sendLine(transport, [
     "telegram",

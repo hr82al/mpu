@@ -14,14 +14,17 @@ import { Inbox } from "./inbox.ts";
 import { mediaFile } from "./media_file.ts";
 
 function message(id: number, media?: tl.TypeMessageMedia): Message {
-  return new Message({
-    _: "message",
-    id,
-    peerId: { _: "peerChannel", channelId: 101 },
-    date: 1_790_000_000,
-    message: "Отписал по спеке",
-    ...(media === undefined ? {} : { media }),
-  }, new PeersIndex());
+  return new Message(
+    {
+      _: "message",
+      id,
+      peerId: { _: "peerChannel", channelId: 101 },
+      date: 1_790_000_000,
+      message: "Отписал по спеке",
+      ...(media === undefined ? {} : { media }),
+    },
+    new PeersIndex(),
+  );
 }
 
 function document(
@@ -108,8 +111,9 @@ describe("вид медиа клиента → описание вложения
   ];
   for (const { name, message, listed } of cases) {
     it(name, () => {
-      expect(mediaFile(message.id, message.media, nowhere).listed())
-        .toStrictEqual(listed);
+      expect(
+        mediaFile(message.id, message.media, nowhere).listed(),
+      ).toStrictEqual(listed);
     });
   }
 });

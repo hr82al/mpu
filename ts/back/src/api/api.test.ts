@@ -29,8 +29,11 @@ function commandOf(name: string): Command {
 /** Порт с адресом стенда, кредами и приёмником токен-кэша. */
 function ioTo(
   baseUrl: string,
-  opts: { cache?: string; written?: string[]; files?: Record<string, string> } =
-    {},
+  opts: {
+    cache?: string;
+    written?: string[];
+    files?: Record<string, string>;
+  } = {},
 ) {
   let cache = opts.cache;
   const values: Record<string, string> = {
@@ -67,7 +70,7 @@ function ioTo(
 /** Стенд, отвечающий логином на первый вызов и `body` — на второй. */
 function standWith(body: (seen: readonly CapturedRequest[]) => Response) {
   return startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply(TOKEN) : body(seen)
+    seen.length === 1 ? loginReply(TOKEN) : body(seen),
   );
 }
 
@@ -89,8 +92,11 @@ async function run(
 
 it("get-client печатает ответ сервера побайтно как голден", async () => {
   const compact = JSON.stringify(JSON.parse(await golden("get-client.json")));
-  const stand = await standWith(() =>
-    new Response(compact, { headers: { "content-type": "application/json" } })
+  const stand = await standWith(
+    () =>
+      new Response(compact, {
+        headers: { "content-type": "application/json" },
+      }),
   );
   try {
     const text = await run(
@@ -163,15 +169,14 @@ it("идентификатор в пути экранируется, а не с�
 });
 
 it("HTTP ≥ 400 — отказ команды, тело отдельной строкой", async () => {
-  const stand = await standWith(() =>
-    new Response('{"message":"client not found"}', { status: 404 })
+  const stand = await standWith(
+    () => new Response('{"message":"client not found"}', { status: 404 }),
   );
   try {
-    const err = await rejected(() =>
-      commandOf("get-client").invoke(
-        ["404"],
-        ioTo(stand.baseUrl),
-      ), DomainError);
+    const err = await rejected(
+      () => commandOf("get-client").invoke(["404"], ioTo(stand.baseUrl)),
+      DomainError,
+    );
     expect(err.message).toBe("GET /admin/client/404 failed: HTTP 404");
     expect(err.details).toBe('{"message":"client not found"}');
   } finally {
@@ -195,8 +200,8 @@ it("500 не превращается в успех", async () => {
 });
 
 it("токена нет в тексте отказа, хотя он ушёл заголовком", async () => {
-  const stand = await standWith(() =>
-    new Response("нет доступа", { status: 403 })
+  const stand = await standWith(
+    () => new Response("нет доступа", { status: 403 }),
   );
   try {
     const err = await rejected(
@@ -235,16 +240,15 @@ it("токена нет в выводе, даже когда сервер вер
 });
 
 it("сегмент пути '..' отбивается до сети", async () => {
-  const stand = await standWith(() =>
-    new Response("не ожидается", { status: 500 })
+  const stand = await standWith(
+    () => new Response("не ожидается", { status: 500 }),
   );
   try {
     for (const value of [".", ".."]) {
-      const err = await rejected(() =>
-        commandOf("get-client").invoke(
-          [value],
-          ioTo(stand.baseUrl),
-        ), UsageError);
+      const err = await rejected(
+        () => commandOf("get-client").invoke([value], ioTo(stand.baseUrl)),
+        UsageError,
+      );
       expect(err.message).toStrictEqual(
         `userId: '${value}' — не идентификатор, а сегмент пути`,
       );
@@ -260,9 +264,9 @@ it("ответ с секретами и персональными данным�
   // список имён рядом с ней разошёлся бы с ней же. Состав закрыт: у
   // двух команд в ответе чужие ключи, у двух — почта пользователя и
   // ссылка активации (замеры спецификатора на живом клиенте).
-  const secret = READ_ENDPOINTS
-    .filter((endpoint) => endpoint.sensitiveOutput === true)
-    .map((endpoint) => endpoint.name);
+  const secret = READ_ENDPOINTS.filter(
+    (endpoint) => endpoint.sensitiveOutput === true,
+  ).map((endpoint) => endpoint.name);
   expect(secret).toStrictEqual([
     "get-user",
     "list-client-ozon-keys",
@@ -321,8 +325,10 @@ describe("нехватка обязательного поля печатает�
         UsageError,
       );
       expect(err.message).toContain(message);
-      expect((err as UsageError).hint, `${name}: подсказка отличается`)
-        .toStrictEqual(`mpu api ${name} --help`);
+      expect(
+        (err as UsageError).hint,
+        `${name}: подсказка отличается`,
+      ).toStrictEqual(`mpu api ${name} --help`);
     });
   }
 });
@@ -348,13 +354,11 @@ it("поля тела собираются в JSON, --body замещает их
     const io = ioTo(stand.baseUrl, {
       files: { "/тело.json": '{"range":"Z9"}' },
     });
-    await run(command, [
-      "ss1",
-      "--range",
-      "A1:B2",
-      "--majorDimension",
-      "COLUMNS",
-    ], io);
+    await run(
+      command,
+      ["ss1", "--range", "A1:B2", "--majorDimension", "COLUMNS"],
+      io,
+    );
     expect(stand.seen[1].method).toBe("POST");
     expect(stand.seen[1].pathname).toBe("/admin/ss/ss1/values");
     expect(stand.seen[1].contentType).toBe("application/json");
@@ -374,8 +378,8 @@ it("поля тела собираются в JSON, --body замещает их
 });
 
 it("ошибки ввода отбиваются до сети", async () => {
-  const stand = await standWith(() =>
-    new Response("не ожидается", { status: 500 })
+  const stand = await standWith(
+    () => new Response("не ожидается", { status: 500 }),
   );
   try {
     const command = commandOf("get-ss-values");
@@ -395,14 +399,10 @@ it("ошибки ввода отбиваются до сети", async () => {
       UsageError,
     );
     expect(noFile.message).toBe("body-file: /нет.json: file not found");
-    const both = await rejected(() =>
-      command.invoke([
-        "ss1",
-        "-b",
-        "{}",
-        "--body-file",
-        "/нет.json",
-      ], io), UsageError);
+    const both = await rejected(
+      () => command.invoke(["ss1", "-b", "{}", "--body-file", "/нет.json"], io),
+      UsageError,
+    );
     expect(both.message).toBe("body: и body-file: вместе нельзя — тело одно");
     // Ни один из отказов не стоил обращения наружу.
     expect(stand.seen.length).toBe(0);
@@ -412,8 +412,8 @@ it("ошибки ввода отбиваются до сети", async () => {
 });
 
 it("get-token: живой кэш печатается без сети", async () => {
-  const stand = await standWith(() =>
-    new Response("не ожидается", { status: 500 })
+  const stand = await standWith(
+    () => new Response("не ожидается", { status: 500 }),
   );
   try {
     const cache = JSON.stringify({
@@ -457,8 +457,8 @@ it("get-token: оба флага — свежий логин мимо живог
 });
 
 it("get-token: один флаг — кэш по-прежнему старше сети", async () => {
-  const stand = await startFakeSlback(() =>
-    new Response("не ожидается", { status: 500 })
+  const stand = await startFakeSlback(
+    () => new Response("не ожидается", { status: 500 }),
   );
   try {
     const cache = JSON.stringify({

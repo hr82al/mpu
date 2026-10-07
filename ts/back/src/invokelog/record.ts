@@ -33,14 +33,12 @@ export interface InvokeRecordFields {
 }
 
 /** `run_id` = `YYYYMMDD-HHMMSS.mmm-<pid>` по локальному времени начала. */
-export function runIdOf(
-  at: Date,
-  offsetMinutes: number,
-  pid: number,
-): string {
+export function runIdOf(at: Date, offsetMinutes: number, pid: number): string {
   const local = localParts(at, offsetMinutes);
-  return `${local.date.replaceAll("-", "")}-` +
-    `${local.time.replaceAll(":", "")}-${pid}`;
+  return (
+    `${local.date.replaceAll("-", "")}-` +
+    `${local.time.replaceAll(":", "")}-${pid}`
+  );
 }
 
 /** Собирает запись целиком, включая пустую строку-разделитель в конце. */
@@ -48,13 +46,15 @@ export function formatRecord(fields: InvokeRecordFields): string {
   const runId = runIdOf(fields.startedAt, fields.offsetMinutes, fields.pid);
   const local = localParts(fields.startedAt, fields.offsetMinutes);
   const dur = (fields.durationMs / 1000).toFixed(3);
-  return `### ${local.date} ${local.time} ${local.offset} run=${runId}` +
+  return (
+    `### ${local.date} ${local.time} ${local.offset} run=${runId}` +
     ` pid=${fields.pid} cwd=${fields.cwd}\n` +
     `$ ${fields.commandLine}\n` +
     section(runId, "note", fields.note, 0) +
     section(runId, "out", fields.out, fields.maxOutputBytes) +
     section(runId, "err", fields.err, fields.maxOutputBytes) +
-    `--- end run=${runId} exit=${fields.exitCode} dur=${dur}s ---\n\n`;
+    `--- end run=${runId} exit=${fields.exitCode} dur=${dur}s ---\n\n`
+  );
 }
 
 /**
@@ -75,9 +75,10 @@ function section(
     // но число отброшенных байт остаётся наблюдаемым.
     return `--- truncated run=${runId} stream=${stream} dropped=${dropped} ---\n`;
   }
-  const tail = dropped === 0
-    ? ""
-    : `--- truncated run=${runId} stream=${stream} dropped=${dropped} ---\n`;
+  const tail =
+    dropped === 0
+      ? ""
+      : `--- truncated run=${runId} stream=${stream} dropped=${dropped} ---\n`;
   const body = kept.endsWith("\n") ? kept : `${kept}\n`;
   return `--- ${stream} run=${runId} ---\n${body}${tail}`;
 }

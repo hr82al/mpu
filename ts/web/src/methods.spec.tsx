@@ -102,19 +102,20 @@ describe("узел метода", () => {
   test("1: три метода под kiten, поля образа, поле правки = definition", async () => {
     await opened(scripted([]));
     for (const path of ["kiten cardsIn:", "kiten mine", "kiten shipped"]) {
-      expect(within(row(path)).getByText("образ", { selector: ".label" }))
-        .toBeTruthy();
+      expect(
+        within(row(path)).getByText("образ", { selector: ".label" }),
+      ).toBeTruthy();
     }
     const node = row("kiten cardsIn:").querySelector(".node") as HTMLElement;
     expect(within(node).getByText("образ: мои в колонке")).toBeTruthy();
-    expect(within(node).getByText("allow", { selector: ".verdict" }))
-      .toBeTruthy();
+    expect(
+      within(node).getByText("allow", { selector: ".verdict" }),
+    ).toBeTruthy();
     expect(within(node).getByText("правило «kiten cardsIn:»")).toBeTruthy();
     expect(within(node).getByText("своё")).toBeTruthy();
     expect(
       within(node).getByRole("button", { name: "сбросить kiten cardsIn:" }),
-    )
-      .toBeTruthy();
+    ).toBeTruthy();
     expect(within(panel()).getByText("human")).toBeTruthy();
     expect(within(panel()).getByText("2026-09-23T10:00:00.000Z")).toBeTruthy();
     expect(
@@ -133,8 +134,9 @@ describe("узел метода", () => {
     const ls = row("kiten ls");
     expect(ls.querySelector(".method")).toBeNull();
     expect(within(ls).queryByText("образ", { selector: ".label" })).toBeNull();
-    expect(within(ls).queryByRole("button", { name: "Удалить метод" }))
-      .toBeNull();
+    expect(
+      within(ls).queryByRole("button", { name: "Удалить метод" }),
+    ).toBeNull();
   });
 
   test("12: протокол корня — один блок, семь строк", async () => {
@@ -148,8 +150,9 @@ describe("узел метода", () => {
       SNAPSHOT_IMAGE.protocol.map((one) => `${one.selector} — ${one.purpose}`),
     );
     expect(lines.length).toBe(7);
-    expect(row("kiten").querySelector("[aria-label='понимает любой объект']"))
-      .toBeNull();
+    expect(
+      row("kiten").querySelector("[aria-label='понимает любой объект']"),
+    ).toBeNull();
   });
 });
 
@@ -163,9 +166,7 @@ describe("правка определения", () => {
     fireEvent.click(within(panel()).getByRole("button", { name: "Сохранить" }));
     const dialog = await screen.findByRole("dialog");
     expect(sentLines(back.seen)).toEqual([WORDS]);
-    expect(dialog.textContent).toContain(
-      `выполнить mpu ${DEFINITION}? [y/N]`,
-    );
+    expect(dialog.textContent).toContain(`выполнить mpu ${DEFINITION}? [y/N]`);
     const before = [
       reads(back.seen, "policy.tree"),
       reads(back.seen, "tree.snapshot"),
@@ -175,7 +176,7 @@ describe("правка определения", () => {
       expect([
         reads(back.seen, "policy.tree") > before[0],
         reads(back.seen, "tree.snapshot") > before[1],
-      ]).toEqual([true, true])
+      ]).toEqual([true, true]),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -212,38 +213,51 @@ describe("правка определения", () => {
     let shot: Snapshot = SNAPSHOT_IMAGE;
     let tree: readonly NodeRuling[] = POLICY_TREE_IMAGE;
     const renamed = DEFINITION.replace("cardsIn:", "cardsOf:");
-    const back = scripted([
-      question(`выполнить mpu ${renamed}? [y/N] `),
-      { ...DEFINED, stdout: '{"path":"kiten cardsOf:","verdict":"allow"}\n' },
-    ], () => ({ tree, shot }));
+    const back = scripted(
+      [
+        question(`выполнить mpu ${renamed}? [y/N] `),
+        { ...DEFINED, stdout: '{"path":"kiten cardsOf:","verdict":"allow"}\n' },
+      ],
+      () => ({ tree, shot }),
+    );
     await opened(back);
     fireEvent.change(field(), { target: { value: renamed } });
     fireEvent.click(within(panel()).getByRole("button", { name: "Сохранить" }));
     const dialog = await screen.findByRole("dialog");
-    const cardsIn = SNAPSHOT_IMAGE.nodes.find((one) =>
-      one.path.join(" ") === "kiten cardsIn:"
+    const cardsIn = SNAPSHOT_IMAGE.nodes.find(
+      (one) => one.path.join(" ") === "kiten cardsIn:",
     );
     shot = {
       ...SNAPSHOT_IMAGE,
-      nodes: [...SNAPSHOT_IMAGE.nodes, {
-        path: ["kiten", "cardsOf:"],
-        summary: "образ: мои в колонке",
-        ...(cardsIn?.image === undefined ? {} : {
-          image: { ...cardsIn.image, definition: renamed },
-        }),
-      }],
+      nodes: [
+        ...SNAPSHOT_IMAGE.nodes,
+        {
+          path: ["kiten", "cardsOf:"],
+          summary: "образ: мои в колонке",
+          ...(cardsIn?.image === undefined
+            ? {}
+            : {
+                image: { ...cardsIn.image, definition: renamed },
+              }),
+        },
+      ],
     };
-    tree = [...POLICY_TREE_IMAGE, {
-      path: ["kiten", "cardsOf:"],
-      verdict: "allow",
-      rule: "kiten cardsOf:",
-      own: true,
-    }];
+    tree = [
+      ...POLICY_TREE_IMAGE,
+      {
+        path: ["kiten", "cardsOf:"],
+        verdict: "allow",
+        rule: "kiten cardsOf:",
+        own: true,
+      },
+    ];
     fireEvent.click(within(dialog).getByRole("button", { name: "Да" }));
-    expect(await screen.findByText("kiten cardsOf:", { selector: ".path" }))
-      .toBeTruthy();
-    expect(screen.getByText("kiten cardsIn:", { selector: ".path" }))
-      .toBeTruthy();
+    expect(
+      await screen.findByText("kiten cardsOf:", { selector: ".path" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("kiten cardsIn:", { selector: ".path" }),
+    ).toBeTruthy();
   });
 
   test("9: вопроса нет — окна нет, дерево перечитано", async () => {
@@ -252,7 +266,7 @@ describe("правка определения", () => {
     const before = reads(back.seen, "tree.snapshot");
     fireEvent.click(within(panel()).getByRole("button", { name: "Сохранить" }));
     await waitFor(() =>
-      expect(reads(back.seen, "tree.snapshot")).toBeGreaterThan(before)
+      expect(reads(back.seen, "tree.snapshot")).toBeGreaterThan(before),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -265,16 +279,18 @@ describe("правка определения", () => {
     });
     fireEvent.click(within(panel()).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(sentLines(back.seen).length).toBe(1));
-    expect(sentLines(back.seen)).toEqual([[
-      "ask",
-      "kiten",
-      "define:",
-      "cardsIn:",
-      "purpose:",
-      "^а б^",
-      "do",
-      "done",
-    ]]);
+    expect(sentLines(back.seen)).toEqual([
+      [
+        "ask",
+        "kiten",
+        "define:",
+        "cardsIn:",
+        "purpose:",
+        "^а б^",
+        "do",
+        "done",
+      ],
+    ]);
   });
 });
 
@@ -283,42 +299,43 @@ describe("удаление метода", () => {
     let gone = false;
     const without = (path: readonly string[]) =>
       path.join(" ") !== "kiten cardsIn:";
-    const back = scripted([
-      question("выполнить mpu kiten forget: cardsIn:? [y/N] "),
-      {
-        stdout: '{"path":"kiten cardsIn:","verdict":null}\n',
-        stderr: "",
-        exit: 0,
-      },
-    ], () =>
-      gone
-        ? {
-          tree: POLICY_TREE_IMAGE.filter((one) => without(one.path)),
-          shot: {
-            ...SNAPSHOT_IMAGE,
-            nodes: SNAPSHOT_IMAGE.nodes.filter((one) => without(one.path)),
-          },
-        }
-        : { tree: POLICY_TREE_IMAGE, shot: SNAPSHOT_IMAGE });
+    const back = scripted(
+      [
+        question("выполнить mpu kiten forget: cardsIn:? [y/N] "),
+        {
+          stdout: '{"path":"kiten cardsIn:","verdict":null}\n',
+          stderr: "",
+          exit: 0,
+        },
+      ],
+      () =>
+        gone
+          ? {
+              tree: POLICY_TREE_IMAGE.filter((one) => without(one.path)),
+              shot: {
+                ...SNAPSHOT_IMAGE,
+                nodes: SNAPSHOT_IMAGE.nodes.filter((one) => without(one.path)),
+              },
+            }
+          : { tree: POLICY_TREE_IMAGE, shot: SNAPSHOT_IMAGE },
+    );
     await opened(back);
     fireEvent.click(
       within(panel()).getByRole("button", { name: "Удалить метод" }),
     );
     const dialog = await screen.findByRole("dialog");
-    expect(sentLines(back.seen)).toEqual([[
-      "ask",
-      "kiten",
-      "forget:",
-      "cardsIn:",
-    ]]);
+    expect(sentLines(back.seen)).toEqual([
+      ["ask", "kiten", "forget:", "cardsIn:"],
+    ]);
     expect(dialog.textContent).toContain(
       "выполнить mpu kiten forget: cardsIn:? [y/N]",
     );
     gone = true;
     fireEvent.click(within(dialog).getByRole("button", { name: "Да" }));
     await waitFor(() =>
-      expect(screen.queryByText("kiten cardsIn:", { selector: ".path" }))
-        .toBeNull()
+      expect(
+        screen.queryByText("kiten cardsIn:", { selector: ".path" }),
+      ).toBeNull(),
     );
   });
 
@@ -332,8 +349,9 @@ describe("удаление метода", () => {
     );
     expect(await within(panel()).findByText(text)).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByText("kiten cardsIn:", { selector: ".path" }))
-      .toBeTruthy();
+    expect(
+      screen.getByText("kiten cardsIn:", { selector: ".path" }),
+    ).toBeTruthy();
   });
 });
 

@@ -141,7 +141,10 @@ describe("renderTimeLogTable: состав колонок и итог", () => {
       150,
       { withUser: false },
     );
-    const ids = text.split("\n").slice(1, 3).map((row) => row.split(" ")[0]);
+    const ids = text
+      .split("\n")
+      .slice(1, 3)
+      .map((row) => row.split(" ")[0]);
     expect(ids).toStrictEqual(["7000002", "7000001"]);
   });
 

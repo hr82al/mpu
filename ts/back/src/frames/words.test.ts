@@ -77,17 +77,12 @@ describe("не UTF-8: байт и смещение начала неверной
   ];
   for (const [name, input, where] of cases) {
     it(name, () => {
-      const err = thrown(
-        () => utf8Of(new Uint8Array(input)),
-        NotUtf8,
-      );
+      const err = thrown(() => utf8Of(new Uint8Array(input)), NotUtf8);
       expect(err.message).toStrictEqual(`не в UTF-8: байт ${where}`);
     });
   }
-  it(
-    "верные 2-, 3- и 4-байтные",
-    () => expect(wordsOfBytes(bytes("é € 😀"))).toStrictEqual(["é", "€", "😀"]),
-  );
+  it("верные 2-, 3- и 4-байтные", () =>
+    expect(wordsOfBytes(bytes("é € 😀"))).toStrictEqual(["é", "€", "😀"]));
 });
 
 describe("слово с разделителем — ровно четыре знака, U+00A0 не разделитель", () => {

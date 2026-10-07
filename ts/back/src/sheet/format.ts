@@ -39,9 +39,8 @@ export function color(text: string): Readonly<Record<string, unknown>> {
   if (!/^[0-9a-fA-F]+$/.test(hex) || ![3, 6, 8].includes(hex.length)) {
     throw new UsageError(`плохой цвет: '${text}'`);
   }
-  const pairs = hex.length === 3
-    ? [...hex].map((ch) => ch + ch)
-    : hex.match(/../g) ?? [];
+  const pairs =
+    hex.length === 3 ? [...hex].map((ch) => ch + ch) : (hex.match(/../g) ?? []);
   const parts = pairs.map((pair) => parseInt(pair, 16) / 255);
   // `#AARRGGBB`: альфа впереди, как её пишет оператор, но в теле
   // запроса она последняя — порядок ключей поэтому фиксированный.

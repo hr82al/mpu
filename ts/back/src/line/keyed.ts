@@ -179,7 +179,7 @@ function modesOf(parts: KeyedParts): Method<Line>[] {
       { purpose: mode.purpose, help: `${mode.purpose}.` },
       keyedLeaf({ ...parts, mode, methods: [] }),
       (line: Line) => line,
-    )
+    ),
   );
 }
 
@@ -260,16 +260,16 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     },
   };
   const target = keys.describe().keys.target !== undefined;
-  const variants = keys.variants()
+  const variants = keys
+    .variants()
     .filter((variant) => chosen.offers(variant))
-    .map((variant) =>
-      new VariantMethod(
-        variant,
-        parts.doc,
-        () => keyedLeaf({ ...parts, chosen: chosen.with(variant) }),
-      )
+    .map(
+      (variant) =>
+        new VariantMethod(variant, parts.doc, () =>
+          keyedLeaf({ ...parts, chosen: chosen.with(variant) }),
+        ),
     );
-  return new Shape<Line>([...modesOf(parts), ...parts.methods ?? []], {
+  return new Shape<Line>([...modesOf(parts), ...(parts.methods ?? [])], {
     variants,
     fallback,
     values: {

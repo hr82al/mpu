@@ -35,23 +35,25 @@ it("тело из текстового поля и двух файлов — par
     filePart("dannye.csv", "a,b\n1,2\n"),
   ]);
 
-  expect(body).toStrictEqual([
-    `--${BOUNDARY}`,
-    'Content-Disposition: form-data; name="text"',
-    "",
-    "смотри вложения",
-    `--${BOUNDARY}`,
-    'Content-Disposition: form-data; name="files[]"; filename="otchet.md"',
-    "Content-Type: text/markdown",
-    "",
-    "# отчёт\n",
-    `--${BOUNDARY}`,
-    'Content-Disposition: form-data; name="files[]"; filename="dannye.csv"',
-    "Content-Type: text/csv",
-    "",
-    "a,b\n1,2\n",
-    `--${BOUNDARY}--`,
-  ].join("\r\n"));
+  expect(body).toStrictEqual(
+    [
+      `--${BOUNDARY}`,
+      'Content-Disposition: form-data; name="text"',
+      "",
+      "смотри вложения",
+      `--${BOUNDARY}`,
+      'Content-Disposition: form-data; name="files[]"; filename="otchet.md"',
+      "Content-Type: text/markdown",
+      "",
+      "# отчёт\n",
+      `--${BOUNDARY}`,
+      'Content-Disposition: form-data; name="files[]"; filename="dannye.csv"',
+      "Content-Type: text/csv",
+      "",
+      "a,b\n1,2\n",
+      `--${BOUNDARY}--`,
+    ].join("\r\n"),
+  );
 });
 
 it("заголовок типа содержимого объявляет границу тела", () => {
@@ -101,15 +103,11 @@ describe("тип содержимого файла — по расширению
 });
 
 it("имя файла экранируется, иначе part ломается", () => {
-  const body = bodyText([
-    filePart('otchet "июль"\r\nи август.md'),
-  ]);
+  const body = bodyText([filePart('otchet "июль"\r\nи август.md')]);
 
   // Кавычка — `%22`, перевод строки и возврат каретки — пробел.
   expect(
-    body.includes(
-      'filename="otchet %22июль%22  и август.md"',
-    ),
+    body.includes('filename="otchet %22июль%22  и август.md"'),
     `имя файла экранировано не по спеке: ${body}`,
   ).toBe(true);
 });

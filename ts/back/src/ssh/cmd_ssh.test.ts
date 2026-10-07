@@ -71,7 +71,7 @@ function harness(db?: CacheDb) {
   // закрывает `using` самого теста.
   let closed = 0;
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? HOME : undefined,
+    env: (name) => (name === "HOME" ? HOME : undefined),
     envFile: {
       get: (name) => ENV[name],
       values: () => ({ ...ENV }),

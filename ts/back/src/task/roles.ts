@@ -29,7 +29,7 @@ export const ROLES_SCHEMA: readonly string[] = [
 export const ROLE_NAMES = ["host", "exec"] as const;
 
 /** Роль проекта (граница: ключ `role:` и строка таблицы). */
-export type RoleName = typeof ROLE_NAMES[number];
+export type RoleName = (typeof ROLE_NAMES)[number];
 
 /**
  * Роль по слову.
@@ -271,7 +271,7 @@ export class Roles {
       this.#project,
     );
     return ROLE_NAMES.flatMap((name) =>
-      rows.filter((row) => row.role === name).map(roleOf)
+      rows.filter((row) => row.role === name).map(roleOf),
     );
   }
 
@@ -291,8 +291,9 @@ export class Roles {
 function roleOf(row: SqlRow): Role {
   // Профиль пишет только `put` из `ProfileRecord`: форма строки — его.
   const profile = JSON.parse(String(row.profile)) as ProfileRecord;
-  const mark = row.mark === null
-    ? NO_MARK
-    : new Marked(String(row.mark), Number(row.at_ms));
+  const mark =
+    row.mark === null
+      ? NO_MARK
+      : new Marked(String(row.mark), Number(row.at_ms));
   return new Role(String(row.role), profile, mark);
 }

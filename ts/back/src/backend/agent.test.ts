@@ -27,8 +27,9 @@ it("агентский токен: /line — 401, /rpc — принят", () =>
       body: "",
     });
     // Без Upgrade: доступ есть, но это не WebSocket.
-    expect((await request(back, "/agent/line", { headers: agent })).status)
-      .toBe(400);
+    expect(
+      (await request(back, "/agent/line", { headers: agent })).status,
+    ).toBe(400);
     const rpc = await request(back, "/rpc", {
       method: "POST",
       headers: agent,
@@ -42,7 +43,7 @@ it("агентский токен в подпротоколе /line не отк�
   withBack(async (back) => {
     const client = new Client(back, "/line", { agent: true });
     await client.opened();
-    expect(await client.closed() !== 1000).toBe(true);
+    expect((await client.closed()) !== 1000).toBe(true);
     expect(client.frames).toStrictEqual([]);
   }));
 

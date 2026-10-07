@@ -46,7 +46,8 @@ async function consumers(repo: Repo, address: string): Promise<string[]> {
   return answered(result).consumers.places.map((place) => place.path);
 }
 
-const PROJECT = '{"compilerOptions":{"strict":true,"noEmit":true},' +
+const PROJECT =
+  '{"compilerOptions":{"strict":true,"noEmit":true},' +
   '"include":["src/**/*"]}\n';
 
 it("потребитель из соседнего проекта того же репозитория", async () => {
@@ -115,9 +116,7 @@ describe("в перечень не попадает файл, которого �
   });
 
   it("единица перечня — файл, и он в нём один раз", () => {
-    expect([...new Set(found)].length, `${found}`).toStrictEqual(
-      found.length,
-    );
+    expect([...new Set(found)].length, `${found}`).toStrictEqual(found.length);
   });
 });
 
@@ -147,43 +146,52 @@ describe("динамический импорт с невычислимым пу
   let temp: string;
   let repo: Repo;
   let result: {
-    section: {
-      kind: "answer";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      guarantee: "types" | "text";
-      target: { kind: "symbol" | "module"; path: string; line: number | null };
-      symbol: {
-        name: string;
-        signature: string;
-        scope:
-          | "entry"
-          | "module-only"
-          | "no-entry"
-          | "entry-unparsed"
-          | "entry-not-object"
-          | "private";
-      } | null;
-      consumers: { total: number; places: { path: string; line: number }[] };
-      unresolved: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          specifier: string;
-          reason: string;
-        }[];
-      };
-    } | {
-      kind: "refused";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      refusal: string;
-    };
+    section:
+      | {
+          kind: "answer";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          guarantee: "types" | "text";
+          target: {
+            kind: "symbol" | "module";
+            path: string;
+            line: number | null;
+          };
+          symbol: {
+            name: string;
+            signature: string;
+            scope:
+              | "entry"
+              | "module-only"
+              | "no-entry"
+              | "entry-unparsed"
+              | "entry-not-object"
+              | "private";
+          } | null;
+          consumers: {
+            total: number;
+            places: { path: string; line: number }[];
+          };
+          unresolved: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              specifier: string;
+              reason: string;
+            }[];
+          };
+        }
+      | {
+          kind: "refused";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          refusal: string;
+        };
   };
   let named: string[];
   beforeAll(async () => {
@@ -210,17 +218,15 @@ describe("динамический импорт с невычислимым пу
   afterAll(async () => {
     await rm(temp, { recursive: true });
   });
-  for (
-    const path of ["src/byCall.ts", "src/byName.ts", "src/byTemplate.ts"]
-  ) {
+  for (const path of ["src/byCall.ts", "src/byName.ts", "src/byTemplate.ts"]) {
     it(path, () => {
       expect(named.includes(path), `${path} выпал: ${named}`).toBe(true);
     });
   }
   it("причина названа", () => {
     expect(
-      answered(result).unresolved.items.every((item) =>
-        item.reason === "спецификатор не литерал"
+      answered(result).unresolved.items.every(
+        (item) => item.reason === "спецификатор не литерал",
       ),
       JSON.stringify(answered(result).unresolved.items),
     ).toBe(true);
@@ -232,8 +238,5 @@ function answered(result: { section: { kind: string } }) {
   if (result.section.kind !== "answer") {
     throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
   }
-  return result.section as Extract<
-    RefsResult["section"],
-    { kind: "answer" }
-  >;
+  return result.section as Extract<RefsResult["section"], { kind: "answer" }>;
 }

@@ -190,7 +190,7 @@ class VersionedPackage implements LockedPackage {
     if (view.code === 0) return 0;
     // В `dry` на чистой машине ozon-dev ещё не поднят — пробы в нём не
     // проходят, и «нет коммита» назвало бы не ту причину.
-    if (context.dryRun && !await devRunning(context)) {
+    if (context.dryRun && !(await devRunning(context))) {
       context.progress(
         "стенд ozon: ozon-dev не запущен — план публикации пакета не " +
           "построить (в реальном прогоне он поднимется первым)",
@@ -266,7 +266,7 @@ class VersionedPackage implements LockedPackage {
         "tsconfig.json",
       ]),
     );
-    if (!context.dryRun && !await builtIn(context)) {
+    if (!context.dryRun && !(await builtIn(context))) {
       context.progress(
         "mpu mp-init: стенд ozon: dist пакета пуст — не публикую",
       );

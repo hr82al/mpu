@@ -24,18 +24,25 @@ import {
 } from "../selector/mod.ts";
 
 const argsSchema = z.object({
-  selector: z.string({
-    error: "нужен target: client_id, spreadsheet_id или заголовок",
-  }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
-  server: z.string().optional().describe(
-    "номер контейнера стенда: sl-N; по умолчанию sl-1",
-  ),
-  "client-id": z.number().int().positive().optional().describe(
-    "client_id; без него берётся из кандидатов селектора",
-  ),
-  print: z.boolean().default(false).describe(
-    "напечатать docker-команду и скопировать её, не выполняя",
-  ),
+  selector: z
+    .string({
+      error: "нужен target: client_id, spreadsheet_id или заголовок",
+    })
+    .describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
+  server: z
+    .string()
+    .optional()
+    .describe("номер контейнера стенда: sl-N; по умолчанию sl-1"),
+  "client-id": z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("client_id; без него берётся из кандидатов селектора"),
+  print: z
+    .boolean()
+    .default(false)
+    .describe("напечатать docker-команду и скопировать её, не выполняя"),
 });
 
 const resultSchema = z.object({
@@ -147,10 +154,7 @@ function resolvedClientId(args: MakeSchemaArgs, io: MakeSchemaIo): number {
     query: (sql, ...params) => (db ??= io.openCacheDb()).query(sql, ...params),
   };
   try {
-    const resolved = resolveSelector(
-      { cache, env: io.envFile },
-      args.selector,
-    );
+    const resolved = resolveSelector({ cache, env: io.envFile }, args.selector);
     return Number(pickClientId(resolved.candidates));
   } finally {
     db?.[Symbol.dispose]();

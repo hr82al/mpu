@@ -210,10 +210,7 @@ it("команда без записи вывода: запись есть, се
       logsOutput: false,
       logsArguments: true,
       logsStdout: true,
-      path: [
-        "mcp",
-        "token",
-      ],
+      path: ["mcp", "token"],
     });
     const output = record.capture({ stdout: () => {}, stderr: () => {} });
     output.stdout('{"Authorization":"Bearer s3cret"}\n');
@@ -400,8 +397,7 @@ it("run_id различаются у вызовов в одну миллисек
     }
     const ids = [
       ...(await logText(path)).matchAll(/^### \S+ \S+ \S+ run=(\S+) /gmu),
-    ]
-      .map((match) => match[1]);
+    ].map((match) => match[1]);
     expect(ids.length).toBe(3);
     expect(new Set(ids).size, `run_id повторились: ${ids.join(", ")}`).toBe(3);
   });
@@ -427,15 +423,18 @@ describe("fail-open: журнал не бросает и не меняет ис�
     );
   });
   it("путь файла неизвестен вовсе", async () => {
-    await withLog(async (log) => {
-      const record = log.begin({
-        kind: "argv",
-        argv: ["xlsx", "ls"],
-        cwd: "/work",
-      });
-      record.nativeCall(LOGGED);
-      await record.finish(0);
-    }, { defaultFile: undefined });
+    await withLog(
+      async (log) => {
+        const record = log.begin({
+          kind: "argv",
+          argv: ["xlsx", "ls"],
+          cwd: "/work",
+        });
+        record.nativeCall(LOGGED);
+        await record.finish(0);
+      },
+      { defaultFile: undefined },
+    );
   });
 });
 

@@ -618,23 +618,29 @@ export function childrenOf(
     seen.add(name);
     const childPath = [...prefix, name];
     const group = findGroup(childPath);
-    const summary = group?.summary ??
+    const summary =
+      group?.summary ??
       findCommand(childPath)?.summary ??
-      findSurface(childPath)?.summary ?? "";
+      findSurface(childPath)?.summary ??
+      "";
     out.push({ name, summary });
   }
   return out;
 }
 
 function samePath(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length &&
-    left.every((segment, i) => segment === right[i]);
+  return (
+    left.length === right.length &&
+    left.every((segment, i) => segment === right[i])
+  );
 }
 
 function startsWith(
   path: readonly string[],
   prefix: readonly string[],
 ): boolean {
-  return prefix.length <= path.length &&
-    prefix.every((segment, i) => segment === path[i]);
+  return (
+    prefix.length <= path.length &&
+    prefix.every((segment, i) => segment === path[i])
+  );
 }

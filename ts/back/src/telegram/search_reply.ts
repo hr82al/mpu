@@ -61,9 +61,12 @@ export function chatsFromSearch(reply: SearchReply): readonly RawChat[] {
   for (const ref of [...reply.myResults, ...reply.results]) {
     // Ссылка без объекта — неполный ответ сервера: пустой чат в выдаче
     // хуже отсутствия, id из него всё равно нечем дополнить.
-    const chat = ref._ === "peerUser"
-      ? userChat(users.get(ref.userId))
-      : chatChat(chats.get(ref._ === "peerChat" ? ref.chatId : ref.channelId));
+    const chat =
+      ref._ === "peerUser"
+        ? userChat(users.get(ref.userId))
+        : chatChat(
+            chats.get(ref._ === "peerChat" ? ref.chatId : ref.channelId),
+          );
     if (chat !== undefined) out.push(chat);
   }
   return out;
@@ -74,9 +77,9 @@ function userChat(user: UserTl | undefined): RawChat | undefined {
   return {
     peerType: user.bot === true ? "bot" : "user",
     rawId: user.id,
-    title: [user.firstName, user.lastName].filter((part) =>
-      part !== undefined && part !== ""
-    ).join(" "),
+    title: [user.firstName, user.lastName]
+      .filter((part) => part !== undefined && part !== "")
+      .join(" "),
     username: username(user),
   };
 }
@@ -113,14 +116,12 @@ export function chatPeerType(chat: ChatTl): PeerType {
  * Имя пользователя без «@»: основное поле, иначе первое из списка
  * дополнительных имён.
  */
-function username(
-  peer: {
-    readonly username?: string;
-    readonly usernames?: readonly {
-      readonly username: string;
-    }[];
-  },
-): string | null {
+function username(peer: {
+  readonly username?: string;
+  readonly usernames?: readonly {
+    readonly username: string;
+  }[];
+}): string | null {
   if (peer.username !== undefined && peer.username !== "") return peer.username;
   return peer.usernames?.[0]?.username ?? null;
 }

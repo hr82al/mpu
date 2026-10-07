@@ -14,9 +14,11 @@ import { readFile, writeFile } from "node:fs/promises";
 const PACKAGE = new URL("../../node_modules/@mtcute/wasm/", import.meta.url);
 const TARGET = new URL("../src/telegram/wasm_modules.ts", import.meta.url);
 
-const version = (JSON.parse(
-  await readFile(new URL("package.json", PACKAGE), "utf8"),
-) as { version: string }).version;
+const version = (
+  JSON.parse(await readFile(new URL("package.json", PACKAGE), "utf8")) as {
+    version: string;
+  }
+).version;
 const base64 = async (name: string) =>
   (await readFile(new URL(name, PACKAGE))).toString("base64");
 

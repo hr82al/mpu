@@ -43,9 +43,10 @@ const COMMAND: Shape<Runs> = new Shape<Runs>([], {
   ending: RUN,
 });
 
-const GROUP: Shape<Runs> = new Shape<Runs>([
-  keyword({ card: "value" }, ["card"], DOC, DATA, () => "card"),
-], { fallback: tail("<args>", DOC, () => COMMAND) });
+const GROUP: Shape<Runs> = new Shape<Runs>(
+  [keyword({ card: "value" }, ["card"], DOC, DATA, () => "card")],
+  { fallback: tail("<args>", DOC, () => COMMAND) },
+);
 
 const ROOT = new Shape<Runs>([
   unary("run", DOC, COMMAND, (self) => self),
@@ -74,7 +75,8 @@ describe("хвост и конец строки", () => {
       words: ["run", "a", "--help"],
       outcome: {
         path: ["run", "<args>", "help"],
-        value: "Использование: mpu run a <сообщение>\n\nпроба\n\n" +
+        value:
+          "Использование: mpu run a <сообщение>\n\nпроба\n\n" +
           "Справка: проба.\n\nСообщения:\n  <args>  проба\n",
       },
       runs: 0,
@@ -83,7 +85,8 @@ describe("хвост и конец строки", () => {
       // Справка — последним словом: слова за `help` уходят справке.
       words: ["run", "help", "a", "--help"],
       outcome: {
-        error: "mpu run help: не понимает a; справка — последним словом: " +
+        error:
+          "mpu run help: не понимает a; справка — последним словом: " +
           "mpu run a help",
         code: 2,
       },
@@ -93,7 +96,8 @@ describe("хвост и конец строки", () => {
       words: ["run", "--help"],
       outcome: {
         path: ["run", "help"],
-        value: "Использование: mpu run <сообщение>\n\nпроба\n\n" +
+        value:
+          "Использование: mpu run <сообщение>\n\nпроба\n\n" +
           "Справка: проба.\n\nСообщения:\n  <args>  проба\n",
       },
       runs: 0,

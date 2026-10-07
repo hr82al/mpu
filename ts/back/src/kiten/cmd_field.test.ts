@@ -73,9 +73,7 @@ async function cardWithFiles(
 }
 
 /** Чем отвечать на «МЕТОД путь»; пара вне таблицы — красный тест. */
-type Routes = Readonly<
-  Record<string, () => Response | Promise<Response>>
->;
+type Routes = Readonly<Record<string, () => Response | Promise<Response>>>;
 
 interface Stand {
   readonly io: CommandIo;
@@ -133,8 +131,9 @@ describe("field set: значение уходит в поле по таблиц
     try {
       const value =
         "https://gitlab.example.test/team/repo/-/merge_requests/999";
-      expect(await output(kitenFieldSetCommand, [SELECTOR, "mr", value], io))
-        .toStrictEqual(await expected("ok-set-mr-stdout.txt", baseUrl));
+      expect(
+        await output(kitenFieldSetCommand, [SELECTOR, "mr", value], io),
+      ).toStrictEqual(await expected("ok-set-mr-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([`PATCH ${CARD_PATH}`]);
       expect(JSON.parse(seen[0].body)).toStrictEqual({
         properties: { id_398965: value },
@@ -151,11 +150,7 @@ describe("field set: значение уходит в поле по таблиц
     try {
       const value = "Гипотеза: расход растёт из-за повтора запроса";
       expect(
-        await output(
-          kitenFieldSetCommand,
-          [SELECTOR, "hypothesis", value],
-          io,
-        ),
+        await output(kitenFieldSetCommand, [SELECTOR, "hypothesis", value], io),
       ).toStrictEqual(await expected("ok-set-hypothesis-stdout.txt", baseUrl));
       expect(JSON.parse(seen[0].body)).toStrictEqual({
         properties: { id_291984: value },
@@ -170,8 +165,9 @@ describe("field set: значение уходит в поле по таблиц
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
-      expect(await output(kitenFieldSetCommand, [SELECTOR, "result", ""], io))
-        .toStrictEqual(`ok: result → — · ${baseUrl}/${CARD_ID}\n`);
+      expect(
+        await output(kitenFieldSetCommand, [SELECTOR, "result", ""], io),
+      ).toStrictEqual(`ok: result → — · ${baseUrl}/${CARD_ID}\n`);
       expect(JSON.parse(seen[0].body)).toStrictEqual({
         properties: { id_291990: null },
       });
@@ -185,8 +181,9 @@ describe("field set: значение уходит в поле по таблиц
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
-      expect(await output(kitenFieldSetCommand, [SELECTOR, "done", " \t"], io))
-        .toStrictEqual(`ok: done →  \t · ${baseUrl}/${CARD_ID}\n`);
+      expect(
+        await output(kitenFieldSetCommand, [SELECTOR, "done", " \t"], io),
+      ).toStrictEqual(`ok: done →  \t · ${baseUrl}/${CARD_ID}\n`);
       expect(JSON.parse(seen[0].body)).toStrictEqual({
         properties: { id_291985: " \t" },
       });
@@ -196,7 +193,10 @@ describe("field set: значение уходит в поле по таблиц
   });
 
   it("done и result — свои id полей", async () => {
-    for (const [kind, id] of [["done", 291985], ["result", 291990]] as const) {
+    for (const [kind, id] of [
+      ["done", 291985],
+      ["result", 291990],
+    ] as const) {
       const { io, seen, stop } = await stand({
         [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
       });
@@ -217,7 +217,7 @@ describe("field set: ошибки ввода — до сети", () => {
     const { seen, stop } = await stand({});
     try {
       const err = assertThrowsUsage(() =>
-        kitenFieldSetCommand.parseArgs([SELECTOR, "badkind", "x"])
+        kitenFieldSetCommand.parseArgs([SELECTOR, "badkind", "x"]),
       );
       expect(err.message.includes("mr, hypothesis, done, result")).toBe(true);
       expect(calls(seen)).toStrictEqual([]);
@@ -229,8 +229,9 @@ describe("field set: ошибки ввода — до сети", () => {
   it("селектор без числового сегмента", async () => {
     const { io, seen, stop } = await stand({});
     try {
-      await expect(output(kitenFieldSetCommand, ["board/abc", "mr", "x"], io))
-        .rejects.toThrow(UsageError);
+      await expect(
+        output(kitenFieldSetCommand, ["board/abc", "mr", "x"], io),
+      ).rejects.toThrow(UsageError);
       expect(calls(seen)).toStrictEqual([]);
     } finally {
       await stop();
@@ -270,13 +271,18 @@ describe("artefact set: файл уходит в поле 610303", () => {
   });
 
   it("razbor.md — имя и url файла из ответа", async () => {
-    const { io, baseUrl, seen, stop } = await stand({
-      [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
-        Response.json(uploaded(
-          "razbor.md",
-          "https://files/ec5402f3-a31f-4d18-9032-a4825cb004ba.md",
-        )),
-    }, { readRegularFile: () => Promise.resolve(new Uint8Array([35, 32])) });
+    const { io, baseUrl, seen, stop } = await stand(
+      {
+        [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
+          Response.json(
+            uploaded(
+              "razbor.md",
+              "https://files/ec5402f3-a31f-4d18-9032-a4825cb004ba.md",
+            ),
+          ),
+      },
+      { readRegularFile: () => Promise.resolve(new Uint8Array([35, 32])) },
+    );
     try {
       expect(
         await output(
@@ -294,18 +300,24 @@ describe("artefact set: файл уходит в поле 610303", () => {
   });
 
   it("RAZBOR.MD — регистр расширения не значим", async () => {
-    const { io, baseUrl, stop } = await stand({
-      [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
-        Response.json(uploaded(
-          "RAZBOR.MD",
-          "https://files/d9744f5d-7fda-458c-b529-7b6841038063.MD",
-        )),
-    }, { readRegularFile: () => Promise.resolve(new Uint8Array([35])) });
+    const { io, baseUrl, stop } = await stand(
+      {
+        [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
+          Response.json(
+            uploaded(
+              "RAZBOR.MD",
+              "https://files/d9744f5d-7fda-458c-b529-7b6841038063.MD",
+            ),
+          ),
+      },
+      { readRegularFile: () => Promise.resolve(new Uint8Array([35])) },
+    );
     try {
-      expect(await output(kitenArtefactSetCommand, [SELECTOR, "RAZBOR.MD"], io))
-        .toStrictEqual(
-          await expected("ok-artefact-set-upper-md-stdout.txt", baseUrl),
-        );
+      expect(
+        await output(kitenArtefactSetCommand, [SELECTOR, "RAZBOR.MD"], io),
+      ).toStrictEqual(
+        await expected("ok-artefact-set-upper-md-stdout.txt", baseUrl),
+      );
     } finally {
       await stop();
     }
@@ -318,12 +330,10 @@ describe("artefact set: ошибки ввода — до сети и до чте
     // случиться раньше чтения файла.
     const { io, seen, stop } = await stand({});
     try {
-      const err = await rejected(() =>
-        output(
-          kitenArtefactSetCommand,
-          [SELECTOR, "probe.txt"],
-          io,
-        ), UsageError);
+      const err = await rejected(
+        () => output(kitenArtefactSetCommand, [SELECTOR, "probe.txt"], io),
+        UsageError,
+      );
       expect(err.message).toStrictEqual(
         (await golden("err-not-md-message.txt")).trim(),
       );
@@ -336,8 +346,9 @@ describe("artefact set: ошибки ввода — до сети и до чте
   it("селектор без числового сегмента — общий разбор", async () => {
     const { io, seen, stop } = await stand({});
     try {
-      await expect(output(kitenArtefactRmCommand, ["board/abc"], io)).rejects
-        .toThrow(UsageError);
+      await expect(
+        output(kitenArtefactRmCommand, ["board/abc"], io),
+      ).rejects.toThrow(UsageError);
       expect(calls(seen)).toStrictEqual([]);
     } finally {
       await stop();
@@ -345,15 +356,17 @@ describe("artefact set: ошибки ввода — до сети и до чте
   });
 
   it("пути нет либо он не обычный файл", async () => {
-    const { io, seen, stop } = await stand({}, {
-      readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
-    });
+    const { io, seen, stop } = await stand(
+      {},
+      {
+        readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
+      },
+    );
     try {
-      const err = await rejected(() =>
-        output(kitenArtefactSetCommand, [
-          SELECTOR,
-          "/nowhere/x.md",
-        ], io), UsageError);
+      const err = await rejected(
+        () => output(kitenArtefactSetCommand, [SELECTOR, "/nowhere/x.md"], io),
+        UsageError,
+      );
       expect(err.message).toBe("артефакт не найден: /nowhere/x.md");
       expect(calls(seen)).toStrictEqual([]);
     } finally {
@@ -363,12 +376,16 @@ describe("artefact set: ошибки ввода — до сети и до чте
 });
 
 it("artefact set: отказ загрузки — exit 1", async () => {
-  const { io, seen, stop } = await stand({
-    [`PUT ${ARTEFACT_FILES_PATH}`]: () => new Response("", { status: 403 }),
-  }, { readRegularFile: () => Promise.resolve(new Uint8Array([35])) });
+  const { io, seen, stop } = await stand(
+    {
+      [`PUT ${ARTEFACT_FILES_PATH}`]: () => new Response("", { status: 403 }),
+    },
+    { readRegularFile: () => Promise.resolve(new Uint8Array([35])) },
+  );
   try {
-    await expect(output(kitenArtefactSetCommand, [SELECTOR, "razbor.md"], io))
-      .rejects.toThrow(DomainError);
+    await expect(
+      output(kitenArtefactSetCommand, [SELECTOR, "razbor.md"], io),
+    ).rejects.toThrow(DomainError);
     expect(calls(seen)).toStrictEqual([`PUT ${ARTEFACT_FILES_PATH}`]);
   } finally {
     await stop();
@@ -376,16 +393,17 @@ it("artefact set: отказ загрузки — exit 1", async () => {
 });
 
 it("artefact set: прочий отказ чтения — тоже ошибка ввода", async () => {
-  const { io, seen, stop } = await stand({}, {
-    readRegularFile: () => Promise.reject(new Error("permission denied")),
-  });
+  const { io, seen, stop } = await stand(
+    {},
+    {
+      readRegularFile: () => Promise.reject(new Error("permission denied")),
+    },
+  );
   try {
-    const err = await rejected(() =>
-      output(
-        kitenArtefactSetCommand,
-        [SELECTOR, "razbor.md"],
-        io,
-      ), UsageError);
+    const err = await rejected(
+      () => output(kitenArtefactSetCommand, [SELECTOR, "razbor.md"], io),
+      UsageError,
+    );
     expect(err.message).toBe(
       "не удалось прочитать артефакт razbor.md: permission denied",
     );
@@ -402,8 +420,9 @@ describe("artefact rm: удаляются только файлы поля", () 
       [`DELETE ${filePath(62289609)}`]: () => new Response("", { status: 200 }),
     });
     try {
-      expect(await output(kitenArtefactRmCommand, [SELECTOR], io))
-        .toStrictEqual(await expected("ok-artefact-rm-stdout.txt", baseUrl));
+      expect(
+        await output(kitenArtefactRmCommand, [SELECTOR], io),
+      ).toStrictEqual(await expected("ok-artefact-rm-stdout.txt", baseUrl));
       // Файлы комментариев (62289606, 62289607) не удаляются.
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -431,10 +450,11 @@ describe("artefact rm: удаляются только файлы поля", () 
       [`DELETE ${filePath(62289609)}`]: () => new Response("", { status: 200 }),
     });
     try {
-      expect(await output(kitenArtefactRmCommand, [SELECTOR], io))
-        .toStrictEqual(
-          await expected("ok-artefact-rm-two-files-stdout.txt", baseUrl),
-        );
+      expect(
+        await output(kitenArtefactRmCommand, [SELECTOR], io),
+      ).toStrictEqual(
+        await expected("ok-artefact-rm-two-files-stdout.txt", baseUrl),
+      );
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
         `DELETE ${filePath(second)}`,
@@ -450,16 +470,17 @@ describe("artefact rm: удаляются только файлы поля", () 
       [`GET ${CARD_PATH}`]: () =>
         cardWithFiles((raw) => {
           const files = raw.files as Record<string, unknown>[];
-          raw.files = files.filter((file) =>
-            file.custom_property_id !== 610303
+          raw.files = files.filter(
+            (file) => file.custom_property_id !== 610303,
           );
         }),
     });
     try {
-      expect(await output(kitenArtefactRmCommand, [SELECTOR], io))
-        .toStrictEqual(
-          await expected("ok-artefact-rm-empty-stdout.txt", baseUrl),
-        );
+      expect(
+        await output(kitenArtefactRmCommand, [SELECTOR], io),
+      ).toStrictEqual(
+        await expected("ok-artefact-rm-empty-stdout.txt", baseUrl),
+      );
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
       await stop();
@@ -476,8 +497,9 @@ describe("artefact rm: удаляются только файлы поля", () 
       [`DELETE ${filePath(62289703)}`]: () => new Response("", { status: 200 }),
     });
     try {
-      await expect(output(kitenArtefactRmCommand, [SELECTOR], io)).rejects
-        .toThrow(DomainError);
+      await expect(
+        output(kitenArtefactRmCommand, [SELECTOR], io),
+      ).rejects.toThrow(DomainError);
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
         `DELETE ${filePath(62289701)}`,

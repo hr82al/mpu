@@ -27,7 +27,10 @@ const DEFAULT_LIMIT = 200;
 const argsSchema = z.object({
   name: z.string().min(1, "нужно имя объявления"),
   in: z.string().optional(),
-  limit: z.number().int().positive("--limit ожидает положительное целое")
+  limit: z
+    .number()
+    .int()
+    .positive("--limit ожидает положительное целое")
     .default(DEFAULT_LIMIT),
 });
 
@@ -142,9 +145,9 @@ export function renderName(result: NameResult): string {
 
 function renderSection(section: NameResult["sections"][number]): string {
   if (section.kind === "refused") {
-    return `${
-      renderMarkOnly(treeMarkOf(section.mark))
-    }\n  отказ: ${section.refusal}`;
+    return `${renderMarkOnly(
+      treeMarkOf(section.mark),
+    )}\n  отказ: ${section.refusal}`;
   }
   const blocks = [
     renderMark(treeMarkOf(section.mark), section.guarantee),
@@ -183,8 +186,9 @@ function renderDeclarations(section: AnsweredSection): string {
 function renderNeighbours(section: AnsweredSection): readonly string[] {
   const neighbours = section.neighbours;
   if (neighbours === null) return [];
-  const lines = neighbours.items.map((entry) =>
-    `  ${entry.path}:${entry.line}  ${entry.name} ${entry.signature}`
+  const lines = neighbours.items.map(
+    (entry) =>
+      `  ${entry.path}:${entry.line}  ${entry.name} ${entry.signature}`,
   );
   if (neighbours.items.length < neighbours.total) {
     lines.push(

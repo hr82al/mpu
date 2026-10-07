@@ -62,17 +62,21 @@ export function callRecord(result: CallResult): unknown {
 export function renderCall(result: CallResult): string {
   if (result.kind === "dry") {
     const headers = Object.entries(result.headers)
-      .map(([name, value]) => `${name}: ${value}\n`).join("");
+      .map(([name, value]) => `${name}: ${value}\n`)
+      .join("");
     const body = result.body === null ? "" : `\n${result.body}\n`;
     return `${result.method} ${result.url}\n${headers}${body}`;
   }
   const url = new URL(result.url);
   const headers = Object.entries(result.headers)
-    .map(([name, value]) => `${name}: ${value}\n`).join("");
+    .map(([name, value]) => `${name}: ${value}\n`)
+    .join("");
   // Запрос адреса — часть ручки: у WB он и называет выборку (W1).
   const address = `${url.host}${url.pathname}${url.search}`;
-  return `HTTP ${result.status} ${result.method} ${address}\n` +
-    `${headers}\n${bodyText(result.body)}`;
+  return (
+    `HTTP ${result.status} ${result.method} ${address}\n` +
+    `${headers}\n${bodyText(result.body)}`
+  );
 }
 
 /** Ответил ли маркетплейс успехом: статус 2xx. */
@@ -89,7 +93,8 @@ export function callExitCode(result: CallResult): number {
 /** Строка note журнала: статус, размер тела, заголовки квоты — без тела. */
 export function journalNote(reply: Reply): string {
   const headers = Object.entries(reply.headers)
-    .map(([name, value]) => `, ${name}: ${value}`).join("");
+    .map(([name, value]) => `, ${name}: ${value}`)
+    .join("");
   return `HTTP ${reply.status}, тело ${reply.bytes} байт${headers}`;
 }
 

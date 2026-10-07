@@ -22,8 +22,8 @@ async function script(name: string): Promise<string[]> {
 
 /** Слова самой сборки: после `bun build`, без подготовки перед ней. */
 function build(words: readonly string[]): readonly string[] {
-  const at = words.findIndex((word, i) =>
-    word === "bun" && words[i + 1] === "build"
+  const at = words.findIndex(
+    (word, i) => word === "bun" && words[i + 1] === "build",
   );
   return at < 0 ? [] : words.slice(at);
 }

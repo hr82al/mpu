@@ -62,8 +62,10 @@ function record(
   cmd: string,
   exitCode: number,
 ): string {
-  return `${header(runId, date, time)}\n$ ${cmd}\n` +
-    `--- end run=${runId} exit=${exitCode} dur=0.001s ---\n\n`;
+  return (
+    `${header(runId, date, time)}\n$ ${cmd}\n` +
+    `--- end run=${runId} exit=${exitCode} dur=0.001s ---\n\n`
+  );
 }
 
 /* --------------------------------------------------------------- *
@@ -154,7 +156,8 @@ it("--tail применяется после отборов: --tail 1 --failed �
   // Среди двух последних записей упавших нет; упавшие — самые первые.
   // Если бы --tail считался раньше --failed, отбор упавших применился бы
   // уже к хвосту из одной последней (успешной) записи и дал бы пусто.
-  const journal = record("run-1", "2026-08-01", "10:00:00.000", "mpu a", 2) +
+  const journal =
+    record("run-1", "2026-08-01", "10:00:00.000", "mpu a", 2) +
     record("run-2", "2026-08-01", "11:00:00.000", "mpu b", 3) +
     record("run-3", "2026-08-01", "12:00:00.000", "mpu c", 0) +
     record("run-4", "2026-08-01", "13:00:00.000", "mpu d", 0);
@@ -194,9 +197,11 @@ it("cmd: видит строки ask — снимается только сло�
     { journal: ["mpu asksomething"], cmd: "something", picked: [] },
   ];
   for (const { journal, cmd, picked } of cases) {
-    const text = journal.map((line, i) =>
-      record(`run-${i + 1}`, "2026-08-01", `1${i}:00:00.000`, line, 0)
-    ).join("");
+    const text = journal
+      .map((line, i) =>
+        record(`run-${i + 1}`, "2026-08-01", `1${i}:00:00.000`, line, 0),
+      )
+      .join("");
     const { io } = ioWithFile(text);
     const result = await runLog(logArgs({ file: "journal", cmd }), io);
     const runs = result.records.map((r) => r.match(/run=(\S+)/)?.[1]);
@@ -244,13 +249,9 @@ it("--run с несуществующим ID — DomainError, exit-код ком
 
 it("--since: относительная форма и голое unix-время, граница включительная", async () => {
   const epoch = Date.UTC(2026, 7, 1, 12, 0, 0, 0) / 1000;
-  const journal = record(
-    "on-boundary",
-    "2026-08-01",
-    "12:00:00.000",
-    "mpu a",
-    0,
-  ) + record("later", "2026-08-01", "12:01:40.000", "mpu b", 0);
+  const journal =
+    record("on-boundary", "2026-08-01", "12:00:00.000", "mpu a", 0) +
+    record("later", "2026-08-01", "12:01:40.000", "mpu b", 0);
 
   // Голое unix-время, ровно на границе: запись на границе входит.
   {
@@ -276,11 +277,9 @@ it("--since: относительная форма и голое unix-время
   // от той же границы epoch — итог должен совпасть с голым unix-временем.
   {
     const { io } = ioWithFile(journal);
-    const result = await runLog(
-      logArgs({ file: "journal", since: "2h" }),
-      io,
-      { nowSeconds: () => epoch + 2 * 3600 },
-    );
+    const result = await runLog(logArgs({ file: "journal", since: "2h" }), io, {
+      nowSeconds: () => epoch + 2 * 3600,
+    });
     expect(result.records.length).toBe(2);
   }
 });
@@ -301,13 +300,7 @@ it("без --file: архивы читаются старые → новые, з
       "mpu a",
       0,
     ),
-    [journalPath]: record(
-      "new-1",
-      "2026-08-01",
-      "10:00:00.000",
-      "mpu b",
-      0,
-    ),
+    [journalPath]: record("new-1", "2026-08-01", "10:00:00.000", "mpu b", 0),
   };
   const io = makeFakeIo({
     envFile: {
@@ -315,8 +308,8 @@ it("без --file: архивы читаются старые → новые, з
         name === "MPU_LOG_FILE"
           ? journalPath
           : name === "MPU_LOG_KEEP"
-          ? "2"
-          : undefined,
+            ? "2"
+            : undefined,
       values: () => ({}),
       require: () => {
         throw new Error("require must not be touched");
@@ -343,8 +336,8 @@ it("без --file: ошибка чтения (не NotFoundIoError) — DomainEr
         name === "MPU_LOG_FILE"
           ? journalPath
           : name === "MPU_LOG_KEEP"
-          ? "0"
-          : undefined,
+            ? "0"
+            : undefined,
       values: () => ({}),
       require: () => {
         throw new Error("require must not be touched");

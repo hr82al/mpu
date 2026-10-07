@@ -57,9 +57,12 @@ const DEFAULT_UPDATE_LIMITS: UpdateLimits = {
 };
 
 const argsSchema = z.object({
-  quiet: z.boolean().default(false).describe(
-    "не печатать ничего: ни сводку, ни строку Loki, ни предупреждения",
-  ),
+  quiet: z
+    .boolean()
+    .default(false)
+    .describe(
+      "не печатать ничего: ни сводку, ни строку Loki, ни предупреждения",
+    ),
 });
 
 const resultSchema = z.object({
@@ -71,10 +74,12 @@ const resultSchema = z.object({
   /** Длительность синка PG-части в секундах. */
   tookSeconds: z.number(),
   /** Упавшие инстансы по возрастанию номера сервера. */
-  failedServers: z.array(z.object({
-    server: z.string(),
-    reason: z.string(),
-  })),
+  failedServers: z.array(
+    z.object({
+      server: z.string(),
+      reason: z.string(),
+    }),
+  ),
   /** Итог прогрева Loki; счётчики `null` — прогрев пропущен. */
   loki: z.object({
     skipped: z.string().nullable(),
@@ -118,9 +123,7 @@ quiet подавляет весь вывод целиком; обращения 
 
 Exit: 0 — успех, включая прогон с упавшими инстансами; 1 — недоступный
 main (sl-0): кэш при этом не изменяется.`,
-  examples: [
-    "mpu update",
-  ],
+  examples: ["mpu update"],
   policy: "rw",
   argsSchema,
   resultSchema,
@@ -129,8 +132,8 @@ main (sl-0): кэш при этом не изменяется.`,
     if (args.quiet) return "";
     const lines = [
       `clients: ${result.clients} rows, spreadsheets: ${result.spreadsheets} ` +
-      `rows from ${result.servers} servers, wb sids: ${result.wbSids} rows, ` +
-      `took ${result.tookSeconds.toFixed(2)}s\n`,
+        `rows from ${result.servers} servers, wb sids: ${result.wbSids} rows, ` +
+        `took ${result.tookSeconds.toFixed(2)}s\n`,
     ];
     if (result.loki.hosts !== null) {
       lines.push(

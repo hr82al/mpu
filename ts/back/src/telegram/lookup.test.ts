@@ -12,9 +12,10 @@ function chat(rawId: number, title: string): RawChat {
 }
 
 /** Поиск, отвечающий заданным списком; запросы видны в `asked`. */
-function search(
-  found: readonly RawChat[],
-): { readonly client: ChatSearch; readonly asked: [string, number][] } {
+function search(found: readonly RawChat[]): {
+  readonly client: ChatSearch;
+  readonly asked: [string, number][];
+} {
   const asked: [string, number][] = [];
   return {
     asked,
@@ -41,8 +42,9 @@ it("ровно одно совпадение — это и есть адреса
 
 it("сравнение без учёта регистра", async () => {
   const { client } = search([chat(3, "Команда Релиза")]);
-  expect((await findChatByTitle(client, "команда релиза", "чат")).id)
-    .toStrictEqual(-1000000000003);
+  expect(
+    (await findChatByTitle(client, "команда релиза", "чат")).id,
+  ).toStrictEqual(-1000000000003);
 });
 
 it("точное совпадение старше подстрочных", async () => {

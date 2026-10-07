@@ -24,11 +24,11 @@ async function read(name: string): Promise<string> {
 /** Голден, разложенный по потокам: план — stdout, прочее — stderr. */
 function streams(golden: string): { stdout: string; stderr: string } {
   const lines = golden.split("\n").filter((line) => line !== "");
-  const stdout = lines.filter((line) =>
-    line.startsWith("[dry-run]") || line.startsWith("  ")
+  const stdout = lines.filter(
+    (line) => line.startsWith("[dry-run]") || line.startsWith("  "),
   );
-  const stderr = lines.filter((line) =>
-    line.startsWith("[warn]") || line.startsWith("[info]")
+  const stderr = lines.filter(
+    (line) => line.startsWith("[warn]") || line.startsWith("[info]"),
   );
   return { stdout: `${stdout.join("\n")}\n`, stderr: stderr.join("\n") };
 }
@@ -43,12 +43,16 @@ it("правильный вход: план и строки повторяют �
   const plan = await planOf("sample");
   const golden = streams(await read("sample-dry-run.txt"));
   expect(planText(plan)).toStrictEqual(golden.stdout);
-  expect([...warnLines(plan), infoLine("sample.d2", plan)].join("\n"))
-    .toStrictEqual(golden.stderr);
+  expect(
+    [...warnLines(plan), infoLine("sample.d2", plan)].join("\n"),
+  ).toStrictEqual(golden.stderr);
   // Числа входа — те, что у объекта: контейнер считается шейпом,
   // markdown-блок — нет, ребро в контейнер и ребро в блок считаются.
-  expect([plan.shapes.length, plan.edges.length, plan.markdown.length])
-    .toStrictEqual([5, 5, 1]);
+  expect([
+    plan.shapes.length,
+    plan.edges.length,
+    plan.markdown.length,
+  ]).toStrictEqual([5, 5, 1]);
   // Размер фрейма выше диаграммы на область блоков.
   expect([plan.frameWidth, plan.frameHeight]).toStrictEqual([478, 1418]);
 });

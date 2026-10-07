@@ -106,16 +106,15 @@ export function testEnv(setup: EnvSetup): TestEnv {
   const stderr: string[] = [];
   const copied: string[] = [];
   const asked: { kind: "line" | "secret"; question: string }[] = [];
-  const answers = [...setup.answers ?? []];
+  const answers = [...(setup.answers ?? [])];
   const terminals = setup.terminals ?? false;
   const interrupted = Promise.withResolvers<void>();
-  const readText = setup.readStdin ??
-    (() => Promise.resolve(setup.stdin ?? ""));
+  const readText =
+    setup.readStdin ?? (() => Promise.resolve(setup.stdin ?? ""));
   const encoded = async () => new TextEncoder().encode(await readText());
   const bytes = setup.stdinBytes;
-  const readStdin = bytes === undefined
-    ? encoded
-    : () => Promise.resolve(bytes.slice());
+  const readStdin =
+    bytes === undefined ? encoded : () => Promise.resolve(bytes.slice());
   let stdinReads = 0;
   let disposed = 0;
   const untyped = { left: setup.untyped ?? 0 };
@@ -147,12 +146,7 @@ export function testEnv(setup: EnvSetup): TestEnv {
       openTerminal: () =>
         Promise.resolve(
           terminals
-            ? fakeTerminal(
-              answers,
-              asked,
-              untyped,
-              () => disposed++,
-            )
+            ? fakeTerminal(answers, asked, untyped, () => disposed++)
             : undefined,
         ),
       copy: async (text) => {
@@ -260,9 +254,12 @@ function tokenOf(request: IncomingMessage): string {
   const header = request.headers.authorization ?? "";
   if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
   const offered = (request.headers["sec-websocket-protocol"] ?? "")
-    .split(",").map((one) => one.trim());
-  return offered.find((one) => one.startsWith("bearer."))
-    ?.slice("bearer.".length) ?? "";
+    .split(",")
+    .map((one) => one.trim());
+  return (
+    offered.find((one) => one.startsWith("bearer."))?.slice("bearer.".length) ??
+    ""
+  );
 }
 
 /** Очередь ответов клиента для сценария. */

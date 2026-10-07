@@ -56,9 +56,9 @@ async function put(kind: Kind, argv: string[]): Promise<string> {
   const current = await readCell(cellPath()).catch(() => null);
   if (!force && current?.kind === kind) {
     throw new CellError(
-      `в ячейке уже ${
-        describe(current)
-      } — порция не отработана; повтори с --force`,
+      `в ячейке уже ${describe(
+        current,
+      )} — порция не отработана; повтори с --force`,
     );
   }
   return `ok: ${describe(await writeCell(cellPath(), kind, body))}`;

@@ -116,9 +116,9 @@ const NAMED_KEYS: readonly Key[] = [DONE, LATER_KEY, SKIP_KEY];
  * шаг — с нуля, ключ — запись ключа из `NAMED_KEYS` или номер варианта.
  */
 const DATA = new RegExp(
-  `^([a-z0-9]+):(\\d{1,16}):(\\d):(${
-    NAMED_KEYS.map((key) => key.code).join("|")
-  }|\\d{1,3})$`,
+  `^([a-z0-9]+):(\\d{1,16}):(\\d):(${NAMED_KEYS.map((key) => key.code).join(
+    "|",
+  )}|\\d{1,3})$`,
 );
 
 /** Данные кнопки этого ядра. */
@@ -140,7 +140,8 @@ export class ButtonData implements Press {
     const match = DATA.exec(data);
     if (match === null) return NOT_OURS;
     const [, run, number, step, code] = match;
-    const key = NAMED_KEYS.find((named) => named.code === code) ??
+    const key =
+      NAMED_KEYS.find((named) => named.code === code) ??
       new OptionKey(Number(code));
     return new ButtonData(run, Number(number), Number(step), key);
   }

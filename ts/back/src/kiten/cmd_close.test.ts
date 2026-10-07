@@ -176,11 +176,14 @@ function cardStand(
   extra: Routes = {},
   env: Record<string, string> = {},
 ): Promise<Stand> {
-  return stand({
-    [`GET ${CARD_PATH}`]: () => Response.json(card),
-    [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
-    ...extra,
-  }, env);
+  return stand(
+    {
+      [`GET ${CARD_PATH}`]: () => Response.json(card),
+      [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
+      ...extra,
+    },
+    env,
+  );
 }
 
 /**
@@ -210,21 +213,21 @@ function movingStand(
   env: Record<string, string> = {},
 ): Promise<Stand> {
   let moved = false;
-  return stand({
-    [`GET ${CARD_PATH}`]: () => Response.json(moved ? after : before),
-    [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
-    [`PATCH ${CARD_PATH}`]: () => {
-      moved = true;
-      return Response.json(rawPatchedCard(columnId));
+  return stand(
+    {
+      [`GET ${CARD_PATH}`]: () => Response.json(moved ? after : before),
+      [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
+      [`PATCH ${CARD_PATH}`]: () => {
+        moved = true;
+        return Response.json(rawPatchedCard(columnId));
+      },
     },
-  }, env);
+    env,
+  );
 }
 
 /** Текст вывода так, как его напечатает точка входа. */
-async function output(
-  argv: readonly string[],
-  io: CommandIo,
-): Promise<string> {
+async function output(argv: readonly string[], io: CommandIo): Promise<string> {
   const command: Command = kitenCloseCommand;
   return command.renderResult(await command.invoke(argv, io), argv);
 }
@@ -236,9 +239,9 @@ function calls(seen: readonly CapturedRequest[]): readonly string[] {
 
 /** Тела мутирующих запросов в порядке обращения. */
 function bodies(seen: readonly CapturedRequest[]): readonly unknown[] {
-  return seen.filter((request) => request.method !== "GET").map((request) =>
-    JSON.parse(request.body)
-  );
+  return seen
+    .filter((request) => request.method !== "GET")
+    .map((request) => JSON.parse(request.body));
 }
 
 /** Строки журнала перемещений в порядке записи. */
@@ -257,18 +260,21 @@ describe("close --dry-run: план целиком, без единой мута
     const st = await cardStand(rawCard());
     try {
       expect(
-        await output([
-          SELECTOR,
-          "--hypothesis",
-          "Повтор запроса",
-          "--done",
-          "Починили",
-          "--result",
-          "Расход в норме",
-          "--reply",
-          "@all готово, проверьте",
-          "--dry-run",
-        ], st.io),
+        await output(
+          [
+            SELECTOR,
+            "--hypothesis",
+            "Повтор запроса",
+            "--done",
+            "Починили",
+            "--result",
+            "Расход в норме",
+            "--reply",
+            "@all готово, проверьте",
+            "--dry-run",
+          ],
+          st.io,
+        ),
       ).toStrictEqual(await expected("dry-run-stdout.txt", st.baseUrl));
       // Два чтения и ни одной мутации: карточка и колонки доски.
       expect(calls(st.seen)).toStrictEqual([
@@ -283,10 +289,9 @@ describe("close --dry-run: план целиком, без единой мута
   it("--no-move — голден и одно чтение", async () => {
     const st = await cardStand(rawCard());
     try {
-      expect(await output([SELECTOR, "--no-move", "--dry-run"], st.io))
-        .toStrictEqual(
-          await expected("dry-run-no-move-stdout.txt", st.baseUrl),
-        );
+      expect(
+        await output([SELECTOR, "--no-move", "--dry-run"], st.io),
+      ).toStrictEqual(await expected("dry-run-no-move-stdout.txt", st.baseUrl));
       // Колонки не читаются: переноса не будет, резолвить нечего.
       expect(calls(st.seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
@@ -312,13 +317,14 @@ describe("close --dry-run: план целиком, без единой мута
     const startedAtMs = startedHalfMinuteAgo();
     const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
-      expect(await output([SELECTOR, "--no-move", "--dry-run"], st.io))
-        .toContain(
-          `  таймер: на карточке запущен таймер (с ${
-            mskStamp(startedAtMs)
-          } МСК, 1 мин); он НЕ остановлен — ` +
-            `\`mpu kiten time stop id: ${CARD_ID}\` (или stop-timer)\n`,
-        );
+      expect(
+        await output([SELECTOR, "--no-move", "--dry-run"], st.io),
+      ).toContain(
+        `  таймер: на карточке запущен таймер (с ${mskStamp(
+          startedAtMs,
+        )} МСК, 1 мин); он НЕ остановлен — ` +
+          `\`mpu kiten time stop id: ${CARD_ID}\` (или stop-timer)\n`,
+      );
       // План не трогает таймер даже предупреждением в stderr.
       expect(st.warnings).toStrictEqual([]);
     } finally {
@@ -336,9 +342,9 @@ describe("close --dry-run: план целиком, без единой мута
           st.io,
         ),
       ).toContain(
-        `  таймер: остановить (запущен с ${
-          mskStamp(startedAtMs)
-        } МСК, 1 мин)\n`,
+        `  таймер: остановить (запущен с ${mskStamp(
+          startedAtMs,
+        )} МСК, 1 мин)\n`,
       );
       expect(calls(st.seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
@@ -372,16 +378,19 @@ describe("close: поля пишутся по одному и только в п
     });
     try {
       expect(
-        await output([
-          SELECTOR,
-          "--hypothesis",
-          "Повтор запроса",
-          "--done",
-          "Починили",
-          "--result",
-          "Расход в норме",
-          "--no-move",
-        ], st.io),
+        await output(
+          [
+            SELECTOR,
+            "--hypothesis",
+            "Повтор запроса",
+            "--done",
+            "Починили",
+            "--result",
+            "Расход в норме",
+            "--no-move",
+          ],
+          st.io,
+        ),
       ).toStrictEqual(await expected("apply-fields-stdout.txt", st.baseUrl));
       expect(calls(st.seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -421,8 +430,9 @@ describe("close: поля пишутся по одному и только в п
       [`PATCH ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
-      expect(await output([SELECTOR, "--done", "Починили", "--no-move"], st.io))
-        .toContain("ok close: поля [done]\n");
+      expect(
+        await output([SELECTOR, "--done", "Починили", "--no-move"], st.io),
+      ).toContain("ok close: поля [done]\n");
     } finally {
       await st.stop();
     }
@@ -434,17 +444,16 @@ describe("close: поля пишутся по одному и только в п
     });
     try {
       expect(
-        await output([
-          SELECTOR,
-          "--done",
-          "новое",
-          "--force-fields",
-          "--no-move",
-        ], st.io),
+        await output(
+          [SELECTOR, "--done", "новое", "--force-fields", "--no-move"],
+          st.io,
+        ),
       ).toContain("ok close: поля [done]\n");
-      expect(bodies(st.seen)).toStrictEqual([{
-        properties: { [DONE]: "новое" },
-      }]);
+      expect(bodies(st.seen)).toStrictEqual([
+        {
+          properties: { [DONE]: "новое" },
+        },
+      ]);
     } finally {
       await st.stop();
     }
@@ -462,14 +471,16 @@ describe("close --stop-timer: запись создаётся и перечит�
         finished_at: new Date().toISOString(),
       }),
     [`GET ${TIME_LOGS_PATH}`]: () =>
-      Response.json([{
-        id: LOG_ID,
-        card_id: CARD_ID,
-        time_spent: 1,
-        for_date: "2026-08-14",
-        role_id: ROLE_ID,
-        comment: "разбор жалобы",
-      }]),
+      Response.json([
+        {
+          id: LOG_ID,
+          card_id: CARD_ID,
+          time_spent: 1,
+          for_date: "2026-08-14",
+          role_id: ROLE_ID,
+          comment: "разбор жалобы",
+        },
+      ]),
   });
 
   it("голден строки таймера и состав вызовов", async () => {
@@ -479,10 +490,11 @@ describe("close --stop-timer: запись создаётся и перечит�
       routes(startedAtMs),
     );
     try {
-      expect(await output([SELECTOR, "--no-move", "--stop-timer"], st.io))
-        .toStrictEqual(
-          await expected("apply-timer-stopped-stdout.txt", st.baseUrl),
-        );
+      expect(
+        await output([SELECTOR, "--no-move", "--stop-timer"], st.io),
+      ).toStrictEqual(
+        await expected("apply-timer-stopped-stdout.txt", st.baseUrl),
+      );
       expect(calls(st.seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
         `GET ${ROLES_PATH}`,
@@ -490,13 +502,15 @@ describe("close --stop-timer: запись создаётся и перечит�
         `GET ${TIME_LOGS_PATH}`,
       ]);
       // Комментарий таймера уходит в запись: сервер его не переносит.
-      expect(bodies(st.seen)).toStrictEqual([{
-        finished_at: bodies(st.seen)[0]
-          ? (bodies(st.seen)[0] as { finished_at: string }).finished_at
-          : "",
-        comment: "разбор жалобы",
-        role_id: ROLE_ID,
-      }]);
+      expect(bodies(st.seen)).toStrictEqual([
+        {
+          finished_at: bodies(st.seen)[0]
+            ? (bodies(st.seen)[0] as { finished_at: string }).finished_at
+            : "",
+          comment: "разбор жалобы",
+          role_id: ROLE_ID,
+        },
+      ]);
       expect(st.warnings).toStrictEqual([]);
     } finally {
       await st.stop();
@@ -518,8 +532,9 @@ describe("close --stop-timer: запись создаётся и перечит�
       { KITEN_TIME_ROLE: "Диагностика" },
     );
     try {
-      expect(await output([SELECTOR, "--no-move", "--stop-timer"], st.io))
-        .toContain("запись 7000001");
+      expect(
+        await output([SELECTOR, "--no-move", "--stop-timer"], st.io),
+      ).toContain("запись 7000001");
       expect((bodies(st.seen)[0] as { role_id: number }).role_id).toBe(12060);
     } finally {
       await st.stop();
@@ -588,18 +603,18 @@ describe("close: ответ клиенту — комментарий без в�
     const st = await cardStand(rawCard(), commentRoute);
     try {
       expect(
-        await output([
-          SELECTOR,
-          "--reply",
-          "@all готово, проверьте",
-          "--no-move",
-        ], st.io),
+        await output(
+          [SELECTOR, "--reply", "@all готово, проверьте", "--no-move"],
+          st.io,
+        ),
       ).toStrictEqual(
         `ok close: поля [—]\n   ответ: комментарий ${COMMENT_ID} (@all → @ivanov)\n`,
       );
-      expect(bodies(st.seen)).toStrictEqual([{
-        text: "@ivanov готово, проверьте",
-      }]);
+      expect(bodies(st.seen)).toStrictEqual([
+        {
+          text: "@ivanov готово, проверьте",
+        },
+      ]);
     } finally {
       await st.stop();
     }
@@ -624,13 +639,10 @@ describe("close: ответ клиенту — комментарий без в�
     const st = await cardStand(rawCard({ owner: null }));
     try {
       expect(
-        await output([
-          SELECTOR,
-          "--reply",
-          "@all готово",
-          "--no-move",
-          "--dry-run",
-        ], st.io),
+        await output(
+          [SELECTOR, "--reply", "@all готово", "--no-move", "--dry-run"],
+          st.io,
+        ),
       ).toContain("  ответ: запостить\n");
       expect(st.warnings.length).toBe(1);
     } finally {
@@ -769,11 +781,14 @@ describe("close: ошибки ввода — до первой мутации", 
   it("оба источника ответа — голден текста", async () => {
     const st = await stand({});
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--reply", "текст", "--reply-file", "x.md"],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [SELECTOR, "--reply", "текст", "--reply-file", "x.md"],
+            st.io,
+          ),
+        UsageError,
+      );
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-reply-both-message.txt"),
       );
@@ -786,11 +801,10 @@ describe("close: ошибки ввода — до первой мутации", 
   it("пустой текст ответа — голден текста", async () => {
     const st = await stand({});
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--reply", "   "],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR, "--reply", "   "], st.io),
+        UsageError,
+      );
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-reply-empty-message.txt"),
       );
@@ -803,11 +817,14 @@ describe("close: ошибки ввода — до первой мутации", 
   it("нечитаемый --reply-file — префикс причины", async () => {
     const st = await stand({});
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--reply-file", "/нет/такого.md"],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [SELECTOR, "--reply-file", "/нет/такого.md"],
+            st.io,
+          ),
+        UsageError,
+      );
       expect(err.message).toContain("не удалось прочитать /нет/такого.md: ");
       expect(calls(st.seen)).toStrictEqual([]);
     } finally {
@@ -819,17 +836,23 @@ describe("close: ошибки ввода — до первой мутации", 
     const startedAtMs = startedHalfMinuteAgo();
     const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke([
-          SELECTOR,
-          "--column",
-          "Такой колонки нет",
-          "--done",
-          "Починили",
-          "--reply",
-          "готово",
-          "--stop-timer",
-        ], st.io), UsageError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [
+              SELECTOR,
+              "--column",
+              "Такой колонки нет",
+              "--done",
+              "Починили",
+              "--reply",
+              "готово",
+              "--stop-timer",
+            ],
+            st.io,
+          ),
+        UsageError,
+      );
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-column-unresolved-message.txt"),
       );
@@ -847,11 +870,10 @@ describe("close: ошибки ввода — до первой мутации", 
   it("числовая колонка чужой доски — тот же отказ", async () => {
     const st = await cardStand(rawCard());
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--column", "999"],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR, "--column", "999"], st.io),
+        UsageError,
+      );
       expect(err.message).toBe(
         "column '999' не найден — см. `mpu kiten columns`",
       );
@@ -863,11 +885,10 @@ describe("close: ошибки ввода — до первой мутации", 
   it("неоднозначная колонка — кандидаты списком", async () => {
     const st = await cardStand(rawCard());
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--column", "о"],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR, "--column", "о"], st.io),
+        UsageError,
+      );
       expect(err.message).toContain("column 'о' неоднозначен (3 совпадений):");
     } finally {
       await st.stop();
@@ -952,11 +973,14 @@ describe("close: отказ шага назван в тексте ошибки",
       [`PATCH ${TIMER_PATH}`]: failure,
     });
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke(
-          [SELECTOR, "--no-move", "--stop-timer"],
-          st.io,
-        ), DomainError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [SELECTOR, "--no-move", "--stop-timer"],
+            st.io,
+          ),
+        DomainError,
+      );
       expect(err.message).toContain("kaiten error (таймер): ");
     } finally {
       await st.stop();
@@ -974,14 +998,14 @@ describe("close: отказ шага назван в тексте ошибки",
       [`PATCH ${CARD_PATH}`]: failure,
     });
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke([
-          SELECTOR,
-          "--no-move",
-          "--stop-timer",
-          "--done",
-          "Починили",
-        ], st.io), DomainError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [SELECTOR, "--no-move", "--stop-timer", "--done", "Починили"],
+            st.io,
+          ),
+        DomainError,
+      );
       expect(err.message).toContain("kaiten error (поля): ");
       // Ранние шаги остаются применёнными: сквозного отката нет.
       expect(calls(st.seen).includes(`PATCH ${TIMER_PATH}`)).toBe(true);
@@ -996,15 +1020,14 @@ describe("close: отказ шага назван в тексте ошибки",
       [`POST ${COMMENTS_PATH}`]: failure,
     });
     try {
-      const err = await rejected(() =>
-        kitenCloseCommand.invoke([
-          SELECTOR,
-          "--no-move",
-          "--done",
-          "Починили",
-          "--reply",
-          "готово",
-        ], st.io), DomainError);
+      const err = await rejected(
+        () =>
+          kitenCloseCommand.invoke(
+            [SELECTOR, "--no-move", "--done", "Починили", "--reply", "готово"],
+            st.io,
+          ),
+        DomainError,
+      );
       expect(err.message).toContain("kaiten error (ответ): ");
       expect(calls(st.seen)).toStrictEqual([
         `GET ${CARD_PATH}`,

@@ -35,26 +35,33 @@ describe("вход по ключу", () => {
   test("ключ меняется на сессию и убирается из адреса", async () => {
     const back = fakeBack(() => new Response(null, { status: 204 }));
     const replaced: string[] = [];
-    await enter({
-      href:
-        "http://mpu.localhost:7338/?key=0123456789abcdef0123456789abcdef&x=1",
-      replace: (url) => void replaced.push(url),
-    }, back.transport);
-    expect(back.seen).toEqual([{
-      path: "/web/session",
-      body: { key: "0123456789abcdef0123456789abcdef" },
-      accept: null,
-    }]);
+    await enter(
+      {
+        href: "http://mpu.localhost:7338/?key=0123456789abcdef0123456789abcdef&x=1",
+        replace: (url) => void replaced.push(url),
+      },
+      back.transport,
+    );
+    expect(back.seen).toEqual([
+      {
+        path: "/web/session",
+        body: { key: "0123456789abcdef0123456789abcdef" },
+        accept: null,
+      },
+    ]);
     expect(replaced).toEqual(["/?x=1"]);
   });
 
   test("ключа нет — ни обмена, ни правки адреса", async () => {
     const back = fakeBack(() => new Response(null, { status: 204 }));
     const replaced: string[] = [];
-    await enter({
-      href: "http://mpu.localhost:7338/",
-      replace: (url) => void replaced.push(url),
-    }, back.transport);
+    await enter(
+      {
+        href: "http://mpu.localhost:7338/",
+        replace: (url) => void replaced.push(url),
+      },
+      back.transport,
+    );
     expect([back.seen, replaced]).toEqual([[], []]);
   });
 });
@@ -69,7 +76,7 @@ describe("состояния экрана", () => {
 
   test("back недоступен — адрес и «Повторить», пустого дерева нет", async () => {
     let up = false;
-    const back = fakeBack((seen) => up ? rpcAnswer()(seen) : undefined);
+    const back = fakeBack((seen) => (up ? rpcAnswer()(seen) : undefined));
     renderWith(back.transport, <Rules />);
     expect((await screen.findByRole("alert")).textContent).toBe(
       "mpu-back недоступен на http://mpu.localhost:7338",
@@ -110,23 +117,27 @@ describe("дерево", () => {
     const tree: NodeRuling[] = POLICY_TREE.map((node) =>
       node.path.join(" ") === "sql-ro"
         ? { ...node, verdict: "allow", rule: "*", own: false }
-        : node
+        : node,
     );
     const back = fakeBack(rpcAnswer(tree));
     renderWith(back.transport, <Rules />);
     const sql = await screen.findByText("sql-ro", { selector: ".path" });
     const row = sql.closest(".node") as HTMLElement;
-    expect(within(row).getByText("allow", { selector: ".verdict" }))
-      .toBeTruthy();
+    expect(
+      within(row).getByText("allow", { selector: ".verdict" }),
+    ).toBeTruthy();
   });
 
   test("rule: null — «по умолчанию: ask»; смешанно у родителя", () => {
-    const tree = buildTree([
-      { path: [], verdict: "ask", rule: null, own: false },
-      { path: ["a"], verdict: "ask", rule: null, own: false },
-      { path: ["a", "x"], verdict: "allow", rule: "a x", own: true },
-      { path: ["a", "y"], verdict: "deny", rule: "a y", own: true },
-    ], SNAPSHOT);
+    const tree = buildTree(
+      [
+        { path: [], verdict: "ask", rule: null, own: false },
+        { path: ["a"], verdict: "ask", rule: null, own: false },
+        { path: ["a", "x"], verdict: "allow", rule: "a x", own: true },
+        { path: ["a", "y"], verdict: "deny", rule: "a y", own: true },
+      ],
+      SNAPSHOT,
+    );
     expect(tree?.children[0].rule).toBeNull();
     expect(tree?.children[0].mixed).toBe(true);
     expect(tree?.children[0].children[0].mixed).toBe(false);
@@ -148,7 +159,7 @@ describe("дерево", () => {
 const DENIED: NodeRuling[] = POLICY_TREE.map((node) =>
   node.path.join(" ") === "kiten"
     ? { ...node, verdict: "deny", rule: "kiten", own: true }
-    : node
+    : node,
 );
 
 /**
@@ -229,8 +240,9 @@ describe("изменение правила", () => {
         fireEvent.keyDown(dialog, { key: "Escape" });
       }
       await waitFor(() =>
-        expect(back.seen.find((one) => one.path === "/line/answer")?.body)
-          .toEqual({ ticket: "0123456789abcdef0123456789abcdef", answer: "n" })
+        expect(
+          back.seen.find((one) => one.path === "/line/answer")?.body,
+        ).toEqual({ ticket: "0123456789abcdef0123456789abcdef", answer: "n" }),
       );
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(verdictOf("kiten")).toBe("ask");
@@ -242,8 +254,9 @@ describe("изменение правила", () => {
     const back = asking();
     renderWith(back.transport, <Rules />);
     await screen.findByText("kiten", { selector: ".path" });
-    expect(screen.queryByRole("button", { name: "сбросить sql-ro" }))
-      .toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "сбросить sql-ro" }),
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "сбросить kiten" }));
     await screen.findByRole("dialog");
     expect(back.seen.find((one) => one.path === "/line")?.body.words).toEqual([
@@ -267,8 +280,9 @@ describe("хранилище", () => {
     };
     try {
       fireEvent.click(screen.getByRole("button", { name: "свернуть kiten" }));
-      expect(screen.queryByText("kiten card", { selector: ".path" }))
-        .toBeNull();
+      expect(
+        screen.queryByText("kiten card", { selector: ".path" }),
+      ).toBeNull();
     } finally {
       Storage.prototype.setItem = original;
     }

@@ -49,8 +49,8 @@ function ioTo(baseUrl: string, env: Record<string, string> = {}): StatusIo {
         name === "GITLAB_BASE_URL"
           ? baseUrl
           : name === "GLAB_TOKEN"
-          ? TOKEN
-          : undefined,
+            ? TOKEN
+            : undefined,
       require: (name: string) => {
         if (name === "GLAB_TOKEN") return TOKEN;
         throw new DomainError(`нет ключа ${name}`);
@@ -157,15 +157,15 @@ describe("landed заполняется только у смерженного M
   it("смерженный: ветки в порядке колонок", async () => {
     const stand = await startFakeGitlab((seen) =>
       seen[seen.length - 1].pathname.includes("/refs")
-        // Ответ нарочно в обратном порядке: колонки не должны от него
-        // зависеть.
-        ? Response.json([
-          { type: "branch", name: "prod" },
-          { type: "branch", name: "feat/scope/change" },
-          { type: "branch", name: "trunk" },
-          { type: "branch", name: "хотфикс" },
-        ])
-        : Response.json(MERGED_MR)
+        ? // Ответ нарочно в обратном порядке: колонки не должны от него
+          // зависеть.
+          Response.json([
+            { type: "branch", name: "prod" },
+            { type: "branch", name: "feat/scope/change" },
+            { type: "branch", name: "trunk" },
+            { type: "branch", name: "хотфикс" },
+          ])
+        : Response.json(MERGED_MR),
     );
     try {
       const result = await runGlabStatus(
@@ -345,25 +345,19 @@ describe("конфликты режимов отбиваются до сети",
       await quiet.stop();
     }
   });
-  for (
-    const [name, call, text] of [
-      [
-        "--since с адресом",
-        args({ mr: ["group/repo!1"], since: "2d" }),
-        "since:",
-      ],
-      [
-        "--repos с адресом",
-        args({ mr: ["group/repo!1"], repos: ["wb/x"] }),
-        "repo:",
-      ],
-      [
-        "--branches без адреса",
-        args({ branches: true }),
-        "branches применяется",
-      ],
-    ] as const
-  ) {
+  for (const [name, call, text] of [
+    [
+      "--since с адресом",
+      args({ mr: ["group/repo!1"], since: "2d" }),
+      "since:",
+    ],
+    [
+      "--repos с адресом",
+      args({ mr: ["group/repo!1"], repos: ["wb/x"] }),
+      "repo:",
+    ],
+    ["--branches без адреса", args({ branches: true }), "branches применяется"],
+  ] as const) {
     it(name, async () => {
       const err = await rejected(
         () => runGlabStatus(call, io, { runGit: noGit }),
@@ -377,8 +371,8 @@ describe("конфликты режимов отбиваются до сети",
 });
 
 it("токен не появляется ни в выводе, ни в отказе", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
+  const stand = await startFakeGitlab(
+    () => new Response(`{"message":"401 Unauthorized"}`, { status: 401 }),
   );
   try {
     const err = await rejected(
@@ -462,7 +456,10 @@ it("узкий терминал: заголовок усечён, колонки
     const text = renderGlabStatus(result, args());
     // Колонки веток не скрываются никогда: без них таблица теряет
     // смысл, а без длинного заголовка — нет.
-    const header = text.split("\n")[2].split(/\s+/).filter((c) => c !== "");
+    const header = text
+      .split("\n")[2]
+      .split(/\s+/)
+      .filter((c) => c !== "");
     expect(header).toStrictEqual([...TABLE_HEADER]);
     // Полный заголовок в выводе не встречается — он усечён.
     expect(text.includes(OPEN_MR.title)).toBe(false);
@@ -476,10 +473,10 @@ it("галочка считается за две ячейки — колонк�
   const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].pathname.includes("/refs")
       ? Response.json([
-        { type: "branch", name: "trunk" },
-        { type: "branch", name: "prod" },
-      ])
-      : Response.json(MERGED_MR)
+          { type: "branch", name: "trunk" },
+          { type: "branch", name: "prod" },
+        ])
+      : Response.json(MERGED_MR),
   );
   try {
     const result = await runGlabStatus(
@@ -495,7 +492,7 @@ it("галочка считается за две ячейки — колонк�
     // `lastIndexOf`, потому что `prod` есть и внутри `predprod`.
     const prodAt = textWidth(header.slice(0, header.lastIndexOf("prod")));
     const marks = [...row.matchAll(/✅/g)].map((m) =>
-      textWidth(row.slice(0, m.index))
+      textWidth(row.slice(0, m.index)),
     );
     expect(marks.includes(prodAt), `${header}\n${row}`).toBe(true);
   } finally {
@@ -506,9 +503,9 @@ it("галочка считается за две ячейки — колонк�
 it("404 от refs — «нет данных», а не пустой список веток", async () => {
   const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].pathname.includes("/refs")
-      // Коммита на хосте нет — например, после переписывания истории.
-      ? new Response(`{"message":"404 Commit Not Found"}`, { status: 404 })
-      : Response.json(MERGED_MR)
+      ? // Коммита на хосте нет — например, после переписывания истории.
+        new Response(`{"message":"404 Commit Not Found"}`, { status: 404 })
+      : Response.json(MERGED_MR),
   );
   try {
     const result = await runGlabStatus(

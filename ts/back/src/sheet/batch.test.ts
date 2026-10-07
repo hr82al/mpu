@@ -39,15 +39,17 @@ const SS_ID = "1SyntheticSpreadsheetIdForGoldens0000000000";
  * копируется, только если он в ответе есть.
  */
 const META = {
-  sheets: [{
-    properties: {
-      gridProperties: { rowCount: 1000, columnCount: 26 },
-      sheetType: "GRID",
-      title: "Sheet1",
-      index: 0,
-      sheetId: 0,
+  sheets: [
+    {
+      properties: {
+        gridProperties: { rowCount: 1000, columnCount: 26 },
+        sheetType: "GRID",
+        title: "Sheet1",
+        index: 0,
+        sheetId: 0,
+      },
     },
-  }],
+  ],
 };
 
 async function golden(name: string): Promise<string> {
@@ -75,13 +77,20 @@ function harness(db: CacheDb) {
       return Promise.resolve(json(META));
     }
     if (request.action === "spreadsheets/values/batchGet") {
-      return Promise.resolve(json({
-        valueRanges: [{
-          range: request.ranges?.[0] ?? "",
-          majorDimension: request.majorDimension,
-          values: [["привет", 42], ["", "=B1*2"]],
-        }],
-      }));
+      return Promise.resolve(
+        json({
+          valueRanges: [
+            {
+              range: request.ranges?.[0] ?? "",
+              majorDimension: request.majorDimension,
+              values: [
+                ["привет", 42],
+                ["", "=B1*2"],
+              ],
+            },
+          ],
+        }),
+      );
     }
     return Promise.resolve(json({ spreadsheetId: SS_ID, replies: [{}] }));
   };
@@ -169,11 +178,17 @@ it("--dry-run печатает голден всех глаголов побай
 it("боевой прогон шлёт ровно один batchUpdate и печатает ответ", async () => {
   await withDb(async (db) => {
     const stand = harness(db);
-    await writeTab(db, SS_ID, "Sheet1", {
-      values: [["старое"]],
-      formulas: [[""]],
-      dims: { rows: 1, cols: 1 },
-    }, 1_700_000_000);
+    await writeTab(
+      db,
+      SS_ID,
+      "Sheet1",
+      {
+        values: [["старое"]],
+        formulas: [[""]],
+        dims: { rows: 1, cols: 1 },
+      },
+      1_700_000_000,
+    );
     const result = await runBatchUpdate(
       updateArgs({
         expression: ["trim A1:B2", "trim C1:C2"],
@@ -191,10 +206,7 @@ it("боевой прогон шлёт ровно один batchUpdate и печ
     );
     // Кэш листа выброшен: значения в нём больше не те, что в таблице.
     expect(
-      db.query(
-        "SELECT tab_name FROM sheet_tabs WHERE ss_id = ?",
-        SS_ID,
-      ).length,
+      db.query("SELECT tab_name FROM sheet_tabs WHERE ss_id = ?", SS_ID).length,
     ).toBe(0);
   });
 });
@@ -202,11 +214,17 @@ it("боевой прогон шлёт ровно один batchUpdate и печ
 it("--dry-run не шлёт batchUpdate и кэш не трогает", async () => {
   await withDb(async (db) => {
     const stand = harness(db);
-    await writeTab(db, SS_ID, "Sheet1", {
-      values: [["старое"]],
-      formulas: [[""]],
-      dims: { rows: 1, cols: 1 },
-    }, 1_700_000_000);
+    await writeTab(
+      db,
+      SS_ID,
+      "Sheet1",
+      {
+        values: [["старое"]],
+        formulas: [[""]],
+        dims: { rows: 1, cols: 1 },
+      },
+      1_700_000_000,
+    );
     await runBatchUpdate(
       updateArgs({ expression: ["trim A1:B2"] }),
       stand.io,
@@ -247,17 +265,21 @@ it("пустой ввод — ошибка ввода до всякой сети
 it("лист этого же скрипта: отказ дословно как в канале", async () => {
   await withDb(async (db) => {
     const stand = harness(db);
-    const err = await rejected(() =>
-      runBatchUpdate(
-        updateArgs({
-          expression: ["sheet add Врем\nsheet rename Врем Врем2"],
-          sheet: undefined,
-        }),
-        stand.io,
-        stand.options,
-      ), UsageError);
-    expect(`${formatCommandError(sheetBatchUpdateCommand.errorName, err)}\n`)
-      .toStrictEqual(await golden("err-sheet-created-in-same-script.stderr"));
+    const err = await rejected(
+      () =>
+        runBatchUpdate(
+          updateArgs({
+            expression: ["sheet add Врем\nsheet rename Врем Врем2"],
+            sheet: undefined,
+          }),
+          stand.io,
+          stand.options,
+        ),
+      UsageError,
+    );
+    expect(
+      `${formatCommandError(sheetBatchUpdateCommand.errorName, err)}\n`,
+    ).toStrictEqual(await golden("err-sheet-created-in-same-script.stderr"));
     expect(stand.actions).toStrictEqual(["spreadsheets/get"]);
   });
 });
@@ -288,12 +310,16 @@ it("путь аспекта копируется, только если он е�
     stand.options.post = (_url: string, body: string) => {
       const action = (JSON.parse(body) as { action: string }).action;
       if (action !== "spreadsheets/get") return Promise.resolve(json({}));
-      return Promise.resolve(json({
-        sheets: [{
-          ...META.sheets[0],
-          merges: [{ sheetId: 0, startRowIndex: 0, endRowIndex: 1 }],
-        }],
-      }));
+      return Promise.resolve(
+        json({
+          sheets: [
+            {
+              ...META.sheets[0],
+              merges: [{ sheetId: 0, startRowIndex: 0, endRowIndex: 1 }],
+            },
+          ],
+        }),
+      );
     };
     const result = await runBatchGet(
       getArgs({ expression: ["read Sheet1 merges cond"] }),
@@ -301,10 +327,12 @@ it("путь аспекта копируется, только если он е�
       stand.options,
     );
     expect(result.meta).toStrictEqual({
-      sheets: [{
-        title: "Sheet1",
-        merges: [{ sheetId: 0, startRowIndex: 0, endRowIndex: 1 }],
-      }],
+      sheets: [
+        {
+          title: "Sheet1",
+          merges: [{ sheetId: 0, startRowIndex: 0, endRowIndex: 1 }],
+        },
+      ],
     });
   });
 });
@@ -318,16 +346,18 @@ it("--dry-run batch-get не делает ни одного вызова", async
       stand.options,
     );
     expect(stand.actions).toStrictEqual([]);
-    expect(renderBatchGet(result)).toStrictEqual(printJson({
-      values: {
-        ssId: SS_ID,
-        ranges: ["Sheet1!A1:B2"],
-        majorDimension: "ROWS",
-        valueRenderOption: "FORMATTED_VALUE",
-        dateTimeRenderOption: "SERIAL_NUMBER",
-      },
-      meta: null,
-    }));
+    expect(renderBatchGet(result)).toStrictEqual(
+      printJson({
+        values: {
+          ssId: SS_ID,
+          ranges: ["Sheet1!A1:B2"],
+          majorDimension: "ROWS",
+          valueRenderOption: "FORMATTED_VALUE",
+          dateTimeRenderOption: "SERIAL_NUMBER",
+        },
+        meta: null,
+      }),
+    );
   });
 });
 
@@ -336,11 +366,17 @@ it("batch-get не пишет и не читает кэш листов", async (
     const stand = harness(db);
     // В кэше заведомо другие значения: если бы команда его читала,
     // в ответе оказалось бы «из кэша», а не «привет».
-    await writeTab(db, SS_ID, "Sheet1", {
-      values: [["из кэша"]],
-      formulas: [[""]],
-      dims: { rows: 1, cols: 1 },
-    }, 1_700_000_000);
+    await writeTab(
+      db,
+      SS_ID,
+      "Sheet1",
+      {
+        values: [["из кэша"]],
+        formulas: [[""]],
+        dims: { rows: 1, cols: 1 },
+      },
+      1_700_000_000,
+    );
     const result = await runBatchGet(
       getArgs({ expression: ["get A1:B2"] }),
       stand.io,

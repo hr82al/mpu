@@ -65,9 +65,13 @@ async function run(
 }
 
 it("нет снимка или мусор — пусто, код 0", async () => {
-  for (
-    const snapshot of ["", "{", "[]", '{"nodes": 5}', '{"nodes": [1, "x"]}']
-  ) {
+  for (const snapshot of [
+    "",
+    "{",
+    "[]",
+    '{"nodes": 5}',
+    '{"nodes": [1, "x"]}',
+  ]) {
     expect(await run(["--", ""], snapshot)).toStrictEqual({
       code: 0,
       stdout: "",
@@ -82,9 +86,12 @@ it("--snapshot заменяет путь; без -- — код 2", async () => {
   const other = await run(["--snapshot", "/tmp/x.json", "--", "ki"], snapshot);
   expect(other.read).toStrictEqual(["/tmp/x.json"]);
   expect(other.stdout.startsWith("kiten\t")).toBe(true);
-  for (
-    const args of [[], ["ki"], ["--snapshot", "/x"], ["--что-то", "--", "x"]]
-  ) {
+  for (const args of [
+    [],
+    ["ki"],
+    ["--snapshot", "/x"],
+    ["--что-то", "--", "x"],
+  ]) {
     expect(await run(args), args.join(" ")).toStrictEqual({
       code: 2,
       stdout: "",
@@ -146,10 +153,8 @@ printf '%s\\n' "\${COMPREPLY[@]}"
   // Код выхода bash не проверяется — как и прежде: важны только потоки.
   const output = await new Promise<{ stdout: string; stderr: string }>(
     (resolve) =>
-      execFile(
-        "/bin/bash",
-        ["-c", program],
-        (_failed, stdout, stderr) => resolve({ stdout, stderr }),
+      execFile("/bin/bash", ["-c", program], (_failed, stdout, stderr) =>
+        resolve({ stdout, stderr }),
       ),
   );
   const decode = (text: string) => text.split("\n").filter((row) => row !== "");
@@ -222,9 +227,8 @@ it("askBack: back не успел — срок истёк, нет ответа",
   const deadline = new AbortController();
   const hanging: typeof fetch = (_input, init) =>
     new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener(
-        "abort",
-        () => reject(new DOMException("истёк", "TimeoutError")),
+      init?.signal?.addEventListener("abort", () =>
+        reject(new DOMException("истёк", "TimeoutError")),
       );
     });
   const pending = askBack("ki", {
@@ -270,24 +274,22 @@ it("снимок и back на одном дереве — одни и те же 
     // иначе обычный взгляд back не называет пишущих команд.
     allowEverything(back.policyFile);
     const snapshot = await readFile(back.snapshotFile, "utf8");
-    for (
-      const line of [
-        "",
-        "ki",
-        "kiten ",
-        "kiten card ",
-        "kiten card id: 1 ",
-        "kiten card id: 1 end ",
-        "sql-ro target: 54 ",
-        "sql-ro target: 54 --d",
-        "logs ",
-        "logs portainer ",
-        "run-js ssh dry ",
-        "sql-ro ",
-        "ozon-jobs show ",
-        "ozon-jobs show print ",
-      ]
-    ) {
+    for (const line of [
+      "",
+      "ki",
+      "kiten ",
+      "kiten card ",
+      "kiten card id: 1 ",
+      "kiten card id: 1 end ",
+      "sql-ro target: 54 ",
+      "sql-ro target: 54 --d",
+      "logs ",
+      "logs portainer ",
+      "run-js ssh dry ",
+      "sql-ro ",
+      "ozon-jobs show ",
+      "ozon-jobs show print ",
+    ]) {
       const fromBack = await askBack(line, {
         base: back.url,
         token: back.token,
@@ -295,8 +297,10 @@ it("снимок и back на одном дереве — одни и те же 
         deadline: () => AbortSignal.timeout(5000),
       });
       const words = (choices: readonly { value: string }[] | undefined) =>
-        (choices ?? []).map((choice) => choice.value)
-          .filter((word) => !LINE_ONLY.has(word)).sort();
+        (choices ?? [])
+          .map((choice) => choice.value)
+          .filter((word) => !LINE_ONLY.has(word))
+          .sort();
       expect(words(fromBack), JSON.stringify(line)).toStrictEqual(
         words(fromSnapshot(line.split(" "), snapshot)),
       );
@@ -304,19 +308,19 @@ it("снимок и back на одном дереве — одни и те же 
   }));
 
 describe("askBack: ответ не по контракту — нет ответа", () => {
-  const answer = (status: number, body: string): typeof fetch => () =>
-    Promise.resolve(new Response(body, { status }));
-  for (
-    const [name, reply] of [
-      ["401", answer(401, "")],
-      ["вопрос вместо ответа", answer(200, '{"ask":"выполнить? "}\n')],
-      ["не ноль", answer(200, '{"out":"[]"}\n{"exit":2}\n')],
-      ["не массив", answer(200, '{"out":"{}"}\n{"exit":0}\n')],
-      ["не JSON", answer(200, '{"out":"x"}\n{"exit":0}\n')],
-      ["чужой кадр", answer(200, '{"x":1,"y":2}\n')],
-      ["без кода", answer(200, '{"out":"[]"}\n')],
-    ] as const
-  ) {
+  const answer =
+    (status: number, body: string): typeof fetch =>
+    () =>
+      Promise.resolve(new Response(body, { status }));
+  for (const [name, reply] of [
+    ["401", answer(401, "")],
+    ["вопрос вместо ответа", answer(200, '{"ask":"выполнить? "}\n')],
+    ["не ноль", answer(200, '{"out":"[]"}\n{"exit":2}\n')],
+    ["не массив", answer(200, '{"out":"{}"}\n{"exit":0}\n')],
+    ["не JSON", answer(200, '{"out":"x"}\n{"exit":0}\n')],
+    ["чужой кадр", answer(200, '{"x":1,"y":2}\n')],
+    ["без кода", answer(200, '{"out":"[]"}\n')],
+  ] as const) {
     it(name, async () => {
       expect(
         await askBack("ki", {

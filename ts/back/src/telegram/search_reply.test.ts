@@ -21,10 +21,7 @@ const REPLY: SearchReply = {
 
 it("порядок ответа сервера: сначала контакты, потом каталог", () => {
   expect(chatsFromSearch(REPLY).map((chat) => chat.rawId)).toStrictEqual([
-    1,
-    3,
-    4,
-    1,
+    1, 3, 4, 1,
   ]);
 });
 
@@ -80,11 +77,13 @@ it("имя пользователя берётся из списка имён, �
   const found = chatsFromSearch({
     myResults: [],
     results: [{ _: "peerUser", userId: 6 }],
-    users: [{
-      id: 6,
-      firstName: "Пётр",
-      usernames: [{ username: "petr" }],
-    }],
+    users: [
+      {
+        id: 6,
+        firstName: "Пётр",
+        usernames: [{ username: "petr" }],
+      },
+    ],
     chats: [],
   });
   expect(found[0].username).toBe("petr");
@@ -102,20 +101,24 @@ it("сообщество маркируется как супергруппа, �
 
 describe("пустые записи пропускаются, а не дают чат без данных", () => {
   it("chatEmpty", () => {
-    expect(chatsFromSearch({
-      myResults: [],
-      results: [{ _: "peerChat", chatId: 9 }],
-      users: [],
-      chats: [{ _: "chatEmpty", id: 9 }],
-    })).toStrictEqual([]);
+    expect(
+      chatsFromSearch({
+        myResults: [],
+        results: [{ _: "peerChat", chatId: 9 }],
+        users: [],
+        chats: [{ _: "chatEmpty", id: 9 }],
+      }),
+    ).toStrictEqual([]);
   });
   it("userEmpty", () => {
-    expect(chatsFromSearch({
-      myResults: [],
-      results: [{ _: "peerUser", userId: 10 }],
-      users: [{ _: "userEmpty", id: 10 }],
-      chats: [],
-    })).toStrictEqual([]);
+    expect(
+      chatsFromSearch({
+        myResults: [],
+        results: [{ _: "peerUser", userId: 10 }],
+        users: [{ _: "userEmpty", id: 10 }],
+        chats: [],
+      }),
+    ).toStrictEqual([]);
   });
 });
 

@@ -26,10 +26,13 @@ it("сервер запускает вопросы при старте и ост
       return Promise.resolve();
     },
   };
-  await withBack(() => {
-    expect(events).toStrictEqual(["start"]);
-    return Promise.resolve();
-  }, { questions });
+  await withBack(
+    () => {
+      expect(events).toStrictEqual(["start"]);
+      return Promise.resolve();
+    },
+    { questions },
+  );
   expect(events).toStrictEqual(["start", "stop"]);
 });
 
@@ -62,11 +65,13 @@ it("порт занят — ни вопросов, ни исполнителей
   try {
     // Отказ кода под тестом — ошибка «адрес занят»; узнаётся по коду
     // `node:*`, одинаковому под тремя рантаймами.
-    await expect(withBack(() => Promise.resolve(), {
-      port,
-      questions,
-      launcher,
-    })).rejects.toMatchObject({ code: "EADDRINUSE" });
+    await expect(
+      withBack(() => Promise.resolve(), {
+        port,
+        questions,
+        launcher,
+      }),
+    ).rejects.toMatchObject({ code: "EADDRINUSE" });
     expect(events).toStrictEqual([]);
     expect(launched, "исполнители запущены процессом без порта").toBe(0);
     expect(await readdir(ownTmp), "каталог стенда остался").toStrictEqual([]);

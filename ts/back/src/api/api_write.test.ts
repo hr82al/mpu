@@ -67,7 +67,7 @@ function standWith(
     new Response('{"ok":true}'),
 ) {
   return startFakeSlback((seen) =>
-    seen.length === 1 ? loginReply(TOKEN) : body(seen)
+    seen.length === 1 ? loginReply(TOKEN) : body(seen),
   );
 }
 
@@ -119,8 +119,9 @@ it("поле, которого нет в объявлении, — отказ д
 it("нет обязательного path-параметра — отказ до сети", async () => {
   const stand = await standWith();
   try {
-    await expect(commandOf("delete-client").invoke([], ioTo(stand.baseUrl)))
-      .rejects.toThrow(UsageError);
+    await expect(
+      commandOf("delete-client").invoke([], ioTo(stand.baseUrl)),
+    ).rejects.toThrow(UsageError);
     // Мутация на угаданном адресе (`DELETE /admin/client/`) не уходит:
     // пустой сегмент — это чужая строка, а не наша.
     expect(stand.seen.length).toBe(0);
@@ -152,11 +153,10 @@ describe("path-параметр со слэшем не меняет адрес �
   it("«..» отбивается как ввод, а не экранируется", async () => {
     const stand = await standWith();
     try {
-      const err = await rejected(() =>
-        commandOf("delete-client").invoke(
-          [".."],
-          ioTo(stand.baseUrl),
-        ), UsageError);
+      const err = await rejected(
+        () => commandOf("delete-client").invoke([".."], ioTo(stand.baseUrl)),
+        UsageError,
+      );
       expect(err.message).toContain("сегмент пути");
       expect(stand.seen.length).toBe(0);
     } finally {
@@ -186,7 +186,7 @@ describe("произвольное тело: объект уходит как е
         // нет: в этом и смысл признака.
         expect(JSON.parse(sent.body)).toStrictEqual({
           title: "из тела",
-          extra: { "вложенное": 1 },
+          extra: { вложенное: 1 },
         });
       } finally {
         await stand.stop();
@@ -206,11 +206,14 @@ describe("произвольное тело остаётся объектом", 
     it(title, async () => {
       const stand = await standWith();
       try {
-        const err = await rejected(() =>
-          commandOf("create-client").invoke(
-            ["--body", raw],
-            ioTo(stand.baseUrl),
-          ), UsageError);
+        const err = await rejected(
+          () =>
+            commandOf("create-client").invoke(
+              ["--body", raw],
+              ioTo(stand.baseUrl),
+            ),
+          UsageError,
+        );
         // Отказ здесь, а не от сервера: иначе причина пришла бы чужим
         // текстом и после запроса.
         expect(err.message).toContain("ожидается объект JSON");
@@ -227,9 +230,10 @@ describe("no_auth: без заголовка и без единого касан
     it(name, async () => {
       const stand = await standBare();
       try {
-        const argv = name === "auth-login"
-          ? ["--email", "kto@test", "--password", "parol"]
-          : ["--spreadsheet_id", "1BxiMVs0"];
+        const argv =
+          name === "auth-login"
+            ? ["--email", "kto@test", "--password", "parol"]
+            : ["--spreadsheet_id", "1BxiMVs0"];
         // Кэш токена взрывной: любое обращение к нему уронит вызов.
         await commandOf(name).invoke(
           argv,

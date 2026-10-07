@@ -18,12 +18,14 @@ import {
 import { echoLine, isYes, ttyDiagnostics } from "./gate.ts";
 
 const argsSchema = z.object({
-  message: z.string().default("Применить?").describe(
-    "текст вопроса; по умолчанию «Применить?»",
-  ),
-  yes: z.boolean().default(false).describe(
-    "не спрашивать: ворота пропускают всё (для скриптов)",
-  ),
+  message: z
+    .string()
+    .default("Применить?")
+    .describe("текст вопроса; по умолчанию «Применить?»"),
+  yes: z
+    .boolean()
+    .default(false)
+    .describe("не спрашивать: ворота пропускают всё (для скриптов)"),
 });
 
 const resultSchema = z.object({

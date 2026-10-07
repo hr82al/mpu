@@ -25,19 +25,23 @@ import { parseSvg } from "./svg.ts";
 
 const argsSchema = z.object({
   file: z.string().describe("путь к .d2-файлу"),
-  title: z.string().optional().describe(
-    "title фрейма; по умолчанию имя файла без расширения",
-  ),
+  title: z
+    .string()
+    .optional()
+    .describe("title фрейма; по умолчанию имя файла без расширения"),
   board: z.string().optional().describe("разовая замена MIRO_BOARD_ID"),
-  position: z.string().optional().describe(
-    "координаты центра фрейма x,y (два числа через запятую)",
-  ),
-  "skip-render": z.boolean().default(false).describe(
-    "взять существующий .svg, даже если он старше .d2",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "печать плана без единого вызова Miro API",
-  ),
+  position: z
+    .string()
+    .optional()
+    .describe("координаты центра фрейма x,y (два числа через запятую)"),
+  "skip-render": z
+    .boolean()
+    .default(false)
+    .describe("взять существующий .svg, даже если он старше .d2"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("печать плана без единого вызова Miro API"),
 });
 
 const resultSchema = z.object({
@@ -46,13 +50,16 @@ const resultSchema = z.object({
   edges: z.number().describe("рёбер в плане"),
   markdown: z.number().describe("markdown-блоков в плане"),
   frameId: z.string().optional().describe("id созданного фрейма"),
-  created: z.object({
-    shapes: z.number(),
-    texts: z.number(),
-    connectors: z.number(),
-    skipped: z.number(),
-    retries: z.number(),
-  }).optional().describe("что создано на доске — числами из ответов службы"),
+  created: z
+    .object({
+      shapes: z.number(),
+      texts: z.number(),
+      connectors: z.number(),
+      skipped: z.number(),
+      retries: z.number(),
+    })
+    .optional()
+    .describe("что создано на доске — числами из ответов службы"),
   plan: z.string().optional().describe("текст плана; только у dry"),
 });
 
@@ -106,8 +113,8 @@ function positionOf(raw: string | undefined): Position | undefined {
   const parts = raw.split(",");
   // Пустой кусок отсеивается до `Number`: у пустой строки значение 0,
   // и `--position 1,` молча поставил бы фрейм на y=0 вместо отказа.
-  const incomplete = parts.length !== 2 ||
-    parts.some((part) => part.trim() === "");
+  const incomplete =
+    parts.length !== 2 || parts.some((part) => part.trim() === "");
   const x = Number(parts[0]);
   const y = Number(parts[1]);
   if (incomplete || !Number.isFinite(x) || !Number.isFinite(y)) {
@@ -132,7 +139,8 @@ async function chooseSvg(
   const svgTime = await env.mtime(paths.svg);
   const d2Time = await env.mtime(paths.d2);
   if (
-    svgTime !== undefined && (args["skip-render"] || svgTime >= (d2Time ?? 0))
+    svgTime !== undefined &&
+    (args["skip-render"] || svgTime >= (d2Time ?? 0))
   ) {
     return await readInput(io, paths.svg);
   }
@@ -320,8 +328,10 @@ function doneLine(
     created.skipped === 0 ? "" : ` skipped=${created.skipped}`,
     created.retries === 0 ? "" : ` retries=${created.retries}`,
   ].join("");
-  return `[done] frame='${plan.title}' shapes=${created.shapes}${texts} ` +
-    `connectors=${created.connectors}${tail}`;
+  return (
+    `[done] frame='${plan.title}' shapes=${created.shapes}${texts} ` +
+    `connectors=${created.connectors}${tail}`
+  );
 }
 
 export const d2MiroCommand = defineCommand({

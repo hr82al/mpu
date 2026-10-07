@@ -38,7 +38,7 @@ export const PROJECTIONS = [
   "sids",
 ] as const;
 
-export type Projection = typeof PROJECTIONS[number];
+export type Projection = (typeof PROJECTIONS)[number];
 
 /** Строки результата из кандидатов резолва; адреса — из env-файла. */
 export function rowsOf(

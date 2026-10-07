@@ -45,10 +45,12 @@ export class ReadRule {
   names(host: string, path: string): boolean {
     if (host !== this.host) return false;
     const segments = path.split("/");
-    return segments.length === this.#segments.length &&
-      this.#segments.every((segment, i) =>
-        segment === ANY_SEGMENT || segment === segments[i]
-      );
+    return (
+      segments.length === this.#segments.length &&
+      this.#segments.every(
+        (segment, i) => segment === ANY_SEGMENT || segment === segments[i],
+      )
+    );
   }
 
   /** Подходит ли запрос: метод, хост и путь. */
@@ -93,6 +95,6 @@ GET  statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod
 `;
 
 /** Реестр чтения всех получателей. */
-export const READS: readonly ReadRule[] = SEED.trim().split("\n").map(
-  ReadRule.parse,
-);
+export const READS: readonly ReadRule[] = SEED.trim()
+  .split("\n")
+  .map(ReadRule.parse);

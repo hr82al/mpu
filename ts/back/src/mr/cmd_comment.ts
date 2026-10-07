@@ -35,19 +35,24 @@ import {
 const PATHS_SHOWN = 20;
 
 const argsSchema = z.object({
-  target: z.string({ error: "нужен FILE:LINE" }).describe(
-    "файл и строка: FILE:LINE, разделитель — последний ':'",
-  ),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  target: z
+    .string({ error: "нужен FILE:LINE" })
+    .describe("файл и строка: FILE:LINE, разделитель — последний ':'"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   message: z.string().optional().describe("текст комментария"),
-  "body-file": z.string().optional().describe(
-    "файл с текстом; '-' — весь stdin, только в CLI",
-  ),
-  old: z.boolean().default(false).describe(
-    "номер строки в старой версии файла (левая колонка диффа)",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом; '-' — весь stdin, только в CLI"),
+  old: z
+    .boolean()
+    .default(false)
+    .describe("номер строки в старой версии файла (левая колонка диффа)"),
 });
 
 const resultSchema = z.object({
@@ -90,7 +95,9 @@ function unknownFile(files: readonly ChangedFile[], path: string): DomainError {
   // оператор ищет имя, которое команда приняла бы.
   const paths = [
     ...new Set(files.flatMap((file) => [file.new_path, file.old_path])),
-  ].filter((path) => path !== "").sort();
+  ]
+    .filter((path) => path !== "")
+    .sort();
   const shown = paths.slice(0, PATHS_SHOWN).join(", ");
   const tail = paths.length > PATHS_SHOWN ? `${shown}, …` : shown;
   return new DomainError(
@@ -172,9 +179,8 @@ export async function runComment(
     // Путь берётся из файла MR, а не из ввода: у переименованного
     // файла оператор назвал одно имя, а комментарий ушёл к другому, и
     // подтверждать нужно то, что случилось.
-    const shown = side === "new" && file.new_path !== ""
-      ? file.new_path
-      : file.old_path;
+    const shown =
+      side === "new" && file.new_path !== "" ? file.new_path : file.old_path;
     return {
       discussion: discussion.id,
       note_id: noteId,
@@ -189,8 +195,10 @@ export async function runComment(
 
 /** Две строки: что создано и куда смотреть. */
 export function renderComment(result: CommentResult): string {
-  return `создано: discussion ${result.discussion.slice(0, 8)} на ` +
-    `${result.path}:${result.line}\n${result.url}\n`;
+  return (
+    `создано: discussion ${result.discussion.slice(0, 8)} на ` +
+    `${result.path}:${result.line}\n${result.url}\n`
+  );
 }
 
 export const mrCommentCommand = defineCommand({

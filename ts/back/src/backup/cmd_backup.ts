@@ -33,26 +33,35 @@ import {
 } from "./plan.ts";
 
 const argsSchema = z.object({
-  selector: z.string({
-    error: "нужен target: client_id, spreadsheet_id, заголовок или sl-N",
-  }).describe("клиент: client_id, spreadsheet_id, заголовок; либо sl-N"),
-  date: z.string().optional().describe(
-    "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
-  ),
-  "schema-id": z.number().int().positive().optional().describe(
-    "номер схемы клиента; без него выводится из селектора",
-  ),
+  selector: z
+    .string({
+      error: "нужен target: client_id, spreadsheet_id, заголовок или sl-N",
+    })
+    .describe("клиент: client_id, spreadsheet_id, заголовок; либо sl-N"),
+  date: z
+    .string()
+    .optional()
+    .describe(
+      "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
+    ),
+  "schema-id": z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("номер схемы клиента; без него выводится из селектора"),
   server: z.string().optional().describe("override сервера: sl-N"),
-  dry: z.boolean().default(false).describe(
-    "только показать мета-блок и запрос, не подключаясь",
-  ),
+  dry: z
+    .boolean()
+    .default(false)
+    .describe("только показать мета-блок и запрос, не подключаясь"),
 });
 
 const resultSchema = z.object({
   marketplace: z.string().describe("площадка таблицы-источника"),
-  source_table: z.string().describe(
-    "таблица-источник со схемой: `schema_<id>.<таблица>`",
-  ),
+  source_table: z
+    .string()
+    .describe("таблица-источник со схемой: `schema_<id>.<таблица>`"),
   date_suffix: z.string().describe("суффикс даты в имени копии"),
   server: z.string().describe("`sl-<N>`, где выполняется запрос"),
   pg_host: z.string().describe("адрес PostgreSQL"),
@@ -66,10 +75,7 @@ type BackupArgs = z.infer<typeof argsSchema>;
 type BackupResult = z.infer<typeof resultSchema>;
 
 /** Срез порта: env-файл с адресами, кэш селектора, ход исполнения. */
-export type BackupIo = Pick<
-  CommandIo,
-  "envFile" | "openCacheDb" | "progress"
->;
+export type BackupIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress">;
 
 /** Подстановки для тестов: живого PostgreSQL у них нет. */
 export interface BackupOptions {
@@ -197,10 +203,7 @@ function metaText(result: BackupResult): string {
 /** Таблицы, с которых снимаются копии; порядок — порядок спеки. */
 const TABLES: readonly (readonly [string, BackupTable])[] = [
   ["backup-wb-unit-proto", { marketplace: "wb", table: "wb_unit_proto" }],
-  [
-    "backup-ozon-unit-proto",
-    { marketplace: "ozon", table: "ozon_unit_proto" },
-  ],
+  ["backup-ozon-unit-proto", { marketplace: "ozon", table: "ozon_unit_proto" }],
   [
     "backup-wb-unit-manual-data",
     { marketplace: "wb", table: "wb_unit_manual_data" },
@@ -208,8 +211,8 @@ const TABLES: readonly (readonly [string, BackupTable])[] = [
 ];
 
 /** Все три команды в порядке объявления. */
-export const backupCommands: readonly Command[] = TABLES.map(
-  ([name, table]) => backup(name, table),
+export const backupCommands: readonly Command[] = TABLES.map(([name, table]) =>
+  backup(name, table),
 );
 
 function backup(name: string, table: BackupTable): Command {
@@ -217,7 +220,8 @@ function backup(name: string, table: BackupTable): Command {
     path: [name],
     keys: {},
     summary: `Снять копию ${table.table} клиента в схему backups.`,
-    usage: `mpu ${name} [dry] target: СЕЛЕКТОР [date: YYYYMMDD] ` +
+    usage:
+      `mpu ${name} [dry] target: СЕЛЕКТОР [date: YYYYMMDD] ` +
       "[schema-id: N] [server: sl-N]",
     help: `Звать перед правкой ${table.table} клиента руками или скриптом,
 когда нужна точка отката: копия таблицы в схеме backups.

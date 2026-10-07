@@ -232,7 +232,8 @@ export class Projects {
 
   /** Все проекты по имени. */
   all(): Project[] {
-    return this.#db.query("SELECT name, note FROM task_projects ORDER BY name")
+    return this.#db
+      .query("SELECT name, note FROM task_projects ORDER BY name")
       .map((row) => new Project(this.#db, row));
   }
 }
@@ -310,7 +311,8 @@ export class Project {
    * @throws TaskRefusal — таких сообщений нет
    */
   read(pick: KindPick, keep: boolean): string {
-    const found = this.#messages().filter((one) => pick.admits(one.kind))
+    const found = this.#messages()
+      .filter((one) => pick.admits(one.kind))
       .at(-1);
     if (found === undefined) {
       throw new TaskRefusal(`в ${this.#name} нет сообщений${pick.named}`);
@@ -325,7 +327,8 @@ export class Project {
    */
   take<T>(kind: Kind, found: (body: string) => T, missing: () => T): T {
     const unread = this.#messages()
-      .filter((one) => one.kind === kind && !one.read).at(-1);
+      .filter((one) => one.kind === kind && !one.read)
+      .at(-1);
     if (unread === undefined) return missing();
     this.#markRead(unread);
     return found(unread.body);
@@ -340,9 +343,10 @@ export class Project {
       portion: currentOf(messages),
       turn: turnOf(messages).label(),
       last: last?.kind.word ?? null,
-      age_s: last === undefined
-        ? null
-        : Math.max(0, Math.floor((now - last.at) / 1000)),
+      age_s:
+        last === undefined
+          ? null
+          : Math.max(0, Math.floor((now - last.at) / 1000)),
       unread: last !== undefined && !last.read,
       note: this.#note,
     };
@@ -350,13 +354,15 @@ export class Project {
 
   /** Журнал от свежего к старому. */
   history(): HistoryRow[] {
-    return this.#messages().reverse().map((one) => ({
-      project: this.#name,
-      portion: one.portion,
-      kind: one.kind.word,
-      at: one.iso(),
-      first_line: one.firstLine(),
-    }));
+    return this.#messages()
+      .reverse()
+      .map((one) => ({
+        project: this.#name,
+        portion: one.portion,
+        kind: one.kind.word,
+        at: one.iso(),
+        first_line: one.firstLine(),
+      }));
   }
 
   /** Имя проекта. */
@@ -395,9 +401,9 @@ export class Project {
     const messages = this.#messages();
     const rule = messages.filter((one) => one.kind === RULE).at(-1);
     const wanted = query.toLowerCase();
-    const shown = messages.filter((one) =>
-      DECIDING.includes(one.kind) &&
-      one.body.toLowerCase().includes(wanted)
+    const shown = messages.filter(
+      (one) =>
+        DECIDING.includes(one.kind) && one.body.toLowerCase().includes(wanted),
     );
     return {
       rules: rule?.line() ?? null,
@@ -428,11 +434,13 @@ export class Project {
   }
 
   #messages(): Message[] {
-    return this.#db.query(
-      `SELECT id, portion, kind, body, at_ms, read FROM task_messages
+    return this.#db
+      .query(
+        `SELECT id, portion, kind, body, at_ms, read FROM task_messages
         WHERE project = ? ORDER BY id`,
-      this.#name,
-    ).map((row) => new Message(row));
+        this.#name,
+      )
+      .map((row) => new Message(row));
   }
 }
 

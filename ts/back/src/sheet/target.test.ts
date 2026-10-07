@@ -52,9 +52,12 @@ describe("источники не смешиваются: побеждает п�
 
 describe("разбор значения по видам", () => {
   it("ссылка", () => {
-    const target = resolveTarget({
-      flag: `https://docs.google.com/spreadsheets/d/${ID}/edit#gid=0`,
-    }, sources());
+    const target = resolveTarget(
+      {
+        flag: `https://docs.google.com/spreadsheets/d/${ID}/edit#gid=0`,
+      },
+      sources(),
+    );
     expect(target.kind).toBe("url");
     expect(target.ss_id).toStrictEqual(ID);
   });
@@ -62,7 +65,7 @@ describe("разбор значения по видам", () => {
   it("алиас старше client_id и заголовка", () => {
     const target = resolveTarget(
       { flag: "отчёт" },
-      sources({ aliasOf: (name) => name === "отчёт" ? ID : undefined }),
+      sources({ aliasOf: (name) => (name === "отчёт" ? ID : undefined) }),
     );
     expect(target.kind).toBe("alias");
     expect(target.ss_id).toStrictEqual(ID);

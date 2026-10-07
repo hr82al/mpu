@@ -31,10 +31,16 @@ import { ENV, envFileOf, withCache } from "./teststand.ts";
 /** Ключи стенда по клиентам: строки таблицы в её порядке. */
 const KEYS: Readonly<Record<number, readonly (readonly [string, string])[]>> = {
   54: [["2129958", "k-54-seller"]],
-  55: [["2129958", "k-55-a"], ["1539401", "k-55-b"], ["870282", "k-55-c"]],
+  55: [
+    ["2129958", "k-55-a"],
+    ["1539401", "k-55-b"],
+    ["870282", "k-55-c"],
+  ],
 };
 
-const ALL_KEYS = Object.values(KEYS).flat().map(([, key]) => key);
+const ALL_KEYS = Object.values(KEYS)
+  .flat()
+  .map(([, key]) => key);
 
 /** Ответ заглушки по умолчанию. */
 function defaultReply(): Response {
@@ -151,9 +157,10 @@ async function onStand(args: Partial<CallArgs>, given: Given = {}) {
 
 /** Ни в одном выходе нет ни одного ключа стенда. */
 function assertNoKey(outcome: CallResult | Error, seen: Seen): void {
-  const outputs = outcome instanceof Error
-    ? [outcome.message, errorText(outcome)]
-    : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
+  const outputs =
+    outcome instanceof Error
+      ? [outcome.message, errorText(outcome)]
+      : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
   for (const text of [...outputs, ...seen.notes]) {
     for (const key of ALL_KEYS) {
       assert(!text.includes(key), `ключ ${key} в выводе: ${text}`);
@@ -182,7 +189,8 @@ function refusalOf(outcome: CallResult | Error) {
   };
 }
 
-const A1_STDOUT = "HTTP 200 POST api-seller.ozon.ru/v1/seller/info\n" +
+const A1_STDOUT =
+  "HTTP 200 POST api-seller.ozon.ru/v1/seller/info\n" +
   "ratelimit-remaining: 7\n\n" +
   '{\n  "name": "cool_flaps",\n  "id": 2129958\n}\n';
 
@@ -218,7 +226,8 @@ it("A4: кабинетов три без cabinet: — отказ со списк
   const { outcome, seen } = await onStand({ selector: "55" });
   expect(refusalOf(outcome)).toStrictEqual({
     code: 2,
-    stderr: "mpu ozon call-ro: у клиента 55 кабинетов Ozon 3 — укажи " +
+    stderr:
+      "mpu ozon call-ro: у клиента 55 кабинетов Ozon 3 — укажи " +
       "cabinet: 2129958 | 1539401 | 870282\n",
   });
   expect(seen.requests.length).toBe(0);
@@ -247,7 +256,8 @@ it("A7: ручки нет в реестре — отказ до чтения к�
   const { outcome, seen } = await onStand({ path: "/v1/product/import" });
   expect(refusalOf(outcome)).toStrictEqual({
     code: 2,
-    stderr: "mpu ozon call-ro: ручки POST /v1/product/import нет в списке " +
+    stderr:
+      "mpu ozon call-ro: ручки POST /v1/product/import нет в списке " +
       "чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n",
   });
   expect(seen.sessions).toBe(0);
@@ -268,16 +278,19 @@ it("A9: call — любая ручка, тело как задано", async () 
 });
 
 it("A10: 429 — заголовки и тело напечатаны, код 1, запрос один", async () => {
-  const { outcome, seen } = await onStand({}, {
-    reply: () =>
-      new Response(
-        '{"code":8,"message":"You have reached request rate limit per second"}',
-        {
-          status: 429,
-          headers: { "retry-after": "1", "ratelimit-remaining": "0" },
-        },
-      ),
-  });
+  const { outcome, seen } = await onStand(
+    {},
+    {
+      reply: () =>
+        new Response(
+          '{"code":8,"message":"You have reached request rate limit per second"}',
+          {
+            status: 429,
+            headers: { "retry-after": "1", "ratelimit-remaining": "0" },
+          },
+        ),
+    },
+  );
   const result = resultOf(outcome);
   expect(renderCall(result)).toStrictEqual(
     "HTTP 429 POST api-seller.ozon.ru/v1/seller/info\n" +
@@ -289,12 +302,15 @@ it("A10: 429 — заголовки и тело напечатаны, код 1, 
 });
 
 it("A11: тело не JSON — как есть, в json — строкой", async () => {
-  const { outcome } = await onStand({}, {
-    reply: () =>
-      new Response("ok", {
-        headers: { "ratelimit-remaining": "7", "content-type": "text/plain" },
-      }),
-  });
+  const { outcome } = await onStand(
+    {},
+    {
+      reply: () =>
+        new Response("ok", {
+          headers: { "ratelimit-remaining": "7", "content-type": "text/plain" },
+        }),
+    },
+  );
   const result = resultOf(outcome);
   expect(renderCall(result)).toBe(
     "HTTP 200 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 7\n\nok\n",
@@ -324,9 +340,12 @@ it("A13: dry — запрос с ключом ***, в сеть ничего", as
 });
 
 it("A14: эхо ключа в теле ответа заменено на ***", async () => {
-  const { outcome } = await onStand({}, {
-    reply: () => new Response('{"message":"bad key k-54-seller"}'),
-  });
+  const { outcome } = await onStand(
+    {},
+    {
+      reply: () => new Response('{"message":"bad key k-54-seller"}'),
+    },
+  );
   expect(callRecord(resultOf(outcome))).toStrictEqual({
     status: 200,
     method: "POST",
@@ -381,35 +400,41 @@ it("A18: timeout: вне 1…300 — отказ до всего", async () => {
 
 it("call-ro вне реестра — транспорт не зовётся ни при каком методе", async () => {
   for (const method of ["GET", "POST"] as const) {
-    await expect(runCall(
-      argsOf({ path: "/v2/product/delete", method }),
-      makeFakeIo({
-        openCacheDb: () => {
-          throw new Error("кэш читаться не должен");
+    await expect(
+      runCall(
+        argsOf({ path: "/v2/product/delete", method }),
+        makeFakeIo({
+          openCacheDb: () => {
+            throw new Error("кэш читаться не должен");
+          },
+        }),
+        {
+          fetch: () => {
+            throw new Error("транспорт звать нельзя");
+          },
+          deadline: () => new AbortController().signal,
+          now: () => 0,
+          openSession: () => {
+            throw new Error("ключ читать нельзя");
+          },
         },
-      }),
-      {
-        fetch: () => {
-          throw new Error("транспорт звать нельзя");
-        },
-        deadline: () => new AbortController().signal,
-        now: () => 0,
-        openSession: () => {
-          throw new Error("ключ читать нельзя");
-        },
-      },
-      { marketplace: OZON_SELLER, access: new ReadList(READS) },
-    )).rejects.toThrow(UsageError);
+        { marketplace: OZON_SELLER, access: new ReadList(READS) },
+      ),
+    ).rejects.toThrow(UsageError);
   }
 });
 
 it("сетевой сбой — код 1, текст сбоя без ключа", async () => {
-  const { outcome } = await onStand({}, {
-    failure: new TypeError("connection reset, api-key k-54-seller"),
-  });
+  const { outcome } = await onStand(
+    {},
+    {
+      failure: new TypeError("connection reset, api-key k-54-seller"),
+    },
+  );
   expect(refusalOf(outcome)).toStrictEqual({
     code: 1,
-    stderr: "mpu ozon call-ro: запрос не выполнен — connection reset, " +
+    stderr:
+      "mpu ozon call-ro: запрос не выполнен — connection reset, " +
       "api-key ***\n",
   });
 });

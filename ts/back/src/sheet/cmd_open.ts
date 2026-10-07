@@ -33,18 +33,22 @@ const OPENERS = ["xdg-open", "open"] as const;
 const EDIT_URL = "https://docs.google.com/spreadsheets/d/";
 
 const argsSchema = z.object({
-  tab: z.string().optional().describe(
-    "имя листа; без него открывается таблица целиком",
-  ),
+  tab: z
+    .string()
+    .optional()
+    .describe("имя листа; без него открывается таблица целиком"),
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
 });
 
 const resultSchema = z.object({
   url: z.string().describe("ссылка, которую открывают"),
   ss_id: z.string(),
-  sheet_id: z.number().nullable().describe(
-    "числовой идентификатор листа; null — открывается таблица целиком",
-  ),
+  sheet_id: z
+    .number()
+    .nullable()
+    .describe(
+      "числовой идентификатор листа; null — открывается таблица целиком",
+    ),
   launched: z.boolean().describe("открыватель запущен"),
 });
 
@@ -82,9 +86,10 @@ export async function runOpen(
 ): Promise<OpenResult> {
   using db = io.openCacheDb();
   const target = targetOf(db, args.spreadsheet);
-  const sheetId = args.tab === undefined
-    ? null
-    : sheetIdOf(await openTabs(io, db, target.ss_id, options), args.tab);
+  const sheetId =
+    args.tab === undefined
+      ? null
+      : sheetIdOf(await openTabs(io, db, target.ss_id, options), args.tab);
   const url = sheetUrl(target.ss_id, sheetId);
   return {
     url,
@@ -168,5 +173,5 @@ Exit: 0 — успех; 1 — открывателя не нашлось (ссы
   // Ссылка напечатана, но открыть её было нечем — это неуспех, и код
   // обязан его назвать. Печать при этом остаётся: она и есть то, что
   // спасает вызов (`sheet-registry.md`, «Форма ссылки»).
-  textExitCode: (result: OpenResult) => result.launched ? 0 : 1,
+  textExitCode: (result: OpenResult) => (result.launched ? 0 : 1),
 });

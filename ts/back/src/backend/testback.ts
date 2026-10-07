@@ -122,7 +122,7 @@ function recordingLog(
       // (`platform/invoke-log.md`), и копия ведёт себя так же: код
       // закрытия виден тесту лишь у тех строк, чья запись пишется.
       let marked = false;
-      return ({
+      return {
         runId: () => runId,
         executedBy: (pid: number) => void executors.push(pid),
         nativeCall: (command) => {
@@ -144,8 +144,8 @@ function recordingLog(
         out: (text: string) => void logged.push(text),
         err: (text: string) => void logged.push(text),
         note: (text: string) => void logged.push(text),
-        finish: (code: number) => marked ? finished(code) : Promise.resolve(),
-      });
+        finish: (code: number) => (marked ? finished(code) : Promise.resolve()),
+      };
     },
   };
 }
@@ -300,11 +300,12 @@ export class Client {
       readonly stdin?: string;
     } = {},
   ) {
-    this.#answers = [...options.answers ?? []];
+    this.#answers = [...(options.answers ?? [])];
     const stdin = options.stdin;
-    const protocols = options.bearer === false
-      ? ["mpu"]
-      : ["mpu", `bearer.${options.agent ? back.agentToken : back.token}`];
+    const protocols =
+      options.bearer === false
+        ? ["mpu"]
+        : ["mpu", `bearer.${options.agent ? back.agentToken : back.token}`];
     this.#socket = openSocket(`${back.url.replace("http", "ws")}${path}`, {
       protocols,
       headers: options.headers,
@@ -459,9 +460,10 @@ export function post(
 export async function ndjson(back: TestBack, response: Response) {
   const text = await response.text();
   back.seen.push(text, JSON.stringify([...response.headers]));
-  return text.split("\n").filter((row) => row !== "").map((row) =>
-    JSON.parse(row) as Frame
-  );
+  return text
+    .split("\n")
+    .filter((row) => row !== "")
+    .map((row) => JSON.parse(row) as Frame);
 }
 
 /** Тело ответа целиком (в `seen`) — один объект JSON. */

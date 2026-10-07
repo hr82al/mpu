@@ -101,24 +101,28 @@ describe("плохие поля ввода в первом кадре: отка�
           { exit: 2 },
         ]);
         expect(back.called).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
 it("ввод сверх предела после запроса: отказ, код 2, вывода нет", async () => {
   const codes: number[] = [];
   let diagnosed: readonly string[] = [];
-  await withBack(async (back) => {
-    const frames = await requested(back, ["confirm", "yes"], {
-      stdin: "a".repeat(MAX_STDIN_BYTES + 1),
-    });
-    expect(frames).toStrictEqual([
-      { stdinRequest: true },
-      { err: "mpu-back: ввод больше 8 МиБ\n" },
-      { exit: 2 },
-    ]);
-    diagnosed = back.diagnosed;
-  }, { finishedWith: (code) => void codes.push(code) });
+  await withBack(
+    async (back) => {
+      const frames = await requested(back, ["confirm", "yes"], {
+        stdin: "a".repeat(MAX_STDIN_BYTES + 1),
+      });
+      expect(frames).toStrictEqual([
+        { stdinRequest: true },
+        { err: "mpu-back: ввод больше 8 МиБ\n" },
+        { exit: 2 },
+      ]);
+      diagnosed = back.diagnosed;
+    },
+    { finishedWith: (code) => void codes.push(code) },
+  );
   // Команду остановили, как при обрыве: запись журнала — кодом
   // остановленной строки, сбоя строки нет.
   expect(codes).toStrictEqual([CANCELLED_CODE]);
@@ -159,7 +163,8 @@ describe("простой HTTP: stdinOnRequest не читается любым �
           { out: "" },
           { exit: 0 },
         ]);
-      }));
+      }),
+    );
   }
   it("поле stdin — как прежде", () =>
     withBack(async (back) => {
@@ -180,23 +185,26 @@ describe("простой HTTP: stdinOnRequest не читается любым �
 it("клиент ушёл, пока сервер ждёт ввод: строка не висит", async () => {
   const codes: number[] = [];
   let diagnosed: readonly string[] = [];
-  await withBack(async (back) => {
-    const client = new Client(back, "/line");
-    await client.opened();
-    client.send({
-      words: ["confirm", "yes"],
-      cwd: process.cwd(),
-      human: true,
-      stdinOnRequest: true,
-    });
-    await client.frame((frame) => "stdinRequest" in frame);
-    client.close();
-    await client.closed();
-    // Ожидание ввода снято обрывом: строка кончилась, и выход из
-    // `withBack` (остановка ждёт исполнение всех строк) это подтверждает.
-    expect((await request(back, "/health")).status).toBe(200);
-    diagnosed = back.diagnosed;
-  }, { finishedWith: (code) => void codes.push(code) });
+  await withBack(
+    async (back) => {
+      const client = new Client(back, "/line");
+      await client.opened();
+      client.send({
+        words: ["confirm", "yes"],
+        cwd: process.cwd(),
+        human: true,
+        stdinOnRequest: true,
+      });
+      await client.frame((frame) => "stdinRequest" in frame);
+      client.close();
+      await client.closed();
+      // Ожидание ввода снято обрывом: строка кончилась, и выход из
+      // `withBack` (остановка ждёт исполнение всех строк) это подтверждает.
+      expect((await request(back, "/health")).status).toBe(200);
+      diagnosed = back.diagnosed;
+    },
+    { finishedWith: (code) => void codes.push(code) },
+  );
   expect(codes).toStrictEqual([CANCELLED_CODE]);
   expect(diagnosed).toStrictEqual([]);
 });

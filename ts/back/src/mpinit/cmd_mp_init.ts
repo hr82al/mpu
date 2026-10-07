@@ -61,18 +61,20 @@ import {
 } from "./web.ts";
 
 const argsSchema = z.object({
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать команды, не выполняя мутаций",
-  ),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("напечатать команды, не выполняя мутаций"),
 });
 
 const resultSchema = z.object({
   steps: z.array(z.string()).describe("выполненные (или напечатанные) шаги"),
   web: z.boolean().describe("поднимался ли web-стек"),
   dryRun: z.boolean(),
-  exitCode: z.number().int().describe(
-    "код выхода: 0 либо rc упавшего docker-вызова, 1:1",
-  ),
+  exitCode: z
+    .number()
+    .int()
+    .describe("код выхода: 0 либо rc упавшего docker-вызова, 1:1"),
 });
 
 type MpInitArgs = z.infer<typeof argsSchema>;
@@ -158,10 +160,7 @@ interface StandPlace extends StandDirs {
 }
 
 /** Найти каталоги стенда; нет mp-config-local — ошибка ввода (exit 2). */
-function placeOf(
-  io: MpInitIo,
-  exists: (path: string) => boolean,
-): StandPlace {
+function placeOf(io: MpInitIo, exists: (path: string) => boolean): StandPlace {
   const configDir = configDirOf(io);
   if (!exists(configDir)) {
     throw new UsageError(`каталог mp-config-local не найден: ${configDir}`, {
@@ -190,8 +189,8 @@ export async function runMpInit(
     docker: options.docker ?? systemDocker,
     files: {
       readText: options.readText ?? ((path) => readFileSync(path, "utf8")),
-      readBytes: options.readBytes ??
-        ((path) => new Uint8Array(readFileSync(path))),
+      readBytes:
+        options.readBytes ?? ((path) => new Uint8Array(readFileSync(path))),
       listDir: options.listDir ?? namesIn,
     },
     dryRun: args["dry-run"],
@@ -330,7 +329,10 @@ async function upCore(
   if (!run.dryRun) {
     await reportContainers(run.docker, run.io.progress, run.configDir);
   }
-  return await fillRates(stacks.map((stack) => stack.rates), ratesContext(run));
+  return await fillRates(
+    stacks.map((stack) => stack.rates),
+    ratesContext(run),
+  );
 }
 
 /** Итог невыполненного в `dry` шага. */
@@ -387,10 +389,7 @@ async function verifyOverrides(run: Run, stack: CoreStack): Promise<number> {
   }
   const known = composeServicesOf(probe.stdout);
   for (const path of stack.overrides) {
-    const strangers = strangersOf(
-      servicesOf(run.files.readText(path)),
-      known,
-    );
+    const strangers = strangersOf(servicesOf(run.files.readText(path)), known);
     if (strangers.length === 0) continue;
     run.io.progress(
       `mpu mp-init: override ${path}: нет в compose: ${strangers.join(", ")}`,
@@ -482,8 +481,10 @@ export function finalLine(
     return "mp-init: core поднят — nats, sl-0, sl-1, nginx, dt-host";
   }
   const web = FINAL_ORDER.filter((name) => services.includes(name));
-  return "mp-init: поднят core (nats/sl-0/sl-1/nginx/dt-host) + " +
-    `web (${web.join("/")})`;
+  return (
+    "mp-init: поднят core (nats/sl-0/sl-1/nginx/dt-host) + " +
+    `web (${web.join("/")})`
+  );
 }
 
 /**
@@ -646,10 +647,7 @@ Exit: 0 — успех, в том числе без web-стека; 2 — кат
 не найден; 1 — override расходится с compose, миграции упали или не
 завершились, dist пакета ozon пуст или нет коммита с его версией; иначе
 код упавшего docker (курсы, вход в Nexus, web, стенд ozon).`,
-  examples: [
-    "mpu mp-init dry",
-    "mpu mp-init",
-  ],
+  examples: ["mpu mp-init dry", "mpu mp-init"],
   policy: "rw",
   argsSchema,
   forms: { "dry-run": { short: "n" } },

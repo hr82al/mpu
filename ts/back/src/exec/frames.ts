@@ -64,9 +64,10 @@ export function decodeFrame(buffer: Uint8Array): FrameCut | null {
   const extra = short === 126 ? 2 : short === 127 ? 8 : 0;
   const lengthAt = 2;
   if (buffer.length < lengthAt + extra) return null;
-  const length = extra === 0
-    ? short
-    : Number(readLength(buffer.subarray(lengthAt, lengthAt + extra)));
+  const length =
+    extra === 0
+      ? short
+      : Number(readLength(buffer.subarray(lengthAt, lengthAt + extra)));
   const maskAt = lengthAt + extra;
   const dataAt = maskAt + (masked ? 4 : 0);
   if (buffer.length < dataAt + length) return null;

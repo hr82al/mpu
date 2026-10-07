@@ -142,8 +142,9 @@ function hooked(
   if (!hook.opens(said)) return otherwise;
   return {
     settle: (context: ImageContext) =>
-      context.walk((session) =>
-        new HookLine(session, context.speech, ports.readStdin, answer)
+      context.walk(
+        (session) =>
+          new HookLine(session, context.speech, ports.readStdin, answer),
       ),
     consult: atExecution,
   };
@@ -258,7 +259,7 @@ export function standingMethods(
         selector: method.selector,
         doc: method.doc,
         produce: () => Promise.resolve(null),
-      })
+      }),
     ),
     itMethod(NO_CALLER, () => {}),
   ];

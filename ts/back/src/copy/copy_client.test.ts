@@ -133,9 +133,10 @@ function sessions(sent: Sent[], replies: Map<string, SqlOutcome> = new Map()) {
         // Торговая марка NULL — форма, которую отдаёт свежий кабинет:
         // на уровне команды она обязана пройти сквозь подстановку и
         // дойти до вставки непустой.
-        return rows(["sid", "name", "trade_mark"], [
-          ["cab-1", "Магазин", null],
-        ]);
+        return rows(
+          ["sid", "name", "trade_mark"],
+          [["cab-1", "Магазин", null]],
+        );
       }
       if (sql.startsWith("SELECT *")) return rows(["client_id"], [[CLIENT]]);
       return done;
@@ -157,9 +158,7 @@ function sessions(sent: Sent[], replies: Map<string, SqlOutcome> = new Map()) {
           sql: statements.map((statement) => statement.sql).join(";\n"),
           params: statements.flatMap((statement) => statement.params ?? []),
         });
-        return Promise.resolve(
-          statements.map(() => done),
-        );
+        return Promise.resolve(statements.map(() => done));
       },
       close: () => Promise.resolve(),
     });
@@ -207,7 +206,7 @@ it("порядок шага схемы: дамп раньше сноса цел�
     expect(sent[drop].sql).toBe("DROP SCHEMA IF EXISTS schema_5175 CASCADE;");
     // …и он раньше первого пишущего запроса со строками клиента.
     const firstRows = sent.findIndex((item) =>
-      item.sql.includes("DELETE FROM")
+      item.sql.includes("DELETE FROM"),
     );
     expect(drop < firstRows).toBe(true);
     // Дамп идёт с прод-инстанса, восстановление — в локальный sl-1.
@@ -253,7 +252,7 @@ it("ненулевой pg_restore — отказ с последней ошиб�
           runTool: tools([0, 1], seen, [
             "pg_restore: creating TABLE schema_5175.orders",
             "pg_restore: error: could not execute query: ERROR:  " +
-            'unrecognized configuration parameter "transaction_timeout"',
+              'unrecognized configuration parameter "transaction_timeout"',
             "pg_restore: warning: errors ignored on restore: 1",
           ]),
           openSession: sessions([]),
@@ -288,9 +287,7 @@ it("запись идёт только в локальные приёмники"
     // Прод (5432) не получает ни одного пишущего запроса: все DELETE,
     // INSERT и проводка входа уходят на локальные приёмники.
     expect([...new Set(writes.map((item) => item.port))]).toStrictEqual([
-      5441,
-      5440,
-      5451,
+      5441, 5440, 5451,
     ]);
     const reads = sent.filter((item) => item.port === 5432);
     expect(reads.every((item) => item.kind === "query")).toBe(true);
@@ -318,8 +315,9 @@ it("счётчики строк печатаются по каждой табл�
     expect(lines.join("\n")).toContain("  sl-1 clients: 1");
     expect(lines.join("\n")).toContain("  sl-1 spreadsheets: 1");
     expect(lines.join("\n")).toContain("  sl-0 wb_tokens: 1");
-    expect(result.sl1.some((count) => count.table === "spreadsheets_sheets"))
-      .toBe(true);
+    expect(
+      result.sl1.some((count) => count.table === "spreadsheets_sheets"),
+    ).toBe(true);
     // Дети таблиц переносятся по множеству spreadsheet_id клиента.
     expect(result.sl0.some((count) => count.table === "spreadsheets")).toBe(
       false,
@@ -376,14 +374,16 @@ it("пароли уходят окружением, а не в argv", async () =
 
 it("селектор без единственного client_id — ошибка ввода", async () => {
   await withIo(async (io) => {
-    await expect(copyClient({ selector: "sl-1" }, io, {
-      runTool: tools([0, 0], []),
-      openSession: sessions([]),
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    })).rejects.toThrow(UsageError);
+    await expect(
+      copyClient({ selector: "sl-1" }, io, {
+        runTool: tools([0, 0], []),
+        openSession: sessions([]),
+        tempFile: () => "/tmp/проба.dump",
+        removeFile: () => {},
+        nowMs: () => 0,
+        runRedis: noRedis,
+      }),
+    ).rejects.toThrow(UsageError);
   });
 });
 
@@ -404,10 +404,7 @@ it("источник открывается только на чтение", asy
     // в прод.
     const modes = new Map<number, Set<string>>();
     for (const item of sent) {
-      modes.set(
-        item.port,
-        (modes.get(item.port) ?? new Set()).add(item.mode),
-      );
+      modes.set(item.port, (modes.get(item.port) ?? new Set()).add(item.mode));
     }
     expect([...(modes.get(5432) ?? [])]).toStrictEqual(["read-only"]);
     // У локальных приёмников режим записи; sl-1 читается ещё и для
@@ -435,8 +432,8 @@ it("посев уходит одной транзакцией на приёмн�
     // (5451, БД воркспейсов). Отбор по порту устойчивее отбора по
     // DELETE: перестань посев начинаться с удаления, и проверка молча
     // сменила бы предмет.
-    const seeds = sent.filter((item) =>
-      item.kind === "many" && item.port !== 5451
+    const seeds = sent.filter(
+      (item) => item.kind === "many" && item.port !== 5451,
     );
     expect(seeds.length, "по одному посеву на sl-1 и sl-0").toBe(2);
     const sl1 = seeds.find((item) => item.port === 5441)!;
@@ -471,8 +468,8 @@ it("дети таблиц удаляются по объединению мно�
       nowMs: () => 0,
       runRedis: noRedis,
     });
-    const seed = sent.find((item) =>
-      item.port === 5441 && item.kind === "many"
+    const seed = sent.find(
+      (item) => item.port === 5441 && item.kind === "many",
     )!;
     // Удаление шире выборки: иначе строки таблицы, снесённой на
     // источнике, остались бы на стенде висеть сиротами. Значения ищем
@@ -499,8 +496,9 @@ it("отказ посева называет таблицу и говорит п
               // Сервер отверг одну вставку: так и падал перенос на
               // jsonb-колонке, пока значения шли текстом.
               runMany: (statements: readonly Statement[]) => {
-                const at = statements.findIndex((statement) =>
-                  statement.label === "spreadsheets_sheets_values"
+                const at = statements.findIndex(
+                  (statement) =>
+                    statement.label === "spreadsheets_sheets_values",
                 );
                 return Promise.reject(
                   new StatementError(
@@ -614,8 +612,9 @@ it("вход в sw-front заводится и печатается", async () =
     });
 
     expect(result.login).toBe(true);
-    const seed = sent.find((item) =>
-      item.port === 5451 && item.sql.includes("INSERT INTO public.users")
+    const seed = sent.find(
+      (item) =>
+        item.port === 5451 && item.sql.includes("INSERT INTO public.users"),
     );
     expect(seed !== undefined, "проводка не выполнялась").toBe(true);
     // Идемпотентно: второй пользователь с тем же адресом сделал бы
@@ -857,11 +856,14 @@ it("снятая чужая привязка названа оператору �
           // можно только у сервера.
           runMany: (statements: readonly Statement[]) =>
             Promise.resolve(
-              statements.map((statement) => ({
-                kind: "done",
-                // Сервер сообщает: одна чужая связка снята.
-                rowcount: statement.sql.startsWith(DETACH_SQL) ? 1 : 0,
-              } as SqlOutcome)),
+              statements.map(
+                (statement) =>
+                  ({
+                    kind: "done",
+                    // Сервер сообщает: одна чужая связка снята.
+                    rowcount: statement.sql.startsWith(DETACH_SQL) ? 1 : 0,
+                  }) as SqlOutcome,
+              ),
             ),
         }));
       },

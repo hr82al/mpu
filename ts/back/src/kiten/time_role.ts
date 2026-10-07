@@ -114,9 +114,10 @@ function pickRole(
   const exact = roles.filter((role) => role.name.toLowerCase() === needle);
   // Точное совпадение старше подстроки: «Диагностика» не должна стать
   // неоднозначной из-за соседней «Диагностика оборудования».
-  const found = exact.length > 0
-    ? exact
-    : roles.filter((role) => role.name.toLowerCase().includes(needle));
+  const found =
+    exact.length > 0
+      ? exact
+      : roles.filter((role) => role.name.toLowerCase().includes(needle));
   if (found.length === 0) {
     throw new UsageError(
       `${prefix}role '${ref}' не найден — см. \`mpu kiten roles\``,

@@ -22,8 +22,7 @@ import type { BackLine, Reply } from "./back.ts";
  * [D.1]) — их написание живёт в одном месте.
  */
 const { open, close, literal, stdin } = GRAMMAR;
-const MPU_DESCRIPTION =
-  `mpu — Smalltalk на словах к mpu-back. Вход — массив слов \`words\`.
+const MPU_DESCRIPTION = `mpu — Smalltalk на словах к mpu-back. Вход — массив слов \`words\`.
 
 - Голое слово — сообщение: \`kiten ls\`. Значение — только ключом: \`ключ: значение\` ≡ \`--ключ значение\`; одно слово массива — одно значение, пробелы можно: \`sql: "select 1"\`.
 - Порядок: команда → варианты → ключи → \`${close}\` → сообщения результату. Вариант — слово ДО ключей: \`process dry target: 54\`, \`logs portainer target: sl-1 since: 1h\`.
@@ -36,8 +35,7 @@ const MPU_DESCRIPTION =
 - Справка — \`help\` последним: \`kiten card help\`; ключи — \`… keys\`, варианты — \`… variants\`.
 - Отказ несёт \`refusal.hint\` — исправленную строку \`words\`: вызови её.`;
 
-const HELP_DESCRIPTION =
-  `Справка mpu: какие команды есть и как их писать. Звать перед тулом mpu, \
+const HELP_DESCRIPTION = `Справка mpu: какие команды есть и как их писать. Звать перед тулом mpu, \
 когда команда или её аргументы не известны.
 
 path — путь до узла дерева команд: [] или без path — справка корня (список команд верхнего уровня), \
@@ -82,10 +80,10 @@ export const TOOLS = [
 type Block =
   | { readonly type: "text"; readonly text: string }
   | {
-    readonly type: "image";
-    readonly data: string;
-    readonly mimeType: string;
-  };
+      readonly type: "image";
+      readonly data: string;
+      readonly mimeType: string;
+    };
 
 /** Ответ тула: блоки, итог строки и признак ошибки. */
 export interface ToolResult {
@@ -110,7 +108,8 @@ export interface ToolResult {
 
 function words(value: unknown, name: string, allowEmpty: boolean): string[] {
   if (
-    !Array.isArray(value) || !value.every((word) => typeof word === "string")
+    !Array.isArray(value) ||
+    !value.every((word) => typeof word === "string")
   ) {
     throw new McpError(ErrorCode.InvalidParams, `${name}: нужен список строк`);
   }
@@ -158,13 +157,16 @@ function finished(
   const { exit, refusal, file, pictures = [] } = last;
   // Поля границы: у строки без отказа или без файла их нет вовсе.
   const refused = refusal === undefined ? {} : { refusal };
-  const output = file === undefined ? { text: stdout, fields: { stdout } } : {
-    // Куски до вопроса пришли целиком — они остаются перед путём.
-    text: stdout + fileNotice(file),
-    fields: {
-      file: { path: file.path, bytes: file.bytes, lines: file.lines },
-    },
-  };
+  const output =
+    file === undefined
+      ? { text: stdout, fields: { stdout } }
+      : {
+          // Куски до вопроса пришли целиком — они остаются перед путём.
+          text: stdout + fileNotice(file),
+          fields: {
+            file: { path: file.path, bytes: file.bytes, lines: file.lines },
+          },
+        };
   const content: Block[] = [{ type: "text", text: output.text }];
   if (stderr !== "") content.push({ type: "text", text: `stderr:\n${stderr}` });
   for (const { mime, data } of pictures) {
@@ -185,8 +187,10 @@ function fileNotice(file: OutputFile): string {
   const kib = Math.ceil(file.bytes / 1024);
   const where = `вывод ${file.lines} строк, ${kib} КиБ — файл ${file.path}`;
   if (!file.slice) return where;
-  return `${where}; срез без повторного запроса: it ${close} last: 100 · ` +
-    `it ${close} size`;
+  return (
+    `${where}; срез без повторного запроса: it ${close} last: 100 · ` +
+    `it ${close} size`
+  );
 }
 
 /**
@@ -252,11 +256,16 @@ async function answered(
   const decided = new AbortController();
   // Обработчики — сразу и тотальные: ожидание решения — побочный канал,
   // его сбой или прерывание вызову не важны — ответ даст форма.
-  const elsewhere = back.settled(question.ticket, {
-    signal: joined(formAnswered.signal, options.signal),
-  }).then((result) => {
-    if ("settled" in result) decided.abort(SETTLED_ELSEWHERE);
-  }, () => {});
+  const elsewhere = back
+    .settled(question.ticket, {
+      signal: joined(formAnswered.signal, options.signal),
+    })
+    .then(
+      (result) => {
+        if ("settled" in result) decided.abort(SETTLED_ELSEWHERE);
+      },
+      () => {},
+    );
   let verdict: Verdict = "n";
   try {
     verdict = await asker.ask(question.ask, requestId, {

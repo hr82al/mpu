@@ -102,11 +102,14 @@ export async function connect(
   }
   const transport = new StreamableHTTPClientTransport(new URL(url), {
     requestInit: { headers: { Authorization: `Bearer ${token}` } },
-    fetch: record === undefined ? undefined : ((url, init) => {
-      const body = init?.body;
-      if (typeof body === "string") record(body);
-      return fetch(url, init);
-    }) as typeof fetch,
+    fetch:
+      record === undefined
+        ? undefined
+        : (((url, init) => {
+            const body = init?.body;
+            if (typeof body === "string") record(body);
+            return fetch(url, init);
+          }) as typeof fetch),
   });
   await client.connect(transport);
   return client;

@@ -33,10 +33,7 @@ export interface Message {
 }
 
 /** Обход выражений по порядку. */
-function reachAll(
-  list: readonly { reach(into: Reach): void }[],
-  into: Reach,
-) {
+function reachAll(list: readonly { reach(into: Reach): void }[], into: Reach) {
   for (const one of list) one.reach(into);
 }
 

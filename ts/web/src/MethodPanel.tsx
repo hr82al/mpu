@@ -59,12 +59,8 @@ export function MethodPanel({ path, image, changed }: MethodPanelProps) {
       <button
         type="button"
         onClick={() =>
-          line.send([
-            "ask",
-            ...path.slice(0, -1),
-            "forget:",
-            ...path.slice(-1),
-          ])}
+          line.send(["ask", ...path.slice(0, -1), "forget:", ...path.slice(-1)])
+        }
       >
         Удалить метод
       </button>

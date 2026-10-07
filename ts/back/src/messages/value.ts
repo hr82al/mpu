@@ -111,9 +111,10 @@ export class GroupValue implements Written {
   }
 
   settle(evaluation: Evaluation, key: string): Promise<string> {
-    const words = this.#messages.length === 0
-      ? this.#words
-      : [...this.#words, GRAMMAR.close, ...this.#messages];
+    const words =
+      this.#messages.length === 0
+        ? this.#words
+        : [...this.#words, GRAMMAR.close, ...this.#messages];
     return evaluation.group(
       words,
       key,
@@ -126,8 +127,12 @@ export class GroupValue implements Written {
   }
 
   text(): string {
-    return [GRAMMAR.open, ...this.#words, GRAMMAR.close, ...this.#messages]
-      .join(" ");
+    return [
+      GRAMMAR.open,
+      ...this.#words,
+      GRAMMAR.close,
+      ...this.#messages,
+    ].join(" ");
   }
 }
 

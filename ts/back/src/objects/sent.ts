@@ -56,7 +56,10 @@ class KeywordSent implements Named {
   }
 
   selector(): string {
-    return Object.keys(this.#args).sort().map((key) => `${key}:`).join("");
+    return Object.keys(this.#args)
+      .sort()
+      .map((key) => `${key}:`)
+      .join("");
   }
 
   /** Ключи со значениями в порядке строки. */

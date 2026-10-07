@@ -49,18 +49,24 @@ import {
 import { headline, renderFooter, renderRows } from "./render.ts";
 
 const argsSchema = z.object({
-  mr: z.array(z.string()).default([]).describe(
-    "адреса MR: URL | 'group/repo!iid' | iid; без них — мои MR за окно",
-  ),
-  since: z.string().optional().describe(
-    "окно режима «мои MR»: <число>{s|m|h|d} или unix-ts; дефолт 7d",
-  ),
-  repos: z.array(z.string()).default([]).describe(
-    "репозитории режима «мои MR»: через запятую либо повтором ключа",
-  ),
-  branches: z.boolean().default(false).describe(
-    "печатать «прочие ветки» полным списком; только с адресом MR",
-  ),
+  mr: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "адреса MR: URL | 'group/repo!iid' | iid; без них — мои MR за окно",
+    ),
+  since: z
+    .string()
+    .optional()
+    .describe("окно режима «мои MR»: <число>{s|m|h|d} или unix-ts; дефолт 7d"),
+  repos: z
+    .array(z.string())
+    .default([])
+    .describe("репозитории режима «мои MR»: через запятую либо повтором ключа"),
+  branches: z
+    .boolean()
+    .default(false)
+    .describe("печатать «прочие ветки» полным списком; только с адресом MR"),
   json: z.boolean().default(false).describe("массив строк JSON"),
 });
 
@@ -80,9 +86,11 @@ const rowSchema = z.object({
 const resultSchema = z.object({
   rows: z.array(rowSchema).describe("строки таблицы: одна на MR"),
   selectors: z.boolean().describe("режим адресов MR"),
-  columns: z.union([z.number(), z.null()]).describe(
-    "ширина терминала для усечения заголовка; null — без ограничения",
-  ),
+  columns: z
+    .union([z.number(), z.null()])
+    .describe(
+      "ширина терминала для усечения заголовка; null — без ограничения",
+    ),
 });
 
 type StatusArgs = z.infer<typeof argsSchema>;
@@ -93,9 +101,8 @@ type StatusResult = z.infer<typeof resultSchema>;
  * Ширина нужна усечению заголовка, а `progress` — строке о пустом
  * результате: она идёт в stderr, а не в stdout (спека).
  */
-export type StatusIo =
-  & MrIo
-  & Pick<CommandIo, "env" | "progress" | "consoleColumns">;
+export type StatusIo = MrIo &
+  Pick<CommandIo, "env" | "progress" | "consoleColumns">;
 
 /** Подстановки для тестов: живого GitLab и git у них нет. */
 export interface StatusOptions {
@@ -158,8 +165,8 @@ async function statusOf(
   // Ветки спрашиваются только у смерженного MR с известным проектом:
   // у остальных ответа всё равно нет, а лишний вызов стоил бы времени
   // на каждой строке таблицы.
-  const ask = mr.state === "merged" && sha !== undefined &&
-    mr.project_id !== null;
+  const ask =
+    mr.state === "merged" && sha !== undefined && mr.project_id !== null;
   const branches = ask
     ? await commitBranches(access, mr.project_id as number, sha as string)
     : undefined;
@@ -189,10 +196,9 @@ export async function runGlabStatus(
     );
   }
   if (!selectors && args.branches) {
-    throw new UsageError(
-      "branches применяется только с адресом MR",
-      { hint: "указать mr: либо убрать флаг" },
-    );
+    throw new UsageError("branches применяется только с адресом MR", {
+      hint: "указать mr: либо убрать флаг",
+    });
   }
 
   const access = gitlabAccess(io);
@@ -255,7 +261,7 @@ async function myRows(
     rows.push(await statusOf(access, mr));
   }
   return rows.sort((a, b) =>
-    a.repo === b.repo ? a.iid - b.iid : a.repo.localeCompare(b.repo)
+    a.repo === b.repo ? a.iid - b.iid : a.repo.localeCompare(b.repo),
   );
 }
 

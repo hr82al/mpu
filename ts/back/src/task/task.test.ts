@@ -470,10 +470,9 @@ it("T20: тело из stdin — как его раскрыла строка, б
   withStand(async (stand) => {
     await setUp(stand);
     expectRun(
-      await stand.run(
-        ["task", "post", "project:", "demo", "text:", "stdin"],
-        { stdin: "a\n\n" },
-      ),
+      await stand.run(["task", "post", "project:", "demo", "text:", "stdin"], {
+        stdin: "a\n\n",
+      }),
       0,
       "",
       "",
@@ -489,10 +488,9 @@ it("T20: тело из stdin — как его раскрыла строка, б
 it("тело из file:", () =>
   withStand(async (stand) => {
     await setUp(stand);
-    await stand.run(
-      ["task", "post", "project:", "demo", "file:", "p.md"],
-      { files: { "p.md": "из файла\n" } },
-    );
+    await stand.run(["task", "post", "project:", "demo", "file:", "p.md"], {
+      files: { "p.md": "из файла\n" },
+    });
     expectRun(
       await stand.agent("task", "read", "project:", "demo"),
       0,
@@ -599,25 +597,24 @@ it("T24: посев правил канала", () =>
     const run = await stand.agent("policy");
     expect(run.code, run.stderr).toBe(0);
     const rules = new Map(
-      (JSON.parse(run.stdout) as { path: string; verdict: string }[])
-        .map((rule) => [rule.path, rule.verdict]),
+      (JSON.parse(run.stdout) as { path: string; verdict: string }[]).map(
+        (rule) => [rule.path, rule.verdict],
+      ),
     );
-    for (
-      const [path, verdict] of [
-        ["task post", "allow"],
-        ["task report", "allow"],
-        ["task question", "allow"],
-        ["task answer", "allow"],
-        ["task decision", "allow"],
-        ["task owner", "allow"],
-        ["task read", "allow"],
-        ["task history", "allow"],
-        ["task setup", "ask"],
-        ["task history clear", "ask"],
-        ["task stop", "allow"],
-        ["task resume", "ask"],
-      ]
-    ) {
+    for (const [path, verdict] of [
+      ["task post", "allow"],
+      ["task report", "allow"],
+      ["task question", "allow"],
+      ["task answer", "allow"],
+      ["task decision", "allow"],
+      ["task owner", "allow"],
+      ["task read", "allow"],
+      ["task history", "allow"],
+      ["task setup", "ask"],
+      ["task history clear", "ask"],
+      ["task stop", "allow"],
+      ["task resume", "ask"],
+    ]) {
       expect(rules.get(path), path).toStrictEqual(verdict);
     }
     expect(rules.has("task rule")).toBe(false);
@@ -631,15 +628,17 @@ it("status end json — записи; пустой проект — хода н�
       "demo  порция 0  -  -  -  -  игрушечный проект\n",
     );
     const run = await stand.agent("task", "status", "end", "json");
-    expect(JSON.parse(run.stdout)).toStrictEqual([{
-      project: "demo",
-      portion: 0,
-      turn: "-",
-      last: null,
-      age_s: null,
-      unread: false,
-      note: "игрушечный проект",
-    }]);
+    expect(JSON.parse(run.stdout)).toStrictEqual([
+      {
+        project: "demo",
+        portion: 0,
+        turn: "-",
+        last: null,
+        age_s: null,
+        unread: false,
+        note: "игрушечный проект",
+      },
+    ]);
   }));
 
 it("rules печатает эталон хоста побайтово", () =>
@@ -676,17 +675,15 @@ it("чистка сохраняет открытый owner — ход ждёт �
   }, "0"));
 
 it("возраст — крупнейшей целой единицей", () => {
-  for (
-    const [seconds, text] of [
-      [0, "0s"],
-      [59, "59s"],
-      [60, "1m"],
-      [3599, "59m"],
-      [3600, "1h"],
-      [86399, "23h"],
-      [86400, "1d"],
-    ] as const
-  ) {
+  for (const [seconds, text] of [
+    [0, "0s"],
+    [59, "59s"],
+    [60, "1m"],
+    [3599, "59m"],
+    [3600, "1h"],
+    [86399, "23h"],
+    [86400, "1d"],
+  ] as const) {
     expect(age(seconds), String(seconds)).toStrictEqual(text);
   }
 });

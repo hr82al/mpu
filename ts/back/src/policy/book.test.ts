@@ -64,10 +64,12 @@ it("посев не возвращает забытое правило", () =>
       book.forget(RulePath.parse("kiten card"));
     }
     using again = RuleBook.open(file, SEEDS);
-    expect(again.list()).toStrictEqual([{
-      path: "kiten comment",
-      verdict: "ask",
-    }]);
+    expect(again.list()).toStrictEqual([
+      {
+        path: "kiten comment",
+        verdict: "ask",
+      },
+    ]);
     expect(decided(again, "kiten card <args>")).toStrictEqual({
       verdict: "ask",
       won: null,

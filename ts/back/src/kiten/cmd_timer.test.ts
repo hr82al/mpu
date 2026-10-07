@@ -217,9 +217,12 @@ async function errorText(
 
 /** Конфликт запуска: статус 400 и тело без `id` — как отвечает Kaiten. */
 function conflictResponse(): Response {
-  return Response.json({ message: "User timer already created" }, {
-    status: 400,
-  });
+  return Response.json(
+    { message: "User timer already created" },
+    {
+      status: 400,
+    },
+  );
 }
 
 describe("time start: запуск таймера", () => {
@@ -285,11 +288,7 @@ describe("time start: запуск таймера", () => {
       expect(
         await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
       ).toStrictEqual(
-        await expected(
-          "err-start-same-card-local-stderr.txt",
-          "",
-          startedAtMs,
-        ),
+        await expected("err-start-same-card-local-stderr.txt", "", startedAtMs),
       );
       // Таймер читается ПОСЛЕ конфликта: до него решать было не по чему.
       expect(calls(seen)).toStrictEqual([
@@ -372,8 +371,9 @@ describe("time status: чтение без мутаций", () => {
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
-      expect(await output(kitenTimeStatusCommand, [SELECTOR], io))
-        .toStrictEqual(await expected("status-idle-stdout.txt", baseUrl));
+      expect(
+        await output(kitenTimeStatusCommand, [SELECTOR], io),
+      ).toStrictEqual(await expected("status-idle-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
       await stop();
@@ -384,17 +384,20 @@ describe("time status: чтение без мутаций", () => {
     const startedAtMs = startedHalfMinuteAgo();
     const { io, baseUrl, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
-        Response.json(rawCard({
-          timer: rawTimer({
-            started_at: new Date(startedAtMs).toISOString(),
+        Response.json(
+          rawCard({
+            timer: rawTimer({
+              started_at: new Date(startedAtMs).toISOString(),
+            }),
           }),
-        })),
+        ),
     });
     try {
-      expect(await output(kitenTimeStatusCommand, [SELECTOR], io))
-        .toStrictEqual(
-          await expected("status-running-stdout.txt", baseUrl, startedAtMs),
-        );
+      expect(
+        await output(kitenTimeStatusCommand, [SELECTOR], io),
+      ).toStrictEqual(
+        await expected("status-running-stdout.txt", baseUrl, startedAtMs),
+      );
     } finally {
       await stop();
     }
@@ -404,24 +407,27 @@ describe("time status: чтение без мутаций", () => {
     const startedAtMs = startedHalfMinuteAgo();
     const { io, baseUrl, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
-        Response.json(rawCard({
-          // Итог по карточке считает записи: идущий таймер в него не входит.
-          time_spent_sum: 165,
-          timer: rawTimer({
-            comment: "проба таймера",
-            started_at: new Date(startedAtMs).toISOString(),
+        Response.json(
+          rawCard({
+            // Итог по карточке считает записи: идущий таймер в него не входит.
+            time_spent_sum: 165,
+            timer: rawTimer({
+              comment: "проба таймера",
+              started_at: new Date(startedAtMs).toISOString(),
+            }),
           }),
-        })),
+        ),
     });
     try {
-      expect(await output(kitenTimeStatusCommand, [SELECTOR], io))
-        .toStrictEqual(
-          await expected(
-            "status-running-comment-stdout.txt",
-            baseUrl,
-            startedAtMs,
-          ),
-        );
+      expect(
+        await output(kitenTimeStatusCommand, [SELECTOR], io),
+      ).toStrictEqual(
+        await expected(
+          "status-running-comment-stdout.txt",
+          baseUrl,
+          startedAtMs,
+        ),
+      );
     } finally {
       await stop();
     }
@@ -467,8 +473,9 @@ describe("time status: чтение без мутаций", () => {
         Response.json(rawCard({ time_spent_sum: 240 })),
     });
     try {
-      expect(await output(kitenTimeStatusCommand, [SELECTOR, "--json"], io))
-        .toStrictEqual(await golden("status-json-stdout.txt"));
+      expect(
+        await output(kitenTimeStatusCommand, [SELECTOR, "--json"], io),
+      ).toStrictEqual(await golden("status-json-stdout.txt"));
     } finally {
       await stop();
     }
@@ -481,9 +488,11 @@ describe("time stop: остановка с созданием записи", () 
     const started = new Date(startedAtMs).toISOString();
     const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
-        Response.json(rawCard({
-          timer: rawTimer({ started_at: started, comment: "разбор жалобы" }),
-        })),
+        Response.json(
+          rawCard({
+            timer: rawTimer({ started_at: started, comment: "разбор жалобы" }),
+          }),
+        ),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
         Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
@@ -518,14 +527,18 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("роль печатается названием из справочника", async () => {
-    const { io, stop } = await stand({
-      [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
-      [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
-      [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
-      [`GET ${LOGS_PATH}`]: () =>
-        Response.json([rawMutationLog({ role_id: 12132 })]),
-    }, { KITEN_TIME_ROLE: "Тестирование" });
+    const { io, stop } = await stand(
+      {
+        [`GET ${CARD_PATH}`]: () =>
+          Response.json(rawCard({ timer: rawTimer() })),
+        [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+        [`PATCH ${TIMER_PATH}`]: () =>
+          Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
+        [`GET ${LOGS_PATH}`]: () =>
+          Response.json([rawMutationLog({ role_id: 12132 })]),
+      },
+      { KITEN_TIME_ROLE: "Тестирование" },
+    );
     try {
       const text = await output(kitenTimeStopCommand, [SELECTOR], io);
       // Ответ остановки и запись названия роли не несут — только role_id.
@@ -566,8 +579,9 @@ describe("time stop: остановка с созданием записи", () 
         io,
       );
       const body = JSON.parse(seen[2].body);
-      expect(Date.parse(body.finished_at) - Date.parse(body.started_at))
-        .toStrictEqual(5 * 60_000);
+      expect(
+        Date.parse(body.finished_at) - Date.parse(body.started_at),
+      ).toStrictEqual(5 * 60_000);
       // Начало — старт таймера, усечённый до целой минуты.
       expect(Date.parse(body.started_at) % 60_000).toBe(0);
       expect(notes).toStrictEqual([]);
@@ -584,11 +598,13 @@ describe("time stop: остановка с созданием записи", () 
     const startedAtMs = startedHalfMinuteAgo();
     const { io, seen, notes, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
-        Response.json(rawCard({
-          timer: rawTimer({
-            started_at: new Date(startedAtMs).toISOString(),
+        Response.json(
+          rawCard({
+            timer: rawTimer({
+              started_at: new Date(startedAtMs).toISOString(),
+            }),
           }),
-        })),
+        ),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
         Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
@@ -635,8 +651,9 @@ describe("time stop: остановка с созданием записи", () 
       // Финиш вернулся к «сейчас», назад сдвинулось начало.
       expect(Date.parse(body.finished_at) <= Date.now()).toBe(true);
       expect(Date.parse(body.finished_at) >= beforeMs - 60_000).toBe(true);
-      expect(Date.parse(body.finished_at) - Date.parse(body.started_at))
-        .toStrictEqual(120 * 60_000);
+      expect(
+        Date.parse(body.finished_at) - Date.parse(body.started_at),
+      ).toStrictEqual(120 * 60_000);
     } finally {
       await stop();
     }
@@ -657,9 +674,11 @@ describe("time stop: остановка с созданием записи", () 
       expect(notes.length).toBe(1);
       // Команда в подсказке готова к копированию: с реальными id, не с
       // угловыми скобками.
-      expect(notes[0].includes(
-        `поправь: mpu kiten time edit ${CARD_ID} ${LOG_ID} --date `,
-      )).toBe(true);
+      expect(
+        notes[0].includes(
+          `поправь: mpu kiten time edit ${CARD_ID} ${LOG_ID} --date `,
+        ),
+      ).toBe(true);
       expect(notes[0].includes("<")).toBe(false);
     } finally {
       await stop();
@@ -686,14 +705,18 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("роли нет в справочнике — печатается её id", async () => {
-    const { io, stop } = await stand({
-      [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
-      [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
-      [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
-      [`GET ${LOGS_PATH}`]: () =>
-        Response.json([rawMutationLog({ role_id: 99999 })]),
-    }, { KITEN_TIME_ROLE: "99999" });
+    const { io, stop } = await stand(
+      {
+        [`GET ${CARD_PATH}`]: () =>
+          Response.json(rawCard({ timer: rawTimer() })),
+        [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+        [`PATCH ${TIMER_PATH}`]: () =>
+          Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
+        [`GET ${LOGS_PATH}`]: () =>
+          Response.json([rawMutationLog({ role_id: 99999 })]),
+      },
+      { KITEN_TIME_ROLE: "99999" },
+    );
     try {
       const text = await output(kitenTimeStopCommand, [SELECTOR], io);
       expect(text.includes("· 99999 · запись")).toBe(true);
@@ -724,11 +747,12 @@ describe("time stop: остановка с созданием записи", () 
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
-      expect(await errorText(kitenTimeStopCommand, [SELECTOR], io, DomainError))
-        .toStrictEqual(
-          `mpu kiten time stop: таймер на карточке ${CARD_ID} не запущен; ` +
-            `попробуй: mpu kiten time start id: ${CARD_ID}\n`,
-        );
+      expect(
+        await errorText(kitenTimeStopCommand, [SELECTOR], io, DomainError),
+      ).toStrictEqual(
+        `mpu kiten time stop: таймер на карточке ${CARD_ID} не запущен; ` +
+          `попробуй: mpu kiten time start id: ${CARD_ID}\n`,
+      );
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
       await stop();
@@ -745,9 +769,11 @@ describe("time stop: остановка с созданием записи", () 
           io,
           UsageError,
         ),
-      ).toStrictEqual(`mpu kiten time stop: ${await golden(
-        "err-edit-duration-zero-message.txt",
-      )}`);
+      ).toStrictEqual(
+        `mpu kiten time stop: ${await golden(
+          "err-edit-duration-zero-message.txt",
+        )}`,
+      );
       expect(calls(seen)).toStrictEqual([]);
     } finally {
       await stop();
@@ -762,8 +788,9 @@ describe("time discard: сброс без записи", () => {
       [`DELETE ${TIMER_PATH}`]: () => new Response(null, { status: 204 }),
     });
     try {
-      expect(await output(kitenTimeDiscardCommand, [SELECTOR], io))
-        .toStrictEqual(await expected("discard-stdout.txt", baseUrl));
+      expect(
+        await output(kitenTimeDiscardCommand, [SELECTOR], io),
+      ).toStrictEqual(await expected("discard-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
         `DELETE ${TIMER_PATH}`,
@@ -798,10 +825,11 @@ describe("time discard: сброс без записи", () => {
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
-      expect(await output(kitenTimeDiscardCommand, [SELECTOR], io))
-        .toStrictEqual(
-          `ok: таймера нет — нечего сбрасывать · ${baseUrl}/${CARD_ID}\n`,
-        );
+      expect(
+        await output(kitenTimeDiscardCommand, [SELECTOR], io),
+      ).toStrictEqual(
+        `ok: таймера нет — нечего сбрасывать · ${baseUrl}/${CARD_ID}\n`,
+      );
       // Удалять нечего: второго вызова нет, и это не отказ.
       expect(calls(seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {

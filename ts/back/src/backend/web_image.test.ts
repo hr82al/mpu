@@ -36,7 +36,7 @@ async function nodeOf(
   stand: WebImage,
   path: string,
 ): Promise<Node | undefined> {
-  const snapshot = await stand.rpc("tree.snapshot") as { nodes: Node[] };
+  const snapshot = (await stand.rpc("tree.snapshot")) as { nodes: Node[] };
   return snapshot.nodes.find((node) => node.path.join(" ") === path);
 }
 
@@ -86,7 +86,7 @@ it("голдены стенда сценария 1: tree.snapshot и policy.tree
 
 it("tree.snapshot живого back — по схеме rpc.tree.snapshot", () =>
   withWebImage(async (stand) => {
-    const snapshot = await stand.rpc("tree.snapshot") as { nodes: Node[] };
+    const snapshot = (await stand.rpc("tree.snapshot")) as { nodes: Node[] };
     const node = SCHEMA.$defs["rpc.tree.snapshot"];
     expect(violations(SCHEMA, node, snapshot)).toStrictEqual([]);
     // Сверка не слепа: лишнее и пропавшее поле узла образа — нарушения.
@@ -150,11 +150,13 @@ it("сценарий 7: без назначения — отказ без воп
     const text = DEFINITION.replace(" purpose: ^мои в колонке^", "");
     const got = await screen(stand, ["ask", ...wordsOf(text)]);
     expect(got.asked).toStrictEqual(undefined);
-    expect(got.reply).toStrictEqual(refused(
-      "метод без назначения",
-      "mpu kiten define: метод без назначения: purpose: ^…^",
-      2,
-    ));
+    expect(got.reply).toStrictEqual(
+      refused(
+        "метод без назначения",
+        "mpu kiten define: метод без назначения: purpose: ^…^",
+        2,
+      ),
+    );
   }));
 
 it("сценарий 8: другое имя — новый метод, прежний на месте", () =>
@@ -177,11 +179,13 @@ it("сценарии 9, 11: вопрос решает правило пути у
     await stand.terminal(["deny:", "--", "kiten forget:"], ["y"]);
     const forgot = await screen(stand, ["ask", "kiten", "forget:", "cardsIn:"]);
     expect(forgot.asked).toStrictEqual(undefined);
-    expect(forgot.reply).toStrictEqual(refused(
-      "запрещено правилом",
-      "mpu kiten forget: cardsIn:: запрещено правилом «kiten forget:»",
-      1,
-    ));
+    expect(forgot.reply).toStrictEqual(
+      refused(
+        "запрещено правилом",
+        "mpu kiten forget: cardsIn:: запрещено правилом «kiten forget:»",
+        1,
+      ),
+    );
     expect((await nodeOf(stand, "kiten cardsIn:")) !== undefined).toBe(true);
   }));
 
@@ -203,7 +207,9 @@ it("сценарий 10: «Удалить метод» — forget: послед�
 
 it("сценарий 12: протокол корня — семь методов по алфавиту", () =>
   withWebImage(async (stand) => {
-    const snapshot = await stand.rpc("tree.snapshot") as { protocol: unknown };
+    const snapshot = (await stand.rpc("tree.snapshot")) as {
+      protocol: unknown;
+    };
     expect(snapshot.protocol).toStrictEqual([
       {
         selector: "candidates:",
@@ -322,8 +328,11 @@ it("сценарии 16–17, 19: конфликт кодом 1, «взять ф
       exit: 0,
     });
     const node = await nodeOf(stand, "kiten cardsIn:");
-    expect([node?.summary, node?.image?.author, node?.image?.time])
-      .toStrictEqual(["образ: мои карточки", "web", LINES_AT]);
+    expect([
+      node?.summary,
+      node?.image?.author,
+      node?.image?.time,
+    ]).toStrictEqual(["образ: мои карточки", "web", LINES_AT]);
     expect(node?.image?.definition).toBe(
       "kiten define: cardsIn: purpose: ^мои карточки^ keys: ^id колонки^ do :col kiten ls where: column is: @col done",
     );
@@ -371,11 +380,13 @@ it("сценарий 21: каталог вне разрешённого — от
     expect(set.exit, JSON.stringify(set)).toBe(0);
     const got = await screen(stand, SYNC);
     expect(got.asked).toStrictEqual(undefined);
-    expect(got.reply).toStrictEqual(refused(
-      "отказ",
-      `mpu image sync: нет права записи в /tmp/x — каталог образа только под ${stand.home}/mr/mp/mpu/image`,
-      2,
-    ));
+    expect(got.reply).toStrictEqual(
+      refused(
+        "отказ",
+        `mpu image sync: нет права записи в /tmp/x — каталог образа только под ${stand.home}/mr/mp/mpu/image`,
+        2,
+      ),
+    );
   }));
 
 it("сценарии 23–25: строка правила с -- пишет правило ровно своего узла", () =>
@@ -391,8 +402,9 @@ it("сценарии 23–25: строка правила с -- пишет пр�
       '{"path":"kiten cardsIn:","verdict":"deny"}\n',
     );
     const tree = async () =>
-      (await stand.rpc("policy.tree") as Record<string, unknown>[])
-        .find((one) => String(one.path) === "kiten,cardsIn:");
+      ((await stand.rpc("policy.tree")) as Record<string, unknown>[]).find(
+        (one) => String(one.path) === "kiten,cardsIn:",
+      );
     expect(await tree()).toStrictEqual({
       path: ["kiten", "cardsIn:"],
       verdict: "deny",
@@ -425,12 +437,12 @@ it("слова definition строкой define: — прежний хэш (кл
       ["y"],
     );
     expect(defined.exit, JSON.stringify(defined)).toBe(0);
-    const before = (await nodeOf(stand, "kiten spaced:"))?.image?.definition ??
-      "";
+    const before =
+      (await nodeOf(stand, "kiten spaced:"))?.image?.definition ?? "";
     const got = await screen(stand, ["ask", ...wordsOf(before)], "y");
     expect(got.reply.exit, JSON.stringify(got.reply)).toBe(0);
-    const after = (await nodeOf(stand, "kiten spaced:"))?.image?.definition ??
-      "";
+    const after =
+      (await nodeOf(stand, "kiten spaced:"))?.image?.definition ?? "";
     expect(lineHash(after)).toStrictEqual(lineHash(before));
     expect(after.includes("^мои все^ keys: ^id колонки^")).toBe(true);
   }));

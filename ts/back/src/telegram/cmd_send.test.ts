@@ -47,27 +47,33 @@ function io(env: Readonly<Record<string, string>> = {}): CommandIo {
 }
 
 it("строка вывода: текст в «Избранное»", async () => {
-  expect(render({
-    id: 5000001,
-    chat_id: 100000001,
-    date: "2026-08-16T08:04:09+00:00",
-  })).toStrictEqual(await golden("send-text-stdout.txt"));
+  expect(
+    render({
+      id: 5000001,
+      chat_id: 100000001,
+      date: "2026-08-16T08:04:09+00:00",
+    }),
+  ).toStrictEqual(await golden("send-text-stdout.txt"));
 });
 
 it("строка вывода: документ с подписью", async () => {
-  expect(render({
-    id: 5000002,
-    chat_id: 100000001,
-    date: "2026-08-16T08:04:11+00:00",
-  })).toStrictEqual(await golden("send-file-stdout.txt"));
+  expect(
+    render({
+      id: 5000002,
+      chat_id: 100000001,
+      date: "2026-08-16T08:04:11+00:00",
+    }),
+  ).toStrictEqual(await golden("send-file-stdout.txt"));
 });
 
 it("строка вывода: альбом из двух документов", async () => {
-  expect(render({
-    id: 5000004,
-    chat_id: 100000001,
-    date: "2026-08-16T08:04:12+00:00",
-  })).toStrictEqual(await golden("send-album-stdout.txt"));
+  expect(
+    render({
+      id: 5000004,
+      chat_id: 100000001,
+      date: "2026-08-16T08:04:12+00:00",
+    }),
+  ).toStrictEqual(await golden("send-album-stdout.txt"));
 });
 
 it("времени нет — в строке литеральный null", () => {
@@ -87,7 +93,8 @@ it("юникод в строке вывода не экранируется", ()
 });
 
 it("пустой текст без вложений — отказ до сети", async () => {
-  const err = await command.invoke([""], io({ TELEGRAM_DEFAULT_CHAT: "me" }))
+  const err = await command
+    .invoke([""], io({ TELEGRAM_DEFAULT_CHAT: "me" }))
     .then(
       () => null,
       (e: unknown) => e,
@@ -103,7 +110,8 @@ it("пустой текст без вложений — отказ до сети
 });
 
 it("строка stderr идёт без префикса команды", async () => {
-  const err = await command.invoke([""], io({ TELEGRAM_DEFAULT_CHAT: "me" }))
+  const err = await command
+    .invoke([""], io({ TELEGRAM_DEFAULT_CHAT: "me" }))
     .then(
       () => null,
       (e: unknown) => e,
@@ -134,11 +142,14 @@ it("адресат не задан — отказ до сети", async () => {
 });
 
 it("вложения нет — отказ до сети, ключевой текст в сообщении", async () => {
-  const err = await rejected(() =>
-    command.invoke(
-      ["привет", "-f", "/no/such/file"],
-      io({ TELEGRAM_DEFAULT_CHAT: "me" }),
-    ), UsageError);
+  const err = await rejected(
+    () =>
+      command.invoke(
+        ["привет", "-f", "/no/such/file"],
+        io({ TELEGRAM_DEFAULT_CHAT: "me" }),
+      ),
+    UsageError,
+  );
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
   // Рамка здесь общая для всего CLI (`mpu <команда>: …`), а не своя,
   // как у отказов слоя: вложение отбивает разбор аргументов.

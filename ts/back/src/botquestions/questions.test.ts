@@ -147,10 +147,7 @@ it("13: сообщение прошлого запуска — при старт
   const open = fakeConfigDb();
   const log: string[] = [];
   const shown = new StoredMessages(open, (line) => log.push(line));
-  shown.remember(
-    1546,
-    new Card("🔐 Bash — ozon", "touch /tmp/x1.txt", []),
-  );
+  shown.remember(1546, new Card("🔐 Bash — ozon", "touch /tmp/x1.txt", []));
   const bot = new FakeBot();
   const { questions } = service(bot, shown);
   questions.start();
@@ -293,9 +290,11 @@ it("R4: отдельное сообщение — номер; без бота �
     sent: (id: number) => `ушло ${id}`,
     refused: (why: string) => `отказ: ${why}`,
   };
-  expect((await questions.post({ text: "экран", entities: [] })).read(reader))
-    .toBe("ушло 1546");
+  expect(
+    (await questions.post({ text: "экран", entities: [] })).read(reader),
+  ).toBe("ушло 1546");
   expect(bot.calls[0].buttons).toStrictEqual([]);
-  expect((await NO_BOT.post({ text: "экран", entities: [] })).read(reader))
-    .toBe("отказ: бот не настроен");
+  expect(
+    (await NO_BOT.post({ text: "экран", entities: [] })).read(reader),
+  ).toBe("отказ: бот не настроен");
 });

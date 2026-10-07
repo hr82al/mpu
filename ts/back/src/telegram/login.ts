@@ -48,10 +48,7 @@ export interface LoginClient {
    * спрашивает сам через переданные функции: их порядок и число
    * попыток задаёт протокол, а не мы.
    */
-  readonly signIn: (
-    phone: string,
-    prompts: LoginPrompts,
-  ) => Promise<string>;
+  readonly signIn: (phone: string, prompts: LoginPrompts) => Promise<string>;
   readonly close: () => Promise<void>;
 }
 
@@ -150,9 +147,10 @@ async function appKeys(
   if (agreed.trim().toLowerCase() !== "y") {
     return { ok: false, result: skip(io, SKIP_LATER) };
   }
-  const enteredId = (await prompts.ask("api_id (integer): ") ?? "").trim();
-  const enteredHash = (await prompts.ask("api_hash (32 hex chars): ") ?? "")
-    .trim();
+  const enteredId = ((await prompts.ask("api_id (integer): ")) ?? "").trim();
+  const enteredHash = (
+    (await prompts.ask("api_hash (32 hex chars): ")) ?? ""
+  ).trim();
   if (enteredId === "" || enteredHash === "") {
     // Пустой ввод — не отказ: код 0 и ни байта в env-файл (замер
     // оригинала 2026-08-31, инвариант 3).

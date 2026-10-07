@@ -17,46 +17,53 @@ const LIMIT_MIN = 1;
 const LIMIT_MAX = 500;
 
 const argsSchema = z.object({
-  query: z.string().default("").describe(
-    "что искать; без запроса — последние диалоги",
-  ),
+  query: z
+    .string()
+    .default("")
+    .describe("что искать; без запроса — последние диалоги"),
   // Значение приходит из argv строкой; разбирает его команда, а не
   // схема: спека требует отказ ровно одной строкой, а отказ схемы несёт
   // хвост-подсказку «попробуй: … --help» (`telegram-ls.md`, «Граничные
   // случаи»). В отказе показывается исходная строка — «много», не NaN.
-  limit: z.string().default("50").describe(
-    `сколько записей, ${LIMIT_MIN}..${LIMIT_MAX}`,
-  ),
+  limit: z
+    .string()
+    .default("50")
+    .describe(`сколько записей, ${LIMIT_MIN}..${LIMIT_MAX}`),
   table: z.boolean().default(false).describe("таблица вместо JSON"),
 });
 
 const dialogSchema = z.object({
-  id: z.number().describe(
-    "маркированный id чата; пригоден как адресат других подкоманд",
-  ),
-  title: z.string().describe(
-    "название чата: отображаемое имя у пользователя и бота, название у группы и канала",
-  ),
-  kind: z.enum(["user", "bot", "group", "channel", "unknown"]).describe(
-    "вид чата",
-  ),
-  username: z.string().nullable().describe(
-    "имя пользователя без «@»; у чата без имени — null",
-  ),
+  id: z
+    .number()
+    .describe("маркированный id чата; пригоден как адресат других подкоманд"),
+  title: z
+    .string()
+    .describe(
+      "название чата: отображаемое имя у пользователя и бота, название у группы и канала",
+    ),
+  kind: z
+    .enum(["user", "bot", "group", "channel", "unknown"])
+    .describe("вид чата"),
+  username: z
+    .string()
+    .nullable()
+    .describe("имя пользователя без «@»; у чата без имени — null"),
 });
 
 const resultSchema = z.object({
-  dialogs: z.array(dialogSchema).describe(
-    "найденные чаты в порядке выдачи сервера, с дедупом по id; перечень " +
-      "усечён `--limit`, а есть ли за ним ещё — поле `more`",
-  ),
+  dialogs: z
+    .array(dialogSchema)
+    .describe(
+      "найденные чаты в порядке выдачи сервера, с дедупом по id; перечень " +
+        "усечён `--limit`, а есть ли за ним ещё — поле `more`",
+    ),
   /**
    * Признак «есть ещё». Полного числа не носим: дедуп по id делаем мы,
    * и счётчик сервера считал бы выданное, а не оставшееся после него.
    */
-  more: z.boolean().describe(
-    "чаты могли остаться: выдача упёрлась в `--limit`",
-  ),
+  more: z
+    .boolean()
+    .describe("чаты могли остаться: выдача упёрлась в `--limit`"),
   table: z.boolean().describe("печатать ли таблицу вместо JSON"),
 });
 
@@ -82,9 +89,10 @@ async function runTelegramLs(
   try {
     // Отказ клиента оформлен портом сеанса (`session.ts`); команда ошибок
     // не переоформляет.
-    const found = args.query === ""
-      ? await session.listDialogs(limit)
-      : await session.searchChats(args.query, limit);
+    const found =
+      args.query === ""
+        ? await session.listDialogs(limit)
+        : await session.searchChats(args.query, limit);
     return {
       // Схема результата объявляет массив изменяемым (её выводит zod), а
       // дедуп отдаёт readonly — копия здесь дешевле, чем ослабление типа.
@@ -140,9 +148,7 @@ channel|unknown), username. Напечатанный id — маркирован
 
 Exit: 0 — успех, в том числе пустая выдача; 1 — конфигурация или отказ
 Telegram; 2 — ошибка ввода (limit: вне диапазона).`,
-  examples: [
-    'mpu telegram ls query: "Команда релиза" end table',
-  ],
+  examples: ['mpu telegram ls query: "Команда релиза" end table'],
   policy: "ro",
   argsSchema,
   formats: { table: ["--table"] },

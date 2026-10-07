@@ -136,9 +136,8 @@ class TmuxPane implements Pane {
   }
 
   press<T>(key: string, reader: KeysReader<T>): Promise<T> {
-    return this.#guarded(
-      reader,
-      async () => await this.#key(key) ? reader.sent() : reader.gone(),
+    return this.#guarded(reader, async () =>
+      (await this.#key(key)) ? reader.sent() : reader.gone(),
     );
   }
 
@@ -153,7 +152,7 @@ class TmuxPane implements Pane {
         "--",
         text,
       ]);
-      return typed !== undefined && await this.#key("Enter")
+      return typed !== undefined && (await this.#key("Enter"))
         ? reader.sent()
         : reader.gone();
     });
@@ -179,8 +178,9 @@ class TmuxPane implements Pane {
 
   /** Одна клавиша без охраны: её делают `press` и `type`. */
   async #key(key: string): Promise<boolean> {
-    return await this.#tmux(["send-keys", "-t", this.#pane, key]) !==
-      undefined;
+    return (
+      (await this.#tmux(["send-keys", "-t", this.#pane, key])) !== undefined
+    );
   }
 
   #tmux(args: readonly string[]): Promise<string | undefined> {

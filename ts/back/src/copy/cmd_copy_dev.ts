@@ -40,9 +40,12 @@ function devTempFile(): string {
 }
 
 const argsSchema = z.object({
-  client: z.number().int().positive().optional().describe(
-    "client_id на dev; без него копируется вся БД воркспейсов",
-  ),
+  client: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("client_id на dev; без него копируется вся БД воркспейсов"),
 });
 
 const resultSchema = z.object({
@@ -114,7 +117,8 @@ async function copyDevClient(
   options: DevOptions,
 ): Promise<void> {
   const source = devSourceTarget(io.envFile);
-  const open = options.openSession ??
+  const open =
+    options.openSession ??
     ((target: PgTarget, mode: "read-only" | "write") =>
       openPgSession(target, mode));
   await copyClientData({
@@ -134,14 +138,18 @@ async function copyDevClient(
 /** Итог: что скопировано и что делать дальше. */
 export function renderCopyDev(result: DevResult): string {
   if (result.mode === "client") {
-    return `✓ client ${result.clientId}: схема + public-строки → sl-1, ` +
+    return (
+      `✓ client ${result.clientId}: схема + public-строки → sl-1, ` +
       "токен-строки → sl-0. Данные готовы (пересчёт не нужен). " +
       "При залипшем кэше: docker exec redis-dev redis-cli " +
-      "-a some-redis-password FLUSHALL\n";
+      "-a some-redis-password FLUSHALL\n"
+    );
   }
-  return "✓ workspaces скопирована в локальный mp-sw-pg. " +
+  return (
+    "✓ workspaces скопирована в локальный mp-sw-pg. " +
     "Перезапусти api (`sw-back-up`) — entrypoint накатит " +
-    "prisma migrate deploy.\n";
+    "prisma migrate deploy.\n"
+  );
 }
 
 export const copyDevCommand = defineCommand({
@@ -178,10 +186,7 @@ DEV_WORKSPACES_USER и DEV_WORKSPACES_PASSWORD — обязательны, fallb
 
 Exit: 0 — успех; 2 — нецелый target:, неполная конфигурация,
 недоступный локальный контейнер; 1 — падение pg_dump или pg_restore.`,
-  examples: [
-    "mpu copy-dev",
-    "mpu copy-dev target: 776",
-  ],
+  examples: ["mpu copy-dev", "mpu copy-dev target: 776"],
   policy: "rw",
   argsSchema,
   forms: { client: { positional: "one" } },

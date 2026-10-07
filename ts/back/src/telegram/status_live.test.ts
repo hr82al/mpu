@@ -53,16 +53,18 @@ it("в отчёт идут только мои смены колонки за с
         Promise.resolve(
           cardId === 1
             ? [
-              { columnId: 501, authorId: ME, changed: AT_09 },
-              { columnId: 502, authorId: ME, changed: AT_10 },
-            ]
+                { columnId: 501, authorId: ME, changed: AT_09 },
+                { columnId: 502, authorId: ME, changed: AT_10 },
+              ]
             : cardId === 2
-            ? [{ columnId: 501, authorId: 900002, changed: AT_10 }]
-            : [{
-              columnId: 501,
-              authorId: ME,
-              changed: "2026-08-16T07:00:00Z",
-            }],
+              ? [{ columnId: 501, authorId: 900002, changed: AT_10 }]
+              : [
+                  {
+                    columnId: 501,
+                    authorId: ME,
+                    changed: "2026-08-16T07:00:00Z",
+                  },
+                ],
         ),
       boardColumns: () =>
         Promise.resolve([
@@ -189,16 +191,15 @@ it("история карточки недоступна: предупрежде
   );
   expect(moves.map((move) => move.cardId)).toStrictEqual([2]);
   expect(`${warnings.join("\n")}\n`).toStrictEqual(
-    await golden(
-      "warn-card-history-stderr.txt",
-    ),
+    await golden("warn-card-history-stderr.txt"),
   );
 });
 
 describe("строки предупреждений совпадают с голденами", () => {
   it("живой опрос пропущен", async () => {
-    expect(`${liveSkippedWarning(new Error("401 Unauthorized"))}\n`)
-      .toStrictEqual(await golden("warn-live-skipped-stderr.txt"));
+    expect(
+      `${liveSkippedWarning(new Error("401 Unauthorized"))}\n`,
+    ).toStrictEqual(await golden("warn-live-skipped-stderr.txt"));
   });
   it("отказ без Error — тем же текстом", () => {
     expect(liveSkippedWarning("нет ключа")).toBe(

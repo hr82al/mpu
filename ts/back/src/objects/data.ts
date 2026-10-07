@@ -114,7 +114,10 @@ function keywordSelection(
 ): Selection {
   const kinds = Object.fromEntries(keys.map((key) => [key, "value" as const]));
   return {
-    selector: [...keys].sort().map((key) => `${key}:`).join(""),
+    selector: [...keys]
+      .sort()
+      .map((key) => `${key}:`)
+      .join(""),
     describe: (into) => into.keyword({ keys: kinds, required: [...keys] }),
     message: () => ({
       selector: `${keys[0]}:`,
@@ -142,7 +145,7 @@ const SELECTIONS: readonly Selection[] = [
     ["greater", "записи с полем больше значения"],
     ["includes", "записи, чьё поле содержит текст"],
   ].map(([key, purpose]) =>
-    keywordSelection(["where", key], purpose, WHERE_PURPOSE)
+    keywordSelection(["where", key], purpose, WHERE_PURPOSE),
   ),
 ];
 
@@ -190,16 +193,19 @@ const SELECTED: ResultKind = {
     return withProtocol(into).build();
   },
   about: (path, doc) =>
-    new Help({
-      path,
-      purpose: doc.purpose,
-      text: doc.help,
-      examples: [],
-      variants: [],
-      keys: [],
-      formats: [...DATA_FORMATS],
-      messages: selectionMessages(),
-    }, OBJECT_VIEW),
+    new Help(
+      {
+        path,
+        purpose: doc.purpose,
+        text: doc.help,
+        examples: [],
+        variants: [],
+        keys: [],
+        formats: [...DATA_FORMATS],
+        messages: selectionMessages(),
+      },
+      OBJECT_VIEW,
+    ),
   remedy: () => NO_REMEDY,
   reflect: () => dataReflection(selectionMessages()),
 };
@@ -213,8 +219,9 @@ function lookupData(
 ): Call {
   return sent.route({
     named: (named) =>
-      format(data, named) ?? reflected(named, reflection) ??
-        new AsideCall(named.text(), SAME_DOC, SELECTED, () => own(named)),
+      format(data, named) ??
+      reflected(named, reflection) ??
+      new AsideCall(named.text(), SAME_DOC, SELECTED, () => own(named)),
     tail: () => {
       throw new Refusal(`не понимает ${sent.selector()}`, UNDERSTOOD_NOT);
     },
@@ -304,11 +311,8 @@ class Scalar implements Data, Comparable {
   }
 
   lookup(sent: Sent): Call {
-    return lookupData(
-      this,
-      sent,
-      dataReflection([]),
-      (named) => this.reply(named),
+    return lookupData(this, sent, dataReflection([]), (named) =>
+      this.reply(named),
     );
   }
 
@@ -464,11 +468,8 @@ class Collection implements Data {
 
   lookup(sent: Sent): Call {
     const messages = selectionMessages();
-    return lookupData(
-      this,
-      sent,
-      dataReflection(messages),
-      (named) => this.reply(named),
+    return lookupData(this, sent, dataReflection(messages), (named) =>
+      this.reply(named),
     );
   }
 
@@ -517,7 +518,10 @@ class Collection implements Data {
 
   /** Значения поля у каждого элемента: вид — построчный. */
   pick(name: string): Data {
-    return new Collection(this.#items.map((item) => item.field(name)), LINES);
+    return new Collection(
+      this.#items.map((item) => item.field(name)),
+      LINES,
+    );
   }
 
   /** Элементы, у которых поле `where:` проходит проверку `test`. */
@@ -589,18 +593,17 @@ class Row implements Data {
 
   lookup(sent: Sent): Call {
     const messages: MessageLine[] = [
-      ...Object.keys(this.#fields).map((name): MessageLine => ({
-        selector: name,
-        kind: "unary",
-        purpose: "поле записи",
-      })),
+      ...Object.keys(this.#fields).map(
+        (name): MessageLine => ({
+          selector: name,
+          kind: "unary",
+          purpose: "поле записи",
+        }),
+      ),
       { selector: PICK, kind: "keyword", purpose: "поле по имени" },
     ];
-    return lookupData(
-      this,
-      sent,
-      dataReflection(messages),
-      (named) => this.reply(named),
+    return lookupData(this, sent, dataReflection(messages), (named) =>
+      this.reply(named),
     );
   }
 
@@ -668,7 +671,10 @@ class Row implements Data {
 export function dataOf(value: unknown): Data {
   if (value === null || value === undefined) return NIL;
   if (Array.isArray(value)) {
-    return new Collection(value.map((item) => dataOf(item)), LINES);
+    return new Collection(
+      value.map((item) => dataOf(item)),
+      LINES,
+    );
   }
   if (typeof value === "object") {
     // Объект JSON — поля по имени: сужение `typeof` ключей не называет.
@@ -697,7 +703,10 @@ export function collectionOf(
   records: readonly unknown[],
   view: ListView,
 ): Data {
-  return new Collection(records.map((record) => dataOf(record)), view);
+  return new Collection(
+    records.map((record) => dataOf(record)),
+    view,
+  );
 }
 
 /** Откуда отбор берёт данные — в конце строки, один раз. */
@@ -767,7 +776,7 @@ class Selecting implements Receiver {
     return sent.route({
       named: (named) =>
         reflected(named, SELECTED.reflect()) ??
-          new AsideCall(named.text(), SELECT_DOC, SELECTED, next),
+        new AsideCall(named.text(), SELECT_DOC, SELECTED, next),
       tail: () => {
         throw new Refusal(`не понимает ${sent.selector()}`, UNDERSTOOD_NOT);
       },
@@ -868,6 +877,5 @@ export function isSelection(selector: string): boolean {
 export const SELECTABLE: ResultEnd = {
   kind: ENDED,
   selects: (inner, named) =>
-    reflected(named, ENDED.reflect()) ??
-      selecting(new Ended(inner), named),
+    reflected(named, ENDED.reflect()) ?? selecting(new Ended(inner), named),
 };

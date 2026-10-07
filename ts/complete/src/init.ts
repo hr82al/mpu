@@ -6,7 +6,7 @@
 
 /** Оболочки, для которых есть скрипт. */
 const SHELLS = ["bash", "fish", "nu"] as const;
-export type Shell = typeof SHELLS[number];
+export type Shell = (typeof SHELLS)[number];
 
 /** Оболочка по имени; не поддерживается — `undefined`. */
 export function shellOf(name: string): Shell | undefined {

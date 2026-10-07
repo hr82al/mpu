@@ -25,16 +25,22 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  discussion: z.string({
-    error: "нужен id: полный id треда или префикс от 6 символов",
-  }).describe("id треда или его префикс (≥6 символов)"),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  discussion: z
+    .string({
+      error: "нужен id: полный id треда или префикс от 6 символов",
+    })
+    .describe("id треда или его префикс (≥6 символов)"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   message: z.string().optional().describe("текст ответа"),
-  "body-file": z.string().optional().describe(
-    "файл с текстом; '-' — весь stdin, только в CLI",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({
@@ -78,8 +84,10 @@ export async function runReply(
 }
 
 export function renderReply(result: ReplyResult): string {
-  return `reply: note ${result.note_id} в discussion ` +
-    `${result.discussion.slice(0, 8)}\n${result.url}\n`;
+  return (
+    `reply: note ${result.note_id} в discussion ` +
+    `${result.discussion.slice(0, 8)}\n${result.url}\n`
+  );
 }
 
 export const mrReplyCommand = defineCommand({

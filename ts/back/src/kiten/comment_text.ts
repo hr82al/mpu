@@ -31,13 +31,12 @@ export function expandAllInText(text: string, ownerHandle: string): string {
  * комментарию свой текст, и то, читать ли карточку: `--to ''` — флаг
  * есть, а адресатов нет.
  */
-export function recipientTokens(
-  values: readonly string[],
-): readonly string[] {
+export function recipientTokens(values: readonly string[]): readonly string[] {
   return values.flatMap((value) =>
-    value.split(/\s+/).filter(Boolean).map((token) =>
-      token.startsWith("@") ? token : `@${token}`
-    )
+    value
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((token) => (token.startsWith("@") ? token : `@${token}`)),
   );
 }
 

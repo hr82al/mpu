@@ -52,7 +52,7 @@ async function assertUnit(place: Place, name: string) {
 /** Строки шагов службы, таймера и перезапуска. */
 function unitLines(run: Run): string[] {
   return run.lines.filter((line) =>
-    /^install: (служба|таймер образа|перезапуск):/.test(line)
+    /^install: (служба|таймер образа|перезапуск):/.test(line),
   );
 }
 
@@ -75,10 +75,7 @@ it("первая установка: всё собрано и поставлен
     );
     expect(await readFile(`${place.unit}/mpu.service`, "utf8")).toStrictEqual(
       await readFile(
-        new URL(
-          "testdata/supervisor-install/mpu.service",
-          import.meta.url,
-        ),
+        new URL("testdata/supervisor-install/mpu.service", import.meta.url),
         "utf8",
       ),
     );
@@ -105,8 +102,10 @@ it("второй запуск без изменений: ничего не ст�
     const before = await snapshot(place.bin);
     const run = await install(place);
     expect(run.code, run.lines.join("\n")).toBe(0);
-    expect(run.lines.filter((line) => line.includes("сравнение")))
-      .toStrictEqual([
+    expect(
+      run.lines.filter((line) => line.includes("сравнение")),
+    ).toStrictEqual(
+      [
         "back",
         "worker",
         "mcp",
@@ -115,9 +114,8 @@ it("второй запуск без изменений: ничего не ст�
         "task",
         "complete",
         "web",
-      ].map((
-        part,
-      ) => `install: сравнение ${part}: без изменений`));
+      ].map((part) => `install: сравнение ${part}: без изменений`),
+    );
     expect(run.calls).toStrictEqual([]);
     expect(unitLines(run)).toStrictEqual([
       "install: служба: без изменений",
@@ -274,9 +272,10 @@ it("старая служба рядом: отказ до установки с�
       expect(run.code).toBe(1);
       expect(run.lines.at(-1)).toStrictEqual(
         `install: служба: ошибка: рядом старая служба ${old}, ` +
-          `снимите её: systemctl --user disable --now ${
-            old.slice(0, -".service".length)
-          }`,
+          `снимите её: systemctl --user disable --now ${old.slice(
+            0,
+            -".service".length,
+          )}`,
       );
       // Ни служба не поставлена, ни программы: отказ приходит до
       // сборки, и машина не остаётся наполовину переключённой.
@@ -403,12 +402,13 @@ it("дополнение: блок в каждой настроенной обо
     const bashrc = await shellConfig(place, "bash", "export PS1='$ '\n");
     const run = await install(place);
     expect(run.code, run.lines.join("\n")).toBe(0);
-    expect(run.lines.filter((line) => line.startsWith("install: дополнение")))
-      .toStrictEqual([
-        "install: дополнение bash: подключено",
-        "install: дополнение fish: не настроена",
-        "install: дополнение nu: не настроена",
-      ]);
+    expect(
+      run.lines.filter((line) => line.startsWith("install: дополнение")),
+    ).toStrictEqual([
+      "install: дополнение bash: подключено",
+      "install: дополнение fish: не настроена",
+      "install: дополнение nu: не настроена",
+    ]);
     const text = await readFile(bashrc, "utf8");
     expect(blocks(text)).toStrictEqual([fakeBody("bash")]);
     // Текст человека остался на месте.
@@ -431,12 +431,13 @@ it("дополнение: три прогона — один блок, чужо�
     const second = await install(place, [], noClaude);
     const third = await install(place, [], noClaude);
     for (const run of [second, third]) {
-      expect(run.lines.filter((line) => line.startsWith("install: дополнение")))
-        .toStrictEqual([
-          "install: дополнение bash: без изменений",
-          "install: дополнение fish: без изменений",
-          "install: дополнение nu: без изменений",
-        ]);
+      expect(
+        run.lines.filter((line) => line.startsWith("install: дополнение")),
+      ).toStrictEqual([
+        "install: дополнение bash: без изменений",
+        "install: дополнение fish: без изменений",
+        "install: дополнение nu: без изменений",
+      ]);
     }
     expect(blocks(await readFile(nuConfig, "utf8"))).toStrictEqual([
       fakeBody("nu"),
@@ -492,8 +493,11 @@ it("дополнение: правка внутри блока затирает�
   withPlace(async (place) => {
     const bashrc = await shellConfig(place, "bash", "# сверху\n");
     await install(place);
-    const edited = (await readFile(bashrc, "utf8"))
-      .replace("# дополнение bash для mpu", "# правка человека") + "# снизу\n";
+    const edited =
+      (await readFile(bashrc, "utf8")).replace(
+        "# дополнение bash для mpu",
+        "# правка человека",
+      ) + "# снизу\n";
     await writeFile(bashrc, edited);
     const run = await install(place);
     expect(
@@ -524,18 +528,15 @@ async function fakeTree(at: string): Promise<string> {
 }
 
 describe("зовётся по пути из чужого каталога, в том числе по ссылке", () => {
-  it(
-    "абсолютный путь, рабочий каталог — корень",
-    () =>
-      withPlace(async (place) => {
-        const run = await install(place, [], {}, { from: "/" });
-        expect(run.code, run.lines.join("\n")).toBe(0);
-        expect(run.lines.at(-1)).toBe("install: готово");
-        expect(Object.keys(await snapshot(place.bin)).sort()).toStrictEqual(
-          PROGRAMS,
-        );
-      }),
-  );
+  it("абсолютный путь, рабочий каталог — корень", () =>
+    withPlace(async (place) => {
+      const run = await install(place, [], {}, { from: "/" });
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.lines.at(-1)).toBe("install: готово");
+      expect(Object.keys(await snapshot(place.bin)).sort()).toStrictEqual(
+        PROGRAMS,
+      );
+    }));
   it("символическая ссылка на скрипт", () =>
     withPlace(async (place) => {
       // Ссылка разыменовывается до конца: дерево — настоящее, а не
@@ -543,10 +544,15 @@ describe("зовётся по пути из чужого каталога, в т
       const link = `${place.dir}/link`;
       await mkdir(link, { recursive: true });
       await symlink(`${ROOT}install.sh`, `${link}/install.sh`);
-      const run = await install(place, [], {}, {
-        tree: `${link}/`,
-        from: "/",
-      });
+      const run = await install(
+        place,
+        [],
+        {},
+        {
+          tree: `${link}/`,
+          from: "/",
+        },
+      );
       expect(run.code, run.lines.join("\n")).toBe(0);
       expect(run.lines.at(-1)).toBe("install: готово");
     }));
@@ -556,10 +562,9 @@ describe("зовётся по пути из чужого каталога, в т
       const run = await install(place, [], {}, { tree, from: "/" });
       expect(run.code, run.lines.join("\n")).toBe(0);
       expect(run.lines.at(-1)).toBe("install: готово");
-      expect(await readFile(`${place.unit}/mpu.service`, "utf8"))
-        .toStrictEqual(
-          await readFile(`${tree}supervisor/mpu.service`, "utf8"),
-        );
+      expect(await readFile(`${place.unit}/mpu.service`, "utf8")).toStrictEqual(
+        await readFile(`${tree}supervisor/mpu.service`, "utf8"),
+      );
     }));
 });
 
@@ -588,15 +593,14 @@ it("дополнение: подключать нечем — пропуск, а
     await shellConfig(place, "bash", "# сверху\n");
     // Всё, кроме `complete`: дополняющей программы на машине нет, и
     // шаг не должен ронять установку уже поставленного.
-    const run = await install(place, [
-      "--only",
-      "back,mcp,cli,supervisor,web",
-    ]);
+    const run = await install(place, ["--only", "back,mcp,cli,supervisor,web"]);
     expect(run.code, run.lines.join("\n")).toBe(0);
-    expect(run.lines.filter((line) => line.startsWith("install: дополнение")))
-      .toStrictEqual(["install: дополнение: mpu-complete не установлен"]);
-    expect((await readFile(`${place.dir}/.bashrc`, "utf8")).includes(BEGIN))
-      .toBe(false);
+    expect(
+      run.lines.filter((line) => line.startsWith("install: дополнение")),
+    ).toStrictEqual(["install: дополнение: mpu-complete не установлен"]);
+    expect(
+      (await readFile(`${place.dir}/.bashrc`, "utf8")).includes(BEGIN),
+    ).toBe(false);
   }));
 
 describe("дополнение: файл без перевода строки в конце — один блок", () => {
@@ -615,9 +619,11 @@ describe("дополнение: файл без перевода строки в
         const bashrc = await shellConfig(place, "bash", before);
         await install(place);
         const second = await install(place);
-        expect(second.lines.filter((line) =>
-          line.startsWith("install: дополнение bash")
-        )).toStrictEqual(["install: дополнение bash: без изменений"]);
+        expect(
+          second.lines.filter((line) =>
+            line.startsWith("install: дополнение bash"),
+          ),
+        ).toStrictEqual(["install: дополнение bash: без изменений"]);
         const text = await readFile(bashrc, "utf8");
         expect(blocks(text)).toStrictEqual([fakeBody("bash")]);
         // Чужая строка цела и маркер начинается со своей строки.
@@ -625,13 +631,13 @@ describe("дополнение: файл без перевода строки в
         if (before !== "") {
           expect(text.startsWith("# чужая строка\n")).toBe(true);
         }
-      }));
+      }),
+    );
   }
 });
 
 /** Заголовки MCP-клиента: токен читается при подключении, в конфиг не пишется. */
-const HEADERS_HELPER =
-  `printf '{"Authorization":"Bearer %s"}' "$(cat ~/.config/mpu/mcp-token)"`;
+const HEADERS_HELPER = `printf '{"Authorization":"Bearer %s"}' "$(cat ~/.config/mpu/mcp-token)"`;
 
 /** Запись сервера `mpu`, которую ставит установщик. */
 function mpuServer(place: Place): Record<string, string> {
@@ -680,23 +686,23 @@ async function readJson(path: string): Promise<unknown> {
  * (`claude-hook-permission-request.md`, «Фрагмент настроек и установка»).
  */
 async function hookEntry(): Promise<unknown> {
-  const fragment = await readJson(
+  const fragment = (await readJson(
     new URL(
       "testdata/claude-hook-permission-request/settings-fragment.json",
       import.meta.url,
     ).pathname,
-  ) as { hooks: { PermissionRequest: unknown[] } };
+  )) as { hooks: { PermissionRequest: unknown[] } };
   return fragment.hooks.PermissionRequest[0];
 }
 
 /** Запись хука `Notification` из эталона фрагмента (порция R4). */
 async function notificationEntry(): Promise<unknown> {
-  const fragment = await readJson(
+  const fragment = (await readJson(
     new URL(
       "testdata/claude-hook-notification/settings-fragment-notification.json",
       import.meta.url,
     ).pathname,
-  ) as { hooks: { Notification: unknown[] } };
+  )) as { hooks: { Notification: unknown[] } };
   return fragment.hooks.Notification[0];
 }
 
@@ -705,23 +711,23 @@ async function notificationEntry(): Promise<unknown> {
  * (`claude-hook-elicitation.md`, «Установка»).
  */
 async function elicitationEntry(): Promise<unknown> {
-  const fragment = await readJson(
+  const fragment = (await readJson(
     new URL(
       "testdata/claude-hook-elicitation/settings-fragment-elicitation.json",
       import.meta.url,
     ).pathname,
-  ) as { hooks: { Elicitation: unknown[] } };
+  )) as { hooks: { Elicitation: unknown[] } };
   return fragment.hooks.Elicitation[0];
 }
 
 /** Запись хука `Stop` из эталона фрагмента (`claude-hook-stop.md`, «Установка»). */
 async function stopEntry(): Promise<unknown> {
-  const fragment = await readJson(
+  const fragment = (await readJson(
     new URL(
       "testdata/claude-hook-stop/settings-fragment-stop.json",
       import.meta.url,
     ).pathname,
-  ) as { hooks: { Stop: unknown[] } };
+  )) as { hooks: { Stop: unknown[] } };
   return fragment.hooks.Stop[0];
 }
 
@@ -740,9 +746,9 @@ it("claude: первая установка — сервер mpu пользов�
     ]);
     expect(run.claude).toStrictEqual([
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
-      `mcp add-json --scope user mpu-channel ${
-        JSON.stringify(channelServer(place))
-      }`,
+      `mcp add-json --scope user mpu-channel ${JSON.stringify(
+        channelServer(place),
+      )}`,
     ]);
     expect(await readJson(`${place.dir}/.claude/settings.json`)).toStrictEqual({
       permissions: {
@@ -807,9 +813,9 @@ it("claude: чужие правила и ключи на месте, прежн�
     expect(run.claude).toStrictEqual([
       "mcp remove --scope user mpu",
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
-      `mcp add-json --scope user mpu-channel ${
-        JSON.stringify(channelServer(place))
-      }`,
+      `mcp add-json --scope user mpu-channel ${JSON.stringify(
+        channelServer(place),
+      )}`,
     ]);
     expect(await readJson(settings)).toStrictEqual({
       model: "opus",
@@ -831,11 +837,13 @@ it("claude: чужие правила и ключи на месте, прежн�
 function entry(command: string, timeout?: number, matcher = "") {
   return {
     matcher,
-    hooks: [{
-      type: "command",
-      command,
-      ...(timeout === undefined ? {} : { timeout }),
-    }],
+    hooks: [
+      {
+        type: "command",
+        command,
+        ...(timeout === undefined ? {} : { timeout }),
+      },
+    ],
   };
 }
 
@@ -865,14 +873,15 @@ it("claude хук: правленая запись заменена своей �
     expect(stepLine(run, "claude хук permission-request")).toBe(
       "install: claude хук permission-request: вписано",
     );
-    expect(((await readJson(settings)) as { hooks: unknown }).hooks)
-      .toStrictEqual({
-        PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
-        PermissionRequest: [other, await hookEntry(), entry("later")],
-        Stop: [await stopEntry()],
-        Notification: [await notificationEntry()],
-        Elicitation: [await elicitationEntry()],
-      });
+    expect(
+      ((await readJson(settings)) as { hooks: unknown }).hooks,
+    ).toStrictEqual({
+      PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
+      PermissionRequest: [other, await hookEntry(), entry("later")],
+      Stop: [await stopEntry()],
+      Notification: [await notificationEntry()],
+      Elicitation: [await elicitationEntry()],
+    });
   }));
 
 it("R2a-11: хук stop — вписан рядом с чужими записями Stop, повторно — те же байты", () =>
@@ -916,8 +925,8 @@ it("claude: settings.json — ссылка, ссылка остаётся ссы
       "ссылка заменена обычным файлом",
     ).toBe(true);
     expect(
-      ((await readJson(real)) as { permissions: { ask: string[] } })
-        .permissions.ask,
+      ((await readJson(real)) as { permissions: { ask: string[] } }).permissions
+        .ask,
     ).toStrictEqual(["Bash(mpu ask *)"]);
   }));
 
@@ -1005,13 +1014,14 @@ it("R2b-10: канал — сервер и алиас claude в каждой о�
     const nu = await shellConfig(place, "nu", "# nu\n");
     const run = await install(place);
     expect(run.code, run.lines.join("\n")).toBe(0);
-    expect(run.lines.filter((line) => line.startsWith("install: claude канал")))
-      .toStrictEqual([
-        "install: claude канал сервер: подключено",
-        "install: claude канал bash: подключено",
-        "install: claude канал fish: подключено",
-        "install: claude канал nu: подключено",
-      ]);
+    expect(
+      run.lines.filter((line) => line.startsWith("install: claude канал")),
+    ).toStrictEqual([
+      "install: claude канал сервер: подключено",
+      "install: claude канал bash: подключено",
+      "install: claude канал fish: подключено",
+      "install: claude канал nu: подключено",
+    ]);
     const flag = "--dangerously-load-development-channels server:mpu-channel";
     expect(claudeBlock(await readFile(bashrc, "utf8"))).toStrictEqual(
       `unalias claude 2>/dev/null; function claude { command claude ${flag} "$@"; }`,
@@ -1048,8 +1058,11 @@ it("R2b-10: правка внутри блока claude затирается ц�
   withPlace(async (place) => {
     const bashrc = await shellConfig(place, "bash", "# сверху\n");
     await install(place);
-    const edited = (await readFile(bashrc, "utf8"))
-      .replace("command claude", "command my-claude") + "# снизу\n";
+    const edited =
+      (await readFile(bashrc, "utf8")).replace(
+        "command claude",
+        "command my-claude",
+      ) + "# снизу\n";
     await writeFile(bashrc, edited);
     const claudeJson = `${place.dir}/.claude.json`;
     const config = JSON.parse(await readFile(claudeJson, "utf8"));
@@ -1064,9 +1077,9 @@ it("R2b-10: правка внутри блока claude затирается ц�
     );
     expect(run.claude).toStrictEqual([
       "mcp remove --scope user mpu-channel",
-      `mcp add-json --scope user mpu-channel ${
-        JSON.stringify(channelServer(place))
-      }`,
+      `mcp add-json --scope user mpu-channel ${JSON.stringify(
+        channelServer(place),
+      )}`,
     ]);
     const text = await readFile(bashrc, "utf8");
     expect(text.includes("my-claude")).toBe(false);

@@ -342,14 +342,14 @@ export interface EnvFile {
  */
 export type JournalMarks =
   | {
-    readonly logsOutput?: boolean;
-    readonly logsArguments?: true;
-  }
+      readonly logsOutput?: boolean;
+      readonly logsArguments?: true;
+    }
   | {
-    /** Обязателен и осознан: см. `JournalMarks`. */
-    readonly logsOutput: boolean;
-    readonly logsArguments: false;
-  };
+      /** Обязателен и осознан: см. `JournalMarks`. */
+      readonly logsOutput: boolean;
+      readonly logsArguments: false;
+    };
 
 /**
  * Что делает спросивший с исходом вопроса: получен ответ или спросить
@@ -588,7 +588,12 @@ export function items<R>(items: Items<R>): ResultData<R> {
       const whole = schema.parse(result);
       return collectionOf(items.records(whole), {
         text: (selected) =>
-          redraw(items.with(whole, selected.map((item) => item.data()))),
+          redraw(
+            items.with(
+              whole,
+              selected.map((item) => item.data()),
+            ),
+          ),
       });
     },
     field: (_named, _source, refuse) => refuse(),
@@ -672,25 +677,16 @@ export interface Command {
     argv: readonly string[],
   ) => Readonly<Record<string, unknown>>;
   /** Разбирает argv и исполняет; возвращает результат, ничего не печатая. */
-  readonly invoke: (
-    argv: readonly string[],
-    io: CommandIo,
-  ) => Promise<unknown>;
+  readonly invoke: (argv: readonly string[], io: CommandIo) => Promise<unknown>;
   /**
    * Исполняет по объекту аргументов — форма входа MCP: агент присылает
    * не argv, а объект по опубликованной схеме входа тула
    * (`platform/command-contract.md`). Имя вне схемы — ошибка ввода:
    * схема тула объявлена закрытой.
    */
-  readonly invokeInput: (
-    input: unknown,
-    io: CommandIo,
-  ) => Promise<unknown>;
+  readonly invokeInput: (input: unknown, io: CommandIo) => Promise<unknown>;
   /** Текст результата для человека; окружения не касается. */
-  readonly renderResult: (
-    result: unknown,
-    argv: readonly string[],
-  ) => string;
+  readonly renderResult: (result: unknown, argv: readonly string[]) => string;
   /** Код завершения текстовой формы для этого результата. */
   readonly textExitCode: (result: unknown) => number;
   /** Картинка результата; команда её не объявила — `NO_PICTURE`. */
@@ -841,10 +837,8 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
         : spec.picture(spec.resultSchema.parse(result)),
     assertResult: (value) => void spec.resultSchema.parse(value),
     dataOf: (result, argv) =>
-      data.data(
-        result,
-        spec.resultSchema,
-        (other) => spec.render(spec.resultSchema.parse(other), parse(argv)),
+      data.data(result, spec.resultSchema, (other) =>
+        spec.render(spec.resultSchema.parse(other), parse(argv)),
       ),
     field: (named, source, refuse) => data.field(named, source, refuse),
     consent: (argv) => consentOf(spec.ownerOnly, () => parse(argv)),
@@ -882,11 +876,7 @@ function consentOf<A>(
  * пользователю дословно: тексты ошибок ввода — часть контракта команды,
  * поэтому объявляются там же, где схема.
  */
-function parseArgs<A>(
-  schema: z.ZodType<A>,
-  raw: unknown,
-  helpHint: string,
-): A {
+function parseArgs<A>(schema: z.ZodType<A>, raw: unknown, helpHint: string): A {
   const parsed = schema.safeParse(raw);
   if (parsed.success) return parsed.data;
   // Имя входа в сообщение не подставляется: тексты ошибок ввода —
@@ -933,10 +923,7 @@ function parseInputObject<A>(schema: z.ZodType<A>, raw: unknown): A {
  * пропустила бы их молча, а опубликованная схема тула объявлена
  * закрытой — агент должен узнать об опечатке, а не потерять параметр.
  */
-function onlyKnownInputs(
-  input: unknown,
-  specs: readonly InputSpec[],
-): unknown {
+function onlyKnownInputs(input: unknown, specs: readonly InputSpec[]): unknown {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new UsageError("arguments must be an object");
   }

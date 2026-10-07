@@ -136,11 +136,15 @@ export class HttpBotApi implements BotApi {
   }
 
   async updates(offset: number, signal: AbortSignal) {
-    const result = await this.#call("getUpdates", {
-      offset,
-      timeout: POLL_SECONDS,
-      allowed_updates: ["message", "callback_query"],
-    }, { timeouts: POLL_TIMEOUTS, signal });
+    const result = await this.#call(
+      "getUpdates",
+      {
+        offset,
+        timeout: POLL_SECONDS,
+        allowed_updates: ["message", "callback_query"],
+      },
+      { timeouts: POLL_TIMEOUTS, signal },
+    );
     return parseUpdates(result);
   }
 
@@ -200,7 +204,7 @@ function markup(keyboard: Keyboard): Record<string, unknown> {
         row.map((button) => ({
           text: button.text,
           callback_data: button.data,
-        }))
+        })),
       ),
     },
   };
@@ -208,6 +212,6 @@ function markup(keyboard: Keyboard): Record<string, unknown> {
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }

@@ -22,7 +22,8 @@ interface RawEntry {
 // Параметр сужен до буфера, который принимает `Blob`: фикстуры теста
 // строит `TextEncoder`, и обходить это копией, как в самом ридере, незачем.
 async function deflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream()
+  const stream = new Blob([data])
+    .stream()
     .pipeThrough(new CompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -127,8 +128,8 @@ it("unzip: сигнатура EOCD в комментарии не обманыв
 
 describe("unzip: не-zip и пустой ввод — «not a zip archive»", () => {
   const cases: Record<string, Uint8Array> = {
-    "текст": encoder.encode("this is not a zip archive"),
-    "пусто": new Uint8Array(0),
+    текст: encoder.encode("this is not a zip archive"),
+    пусто: new Uint8Array(0),
     "короче EOCD": encoder.encode("PK"),
   };
   for (const [name, bytes] of Object.entries(cases)) {

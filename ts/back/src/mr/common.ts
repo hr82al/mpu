@@ -40,9 +40,8 @@ export interface MrOptions {
 export function gitlabAccess(io: MrIo): GitlabAccess {
   const baseUrl = io.envFile.get("GITLAB_BASE_URL");
   return {
-    baseUrl: baseUrl === undefined || baseUrl === ""
-      ? DEFAULT_BASE_URL
-      : baseUrl,
+    baseUrl:
+      baseUrl === undefined || baseUrl === "" ? DEFAULT_BASE_URL : baseUrl,
     token: io.envFile.require("GLAB_TOKEN"),
   };
 }
@@ -96,11 +95,7 @@ export function asCommandError(
 }
 
 /** Подсказка по коду ответа: чинить токен либо форму селектора. */
-function hintFor(
-  io: MrIo,
-  err: GitlabError,
-  notFoundHint: string,
-): string {
+function hintFor(io: MrIo, err: GitlabError, notFoundHint: string): string {
   if (err.status === 401) {
     // Называется ключ и путь файла, но не значение: токен не попадает
     // ни в один текст (инвариант спеки).

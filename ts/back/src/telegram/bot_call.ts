@@ -91,19 +91,21 @@ export async function callBot(
   const clean = (text: string) => text.replaceAll(endpoint.token, "<токен>");
   let text: string;
   try {
-    text = (await httpSend(
-      new URL(`${endpoint.apiBase}/bot${endpoint.token}/${request.method}`),
-      {
-        method: "POST",
-        headers: { "content-type": request.contentType },
-        body: request.body,
-        timeouts: request.timeouts,
-        ...(request.signal === undefined ? {} : { signal: request.signal }),
-        // Прокси адресный: он нужен пути наружу, а обращения к стенду
-        // ходят напрямую (`docs/specs/telegram-log.md`, «Конфигурация»).
-        ...(endpoint.proxy === undefined ? {} : { proxy: endpoint.proxy }),
-      },
-    )).text;
+    text = (
+      await httpSend(
+        new URL(`${endpoint.apiBase}/bot${endpoint.token}/${request.method}`),
+        {
+          method: "POST",
+          headers: { "content-type": request.contentType },
+          body: request.body,
+          timeouts: request.timeouts,
+          ...(request.signal === undefined ? {} : { signal: request.signal }),
+          // Прокси адресный: он нужен пути наружу, а обращения к стенду
+          // ходят напрямую (`docs/specs/telegram-log.md`, «Конфигурация»).
+          ...(endpoint.proxy === undefined ? {} : { proxy: endpoint.proxy }),
+        },
+      )
+    ).text;
   } catch (err) {
     if (!(err instanceof HttpCallError)) throw err;
     const reason = clean(firstLine(err.message));
@@ -119,9 +121,10 @@ function resultOf(text: string, clean: (text: string) => string): unknown {
   let reply: Record<string, unknown> | undefined;
   try {
     const value: unknown = JSON.parse(text);
-    reply = typeof value === "object" && value !== null
-      ? value as Record<string, unknown>
-      : undefined;
+    reply =
+      typeof value === "object" && value !== null
+        ? (value as Record<string, unknown>)
+        : undefined;
   } catch {
     // Не JSON — это не Bot API на том конце: шлюз, прокси или
     // заглушка. Молча считать успехом нельзя.
@@ -133,8 +136,7 @@ function resultOf(text: string, clean: (text: string) => string): unknown {
   const description = clean(
     typeof reply?.description === "string" ? reply.description : "без описания",
   );
-  throw new BotCallError(
-    `${code} ${description}`,
-    (words) => words.refused(code, description),
+  throw new BotCallError(`${code} ${description}`, (words) =>
+    words.refused(code, description),
   );
 }

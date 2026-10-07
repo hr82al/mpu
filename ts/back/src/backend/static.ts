@@ -53,9 +53,9 @@ export async function staticFile(
 ): Promise<Response> {
   let segments: string[];
   try {
-    segments = decodeURIComponent(pathname).split("/").filter((one) =>
-      one !== ""
-    );
+    segments = decodeURIComponent(pathname)
+      .split("/")
+      .filter((one) => one !== "");
   } catch {
     // Путь не раскодировался — такого файла нет.
     return new Response(null, { status: 404 });
@@ -68,11 +68,16 @@ export async function staticFile(
   const route = segments.length === 0 || !last.includes(".");
   if (route) {
     const index = await file(`${root}/index.html`);
-    return index ?? new Response(NOT_INSTALLED, {
-      headers: { ...CSP, "Content-Type": "text/plain; charset=utf-8" },
-    });
+    return (
+      index ??
+      new Response(NOT_INSTALLED, {
+        headers: { ...CSP, "Content-Type": "text/plain; charset=utf-8" },
+      })
+    );
   }
   if (segments[0] !== "assets") return new Response(null, { status: 404 });
-  return (await file(`${root}/${segments.join("/")}`)) ??
-    new Response(null, { status: 404 });
+  return (
+    (await file(`${root}/${segments.join("/")}`)) ??
+    new Response(null, { status: 404 })
+  );
 }

@@ -41,7 +41,7 @@ await withPolicyFile((file) =>
         exit: ran.exit,
       });
     }
-  })
+  }),
 );
 await writeFile(FILE, `${JSON.stringify({ cases }, null, 2)}\n`);
 console.log(`случаев: ${cases.length}`);

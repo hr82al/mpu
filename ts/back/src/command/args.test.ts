@@ -38,11 +38,7 @@ describe("parseArgv: «--no-<имя>» выключает булев вход", 
 
   it("отрицается только булев вход", () => {
     // У строкового входа отрицательной формы нет: выключать нечего.
-    thrown(
-      () => parse("--no-file"),
-      UsageError,
-      'unknown option "--no-file"',
-    );
+    thrown(() => parse("--no-file"), UsageError, 'unknown option "--no-file"');
   });
 
   it("значения отрицательная форма не берёт", () => {
@@ -158,11 +154,7 @@ describe("числовой вход: из argv текст, в аргумента
   });
 
   it("значение обязательно", () => {
-    thrown(
-      () => parse("--jobs"),
-      UsageError,
-      "option --jobs requires a value",
-    );
+    thrown(() => parse("--jobs"), UsageError, "option --jobs requires a value");
   });
 });
 
@@ -246,13 +238,11 @@ describe("parseArgv: помеченный once флаг повтора не пр
   });
 
   it("повтор в любой форме записи — ошибка ввода", () => {
-    for (
-      const argv of [
-        ["-f", "a.md", "-f", "b.md"],
-        ["--file=a.md", "--file", "b.md"],
-        ["-f", "a.md", "--file=b.md"],
-      ]
-    ) {
+    for (const argv of [
+      ["-f", "a.md", "-f", "b.md"],
+      ["--file=a.md", "--file", "b.md"],
+      ["-f", "a.md", "--file=b.md"],
+    ]) {
       const err = thrown(
         () => parseOnce(...argv),
         UsageError,

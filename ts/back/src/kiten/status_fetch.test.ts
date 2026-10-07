@@ -210,9 +210,7 @@ describe("перепроверка карточки, попавшей одним
 });
 
 describe("названия колонок: кэш, дозагрузка и недоступная доска", () => {
-  const rows = [
-    { id: 100, board_id: 10, title: "В работе" },
-  ];
+  const rows = [{ id: 100, board_id: 10, title: "В работе" }];
   const db = {
     query: () => rows,
   } as unknown as Parameters<typeof columnTitlesFor>[0];

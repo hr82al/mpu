@@ -98,10 +98,14 @@ const REQUESTING: Script = (socket) => {
  * ждёт, поэтому не висит и тогда, когда клиент ввода не шлёт.
  */
 const REQUESTING_ONCE: Script = (socket) => {
-  socket.addEventListener("message", () => {
-    socket.send(JSON.stringify({ exit: 0 }));
-    socket.close(1000);
-  }, { once: true });
+  socket.addEventListener(
+    "message",
+    () => {
+      socket.send(JSON.stringify({ exit: 0 }));
+      socket.close(1000);
+    },
+    { once: true },
+  );
   socket.send(JSON.stringify({ stdinRequest: true }));
   return Promise.resolve();
 };
@@ -122,42 +126,54 @@ it("открытый stdin без писателя: строка без ввод
   }));
 
 it("запрос ввода: клиент читает stdin и шлёт его кадром", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({ base, main: MAIN, stdin: "ok" });
-    expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
-    expect(visits[0].inputs).toStrictEqual(["ok"]);
-    expect(run.stdout).toStrictEqual(["ok"]);
-    expect(run.stdinReads()).toBe(1);
-  }, { script: echoing(1) }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({ base, main: MAIN, stdin: "ok" });
+      expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
+      expect(visits[0].inputs).toStrictEqual(["ok"]);
+      expect(run.stdout).toStrictEqual(["ok"]);
+      expect(run.stdinReads()).toBe(1);
+    },
+    { script: echoing(1) },
+  ));
 
 it("второй запрос ввода: stdin не перечитывается", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({ base, main: MAIN, stdin: "ok" });
-    expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
-    expect(visits[0].inputs).toStrictEqual(["ok", "ok"]);
-    expect(run.stdinReads()).toBe(1);
-  }, { script: echoing(2) }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({ base, main: MAIN, stdin: "ok" });
+      expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
+      expect(visits[0].inputs).toStrictEqual(["ok", "ok"]);
+      expect(run.stdinReads()).toBe(1);
+    },
+    { script: echoing(2) },
+  ));
 
 it("с терминала на запрос — пустой ввод, терминал не читается", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({ base, main: MAIN, terminals: true });
-    expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
-    expect(visits[0].inputs).toStrictEqual([""]);
-    expect(run.stdinReads()).toBe(0);
-  }, { script: echoing(1) }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({ base, main: MAIN, terminals: true });
+      expect(await runClient(["confirm", "yes"], run.env)).toBe(0);
+      expect(visits[0].inputs).toStrictEqual([""]);
+      expect(run.stdinReads()).toBe(0);
+    },
+    { script: echoing(1) },
+  ));
 
 it("ввод больше предела по запросу: код 2, ввод не уходит", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({
-      base,
-      main: MAIN,
-      stdin: "a".repeat(MAX_STDIN_BYTES + 1),
-    });
-    expect(await runClient(["confirm", "--yes"], run.env)).toBe(2);
-    expect(run.stderr).toStrictEqual(["mpu: ввод больше 8 МиБ\n"]);
-    expect(run.stdout).toStrictEqual([]);
-    expect(visits[0].inputs).toStrictEqual([]);
-  }, { script: REQUESTING }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({
+        base,
+        main: MAIN,
+        stdin: "a".repeat(MAX_STDIN_BYTES + 1),
+      });
+      expect(await runClient(["confirm", "--yes"], run.env)).toBe(2);
+      expect(run.stderr).toStrictEqual(["mpu: ввод больше 8 МиБ\n"]);
+      expect(run.stdout).toStrictEqual([]);
+      expect(visits[0].inputs).toStrictEqual([]);
+    },
+    { script: REQUESTING },
+  ));
 
 it("ввод больше предела без запроса: строка исполняется", () =>
   withFakeServer(async (base) => {
@@ -172,86 +188,89 @@ it("ввод больше предела без запроса: строка и�
   }));
 
 it("stdin не прочитался: причина, код 1", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({
-      base,
-      main: MAIN,
-      readStdin: () => Promise.reject(new Error("EIO")),
-    });
-    expect(await runClient(["confirm", "yes"], run.env)).toBe(1);
-    expect(run.stderr).toStrictEqual(["mpu: ввод не прочитан: EIO\n"]);
-    expect(visits[0].inputs).toStrictEqual([]);
-  }, { script: REQUESTING }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({
+        base,
+        main: MAIN,
+        readStdin: () => Promise.reject(new Error("EIO")),
+      });
+      expect(await runClient(["confirm", "yes"], run.env)).toBe(1);
+      expect(run.stderr).toStrictEqual(["mpu: ввод не прочитан: EIO\n"]);
+      expect(visits[0].inputs).toStrictEqual([]);
+    },
+    { script: REQUESTING },
+  ));
 
 /** Байты `^Готово^ print` в cp1251: 0xC3 на смещении 1 — не UTF-8. */
 const CP1251 = new Uint8Array([
-  0x5e,
-  0xc3,
-  0xee,
-  0xf2,
-  0xee,
-  0xe2,
-  0xee,
-  0x5e,
-  0x20,
-  0x70,
-  0x72,
-  0x69,
-  0x6e,
+  0x5e, 0xc3, 0xee, 0xf2, 0xee, 0xe2, 0xee, 0x5e, 0x20, 0x70, 0x72, 0x69, 0x6e,
   0x74,
 ]);
 
 it("строка без слов: ввод не в UTF-8 — отказ клиента, код 2", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
-    // Сторож: клиент, отправивший неверный ввод, ждал бы конца строки
-    // вечно — тест краснеет сообщением, а не висит.
-    const code = within(runClient([], run.env), 5_000, "отказ клиента");
-    expect(await code).toBe(2);
-    expect(run.stderr).toStrictEqual([
-      "mpu: ввод не в UTF-8: байт 0xC3 на смещении 1\n",
-    ]);
-    expect(visits[0].inputs).toStrictEqual([]);
-  }, { script: REQUESTING_ONCE }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
+      // Сторож: клиент, отправивший неверный ввод, ждал бы конца строки
+      // вечно — тест краснеет сообщением, а не висит.
+      const code = within(runClient([], run.env), 5_000, "отказ клиента");
+      expect(await code).toBe(2);
+      expect(run.stderr).toStrictEqual([
+        "mpu: ввод не в UTF-8: байт 0xC3 на смещении 1\n",
+      ]);
+      expect(visits[0].inputs).toStrictEqual([]);
+    },
+    { script: REQUESTING_ONCE },
+  ));
 
 it("строка без слов: BOM уходит серверу как есть", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({
-      base,
-      main: MAIN,
-      stdinBytes: new Uint8Array([0xef, 0xbb, 0xbf, 0x61]),
-    });
-    await runClient(["ask"], run.env);
-    expect(visits[0].inputs).toStrictEqual(["\ufeffa"]);
-  }, { script: echoing(1) }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({
+        base,
+        main: MAIN,
+        stdinBytes: new Uint8Array([0xef, 0xbb, 0xbf, 0x61]),
+      });
+      await runClient(["ask"], run.env);
+      expect(visits[0].inputs).toStrictEqual(["\ufeffa"]);
+    },
+    { script: echoing(1) },
+  ));
 
 it("строка со словами: ввод не в UTF-8 не проверяется, как прежде", () =>
-  withFakeServer(async (base, visits) => {
-    const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
-    await runClient(["confirm", "yes"], run.env);
-    expect(run.stderr).toStrictEqual([]);
-    expect(visits[0].inputs.length).toBe(1);
-  }, { script: echoing(1) }));
+  withFakeServer(
+    async (base, visits) => {
+      const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
+      await runClient(["confirm", "yes"], run.env);
+      expect(run.stderr).toStrictEqual([]);
+      expect(visits[0].inputs.length).toBe(1);
+    },
+    { script: echoing(1) },
+  ));
 
 it("строка без слов: Ctrl+C, пока ввод открыт, — 130 и после конца канала", () =>
-  withFakeServer(async (base, visits) => {
-    const closed = Promise.withResolvers<string>();
-    const requested = Promise.withResolvers<void>();
-    const run = testEnv({
-      base,
-      main: MAIN,
-      readStdin: () => {
-        requested.resolve();
-        return closed.promise;
-      },
-    });
-    const code = runClient([], run.env);
-    await within(requested.promise, 5_000, "запрос ввода");
-    run.interrupt();
-    // Канал закрывается вместе со `sleep`: чтение кончается пустым.
-    closed.resolve("");
-    expect(await within(code, 5_000, "итог")).toBe(130);
-    expect(run.stderr).toStrictEqual(["mpu: прервано\n"]);
-    expect(run.stdout).toStrictEqual([]);
-    expect(visits[0].inputs).toStrictEqual([]);
-  }, { script: REQUESTING }));
+  withFakeServer(
+    async (base, visits) => {
+      const closed = Promise.withResolvers<string>();
+      const requested = Promise.withResolvers<void>();
+      const run = testEnv({
+        base,
+        main: MAIN,
+        readStdin: () => {
+          requested.resolve();
+          return closed.promise;
+        },
+      });
+      const code = runClient([], run.env);
+      await within(requested.promise, 5_000, "запрос ввода");
+      run.interrupt();
+      // Канал закрывается вместе со `sleep`: чтение кончается пустым.
+      closed.resolve("");
+      expect(await within(code, 5_000, "итог")).toBe(130);
+      expect(run.stderr).toStrictEqual(["mpu: прервано\n"]);
+      expect(run.stdout).toStrictEqual([]);
+      expect(visits[0].inputs).toStrictEqual([]);
+    },
+    { script: REQUESTING },
+  ));

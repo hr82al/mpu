@@ -89,7 +89,7 @@ function run(words: readonly string[], given: Piped = {}): Promise<PipedRan> {
         channel: humanAt(given.answers ?? []),
       });
       result = { ...ran, reads, posted: stand.posted() };
-    })
+    }),
   ).then(() => {
     if (result === undefined) throw new Error("стенд не прогнал строку");
     return result;
@@ -183,12 +183,14 @@ it("stdin: отказ разбора — префикс stdin, подсказк�
   expect(got.stderr).toBe(
     "stdin: выражение 1: mpu: не понимает kitn; ближайшие: kiten\n",
   );
-  expect(got.refusals).toStrictEqual([{
-    reason: "не понимает",
-    hint: null,
-    candidates: ["kiten"],
-    text: "stdin: выражение 1: mpu: не понимает kitn; ближайшие: kiten",
-  }]);
+  expect(got.refusals).toStrictEqual([
+    {
+      reason: "не понимает",
+      hint: null,
+      candidates: ["kiten"],
+      text: "stdin: выражение 1: mpu: не понимает kitn; ближайшие: kiten",
+    },
+  ]);
 });
 
 it("stdin: отказ вычисления — префикс stdin, подсказки нет", async () => {

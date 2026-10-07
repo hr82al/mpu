@@ -42,10 +42,14 @@ const sectionSchema = z.object({
   exists: z.boolean(),
   mentions: z.object({
     total: z.number().int().nonnegative(),
-    places: z.array(z.object({
-      path: z.string(),
-      line: z.number().int().positive(),
-    })).describe(TRUNCATION_NOTE),
+    places: z
+      .array(
+        z.object({
+          path: z.string(),
+          line: z.number().int().positive(),
+        }),
+      )
+      .describe(TRUNCATION_NOTE),
   }),
   unresolved: unresolvedSchema,
 });
@@ -71,13 +75,16 @@ export async function collectMentions(
   limit: number,
   repos: readonly Repo[],
 ): Promise<MentionsResult> {
-  const jobs = await jobsOf(repos, (repo): MentionsJob => ({
-    kind: "mentions",
-    repo,
-    path,
-    dir,
-    limit,
-  }));
+  const jobs = await jobsOf(
+    repos,
+    (repo): MentionsJob => ({
+      kind: "mentions",
+      repo,
+      path,
+      dir,
+      limit,
+    }),
+  );
   return {
     path,
     sections: await sectionsOf(jobs, mentionsSection, sectionSchema),
@@ -135,8 +142,12 @@ function mentionsIn(
   // каталоги с точки, а `.github/CONTRIBUTING.md` документ такой же, и
   // его молчаливая невидимость и есть тот класс дефекта, ради которого
   // команда заводится.
-  const docs = walkFiles(repoRoot, DOC_SUFFIXES, () => false, isDependencyDir)
-    .filter((doc) => dir === undefined || doc.startsWith(`${dir}/`));
+  const docs = walkFiles(
+    repoRoot,
+    DOC_SUFFIXES,
+    () => false,
+    isDependencyDir,
+  ).filter((doc) => dir === undefined || doc.startsWith(`${dir}/`));
   const found: Place[] = [];
   for (const doc of docs) {
     const text = readText(`${repoRoot}/${doc}`);

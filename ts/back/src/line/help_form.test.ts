@@ -75,8 +75,8 @@ function lineOf(example: string): string[] {
   const words = shellWords(example);
   const start = words.indexOf("mpu") + 1;
   // Конец строки mpu — оператор оболочки: конвейер или ввод из файла.
-  const end = words.findIndex((word, at) =>
-    at >= start && (word === "|" || word === "<")
+  const end = words.findIndex(
+    (word, at) => at >= start && (word === "|" || word === "<"),
   );
   return words.slice(start, end < 0 ? undefined : end);
 }
@@ -84,15 +84,18 @@ function lineOf(example: string): string[] {
 /** Написания, которых в новой записи нет, — по входам команды. */
 function stale(command: Command): string[] {
   const addresses = addressesOf(command, Object.keys(formatsOf(command.path)));
-  const words = Object.values(formatsOf(command.path)).flat()
+  const words = Object.values(formatsOf(command.path))
+    .flat()
     .filter((word) => word.startsWith("-"));
   for (const input of command.inputs) {
     if (input.form.short !== undefined) words.push(`-${input.form.short}`);
     if (input.name.includes("_")) words.push(`--${input.name}`);
     const address = addresses.get(input.name) ?? "";
     const dashed = input.name.replaceAll("_", "-");
-    const renamed = input.form.positional === undefined &&
-      address.endsWith(":") && !address.includes(" ") &&
+    const renamed =
+      input.form.positional === undefined &&
+      address.endsWith(":") &&
+      !address.includes(" ") &&
       address !== `${dashed}:`;
     if (renamed) words.push(`--${dashed}`);
   }
@@ -102,8 +105,9 @@ function stale(command: Command): string[] {
 /** Слово-написание стоит в тексте отдельным словом. */
 function mentions(text: string, word: string): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[\\s(\\[/,;|'"\`])${escaped}(?=$|[\\s)\\]/,;.:|'"\`=])`)
-    .test(text);
+  return new RegExp(
+    `(^|[\\s(\\[/,;|'"\`])${escaped}(?=$|[\\s)\\]/,;.:|'"\`=])`,
+  ).test(text);
 }
 
 describe("справки: примеры полем, без снятых написаний", () => {
@@ -127,8 +131,12 @@ describe("справки: примеры полем, без снятых нап�
       const fields = Object.entries(command.argsJsonSchema.properties)
         .filter(([name]) => !(addresses.get(name) ?? "").startsWith("формат"))
         .map(([, field]) => field.description ?? "");
-      const text = [command.summary, command.usage, command.help, ...fields]
-        .join("\n");
+      const text = [
+        command.summary,
+        command.usage,
+        command.help,
+        ...fields,
+      ].join("\n");
       const found = stale(command).filter((word) => mentions(text, word));
       expect(found, "снятые написания в справке").toStrictEqual([]);
     });
@@ -153,9 +161,12 @@ describe("справки: каждый пример доходит до испо
             return;
           }
           const outcome = await runChain(words, root, SAMPLE_VALUES);
-          expect("exit" in outcome && outcome.exit, JSON.stringify(outcome))
-            .toBe(0);
-        }));
+          expect(
+            "exit" in outcome && outcome.exit,
+            JSON.stringify(outcome),
+          ).toBe(0);
+        }),
+      );
     }
   }
 });

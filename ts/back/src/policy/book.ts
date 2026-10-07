@@ -108,9 +108,9 @@ export class RuleBook implements Disposable {
   /** Записывает правило (заменяет прежнее на том же пути). */
   set(path: RulePath, verdict: Verdict) {
     guarded(() => {
-      this.#db.prepare(
-        "INSERT OR REPLACE INTO rules (path, verdict) VALUES (?, ?)",
-      ).run(path.text(), verdict.word);
+      this.#db
+        .prepare("INSERT OR REPLACE INTO rules (path, verdict) VALUES (?, ?)")
+        .run(path.text(), verdict.word);
       this.#load();
     });
   }
@@ -151,9 +151,9 @@ export class RuleBook implements Disposable {
       // человек — снять правило, пока этот читал список виденного.
       for (const seed of this.#unseen(seeds)) {
         const { path, verdict } = seed.entry();
-        this.#db.prepare(
-          "INSERT OR IGNORE INTO rules (path, verdict) VALUES (?, ?)",
-        ).run(path, verdict);
+        this.#db
+          .prepare("INSERT OR IGNORE INTO rules (path, verdict) VALUES (?, ?)")
+          .run(path, verdict);
         this.#db.prepare("INSERT INTO seeded (path) VALUES (?)").run(path);
       }
       this.#db.exec("COMMIT");
@@ -177,9 +177,11 @@ export class RuleBook implements Disposable {
       // миграцию, а человек — поставить правило после неё.
       for (const migration of this.#pending(migrations)) {
         const { name, path, from, to } = migration.entry();
-        this.#db.prepare(
-          "UPDATE rules SET verdict = ? WHERE path = ? AND verdict = ?",
-        ).run(to, path, from);
+        this.#db
+          .prepare(
+            "UPDATE rules SET verdict = ? WHERE path = ? AND verdict = ?",
+          )
+          .run(to, path, from);
         this.#db.prepare("INSERT INTO migrated (name) VALUES (?)").run(name);
       }
       this.#db.exec("COMMIT");
@@ -191,18 +193,20 @@ export class RuleBook implements Disposable {
 
   #pending(migrations: readonly Migration[]): Migration[] {
     const done = new Set(
-      this.#db.prepare("SELECT name FROM migrated").all().map((row) =>
-        String(row.name)
-      ),
+      this.#db
+        .prepare("SELECT name FROM migrated")
+        .all()
+        .map((row) => String(row.name)),
     );
     return migrations.filter((one) => !done.has(one.entry().name));
   }
 
   #unseen(seeds: readonly Rule[]): Rule[] {
     const seen = new Set(
-      this.#db.prepare("SELECT path FROM seeded").all().map((row) =>
-        String(row.path)
-      ),
+      this.#db
+        .prepare("SELECT path FROM seeded")
+        .all()
+        .map((row) => String(row.path)),
     );
     return seeds.filter((seed) => !seen.has(seed.entry().path));
   }
@@ -219,11 +223,12 @@ export class RuleBook implements Disposable {
     const version = this.#fileVersion();
     const rows = this.#db.prepare("SELECT path, verdict FROM rules").all();
     this.#rules = new Rules(
-      rows.map((row) =>
-        new Rule(
-          RulePath.parse(String(row.path)),
-          verdictNamed(String(row.verdict)),
-        )
+      rows.map(
+        (row) =>
+          new Rule(
+            RulePath.parse(String(row.path)),
+            verdictNamed(String(row.verdict)),
+          ),
       ),
     );
     this.#version = version;

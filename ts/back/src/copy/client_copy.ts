@@ -147,8 +147,7 @@ async function schemaState(copy: ClientCopy, schema: string): Promise<string> {
     const to = await copy.open(copy.sl1, "write");
     try {
       const outcome = await to.query(
-        "SELECT nspname FROM pg_namespace WHERE nspname = " +
-          `'${schema}'`,
+        "SELECT nspname FROM pg_namespace WHERE nspname = " + `'${schema}'`,
       );
       return outcome.kind === "rows" && outcome.rows.length > 0
         ? "есть, будет пересоздана"
@@ -204,9 +203,10 @@ async function seed(
     }
     const label = statements[err.index]?.label ?? err.label;
     const read = counts.find((count) => count.table === label);
-    const where = read === undefined
-      ? `оператор ${err.index + 1} (${label ?? "?"})`
-      : `таблица ${label}, прочитано с источника ${read.rows} строк`;
+    const where =
+      read === undefined
+        ? `оператор ${err.index + 1} (${label ?? "?"})`
+        : `таблица ${label}, прочитано с источника ${read.rows} строк`;
     throw new DomainError(
       `перенос строк: ${where}; посев откачен целиком; ${err.message}`,
       { cause: err },
@@ -231,10 +231,12 @@ async function copyInto(
     const counts: TableCount[] = [];
     // Replica-режим снимает FK и триггеры: порядок таблиц перестаёт
     // иметь значение, и список можно держать плоским.
-    const statements: Statement[] = [{
-      sql: "SET session_replication_role = replica",
-      label: "session_replication_role",
-    }];
+    const statements: Statement[] = [
+      {
+        sql: "SET session_replication_role = replica",
+        label: "session_replication_role",
+      },
+    ];
 
     const clients = await tableStatements(from, "clients", {
       text: "id = $1",

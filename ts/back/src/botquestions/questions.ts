@@ -167,9 +167,7 @@ export function ownerQuestions(
     if (!(err instanceof DomainError)) throw err;
     // Ключ есть, но непригоден (id не число, прокси не той схемы):
     // для вопросов это то же «бот не настроен», причина — в журнал.
-    deps.diagnose(
-      `${err.message}; вопросы в Telegram отключены`,
-    );
+    deps.diagnose(`${err.message}; вопросы в Telegram отключены`);
     return NO_BOT;
   }
   return new BotQuestions({

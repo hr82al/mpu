@@ -20,13 +20,17 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   message: z.string().optional().describe("новое описание"),
-  "body-file": z.string().optional().describe(
-    "файл с описанием; '-' — весь stdin, только в CLI",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с описанием; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({
@@ -61,8 +65,10 @@ export async function runDescribe(
 }
 
 export function renderDescribe(result: DescribeResult): string {
-  return `описание MR ${result.project}!${result.iid} обновлено\n` +
-    `${result.url}\n`;
+  return (
+    `описание MR ${result.project}!${result.iid} обновлено\n` +
+    `${result.url}\n`
+  );
 }
 
 export const mrDescribeCommand = defineCommand({
@@ -71,8 +77,7 @@ export const mrDescribeCommand = defineCommand({
   errorName: "mr describe",
   summary: "Заменить описание merge request'а целиком.",
   usage: "mpu mr describe [id: REF] (text: TEXT | body-file: PATH)",
-  help:
-    `Звать, когда описание MR надо переписать. Заменяет его целиком: новый текст встаёт вместо
+  help: `Звать, когда описание MR надо переписать. Заменяет его целиком: новый текст встаёт вместо
 прежнего, дописать к нему нельзя.
 
 Текст — ровно один из text: TEXT и body-file: PATH; text: stdin —

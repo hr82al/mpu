@@ -41,9 +41,8 @@ export async function commentBody(
     if (!required) return "";
     throw new UsageError("нужно ровно одно из -m/--message и -F/--body-file");
   }
-  const body = message !== undefined
-    ? message
-    : await readBody(io, file as string);
+  const body =
+    message !== undefined ? message : await readBody(io, file as string);
   if (!required && body === "") return "";
   if (body.trim() === "") throw new UsageError("пустое тело комментария");
   return body;

@@ -25,27 +25,32 @@ import {
 const argsSchema = z.object({
   ...commonArgs,
   ...periodArgs,
-  "ref-date": z.string().optional().describe(
-    "дата-источник значений для --ref-fields, YYYY-MM-DD",
-  ),
+  "ref-date": z
+    .string()
+    .optional()
+    .describe("дата-источник значений для --ref-fields, YYYY-MM-DD"),
   ref_date: z.string().optional().describe("то же, что --ref-date"),
-  "ref-fields": z.array(z.string()).optional().describe(
-    "поля, копируемые из --ref-date; флаг повторяется",
-  ),
-  ref_fields: z.array(z.string()).optional().describe(
-    "то же, что --ref-fields",
-  ),
+  "ref-fields": z
+    .array(z.string())
+    .optional()
+    .describe("поля, копируемые из --ref-date; флаг повторяется"),
+  ref_fields: z
+    .array(z.string())
+    .optional()
+    .describe("то же, что --ref-fields"),
   // Целые, как в оригинале: нецифровое значение отвергается разбором
   // ввода — до печати и до сети (спека, «Граничные случаи»). В
   // inner-команде форма от этого не меняется: один токен `[1,2,3]`.
-  skus: z.array(z.number().int()).optional().describe(
-    "SKU Ozon; флаг повторяется, уходит одним токеном [1,2,3]",
-  ),
+  skus: z
+    .array(z.number().int())
+    .optional()
+    .describe("SKU Ozon; флаг повторяется, уходит одним токеном [1,2,3]"),
   "logs-level": z.string().optional().describe("уровень логов пересчёта"),
   logs_level: z.string().optional().describe("то же, что --logs-level"),
-  verbose: z.boolean().default(false).describe(
-    "напечатать inner-команду в stderr перед доставкой",
-  ),
+  verbose: z
+    .boolean()
+    .default(false)
+    .describe("напечатать inner-команду в stderr перед доставкой"),
 });
 
 export const ozonRecalculateExpensesCommand = defineCommand({
@@ -109,9 +114,10 @@ Exit: код inner-команды; 0 при печати; 2 — ввод, рез
           // подвержена схлопыванию (спека, `preserve`).
           {
             name: "skus",
-            value: args.skus === undefined || args.skus.length === 0
-              ? undefined
-              : `[${args.skus.join(",")}]`,
+            value:
+              args.skus === undefined || args.skus.length === 0
+                ? undefined
+                : `[${args.skus.join(",")}]`,
           },
           {
             name: "logs-level",

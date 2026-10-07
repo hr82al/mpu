@@ -8,11 +8,7 @@ import { rejected } from "../testing/thrown.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
-import {
-  makeDumpFile,
-  removeDumpFile,
-  spawnRedis,
-} from "./tools.ts";
+import { makeDumpFile, removeDumpFile, spawnRedis } from "./tools.ts";
 
 it("временный файл дампа ложится в каталог временных файлов", () => {
   // Эталон — системный каталог временных файлов: тот же `TMPDIR`, что
@@ -92,17 +88,17 @@ describe("отказ самого redis приходит в stdout при нул
   // и строку `ERR …` в stdout (stderr пуст). Не разбери мы её — шаг
   // молча не сделал бы ничего.
   it("строка ERR — отказ, хотя код нулевой", async () => {
-    const err = await rejected(() =>
-      spawnRedis(
-        ["/bin/echo", "ERR wrong number of arguments"],
-        "",
-      ), Error);
+    const err = await rejected(
+      () => spawnRedis(["/bin/echo", "ERR wrong number of arguments"], ""),
+      Error,
+    );
     expect(err.message).toBe("ERR wrong number of arguments");
   });
 
   it("форма с (error) тоже отказ", async () => {
-    await expect(spawnRedis(["/bin/echo", "(error) ERR unknown command"], ""))
-      .rejects.toThrow(Error);
+    await expect(
+      spawnRedis(["/bin/echo", "(error) ERR unknown command"], ""),
+    ).rejects.toThrow(Error);
   });
 
   it("обычный ответ отказом не считается", async () => {

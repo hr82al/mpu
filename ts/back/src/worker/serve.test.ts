@@ -14,24 +14,24 @@ import { memoryWires } from "./wire.ts";
 it("исполнитель: непонятый кадр ядра — диагностика, строка идёт дальше", async () => {
   const { host, worker } = memoryWires();
   const diagnosed: string[] = [];
-  const served = serveOne(
-    worker,
-    makeFakeIo({}),
-    (line) => diagnosed.push(line),
+  const served = serveOne(worker, makeFakeIo({}), (line) =>
+    diagnosed.push(line),
   );
   const lines = host.lines()[Symbol.asyncIterator]();
   const next = async () => workerFrameOf(String((await lines.next()).value));
-  await host.send(encode({
-    run: {
-      path: ["confirm"],
-      args: [],
-      cwd: "/work",
-      context: {
-        tty: { stdin: false, stdout: false, stderr: false },
-        stdinOnRequest: true,
+  await host.send(
+    encode({
+      run: {
+        path: ["confirm"],
+        args: [],
+        cwd: "/work",
+        context: {
+          tty: { stdin: false, stdout: false, stderr: false },
+          stdinOnRequest: true,
+        },
       },
-    },
-  }));
+    }),
+  );
   expect(await next()).toStrictEqual({ stdin: true });
   await host.send("мусор\n");
   await host.send(encode({ stdin: "данные\n" }));
@@ -57,19 +57,23 @@ it("исполнитель программы: печать — out, коман�
   const lines = host.lines()[Symbol.asyncIterator]();
   const next = async () => workerFrameOf(String((await lines.next()).value));
   const sep = GRAMMAR.separator;
-  await host.send(encode({
-    evaluate: {
-      words: ["2", "print", sep, "x", GRAMMAR.assign, "version", sep, "x"],
-      methods: [],
-      source: null,
-      params: null,
-    },
-  }));
+  await host.send(
+    encode({
+      evaluate: {
+        words: ["2", "print", sep, "x", GRAMMAR.assign, "version", sep, "x"],
+        methods: [],
+        source: null,
+        params: null,
+      },
+    }),
+  );
   expect(await next()).toStrictEqual({ out: "2\n" });
   expect(await next()).toStrictEqual({ line: ["version"] });
-  await host.send(encode({
-    lined: { data: "0.1.0", command: null, shown: "0.1.0\n" },
-  }));
+  await host.send(
+    encode({
+      lined: { data: "0.1.0", command: null, shown: "0.1.0\n" },
+    }),
+  );
   expect(await next()).toStrictEqual({ out: "0.1.0\n" });
   expect(await next()).toStrictEqual({ result: { exit: 0, refusal: null } });
   expect((await lines.next()).done).toBe(true);
@@ -82,14 +86,16 @@ it("исполнитель программы: параметры файла и�
   const served = serveOne(worker, makeFakeIo({}), () => {});
   const lines = host.lines()[Symbol.asyncIterator]();
   const next = async () => workerFrameOf(String((await lines.next()).value));
-  await host.send(encode({
-    evaluate: {
-      words: [`${GRAMMAR.variable}col`, "print"],
-      methods: [],
-      source: "mpu run: x.mpu col: review",
-      params: { col: "review" },
-    },
-  }));
+  await host.send(
+    encode({
+      evaluate: {
+        words: [`${GRAMMAR.variable}col`, "print"],
+        methods: [],
+        source: "mpu run: x.mpu col: review",
+        params: { col: "review" },
+      },
+    }),
+  );
   expect(await next()).toStrictEqual({ out: "review\n" });
   expect(await next()).toStrictEqual({ result: { exit: 0, refusal: null } });
   await host.close();
@@ -137,24 +143,30 @@ it("исполнитель программы: метод образа из ка
   const served = serveOne(worker, makeFakeIo({}), () => {});
   const lines = host.lines()[Symbol.asyncIterator]();
   const next = async () => workerFrameOf(String((await lines.next()).value));
-  await host.send(encode({
-    evaluate: {
-      words: ["kiten", "mine"],
-      methods: [{
-        receiver: ["kiten"],
-        name: "mine",
-        source: [GRAMMAR.open, "version", GRAMMAR.blockEnd],
-      }],
-      source: null,
-      params: null,
-    },
-  }));
+  await host.send(
+    encode({
+      evaluate: {
+        words: ["kiten", "mine"],
+        methods: [
+          {
+            receiver: ["kiten"],
+            name: "mine",
+            source: [GRAMMAR.open, "version", GRAMMAR.blockEnd],
+          },
+        ],
+        source: null,
+        params: null,
+      },
+    }),
+  );
   expect(await next()).toStrictEqual({ line: ["kiten", "mine"] });
   await host.send(encode({ lined: { data: "", command: null, shown: "" } }));
   expect(await next()).toStrictEqual({ line: ["version"] });
-  await host.send(encode({
-    lined: { data: "0.1.0", command: null, shown: "0.1.0\n" },
-  }));
+  await host.send(
+    encode({
+      lined: { data: "0.1.0", command: null, shown: "0.1.0\n" },
+    }),
+  );
   expect(await next()).toStrictEqual({ out: "0.1.0\n" });
   expect(await next()).toStrictEqual({ result: { exit: 0, refusal: null } });
   await host.close();

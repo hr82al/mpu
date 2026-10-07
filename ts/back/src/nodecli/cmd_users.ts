@@ -36,8 +36,7 @@ const addRoleArgs = z.object({
 });
 
 /** Общая часть справки обеих подкоманд. */
-const DELIVERY =
-  `print ничего не выполняет: печатает готовую ssh-команду и копирует
+const DELIVERY = `print ничего не выполняет: печатает готовую ssh-команду и копирует
 её в буфер обмена. local вместе с print печатает форму локального
 стенда (без ssh); сам по себе local — ошибка ввода.
 
@@ -76,9 +75,7 @@ email: обязателен, остальные ключи необязател�
 напечатанной строке. В записи журнала аргументы заменены на REDACTED,
 секции вывода нет вовсе, и сообщения разбора ввода не эхо-печатают
 введённое.`,
-    examples: [
-      "mpu users add print target: sl-1 email: test@example.com",
-    ],
+    examples: ["mpu users add print target: sl-1 email: test@example.com"],
     policy: "rw",
     helpWhenBare: true,
     errorName: "users",
@@ -131,9 +128,7 @@ function usersAddRole(): Command {
 ${DELIVERY}
 
 id: и role: обязательны оба; других ключей у метода нет.`,
-    examples: [
-      "mpu users add-role print target: sl-1 id: 42 role: client",
-    ],
+    examples: ["mpu users add-role print target: sl-1 id: 42 role: client"],
     policy: "rw",
     helpWhenBare: true,
     errorName: "users",

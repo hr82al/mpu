@@ -90,21 +90,16 @@ export class ElicitationDesk {
     // Транскрипт здесь только называет сессию: признак ответа в
     // терминале не нужен — форма в терминале закрыта, пока хук идёт.
     const title = await question.title.title(async (path) =>
-      (await transcripts.read(path, TYPED_INPUT)).title()
+      (await transcripts.read(path, TYPED_INPUT)).title(),
     );
     const window = await windows.captionOf(env);
     const key = sessionKeyOf(env);
-    const asked = key.seatUrgent(
-      sessions,
-      () =>
-        questions.ask(question.form(placesOf(title, question.project, window))),
+    const asked = key.seatUrgent(sessions, () =>
+      questions.ask(question.form(placesOf(title, question.project, window))),
     );
     const gone = AbortSignal.any([signal, this.#closing.signal]);
-    const outcome = await heldWhile(
-      key,
-      sessions,
-      asked,
-      () => settledWithin(asked, gone, clock, () => []),
+    const outcome = await heldWhile(key, sessions, asked, () =>
+      settledWithin(asked, gone, clock, () => []),
     );
     return outcome.read({
       answered: (answers) => question.decide(answers),

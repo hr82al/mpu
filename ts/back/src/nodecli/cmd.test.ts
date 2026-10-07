@@ -75,7 +75,7 @@ function harness(db: CacheDb, env: Readonly<Record<string, string>> = ENV) {
     };
   })();
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? HOME : undefined,
+    env: (name) => (name === "HOME" ? HOME : undefined),
     envFile: {
       get: (name) => env[name],
       values: () => ({ ...env }),
@@ -202,10 +202,10 @@ describe("ss-update: ssh-печать — эталон канала", () => {
   let result: WrapResult;
   beforeAll(async () => {
     const { io } = harness(db());
-    result = await ssUpdateCommand.invokeInput(
+    result = (await ssUpdateCommand.invokeInput(
       ssArgs({ print: true }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
   });
 
   it("строка печати байт в байт", async () => {
@@ -247,32 +247,34 @@ describe("wb-loader cards: обе формы печати — эталоны к�
   });
 
   it("ssh-форма", async () => {
-    const result = await cards.invokeInput(
+    const result = (await cards.invokeInput(
       loaderArgs({ print: true }),
       io,
-    ) as WrapResult;
-    expect(cards.renderResult(result, ["777", "--sid", "SID42", "-p"]))
-      .toStrictEqual(await golden("wb-loader-cards-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      cards.renderResult(result, ["777", "--sid", "SID42", "-p"]),
+    ).toStrictEqual(await golden("wb-loader-cards-print.stdout.txt"));
   });
 
   it("локальная форма", async () => {
-    const result = await cards.invokeInput(
+    const result = (await cards.invokeInput(
       loaderArgs({ print: true, local: true }),
       io,
-    ) as WrapResult;
-    expect(cards.renderResult(result, ["777", "--sid", "SID42", "-p"]))
-      .toStrictEqual(await golden("wb-loader-cards-print-local.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      cards.renderResult(result, ["777", "--sid", "SID42", "-p"]),
+    ).toStrictEqual(await golden("wb-loader-cards-print-local.stdout.txt"));
   });
 
   it("обе формы несут одну и ту же inner-команду", async () => {
-    const ssh = await cards.invokeInput(
+    const ssh = (await cards.invokeInput(
       loaderArgs({ print: true }),
       io,
-    ) as WrapResult;
-    const local = await cards.invokeInput(
+    )) as WrapResult;
+    const local = (await cards.invokeInput(
       loaderArgs({ print: true, local: true }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(ssh.inner).toStrictEqual(local.inner);
   });
 });
@@ -281,10 +283,10 @@ describe("имя cli-контейнера берётся из кэша", () => {
   it("пустой кэш — форма `sl-<N>-cli`", async () => {
     await withCache([], async (db) => {
       const { io } = harness(db);
-      const result = await cards.invokeInput(
+      const result = (await cards.invokeInput(
         loaderArgs({ print: true, local: true }),
         io,
-      ) as WrapResult;
+      )) as WrapResult;
       expect(result.printed ?? "").toContain("sl-9-cli sh -c");
     });
   });
@@ -292,10 +294,10 @@ describe("имя cli-контейнера берётся из кэша", () => {
   it("в кэше только `mp-sl-<N>-cli` — берётся она", async () => {
     await withCache(["mp-sl-9-cli"], async (db) => {
       const { io } = harness(db);
-      const result = await cards.invokeInput(
+      const result = (await cards.invokeInput(
         loaderArgs({ print: true, local: true }),
         io,
-      ) as WrapResult;
+      )) as WrapResult;
       // Переименование контейнеров на серверах не должно ломать вызов
       // по селектору (спека).
       expect(result.printed ?? "").toContain("mp-sl-9-cli sh -c");
@@ -305,10 +307,10 @@ describe("имя cli-контейнера берётся из кэша", () => {
   it("есть обе — побеждает первая форма", async () => {
     await withCache(["mp-sl-9-cli", "sl-9-cli"], async (db) => {
       const { io } = harness(db);
-      const result = await cards.invokeInput(
+      const result = (await cards.invokeInput(
         loaderArgs({ print: true, local: true }),
         io,
-      ) as WrapResult;
+      )) as WrapResult;
       expect(result.printed ?? "").toContain("sl-9-cli sh -c");
     });
   });
@@ -331,11 +333,14 @@ describe("отказы ввода — эталоны канала", () => {
   it("значение с пробелом", async () => {
     await withCache([], async (db) => {
       const { io } = harness(db);
-      const err = await rejected(() =>
-        ssUpdateCommand.invokeInput(
-          ssArgs({ print: true, "spreadsheet-id": "a b" }),
-          io,
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          ssUpdateCommand.invokeInput(
+            ssArgs({ print: true, "spreadsheet-id": "a b" }),
+            io,
+          ),
+        UsageError,
+      );
       expect(`${formatCommandError("ss-update", err)}\n`).toStrictEqual(
         await golden("err-unsafe-token.stderr.txt"),
       );
@@ -470,10 +475,7 @@ function runWrapOf(
 
 it("три режима строят одну и ту же inner-команду", async () => {
   await withCache([], async (db) => {
-    const printed = await printWith(
-      harness(db).io,
-      () => Promise.resolve(),
-    );
+    const printed = await printWith(harness(db).io, () => Promise.resolve());
     const local = await runWrap(
       SS_UPDATE,
       {
@@ -529,18 +531,21 @@ describe("auto-pick: явный флаг, единственное значен�
 
   it("разные значения у кандидатов — отказ со списком", async () => {
     await withTwoSheets(async (db) => {
-      const err = await rejected(() =>
-        runWrap(
-          SS_UPDATE,
-          {
-            selector: String(CLIENT.id),
-            print: true,
-            local: true,
-            clientId: CLIENT.id,
-          },
-          harness(db).io,
-          options(),
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          runWrap(
+            SS_UPDATE,
+            {
+              selector: String(CLIENT.id),
+              print: true,
+              local: true,
+              clientId: CLIENT.id,
+            },
+            harness(db).io,
+            options(),
+          ),
+        UsageError,
+      );
       expect(err.message).toBe(
         "cannot resolve --spreadsheet-id from selector; pass --spreadsheet-id",
       );
@@ -555,13 +560,16 @@ describe("auto-pick: явный флаг, единственное значен�
     await withCache([], async (db) => {
       // `--server` резолвит сервер сам, кандидатов не остаётся: пустой
       // список не должен превращаться в пустую строку после отказа.
-      const err = await rejected(() =>
-        runWrap(
-          SS_UPDATE,
-          { selector: "sl-9", server: "sl-9", print: true, local: true },
-          harness(db).io,
-          options(),
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          runWrap(
+            SS_UPDATE,
+            { selector: "sl-9", server: "sl-9", print: true, local: true },
+            harness(db).io,
+            options(),
+          ),
+        UsageError,
+      );
       expect(err.details).toStrictEqual(undefined);
     });
   });
@@ -736,25 +744,27 @@ function ozonRecalcArgs(overrides: Record<string, unknown> = {}) {
 it("data-loader: печать — эталон канала", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db);
-    const result = await dataLoaderCommand.invokeInput(
+    const result = (await dataLoaderCommand.invokeInput(
       dataLoaderArgs({ print: true, sids: ["abc", "def"] }),
       io,
-    ) as WrapResult;
-    expect(dataLoaderCommand.renderResult(result, [
-      "777",
-      "--sids",
-      "abc",
-      "--sids",
-      "def",
-      "-p",
-    ])).toStrictEqual(await golden("data-loader-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      dataLoaderCommand.renderResult(result, [
+        "777",
+        "--sids",
+        "abc",
+        "--sids",
+        "def",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("data-loader-print.stdout.txt"));
   });
 });
 
 it("wb-recalculate-expenses: печать — эталон канала", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db);
-    const result = await wbRecalculateExpensesCommand.invokeInput(
+    const result = (await wbRecalculateExpensesCommand.invokeInput(
       wbDatedArgs({
         print: true,
         "date-from": "2026-01-01",
@@ -762,68 +772,74 @@ it("wb-recalculate-expenses: печать — эталон канала", async 
         "nm-ids": "[1,2,3]",
       }),
       io,
-    ) as WrapResult;
-    expect(wbRecalculateExpensesCommand.renderResult(result, [
-      "777",
-      "--date-from",
-      "2026-01-01",
-      "--date-to",
-      "2026-01-31",
-      "--nm-ids",
-      "[1,2,3]",
-      "-p",
-    ])).toStrictEqual(await golden("wb-recalculate-expenses-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      wbRecalculateExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "--nm-ids",
+        "[1,2,3]",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("wb-recalculate-expenses-print.stdout.txt"));
   });
 });
 
 it("wb-save-expenses: печать — эталон канала", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db);
-    const result = await wbSaveExpensesCommand.invokeInput(
+    const result = (await wbSaveExpensesCommand.invokeInput(
       wbDatedArgs({
         print: true,
         "date-from": "2026-01-01",
         "date-to": "2026-01-31",
       }),
       io,
-    ) as WrapResult;
-    expect(wbSaveExpensesCommand.renderResult(result, [
-      "777",
-      "--date-from",
-      "2026-01-01",
-      "--date-to",
-      "2026-01-31",
-      "-p",
-    ])).toStrictEqual(await golden("wb-save-expenses-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      wbSaveExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("wb-save-expenses-print.stdout.txt"));
   });
 });
 
 it("ozon-save-expenses: печать — эталон канала", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db);
-    const result = await ozonSaveExpensesCommand.invokeInput(
+    const result = (await ozonSaveExpensesCommand.invokeInput(
       ozonSaveArgs({
         print: true,
         "date-from": "2026-01-01",
         "date-to": "2026-01-31",
       }),
       io,
-    ) as WrapResult;
-    expect(ozonSaveExpensesCommand.renderResult(result, [
-      "777",
-      "--date-from",
-      "2026-01-01",
-      "--date-to",
-      "2026-01-31",
-      "-p",
-    ])).toStrictEqual(await golden("ozon-save-expenses-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      ozonSaveExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("ozon-save-expenses-print.stdout.txt"));
   });
 });
 
 it("ozon-recalculate-expenses: verbose-печать — эталоны канала", async () => {
   await withCache([], async (db) => {
     const { io, progress } = harness(db);
-    const result = await ozonRecalculateExpensesCommand.invokeInput(
+    const result = (await ozonRecalculateExpensesCommand.invokeInput(
       ozonRecalcArgs({
         print: true,
         verbose: true,
@@ -835,20 +851,22 @@ it("ozon-recalculate-expenses: verbose-печать — эталоны кана�
         skus: [123],
       }),
       io,
-    ) as WrapResult;
-    expect(ozonRecalculateExpensesCommand.renderResult(result, [
-      "777",
-      "--date-from",
-      "2026-01-01",
-      "--date-to",
-      "2026-01-31",
-      "--ref-fields",
-      "sebes_rub",
-      "--skus",
-      "123",
-      "-v",
-      "-p",
-    ])).toStrictEqual(
+    )) as WrapResult;
+    expect(
+      ozonRecalculateExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "--ref-fields",
+        "sebes_rub",
+        "--skus",
+        "123",
+        "-v",
+        "-p",
+      ]),
+    ).toStrictEqual(
       await golden("ozon-recalculate-expenses-verbose-print.stdout.txt"),
     );
     // `# inner: …` — служебная строка канала: каждая запись `progress`
@@ -862,10 +880,10 @@ it("ozon-recalculate-expenses: verbose-печать — эталоны кана�
 it("дефолты периода: --date-to сегодняшняя, --date-from 2025-01-01", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db);
-    const result = await wbRecalculateExpensesCommand.invokeInput(
+    const result = (await wbRecalculateExpensesCommand.invokeInput(
       wbDatedArgs({ print: true }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     // Дефолт вычисляется в момент вызова — эталон тоже берём временем
     // вызова, а не зашитой строкой (иначе тест краснеет на границе
     // суток).
@@ -951,10 +969,10 @@ describe("data-loader: --sids обязателен, повтор — один ф
 
   it("--sids дважды — один флаг подряд с двумя значениями", async () => {
     const { io } = harness(db());
-    const result = await dataLoaderCommand.invoke(
+    const result = (await dataLoaderCommand.invoke(
       ["777", "--sids", "abc", "--sids", "def", "-p"],
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--sids abc def");
     expect(result.inner.match(/--sids/g)?.length).toBe(1);
   });
@@ -964,16 +982,16 @@ describe("ozon-recalculate-expenses: --skus", () => {
   const db = heldScope<CacheDb>((body) => withCache([], body));
   it("не задан — следа в inner нет", async () => {
     const { io } = harness(db());
-    const result = await ozonRecalculateExpensesCommand.invoke(
+    const result = (await ozonRecalculateExpensesCommand.invoke(
       ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner.includes("--skus")).toBe(false);
   });
 
   it("задан трижды — ровно один токен [1,2,3]", async () => {
     const { io } = harness(db());
-    const result = await ozonRecalculateExpensesCommand.invoke(
+    const result = (await ozonRecalculateExpensesCommand.invoke(
       [
         "777",
         "--date-from",
@@ -989,7 +1007,7 @@ describe("ozon-recalculate-expenses: --skus", () => {
         "-p",
       ],
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--skus [1,2,3]");
     expect(result.inner.match(/--skus/g)?.length).toBe(1);
   });
@@ -998,42 +1016,38 @@ describe("ozon-recalculate-expenses: --skus", () => {
     const { io } = harness(db());
     // Отказ до печати и до сети: буфер обмена и транспорт не
     // подставлены вовсе, дойди вызов до них — тест упал бы иначе.
-    await expect(ozonRecalculateExpensesCommand.invoke(
-      ["777", "--skus", "abc", "-p"],
-      io,
-    )).rejects.toThrow(UsageError);
+    await expect(
+      ozonRecalculateExpensesCommand.invoke(["777", "--skus", "abc", "-p"], io),
+    ).rejects.toThrow(UsageError);
   });
 });
 
 describe("snake-написания: тот же inner, что kebab; при обоих — kebab побеждает", () => {
   const db = heldScope<CacheDb>((body) => withCache([], body));
-  it(
-    "wb-recalculate-expenses: date_from/date_to/nm_ids совпадают с kebab",
-    async () => {
-      const kebab = await wbRecalculateExpensesCommand.invokeInput(
-        wbDatedArgs({
-          print: true,
-          "date-from": "2026-02-01",
-          "date-to": "2026-02-28",
-          "nm-ids": "[1,2]",
-        }),
-        harness(db()).io,
-      ) as WrapResult;
-      const snake = await wbRecalculateExpensesCommand.invokeInput(
-        wbDatedArgs({
-          print: true,
-          date_from: "2026-02-01",
-          date_to: "2026-02-28",
-          nm_ids: "[1,2]",
-        }),
-        harness(db()).io,
-      ) as WrapResult;
-      expect(snake.inner).toStrictEqual(kebab.inner);
-    },
-  );
+  it("wb-recalculate-expenses: date_from/date_to/nm_ids совпадают с kebab", async () => {
+    const kebab = (await wbRecalculateExpensesCommand.invokeInput(
+      wbDatedArgs({
+        print: true,
+        "date-from": "2026-02-01",
+        "date-to": "2026-02-28",
+        "nm-ids": "[1,2]",
+      }),
+      harness(db()).io,
+    )) as WrapResult;
+    const snake = (await wbRecalculateExpensesCommand.invokeInput(
+      wbDatedArgs({
+        print: true,
+        date_from: "2026-02-01",
+        date_to: "2026-02-28",
+        nm_ids: "[1,2]",
+      }),
+      harness(db()).io,
+    )) as WrapResult;
+    expect(snake.inner).toStrictEqual(kebab.inner);
+  });
 
   it("оба заданы сразу — побеждает kebab", async () => {
-    const result = await wbRecalculateExpensesCommand.invokeInput(
+    const result = (await wbRecalculateExpensesCommand.invokeInput(
       wbDatedArgs({
         print: true,
         "date-from": "2026-03-01",
@@ -1044,7 +1058,7 @@ describe("snake-написания: тот же inner, что kebab; при об
         nm_ids: "[2]",
       }),
       harness(db()).io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--date-from 2026-03-01");
     expect(result.inner).toContain("--date-to 2026-03-31");
     expect(result.inner).toContain("--nm-ids [1]");
@@ -1052,20 +1066,17 @@ describe("snake-написания: тот же inner, что kebab; при об
     expect(result.inner.includes("[2]")).toBe(false);
   });
 
-  it(
-    "ozon-recalculate-expenses: ref_fields совпадает с ref-fields",
-    async () => {
-      const kebab = await ozonRecalculateExpensesCommand.invokeInput(
-        ozonRecalcArgs({ print: true, "ref-fields": ["a", "b"] }),
-        harness(db()).io,
-      ) as WrapResult;
-      const snake = await ozonRecalculateExpensesCommand.invokeInput(
-        ozonRecalcArgs({ print: true, ref_fields: ["a", "b"] }),
-        harness(db()).io,
-      ) as WrapResult;
-      expect(snake.inner).toStrictEqual(kebab.inner);
-    },
-  );
+  it("ozon-recalculate-expenses: ref_fields совпадает с ref-fields", async () => {
+    const kebab = (await ozonRecalculateExpensesCommand.invokeInput(
+      ozonRecalcArgs({ print: true, "ref-fields": ["a", "b"] }),
+      harness(db()).io,
+    )) as WrapResult;
+    const snake = (await ozonRecalculateExpensesCommand.invokeInput(
+      ozonRecalcArgs({ print: true, ref_fields: ["a", "b"] }),
+      harness(db()).io,
+    )) as WrapResult;
+    expect(snake.inner).toStrictEqual(kebab.inner);
+  });
 });
 
 /**
@@ -1118,16 +1129,19 @@ describe("очереди задач: печать — эталоны канал�
     ],
     [
       "ozon-jobs show --pattern",
-      wrapper(jobsCommands.filter((c) => c.path[0] === "ozon-jobs"), "show"),
+      wrapper(
+        jobsCommands.filter((c) => c.path[0] === "ozon-jobs"),
+        "show",
+      ),
       "ozon-jobs-show-print.stdout.txt",
     ],
   ];
   for (const [title, command, file] of cases) {
     it(title, async () => {
-      const result = await command.invokeInput(
+      const result = (await command.invokeInput(
         serverArgs(file.startsWith("ozon") ? { pattern: "ozonLoader" } : {}),
         io,
-      ) as WrapResult;
+      )) as WrapResult;
       expect(command.renderResult(result, ["sl-9", "-p"])).toStrictEqual(
         await golden(file),
       );
@@ -1139,7 +1153,7 @@ describe("очереди задач: печать — эталоны канал�
       jobsCommands.filter((c) => c.path[0] === "data-loader-jobs"),
       "show",
     );
-    const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+    const result = (await command.invokeInput(serverArgs(), io)) as WrapResult;
     expect(command.renderResult(result, ["sl-9", "-p"])).toStrictEqual(
       await golden("data-loader-jobs-show-print.stdout.txt"),
     );
@@ -1150,7 +1164,7 @@ describe("очереди задач: печать — эталоны канал�
       jobsCommands.filter((c) => c.path[0] === "ozon-jobs"),
       "prune",
     );
-    const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+    const result = (await command.invokeInput(serverArgs(), io)) as WrapResult;
     expect(result.inner).toBe("node cli service:ozonJobs pruneJobs");
   });
 
@@ -1176,7 +1190,7 @@ describe("миграции: печать, обязательные и необя
       migrationsCommands.filter((c) => c.path[0] === "app-migrations"),
       "latest",
     );
-    const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+    const result = (await command.invokeInput(serverArgs(), io)) as WrapResult;
     expect(command.renderResult(result, ["sl-9", "-p"])).toStrictEqual(
       await golden("app-migrations-latest-print.stdout.txt"),
     );
@@ -1184,21 +1198,20 @@ describe("миграции: печать, обязательные и необя
 
   it("clients-migrations latest — эталон канала", async () => {
     const command = clientsMigration("latest");
-    const result = await command.invokeInput(
+    const result = (await command.invokeInput(
       clientArgs({ type: "wb", forced: false }),
       io,
-    ) as WrapResult;
-    expect(command.renderResult(result, ["777", "--type", "wb", "-p"]))
-      .toStrictEqual(
-        await golden("clients-migrations-latest-print.stdout.txt"),
-      );
+    )) as WrapResult;
+    expect(
+      command.renderResult(result, ["777", "--type", "wb", "-p"]),
+    ).toStrictEqual(await golden("clients-migrations-latest-print.stdout.txt"));
   });
 
   it("--forced уходит голым флагом, без значения", async () => {
-    const result = await clientsMigration("up").invokeInput(
+    const result = (await clientsMigration("up").invokeInput(
       clientArgs({ type: "wb", forced: true, name: "0007_add" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toStrictEqual(
       "node cli service:clientsMigrations up --client-id 777 --type wb" +
         " --name 0007_add --forced",
@@ -1207,10 +1220,10 @@ describe("миграции: печать, обязательные и необя
 
   it("latest-all не эмитит --client-id", async () => {
     const command = clientsMigration("latest-all");
-    const result = await command.invokeInput(
+    const result = (await command.invokeInput(
       serverArgs({ type: "wb" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toBe(
       "node cli service:clientsMigrations latestAll --type wb",
     );
@@ -1224,23 +1237,21 @@ describe("миграции: печать, обязательные и необя
       migrationsCommands.filter((c) => c.path[0] === "datasets-migrations"),
       "list",
     );
-    const result = await command.invokeInput(
+    const result = (await command.invokeInput(
       clientArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(
       command.renderResult(result, ["777", "--dataset", "wb_unit", "-p"]),
-    ).toStrictEqual(
-      await golden("datasets-migrations-list-print.stdout.txt"),
-    );
+    ).toStrictEqual(await golden("datasets-migrations-list-print.stdout.txt"));
   });
 
   it("имя метода совпадает с именем подкоманды", async () => {
     for (const sub of ["up", "rollback", "down", "init"]) {
-      const result = await clientsMigration(sub).invokeInput(
+      const result = (await clientsMigration(sub).invokeInput(
         clientArgs({ type: "wb", forced: false }),
         io,
-      ) as WrapResult;
+      )) as WrapResult;
       expect(result.inner).toContain(`service:clientsMigrations ${sub} `);
     }
   });
@@ -1263,10 +1274,10 @@ describe("ozon-loader: кабинет, множественное число и 
 
   it("campaigns — эталон канала", async () => {
     const command = wrapper(ozonLoaderCommands, "campaigns");
-    const result = await command.invokeInput(
+    const result = (await command.invokeInput(
       clientArgs({ "seller-client-id": ["999001"] }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(command.renderResult(result, ["777", "-p"])).toStrictEqual(
       await golden("ozon-loader-campaigns-print.stdout.txt"),
     );
@@ -1274,10 +1285,10 @@ describe("ozon-loader: кабинет, множественное число и 
 
   it("load-data — эталон канала с восемнадцатью шагами", async () => {
     const command = wrapper(ozonLoaderCommands, "load-data");
-    const result = await command.invokeInput(
+    const result = (await command.invokeInput(
       clientArgs({ "seller-client-id": ["999001"] }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     const printed = command.renderResult(result, ["777", "-p"]);
     expect(printed).toStrictEqual(
       await golden("ozon-loader-load-data-print.stdout.txt"),
@@ -1290,11 +1301,10 @@ describe("ozon-loader: кабинет, множественное число и 
   });
 
   it("у load-data флаг метода — во множественном числе", async () => {
-    const result = await wrapper(ozonLoaderCommands, "load-data")
-      .invokeInput(
-        clientArgs({ "seller-client-id": ["999001", "999002"] }),
-        io,
-      ) as WrapResult;
+    const result = (await wrapper(ozonLoaderCommands, "load-data").invokeInput(
+      clientArgs({ "seller-client-id": ["999001", "999002"] }),
+      io,
+    )) as WrapResult;
     expect(result.inner).toContain(
       "--seller-client-ids 999001 999002 --sequence",
     );
@@ -1333,7 +1343,7 @@ describe("ss-load: печать, порядок флагов и дефолт --l
   });
 
   it("эталон канала", async () => {
-    const result = await ssLoadCommand.invokeInput(
+    const result = (await ssLoadCommand.invokeInput(
       clientArgs({
         dataset: "wb_unit",
         "sheet-name": "UNIT",
@@ -1342,46 +1352,43 @@ describe("ss-load: печать, порядок флагов и дефолт --l
         logs: "info",
       }),
       io,
-    ) as WrapResult;
-    expect(ssLoadCommand.renderResult(result, [
-      "777",
-      "--dataset",
-      "wb_unit",
-      "-p",
-    ])).toStrictEqual(await golden("ss-load-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      ssLoadCommand.renderResult(result, ["777", "--dataset", "wb_unit", "-p"]),
+    ).toStrictEqual(await golden("ss-load-print.stdout.txt"));
   });
 
   it("--client-id стоит вторым, а не первым", async () => {
-    const result = await ssLoadCommand.invokeInput(
+    const result = (await ssLoadCommand.invokeInput(
       clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain(
       "service:ssLoader load --dataset wb_unit --client-id 777",
     );
   });
 
   it("--logs эмитится и при умолчании", async () => {
-    const result = await ssLoadCommand.invokeInput(
+    const result = (await ssLoadCommand.invokeInput(
       clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--logs info");
   });
 
   it("--forced уходит голым флагом", async () => {
-    const result = await ssLoadCommand.invokeInput(
+    const result = (await ssLoadCommand.invokeInput(
       clientArgs({ dataset: "wb_unit", forced: true, logs: "debug" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--forced --logs debug");
   });
 
   it("--spreadsheet-id взят из кандидатов селектора", async () => {
-    const result = await ssLoadCommand.invokeInput(
+    const result = (await ssLoadCommand.invokeInput(
       clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain(`--spreadsheet-id ${CLIENT.sheet}`);
   });
 });
@@ -1402,23 +1409,25 @@ describe("ss-datasets: таблица вместо клиента и трёхз�
     });
 
   it("эталон канала", async () => {
-    const result = await ssDatasetsCommand.invokeInput(
+    const result = (await ssDatasetsCommand.invokeInput(
       args(),
       io,
-    ) as WrapResult;
-    expect(ssDatasetsCommand.renderResult(result, [
-      "777",
-      "--dataset",
-      "wb_unit",
-      "-p",
-    ])).toStrictEqual(await golden("ss-datasets-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      ssDatasetsCommand.renderResult(result, [
+        "777",
+        "--dataset",
+        "wb_unit",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("ss-datasets-print.stdout.txt"));
   });
 
   it("--client-id нет ни в схеме, ни в команде", async () => {
-    const result = await ssDatasetsCommand.invokeInput(
+    const result = (await ssDatasetsCommand.invokeInput(
       args(),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner.includes("--client-id")).toBe(false);
     expect(
       ssDatasetsCommand.inputs.some((input) => input.name === "client-id"),
@@ -1426,18 +1435,18 @@ describe("ss-datasets: таблица вместо клиента и трёхз�
   });
 
   it("--spreadsheet-id берётся из кандидатов", async () => {
-    const result = await ssDatasetsCommand.invokeInput(
+    const result = (await ssDatasetsCommand.invokeInput(
       args({ "spreadsheet-id": undefined }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain(`--spreadsheet-id ${CLIENT.sheet}`);
   });
 
   it("--is-active уходит голым флагом", async () => {
-    const result = await ssDatasetsCommand.invokeInput(
+    const result = (await ssDatasetsCommand.invokeInput(
       args({ "is-active": true }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--sheet-name UNIT --is-active");
   });
 
@@ -1446,14 +1455,14 @@ describe("ss-datasets: таблица вместо клиента и трёхз�
     // выбрасывает `false` наравне с `None`. Поведение рабочей версии,
     // закреплено до проверки контракта метода sl-back (спека,
     // «Открытые вопросы»).
-    const off = await ssDatasetsCommand.invokeInput(
+    const off = (await ssDatasetsCommand.invokeInput(
       args({ "is-active": false }),
       io,
-    ) as WrapResult;
-    const unset = await ssDatasetsCommand.invokeInput(
+    )) as WrapResult;
+    const unset = (await ssDatasetsCommand.invokeInput(
       args(),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(off.inner.includes("is-active")).toBe(false);
     expect(off.inner).toStrictEqual(unset.inner);
   });
@@ -1467,30 +1476,31 @@ describe("wb-unit-*: дата всегда явная, подкоманды не
   });
 
   it("wb-unit-calc — эталон канала", async () => {
-    const result = await wbUnitCalcCommand.invokeInput(
+    const result = (await wbUnitCalcCommand.invokeInput(
       clientArgs({ "nm-id": "123", date: "2026-08-01" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(
       wbUnitCalcCommand.renderResult(result, ["777", "--nm-id", "123", "-p"]),
     ).toStrictEqual(await golden("wb-unit-calc-print.stdout.txt"));
   });
 
   it("дефолт --date — сегодняшний день, явным токеном", async () => {
-    const result = await wbUnitCalcCommand.invokeInput(
+    const result = (await wbUnitCalcCommand.invokeInput(
       clientArgs({ "nm-id": "123", date: undefined }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain(`--date ${today()}`);
   });
 
   it("wb-unit-proto-new — эталон канала", async () => {
-    const result = await wbUnitProtoNewCommand.invokeInput(
+    const result = (await wbUnitProtoNewCommand.invokeInput(
       clientArgs(),
       io,
-    ) as WrapResult;
-    expect(wbUnitProtoNewCommand.renderResult(result, ["777", "-p"]))
-      .toStrictEqual(await golden("wb-unit-proto-new-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      wbUnitProtoNewCommand.renderResult(result, ["777", "-p"]),
+    ).toStrictEqual(await golden("wb-unit-proto-new-print.stdout.txt"));
   });
 
   it("имени подкоманды у обеих нет", () => {
@@ -1512,28 +1522,30 @@ describe("users: сервер вместо клиента, пароль вне �
   const addRole = wrapper(usersCommands, "add-role");
 
   it("add — эталон канала", async () => {
-    const result = await add.invokeInput(
+    const result = (await add.invokeInput(
       serverArgs({ email: "test@example.com" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(
       add.renderResult(result, ["sl-9", "--email", "test@example.com", "-p"]),
     ).toStrictEqual(await golden("users-add-print.stdout.txt"));
   });
 
   it("add-role — эталон канала", async () => {
-    const result = await addRole.invokeInput(
+    const result = (await addRole.invokeInput(
       serverArgs({ id: "42", role: "client" }),
       io,
-    ) as WrapResult;
-    expect(addRole.renderResult(result, [
-      "sl-9",
-      "--id",
-      "42",
-      "--role",
-      "client",
-      "-p",
-    ])).toStrictEqual(await golden("users-add-role-print.stdout.txt"));
+    )) as WrapResult;
+    expect(
+      addRole.renderResult(result, [
+        "sl-9",
+        "--id",
+        "42",
+        "--role",
+        "client",
+        "-p",
+      ]),
+    ).toStrictEqual(await golden("users-add-role-print.stdout.txt"));
   });
 
   it("--client-id нет ни у одной из двух", async () => {
@@ -1543,10 +1555,10 @@ describe("users: сервер вместо клиента, пароль вне �
         `${command.path.join(" ")}: client-id объявлен`,
       ).toBe(false);
     }
-    const result = await addRole.invokeInput(
+    const result = (await addRole.invokeInput(
       serverArgs({ id: "42", role: "client" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner.includes("--client-id")).toBe(false);
   });
 
@@ -1571,11 +1583,14 @@ it("auto-pick --spreadsheet-id: две таблицы — отказ с канд
       1_700_000_000,
     );
     const { io } = harness(db);
-    const err = await rejected(() =>
-      ssLoadCommand.invokeInput(
-        clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
-        io,
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        ssLoadCommand.invokeInput(
+          clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+          io,
+        ),
+      UsageError,
+    );
     expect(`${formatCommandError("ss-load", err)}\n`).toStrictEqual(
       await golden("err-ambiguous-spreadsheet.stderr.txt"),
     );
@@ -1627,17 +1642,17 @@ describe("process: печать, порядок флагов и три прав�
   });
 
   it("простой вызов — эталон канала", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(processCommand.renderResult(result, ["777", "-p"])).toStrictEqual(
       await golden("process-print.stdout.txt"),
     );
   });
 
   it("списки и флаги — эталон канала", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({
         datasets: ["wb_unit"],
         "with-tags": ["source"],
@@ -1648,21 +1663,21 @@ describe("process: печать, порядок флагов и три прав�
         logs: "debug",
       }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(processCommand.renderResult(result, ["777", "-p"])).toStrictEqual(
       await golden("process-lists-print.stdout.txt"),
     );
   });
 
   it("единственное значение списка дублируется", async () => {
-    const one = await processCommand.invokeInput(
+    const one = (await processCommand.invokeInput(
       processArgs({ modules: ["wb"] }),
       io,
-    ) as WrapResult;
-    const two = await processCommand.invokeInput(
+    )) as WrapResult;
+    const two = (await processCommand.invokeInput(
       processArgs({ modules: ["wb", "ozon"] }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     // Дубль — обход схлопывания одиночного значения парсером sl-back
     // (спека, `preserve`); у двух значений его нет.
     expect(one.inner).toContain("--modules wb wb");
@@ -1670,28 +1685,28 @@ describe("process: печать, порядок флагов и три прав�
   });
 
   it("--dataset дублированию не подвержен", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--dataset wb_unit");
     expect(result.inner.includes("wb_unit wb_unit")).toBe(false);
     expect(result.inner.endsWith("--dataset wb_unit")).toBe(true);
   });
 
   it("--skus уходит одним скобочным токеном", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ skus: [10, 20, 30] }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain("--skus [10,20,30]");
   });
 
   it("незаданные флаги следа не оставляют", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     for (const flag of ["--modules", "--forced", "--skus", "--logs"]) {
       expect(result.inner.includes(flag), `${flag} эмитился`).toBe(false);
     }
@@ -1699,19 +1714,19 @@ describe("process: печать, порядок флагов и три прав�
 
   it("--spreadsheet-id из кандидатов, но не обязателен", async () => {
     // У клиента одна таблица — значение подставилось.
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.inner).toContain(`--spreadsheet-id ${CLIENT.sheet}`);
   });
 
   it("-v печатает inner в служебный поток", async () => {
     const { io: verboseIo, progress } = harness(db());
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit", verbose: true }),
       verboseIo,
-    ) as WrapResult;
+    )) as WrapResult;
     expect(progress).toStrictEqual([`# inner: ${result.inner}`]);
     // И обычный вывод не подменяет: строка печати на месте.
     expect(result.printed !== null).toBe(true);
@@ -1746,10 +1761,12 @@ it("кэш-БД закрывается после вызова обёртки", 
     });
     // Селектор ни во что не резолвится: вызов отбивается, но кэш к
     // этому моменту уже открыт — и обязан закрыться.
-    await expect(processCommand.invokeInput(
-      processArgs({ selector: "нет-такого-клиента", dataset: "wb_unit" }),
-      io,
-    )).rejects.toThrow();
+    await expect(
+      processCommand.invokeInput(
+        processArgs({ selector: "нет-такого-клиента", dataset: "wb_unit" }),
+        io,
+      ),
+    ).rejects.toThrow();
     expect(disposed, "кэш открыт и не закрыт").toBe(1);
   } finally {
     await rm(dir, { recursive: true });
@@ -1768,10 +1785,10 @@ it("process: неоднозначная таблица — флаг не эми�
       1_700_000_000,
     );
     const { io } = harness(db);
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({ dataset: "wb_unit" }),
       io,
-    ) as WrapResult;
+    )) as WrapResult;
     // В отличие от `ss-load`, неоднозначность здесь не отказ: таблица
     // у метода — уточнение, а не адрес вызова.
     expect(result.inner.includes("--spreadsheet-id")).toBe(false);
@@ -1787,16 +1804,17 @@ describe("process: ветка dev:N — своя печать и обязате�
   });
 
   it("печать — вызов mpu ssh, а не ssh-обёртка", async () => {
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({
         selector: "dev:1",
         "client-id": 777,
         dataset: "wb_unit",
       }),
       io,
-    ) as WrapResult;
-    expect(processCommand.renderResult(result, ["dev:1", "-p"]))
-      .toStrictEqual(await golden("process-dev-print.stdout.txt"));
+    )) as WrapResult;
+    expect(processCommand.renderResult(result, ["dev:1", "-p"])).toStrictEqual(
+      await golden("process-dev-print.stdout.txt"),
+    );
     expect(result.server).toBe("dev:1");
   });
 
@@ -1821,7 +1839,7 @@ describe("process: ветка dev:N — своя печать и обязате�
         values: () => ({}),
       },
     });
-    const result = await processCommand.invokeInput(
+    const result = (await processCommand.invokeInput(
       processArgs({
         selector: "dev:1",
         "client-id": 777,
@@ -1829,7 +1847,7 @@ describe("process: ветка dev:N — своя печать и обязате�
         print: true,
       }),
       { ...bare, progress: () => {} },
-    ) as WrapResult;
+    )) as WrapResult;
     expect(result.printed ?? "").toContain("mpu ssh target: dev:1 cmd: ");
   });
 

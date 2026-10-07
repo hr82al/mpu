@@ -68,8 +68,11 @@ function sample(command: Command, input: InputSpec): readonly string[] {
 
 /** Одно значение или список — по виду входа. */
 function many(input: InputSpec): boolean {
-  return input.kind === "strings" || input.kind === "numbers" ||
-    input.form.positional === "rest";
+  return (
+    input.kind === "strings" ||
+    input.kind === "numbers" ||
+    input.form.positional === "rest"
+  );
 }
 
 /**
@@ -145,10 +148,7 @@ function argsOf(command: Command, argv: readonly string[]): string[] {
 }
 
 async function pairOf(file: string, command: Command) {
-  const addresses = addressesOf(
-    command,
-    Object.keys(formatsOf(command.path)),
-  );
+  const addresses = addressesOf(command, Object.keys(formatsOf(command.path)));
   const { before, after } = lines(command, addresses);
   using book = RuleBook.open(file, registrySeeds());
   const line = new Captured();
@@ -159,9 +159,10 @@ async function pairOf(file: string, command: Command) {
   return {
     outcome,
     before: command.parseArgs(before),
-    after: line.argv.length === 0
-      ? outcome
-      : command.parseArgs(argsOf(command, line.argv)),
+    after:
+      line.argv.length === 0
+        ? outcome
+        : command.parseArgs(argsOf(command, line.argv)),
   };
 }
 
@@ -172,7 +173,8 @@ describe("прежняя строка и ключи дают один вход �
         const pair = await pairOf(file, command);
         expect("exit" in pair.outcome, JSON.stringify(pair.outcome)).toBe(true);
         expect(pair.after).toStrictEqual(pair.before);
-      }));
+      }),
+    );
   }
 });
 
@@ -182,53 +184,68 @@ const NAMED: readonly (readonly [readonly string[], readonly string[]])[] = [
     ["mr", "comment", "src/a.ts:10", "--mr", "5", "-m", "см. тут"],
     ["mr", "comment", "id:", "5", "at:", "src/a.ts:10", "text:", "см. тут"],
   ],
-  [["mr", "show", "abcdef12"], ["mr", "show", "id:", "abcdef12"]],
-  [["kiten", "card", "1"], ["kiten", "card", "id:", "1"]],
-  [["logs", "ls"], ["logs", "hosts"]],
-  [["logs", "sl-1", "ls"], ["logs", "services", "target:", "sl-1"]],
-  [["move-client-back", "rm", "1234"], [
-    "move-client-back",
-    "rm",
-    "target:",
-    "1234",
-  ]],
-  [["move-client-back", "ls"], ["move-client-back", "ls"]],
-  [["move-client-back", "1234"], ["move-client-back", "target:", "1234"]],
-  [["api", "get-client-module", "54", "wb"], [
-    "api",
-    "get-client-module",
-    "client:",
-    "54",
-    "id:",
-    "wb",
-  ]],
+  [
+    ["mr", "show", "abcdef12"],
+    ["mr", "show", "id:", "abcdef12"],
+  ],
+  [
+    ["kiten", "card", "1"],
+    ["kiten", "card", "id:", "1"],
+  ],
+  [
+    ["logs", "ls"],
+    ["logs", "hosts"],
+  ],
+  [
+    ["logs", "sl-1", "ls"],
+    ["logs", "services", "target:", "sl-1"],
+  ],
+  [
+    ["move-client-back", "rm", "1234"],
+    ["move-client-back", "rm", "target:", "1234"],
+  ],
+  [
+    ["move-client-back", "ls"],
+    ["move-client-back", "ls"],
+  ],
+  [
+    ["move-client-back", "1234"],
+    ["move-client-back", "target:", "1234"],
+  ],
+  [
+    ["api", "get-client-module", "54", "wb"],
+    ["api", "get-client-module", "client:", "54", "id:", "wb"],
+  ],
   // `cmd:` — одно слово: прежняя пара — команда одним словом; что
   // разбитая на слова она даёт ту же строку шелла, проверяет тест ниже.
-  [["ssh", "sl-1", "ls -la"], ["ssh", "target:", "sl-1", "cmd:", "ls -la"]],
-  [["run-js", "sl-1", "1+1", "-d"], [
-    "run-js",
-    "detach",
-    "target:",
-    "sl-1",
-    "text:",
-    "1+1",
-  ]],
-  [["process", "54", "--dry-run"], ["process", "dry", "target:", "54"]],
-  [["logs", "--via", "portainer", "sl-1"], [
-    "logs",
-    "portainer",
-    "target:",
-    "sl-1",
-  ]],
-  [["kiten", "card", "1", "--no-comments"], [
-    "kiten",
-    "card",
-    "no-comments",
-    "id:",
-    "1",
-  ]],
-  [["ps", "--tsv"], ["ps", GRAMMAR.close, "tsv"]],
-  [["confirm", "-y", "-m", "да?"], ["confirm", "yes", "text:", "да?"]],
+  [
+    ["ssh", "sl-1", "ls -la"],
+    ["ssh", "target:", "sl-1", "cmd:", "ls -la"],
+  ],
+  [
+    ["run-js", "sl-1", "1+1", "-d"],
+    ["run-js", "detach", "target:", "sl-1", "text:", "1+1"],
+  ],
+  [
+    ["process", "54", "--dry-run"],
+    ["process", "dry", "target:", "54"],
+  ],
+  [
+    ["logs", "--via", "portainer", "sl-1"],
+    ["logs", "portainer", "target:", "sl-1"],
+  ],
+  [
+    ["kiten", "card", "1", "--no-comments"],
+    ["kiten", "card", "no-comments", "id:", "1"],
+  ],
+  [
+    ["ps", "--tsv"],
+    ["ps", GRAMMAR.close, "tsv"],
+  ],
+  [
+    ["confirm", "-y", "-m", "да?"],
+    ["confirm", "yes", "text:", "да?"],
+  ],
 ];
 
 describe("поимённые пары спеки дают один вход команды", () => {
@@ -239,13 +256,14 @@ describe("поимённые пары спеки дают один вход ко
         const line = new Captured();
         await runChain(after, registryRoot(line, book));
         const command = commands.find((one) =>
-          one.path.every((word, i) => before[i] === word)
+          one.path.every((word, i) => before[i] === word),
         );
         if (command === undefined) throw new Error(`нет команды ${before}`);
         expect(command.parseArgs(argsOf(command, line.argv))).toStrictEqual(
           command.parseArgs(argsOf(command, before)),
         );
-      }));
+      }),
+    );
   }
 });
 
@@ -303,13 +321,15 @@ describe("напечатанные строки вставляются: тот �
         ) as { selector: string; command: [string, ...string[]] };
         expect(args.selector).toStrictEqual(target);
         expect(shellCommand(args.command)).toStrictEqual(command);
-      }));
+      }),
+    );
   }
 });
 
 describe("подсказки run-js --detach вставляются: тот же вход", () => {
   const log = "/tmp/mpu-run-js-x.log";
-  const reader = `import fs from "node:fs"; process.stdout.write(` +
+  const reader =
+    `import fs from "node:fs"; process.stdout.write(` +
     `fs.existsSync("${log}") ? fs.readFileSync("${log}","utf8") : ` +
     `"no log yet\\n")`;
   // Строки — те, что печатает run.ts (их дословно сверяет
@@ -330,10 +350,13 @@ describe("подсказки run-js --detach вставляются: тот же
       withPolicyFile(async (file) => {
         const command = commands.find((one) => one.path[0] === before[0]);
         if (command === undefined) throw new Error(`нет ${before[0]}`);
-        expect(command.parseArgs(
-          argsOf(command, await argvOf(file, pasted(printed))),
-        )).toStrictEqual(command.parseArgs(before.slice(1)));
-      }));
+        expect(
+          command.parseArgs(
+            argsOf(command, await argvOf(file, pasted(printed))),
+          ),
+        ).toStrictEqual(command.parseArgs(before.slice(1)));
+      }),
+    );
   }
 });
 
@@ -368,6 +391,7 @@ describe("ключ-текст: слово MCP как есть доходит д�
         if (command === undefined) throw new Error("нет команды");
         const argv = await argvOf(file, words);
         expect(command.parseArgs(argsOf(command, argv))).toMatchObject(input);
-      }));
+      }),
+    );
   }
 });

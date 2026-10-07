@@ -30,14 +30,16 @@ const SS_ID = "1SyntheticSpreadsheetIdForGoldens0000000000";
 
 /** Лист служебной таблицы: `A1="привет"`, `B1=42`, `B2==B1*2`. */
 const SHEET_META = {
-  sheets: [{
-    properties: {
-      title: "Sheet1",
-      sheetId: 0,
-      index: 0,
-      gridProperties: { rowCount: 1000, columnCount: 26 },
+  sheets: [
+    {
+      properties: {
+        title: "Sheet1",
+        sheetId: 0,
+        index: 0,
+        gridProperties: { rowCount: 1000, columnCount: 26 },
+      },
     },
-  }],
+  ],
 };
 
 async function golden(name: string): Promise<string> {
@@ -59,20 +61,27 @@ function reply(
   };
   if (request.action === "spreadsheets/get") {
     return json({
-      sheets: [{
-        properties: {
-          ...SHEET_META.sheets[0].properties,
-          title: tabTitle,
+      sheets: [
+        {
+          properties: {
+            ...SHEET_META.sheets[0].properties,
+            title: tabTitle,
+          },
         },
-      }],
+      ],
     });
   }
   const formula = request.valueRenderOption === "FORMULA";
   return json({
-    valueRanges: [{
-      range: request.ranges?.[0] ?? "",
-      values: [["привет", 42], ["", formula ? "=B1*2" : 84]],
-    }],
+    valueRanges: [
+      {
+        range: request.ranges?.[0] ?? "",
+        values: [
+          ["привет", 42],
+          ["", formula ? "=B1*2" : 84],
+        ],
+      },
+    ],
   });
 }
 
@@ -97,10 +106,10 @@ function harness(
       get: (name: string) =>
         ({ WB_PLUS_WEB_APP_URL: "https://script.example/exec", ...env })[name],
       require: (name: string) => {
-        const value =
-          ({ WB_PLUS_WEB_APP_URL: "https://script.example/exec", ...env })[
-            name
-          ];
+        const value = {
+          WB_PLUS_WEB_APP_URL: "https://script.example/exec",
+          ...env,
+        }[name];
         if (value === undefined) throw new DomainError(`нет ключа ${name}`);
         return value;
       },
@@ -155,8 +164,9 @@ it("resolve: JSON цели — эталон канала, сети нет", asyn
       { spreadsheet: SS_ID },
       io,
     );
-    expect(sheetResolveCommand.renderResult(result, ["-s", SS_ID]))
-      .toStrictEqual(await golden("resolve.stdout"));
+    expect(
+      sheetResolveCommand.renderResult(result, ["-s", SS_ID]),
+    ).toStrictEqual(await golden("resolve.stdout"));
   });
 });
 
@@ -175,10 +185,10 @@ it("resolve: цель из конфига, когда флага нет", async 
     // Ровно то, что пишет `mpu config sheet.default <id>`: строка в
     // таблице `config` той же кэш-БД (`platform/config.md`).
     setConfigValue(db, "sheet.default", SS_ID);
-    const result = await sheetResolveCommand.invokeInput(
+    const result = (await sheetResolveCommand.invokeInput(
       { spreadsheet: undefined },
       io,
-    ) as { ss_id: string; source: string };
+    )) as { ss_id: string; source: string };
     // Источник конфига — единственный, кроме флага: сломай его чтение,
     // и у команды не останется ни одного (`sheet.md`, «CLI-контракт»).
     expect(result.source).toBe("config");
@@ -210,7 +220,7 @@ describe("ls: три формы вывода — эталоны канала", (
   let io: CommandIo;
   let options: ReturnType<typeof harness>["options"];
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     ({ io, options } = harness(db));
   });
@@ -233,8 +243,9 @@ describe("ls: три формы вывода — эталоны канала", (
 
   it("-l вместе с --json: побеждает --json", async () => {
     const result = await run({ long: true, json: true });
-    expect(sheetLsCommand.renderResult(result, ["-l", "--json"]))
-      .toStrictEqual(await golden("ls-long-json.stdout"));
+    expect(sheetLsCommand.renderResult(result, ["-l", "--json"])).toStrictEqual(
+      await golden("ls-long-json.stdout"),
+    );
   });
 
   it("умолчание — только заголовки", async () => {
@@ -247,7 +258,7 @@ describe("get: JSON, raw и tsv — эталоны канала", () => {
   let io: CommandIo;
   let options: ReturnType<typeof harness>["options"];
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     ({ io, options } = harness(db));
   });
@@ -255,11 +266,12 @@ describe("get: JSON, raw и tsv — эталоны канала", () => {
     runGet(getArgs(args) as Parameters<typeof runGet>[0], io, options);
 
   it("первый вызов читает webapp, второй — кэш", async () => {
-    const first = await run() as { valueRanges: { fromCache: boolean }[] };
+    const first = (await run()) as { valueRanges: { fromCache: boolean }[] };
     expect(first.valueRanges[0].fromCache).toBe(false);
     const second = await run();
-    expect(sheetGetCommand.renderResult(second, ["Sheet1!A1:B2"]))
-      .toStrictEqual(await golden("get-both-cached.stdout"));
+    expect(
+      sheetGetCommand.renderResult(second, ["Sheet1!A1:B2"]),
+    ).toStrictEqual(await golden("get-both-cached.stdout"));
   });
 
   it("--raw: один слой без обвязки", async () => {
@@ -294,8 +306,9 @@ describe("get: JSON, raw и tsv — эталоны канала", () => {
 
   it("--raw вместе с --tsv: побеждает --tsv", async () => {
     const result = await run({ raw: true, tsv: true });
-    expect(sheetGetCommand.renderResult(result, ["--raw", "--tsv"]))
-      .toStrictEqual(await golden("get-tsv.stdout"));
+    expect(
+      sheetGetCommand.renderResult(result, ["--raw", "--tsv"]),
+    ).toStrictEqual(await golden("get-tsv.stdout"));
   });
 });
 
@@ -303,16 +316,16 @@ describe("get: слои кладутся ровно по --render", () => {
   let io: CommandIo;
   let options: ReturnType<typeof harness>["options"];
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     ({ io, options } = harness(db));
   });
   const layersOf = async (render: string) => {
-    const result = await runGet(
+    const result = (await runGet(
       getArgs({ render }),
       io,
       options,
-    ) as unknown as { valueRanges: Record<string, unknown>[] };
+    )) as unknown as { valueRanges: Record<string, unknown>[] };
     return Object.keys(result.valueRanges[0]);
   };
 
@@ -342,11 +355,7 @@ describe("get: слои кладутся ровно по --render", () => {
   });
 
   it("formatted — свой слой и мимо кэша", async () => {
-    const result = await runGet(
-      getArgs({ render: "formatted" }),
-      io,
-      options,
-    );
+    const result = await runGet(getArgs({ render: "formatted" }), io, options);
     expect(Object.keys(result.valueRanges[0])).toStrictEqual([
       "range",
       "formatted",
@@ -376,7 +385,7 @@ describe("get: отказы ввода — до сети", () => {
   let io: CommandIo;
   let options: ReturnType<typeof harness>["options"];
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     ({ io, options } = harness(db));
   });
@@ -432,26 +441,26 @@ describe("get: --sheet префиксует и означает весь лис�
   let io: CommandIo;
   let options: ReturnType<typeof harness>["options"];
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     ({ io, options } = harness(db));
   });
 
   it("префикс для диапазона без листа", async () => {
-    const result = await runGet(
+    const result = (await runGet(
       getArgs({ ranges: ["A1:B2"], sheet: "Sheet1" }),
       io,
       options,
-    ) as { valueRanges: { range: string }[] };
+    )) as { valueRanges: { range: string }[] };
     expect(result.valueRanges[0].range).toBe("Sheet1!A1:B2");
   });
 
   it("без диапазонов — весь лист", async () => {
-    const result = await runGet(
+    const result = (await runGet(
       getArgs({ ranges: [], sheet: "Sheet1" }),
       io,
       options,
-    ) as { valueRanges: { range: string }[] };
+    )) as { valueRanges: { range: string }[] };
     // Закрытая форма по фактическим границам листа.
     expect(result.valueRanges[0].range).toBe("Sheet1!A1:Z1000");
   });
@@ -489,7 +498,7 @@ it("get: --refresh не читает кэш, но перезаписывает",
     const refreshed = await runGet(getArgs({ refresh: true }), io, options);
     expect(refreshed.valueRanges[0].fromCache).toBe(false);
     // После обновления кэш снова жив: следующий вызов читает его.
-    const next = await runGet(getArgs(), io, options) as {
+    const next = (await runGet(getArgs(), io, options)) as {
       valueRanges: { fromCache: boolean }[];
     };
     expect(next.valueRanges[0].fromCache).toBe(true);
@@ -527,7 +536,7 @@ it("кэш листа живёт по sheet.cache.tab_ttl из предпочт�
     const at = (nowSeconds: number) => ({ ...options, nowSeconds });
     await runGet(getArgs(), io, at(1000));
     // Умолчание TTL — 7200 с: через час запись ещё жива.
-    const warm = await runGet(getArgs(), io, at(1000 + 3600)) as {
+    const warm = (await runGet(getArgs(), io, at(1000 + 3600))) as {
       valueRanges: { fromCache: boolean }[];
     };
     expect(warm.valueRanges[0].fromCache).toBe(true);
@@ -536,7 +545,7 @@ it("кэш листа живёт по sheet.cache.tab_ttl из предпочт�
     // иначе «молча на умолчаниях» вернётся другой дорогой
     // (`platform/config.md`, инвариант о немедленной видимости).
     setConfigValue(db, "sheet.cache.tab_ttl", "60");
-    const cold = await runGet(getArgs(), io, at(1000 + 3600)) as {
+    const cold = (await runGet(getArgs(), io, at(1000 + 3600))) as {
       valueRanges: { fromCache: boolean }[];
     };
     expect(cold.valueRanges[0].fromCache).toBe(false);

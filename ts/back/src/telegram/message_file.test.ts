@@ -35,11 +35,15 @@ describe("описание вложения по таблице спеки", () 
   const cases = [
     {
       name: "документ с именем",
-      file: documentFile(42, {
-        name: "разбор.md",
-        size: 1234,
-        mime: "text/markdown",
-      }, none),
+      file: documentFile(
+        42,
+        {
+          name: "разбор.md",
+          size: 1234,
+          mime: "text/markdown",
+        },
+        none,
+      ),
       listed: { name: "разбор.md", size: 1234, mime: "text/markdown" },
     },
     {
@@ -77,11 +81,15 @@ it("saveTo — путь <chat>-<id>-<имя>, size из записи", async () 
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     // Заявка Telegram (1234) расходится с записанным: в вывод идёт записанное.
-    const file = documentFile(42, {
-      name: "разбор.md",
-      size: 1234,
-      mime: "text/markdown",
-    }, bytesOf("# разбор"));
+    const file = documentFile(
+      42,
+      {
+        name: "разбор.md",
+        size: 1234,
+        mime: "text/markdown",
+      },
+      bytesOf("# разбор"),
+    );
     const saved = await file.saveTo(new Inbox(dir), CHAT);
     expect(saved).toStrictEqual({
       path: `${dir}/-1000000000101-42-разбор.md`,
@@ -99,11 +107,15 @@ it("saveTo — имя с ../ и NUL не уводит из каталога (F5)
   const root = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     const dir = `${root}/a/b`;
-    const file = documentFile(44, {
-      name: "../../x\0.md",
-      size: 10,
-      mime: "text/markdown",
-    }, bytesOf("0123456789"));
+    const file = documentFile(
+      44,
+      {
+        name: "../../x\0.md",
+        size: 10,
+        mime: "text/markdown",
+      },
+      bytesOf("0123456789"),
+    );
     const saved = await file.saveTo(new Inbox(dir), CHAT);
     expect(saved.path).toStrictEqual(`${dir}/-1000000000101-44-.._.._x_.md`);
     expect(saved.name).toBe("../../x\0.md");
@@ -169,11 +181,15 @@ describe("длинное имя на диске — не длиннее 255 ба
   afterAll(() => rm(root, { recursive: true }));
   for (const { id, name, disk } of cases) {
     it(`${id}: ${name.slice(0, 12)}…`, async () => {
-      const file = documentFile(id, {
-        name,
-        size: 10,
-        mime: "text/markdown",
-      }, bytesOf("0123456789"));
+      const file = documentFile(
+        id,
+        {
+          name,
+          size: 10,
+          mime: "text/markdown",
+        },
+        bytesOf("0123456789"),
+      );
       const saved = await file.saveTo(new Inbox(root), CHAT);
       expect(saved.path).toStrictEqual(`${root}/-1000000000101-${id}-${disk}`);
       expect(saved.name).toStrictEqual(name);

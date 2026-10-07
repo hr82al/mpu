@@ -178,10 +178,7 @@ it("времени Telegram не сообщил — date остаётся null",
 
 it("идентификатора чата нет — отказ операции, а не ноль", async () => {
   const { client } = stand([message(5000001, { chatId: null })]);
-  const err = await rejected(
-    () => sendMessage(client, plan()),
-    VerbatimError,
-  );
+  const err = await rejected(() => sendMessage(client, plan()), VerbatimError);
   expect(err.message).toStrictEqual(
     "telegram: Telegram не сообщил идентификатор чата",
   );
@@ -205,12 +202,16 @@ it("адресат-название ищется поиском, а не рез�
 it("имени такого нет — вторая попытка ищет чат по названию", async () => {
   // Латинская строка без пробелов («news», «DEV») — обычное название
   // чата, и до поиска она обязана дойти.
-  const { client, seen } = stand([message(5000001)], {
-    on: "resolve:name",
-    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
-  }, [
-    { peerType: "supergroup", rawId: 3, title: "news", username: null },
-  ]);
+  const { client, seen } = stand(
+    [message(5000001)],
+    {
+      on: "resolve:name",
+      err: refused(
+        new MtPeerNotFoundError("Peer with username news not found"),
+      ),
+    },
+    [{ peerType: "supergroup", rawId: 3, title: "news", username: null }],
+  );
   const sent = await sendMessage(
     client,
     plan({ target: "news", peer: { kind: "guess", name: "news" } }),
@@ -225,13 +226,19 @@ it("имени такого нет — вторая попытка ищет ча
 });
 
 it("несколько чатов с таким названием — отказ со списком", async () => {
-  const { client, seen } = stand([message(5000001)], {
-    on: "resolve:name",
-    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
-  }, [
-    { peerType: "supergroup", rawId: 3, title: "news рынка", username: null },
-    { peerType: "channel", rawId: 4, title: "news дня", username: null },
-  ]);
+  const { client, seen } = stand(
+    [message(5000001)],
+    {
+      on: "resolve:name",
+      err: refused(
+        new MtPeerNotFoundError("Peer with username news not found"),
+      ),
+    },
+    [
+      { peerType: "supergroup", rawId: 3, title: "news рынка", username: null },
+      { peerType: "channel", rawId: 4, title: "news дня", username: null },
+    ],
+  );
   const err = await rejected(
     () =>
       sendMessage(
@@ -249,12 +256,16 @@ it("несколько чатов с таким названием — отка�
 });
 
 it("объявленное имя второй попытки не получает", async () => {
-  const { client, seen } = stand([message(5000001)], {
-    on: "resolve:name",
-    err: refused(new MtPeerNotFoundError("Peer with username durov not found")),
-  }, [
-    { peerType: "supergroup", rawId: 3, title: "durov", username: null },
-  ]);
+  const { client, seen } = stand(
+    [message(5000001)],
+    {
+      on: "resolve:name",
+      err: refused(
+        new MtPeerNotFoundError("Peer with username durov not found"),
+      ),
+    },
+    [{ peerType: "supergroup", rawId: 3, title: "durov", username: null }],
+  );
   const err = await rejected(
     () =>
       sendMessage(
@@ -317,10 +328,16 @@ it("название без совпадений — отказ поиска, а
 it("ни имени, ни чата с таким названием — отказ поиска", async () => {
   // То, что увидит пользователь живьём: первая попытка отказала,
   // вторая ничего не нашла.
-  const { client, seen } = stand([], {
-    on: "resolve:name",
-    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
-  }, []);
+  const { client, seen } = stand(
+    [],
+    {
+      on: "resolve:name",
+      err: refused(
+        new MtPeerNotFoundError("Peer with username news not found"),
+      ),
+    },
+    [],
+  );
   const err = await rejected(
     () =>
       sendMessage(
@@ -355,10 +372,14 @@ it("отказ на найденном чате — отказ Telegram, не «
   const flood = refused(
     tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
   );
-  const { client, seen } = stand([message(5000001)], {
-    on: "resolve:id",
-    err: flood,
-  }, [{ peerType: "supergroup", rawId: 3, title: "news", username: null }]);
+  const { client, seen } = stand(
+    [message(5000001)],
+    {
+      on: "resolve:id",
+      err: flood,
+    },
+    [{ peerType: "supergroup", rawId: 3, title: "news", username: null }],
+  );
   const err = await rejected(
     () =>
       sendMessage(
@@ -378,10 +399,7 @@ it("отказ отправки не выдаётся за отказ адрес
     on: "send",
     err: refused(new tl.RpcError(400, "MEDIA_EMPTY")),
   });
-  const err = await rejected(
-    () => sendMessage(client, plan()),
-    VerbatimError,
-  );
+  const err = await rejected(() => sendMessage(client, plan()), VerbatimError);
   expect(err.message).toStrictEqual("telegram: RPC error: MEDIA_EMPTY");
 });
 
@@ -423,11 +441,7 @@ describe("дефект клиента не выдаётся ни за отказ
   for (const { name, on, target, peer, found } of cases) {
     it(name, async () => {
       const defect = new TypeError(`дефект: ${name}`);
-      const { client } = stand(
-        [message(5000001)],
-        { on, err: defect },
-        found,
-      );
+      const { client } = stand([message(5000001)], { on, err: defect }, found);
       const err = await rejected(
         () => sendMessage(client, plan({ target, peer })),
         Error,
@@ -456,9 +470,6 @@ it("rate-limit сообщается со сроком ожидания", async (
     tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
   );
   const { client } = stand([], { on: "send", err: flood });
-  const err = await rejected(
-    () => sendMessage(client, plan()),
-    VerbatimError,
-  );
+  const err = await rejected(() => sendMessage(client, plan()), VerbatimError);
   expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
 });

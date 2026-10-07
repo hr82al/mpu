@@ -53,9 +53,10 @@ export interface SsAccessOptions {
 
 type SsIo = CommandIo;
 
-const spreadsheet = z.string({
-  error: "нужен spreadsheet: идентификатор таблицы",
-})
+const spreadsheet = z
+  .string({
+    error: "нужен spreadsheet: идентификатор таблицы",
+  })
   .describe("идентификатор таблицы (spreadsheet_id)");
 
 const grantSchema = z.object({ id: z.string(), status: z.string() });
@@ -76,10 +77,7 @@ function slback(io: SsIo, options: SsAccessOptions): SlbackSession {
 }
 
 /** Сессия main-БД только на чтение: резолву запись не нужна. */
-async function mainDb(
-  io: SsIo,
-  options: SsAccessOptions,
-): Promise<SqlSession> {
+async function mainDb(io: SsIo, options: SsAccessOptions): Promise<SqlSession> {
   const open = options.openSession ?? denoSession("read-only");
   return await open(serverTarget(io.envFile, MAIN_SERVER));
 }
@@ -103,12 +101,14 @@ const requestArgs = z.object({
   role: z.string().optional().describe("googleSheetsRole; только editor"),
   reason: z.string().optional().describe("обоснование, 3..500 символов"),
   template: z.string().optional().describe("accessTemplateId (UUID)"),
-  body: z.string().optional().describe(
-    "полный JSON тела; отменяет --role/--reason/--template",
-  ),
-  "body-file": z.string().optional().describe(
-    "путь к файлу с полным JSON тела; как body:",
-  ),
+  body: z
+    .string()
+    .optional()
+    .describe("полный JSON тела; отменяет --role/--reason/--template"),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("путь к файлу с полным JSON тела; как body:"),
 });
 
 const responseResult = z.object({
@@ -118,10 +118,7 @@ const responseResult = z.object({
 type RequestArgs = z.infer<typeof requestArgs>;
 
 /** Тело `request`: либо `--body` целиком, либо авто-тело с правками. */
-async function requestPayload(
-  args: RequestArgs,
-  io: SsIo,
-): Promise<unknown> {
+async function requestPayload(args: RequestArgs, io: SsIo): Promise<unknown> {
   const whole = args.body ?? args["body-file"];
   if (whole === undefined) {
     return requestBody({
@@ -134,7 +131,8 @@ async function requestPayload(
   // источника одного поля означали бы неявное старшинство, о котором
   // оператор узнавал бы по результату (спека, инвариант 3).
   if (
-    args.role !== undefined || args.reason !== undefined ||
+    args.role !== undefined ||
+    args.reason !== undefined ||
     args.template !== undefined
   ) {
     throw new UsageError(
@@ -261,9 +259,10 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.
 
 const revokeArgs = z.object({
   spreadsheet,
-  "grant-id": z.string().optional().describe(
-    "явный идентификатор выдачи; иначе резолв из main-БД",
-  ),
+  "grant-id": z
+    .string()
+    .optional()
+    .describe("явный идентификатор выдачи; иначе резолв из main-БД"),
   reason: z.string().optional().describe("причина отзыва"),
 });
 
@@ -365,8 +364,10 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода 
  */
 export function renderRevoke(result: RevokeResult): string {
   if (result.revoked.length === 0) return "отзывать нечего\n";
-  return `отозвано выдач: ${result.revoked.length}\n` +
-    result.revoked.map((grant) => `  ${grant.id} (${grant.status})\n`).join("");
+  return (
+    `отозвано выдач: ${result.revoked.length}\n` +
+    result.revoked.map((grant) => `  ${grant.id} (${grant.status})\n`).join("")
+  );
 }
 
 const resetArgs = z.object({
@@ -420,7 +421,8 @@ export async function runReset(
       // сервера, а не от нас (спека, инвариант 1).
       throw new DomainError(err.message, {
         cause: err,
-        advice: "конвейер отзыва застрял; истеки строку выдачи вручную и " +
+        advice:
+          "конвейер отзыва застрял; истеки строку выдачи вручную и " +
           "повтори",
       });
     }
@@ -476,10 +478,11 @@ Exit: 0 — успех; 1 — отказ sl-back либо истёкшее ож�
   resultSchema: resetResult,
   run: (args: ResetArgs, io: SsIo) => runReset(args, io),
   render: (result: ResetResult) => {
-    const head = result.revoked.length === 0
-      ? "отзывать нечего\n"
-      : `отозвано выдач: ${result.revoked.length}, ` +
-        `ждали ${Math.round(result.waitedMs / 1000)} с\n`;
+    const head =
+      result.revoked.length === 0
+        ? "отзывать нечего\n"
+        : `отозвано выдач: ${result.revoked.length}, ` +
+          `ждали ${Math.round(result.waitedMs / 1000)} с\n`;
     return head + printResponse(result.response);
   },
 });

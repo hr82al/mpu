@@ -63,17 +63,19 @@ const LOW = 512 * MIB;
 const CORE_PROC: Proc = { pid: CORE, ppid: 1, rss: 4 * GIB, comm: "mpu-back" };
 
 it("сторож: памяти мало — убит самый большой, отметка до убийства", async () => {
-  expect(await tick(LOW, [CORE_PROC, worker(601, 300), worker(602, 900)]))
-    .toStrictEqual([
-      "mark 602 900",
-      "kill 602",
-      "[supervisor] сторож: памяти 512 МиБ, убит исполнитель 602 (900 МиБ)",
-    ]);
+  expect(
+    await tick(LOW, [CORE_PROC, worker(601, 300), worker(602, 900)]),
+  ).toStrictEqual([
+    "mark 602 900",
+    "kill 602",
+    "[supervisor] сторож: памяти 512 МиБ, убит исполнитель 602 (900 МиБ)",
+  ]);
 });
 
 it("сторож: памяти мало, исполнители не больше 256 МиБ — никого", async () => {
-  expect(await tick(LOW, [CORE_PROC, worker(601, 200), worker(602, 256)]))
-    .toStrictEqual([]);
+  expect(
+    await tick(LOW, [CORE_PROC, worker(601, 200), worker(602, 256)]),
+  ).toStrictEqual([]);
 });
 
 it("сторож: памяти хватает — никого, даже большого", async () => {
@@ -86,12 +88,13 @@ it("сторож: не потомок ядра и не исполнитель �
   const shell: Proc = { pid: 800, ppid: CORE, rss: MIB, comm: "sh" };
   const ssh: Proc = { pid: 900, ppid: CORE, rss: 2 * GIB, comm: "ssh" };
   // Потомок через посредника — исполнитель; порядок строк `ps` любой.
-  expect(await tick(LOW, [grandchild, CORE_PROC, stranger, ssh, shell]))
-    .toStrictEqual([
-      "mark 801 400",
-      "kill 801",
-      "[supervisor] сторож: памяти 512 МиБ, убит исполнитель 801 (400 МиБ)",
-    ]);
+  expect(
+    await tick(LOW, [grandchild, CORE_PROC, stranger, ssh, shell]),
+  ).toStrictEqual([
+    "mark 801 400",
+    "kill 801",
+    "[supervisor] сторож: памяти 512 МиБ, убит исполнитель 801 (400 МиБ)",
+  ]);
 });
 
 it("сторож: ядра нет — снимок не снимается", async () => {

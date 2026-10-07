@@ -41,8 +41,8 @@ it("обходится весь каталог, а не первый файл", 
 it("настоящий каталог непуст и содержит известную таблицу", async () => {
   const goldens = await schemaGoldens();
   expect(goldens.length > 0).toBe(true);
-  const grants = goldens.find((one) =>
-    one.table === "spreadsheets_access_grants"
+  const grants = goldens.find(
+    (one) => one.table === "spreadsheets_access_grants",
   );
   // Ключ выдачи зовётся `grant_id`; колонки `id` в таблице нет вовсе
   // (замер порции 79, из-за которого голден и появился).
@@ -113,11 +113,13 @@ describe("план сверки: пропуск и проверка — разн
   });
 
   it("реквизиты есть — сверяем", () => {
-    const plan = schemaCheckPlan(envOf({
-      pg_0: "127.0.0.1",
-      PG_MAIN_USER_NAME: "u",
-      PG_MAIN_USER_PASSWORD: "p",
-    }));
+    const plan = schemaCheckPlan(
+      envOf({
+        pg_0: "127.0.0.1",
+        PG_MAIN_USER_NAME: "u",
+        PG_MAIN_USER_PASSWORD: "p",
+      }),
+    );
     expect(plan.kind).toBe("check");
     expect(plan.kind === "check" && plan.target.host).toBe("127.0.0.1");
   });

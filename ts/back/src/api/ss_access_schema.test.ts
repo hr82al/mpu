@@ -26,8 +26,8 @@ import { schemaGoldens } from "./schema_golden.ts";
 /** Состав колонок из голдена — общим загрузчиком, без второй копии. */
 async function goldenColumns(): Promise<readonly string[]> {
   const goldens = await schemaGoldens();
-  const grants = goldens.find((one) =>
-    one.table === "spreadsheets_access_grants"
+  const grants = goldens.find(
+    (one) => one.table === "spreadsheets_access_grants",
   );
   if (grants === undefined) throw new Error("голдена таблицы выдач нет");
   return grants.columns;

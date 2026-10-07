@@ -78,11 +78,13 @@ const API_KEY = "proba-tls-key-Vn3wq8";
  */
 function fakeTlsServer(
   handler: (req: Request) => Response | Promise<Response> = (req) =>
-    Response.json([{
-      Id: 1,
-      Name: req.headers.get("X-API-Key") ?? "",
-      Status: 1,
-    }]),
+    Response.json([
+      {
+        Id: 1,
+        Name: req.headers.get("X-API-Key") ?? "",
+        Status: 1,
+      },
+    ]),
 ): Promise<FakeHttp> {
   // Адрес — `https://127.0.0.1:<порт>`, а сертификат выписан на
   // `localhost`: для verifyTls: true отказ ожидаем в любом случае.

@@ -26,20 +26,18 @@ describe("кадр сервера: шесть видов и отказ проч�
       expect(serverFrameOf(JSON.stringify(frame))).toStrictEqual(frame);
     });
   }
-  for (
-    const bad of [
-      "{",
-      "[]",
-      '{"exit":"0"}',
-      '{"exit":1.5}',
-      '{"out":1}',
-      '{"out":"a","err":"b"}',
-      '{"what":"x"}',
-      '{"stdinRequest":false}',
-      '{"stdinRequest":"yes"}',
-      '{"settled":true}',
-    ]
-  ) {
+  for (const bad of [
+    "{",
+    "[]",
+    '{"exit":"0"}',
+    '{"exit":1.5}',
+    '{"out":1}',
+    '{"out":"a","err":"b"}',
+    '{"what":"x"}',
+    '{"stdinRequest":false}',
+    '{"stdinRequest":"yes"}',
+    '{"settled":true}',
+  ]) {
     it(bad, () => {
       expect(() => serverFrameOf(bad)).toThrow(BadFrame);
     });
@@ -75,16 +73,14 @@ describe("кадр отказа: объект доезжает, поле не с
       ),
     ).toStrictEqual({ stdout: "", stderr: "x", exit: 2, refusal });
   });
-  for (
-    const bad of [
-      '{"refusal":"x"}',
-      '{"refusal":{"reason":"r","hint":"kiten","candidates":[],"text":"t"}}',
-      '{"refusal":{"reason":"r","hint":[1],"candidates":[],"text":"t"}}',
-      '{"refusal":{"reason":"r","hint":null,"candidates":null,"text":"t"}}',
-      '{"refusal":{"reason":1,"hint":null,"candidates":[],"text":"t"}}',
-      '{"refusal":{"reason":"r","hint":null,"candidates":[]}}',
-    ]
-  ) {
+  for (const bad of [
+    '{"refusal":"x"}',
+    '{"refusal":{"reason":"r","hint":"kiten","candidates":[],"text":"t"}}',
+    '{"refusal":{"reason":"r","hint":[1],"candidates":[],"text":"t"}}',
+    '{"refusal":{"reason":"r","hint":null,"candidates":null,"text":"t"}}',
+    '{"refusal":{"reason":1,"hint":null,"candidates":[],"text":"t"}}',
+    '{"refusal":{"reason":"r","hint":null,"candidates":[]}}',
+  ]) {
     it(bad, () => {
       expect(() => serverFrameOf(bad)).toThrow(BadFrame);
     });
@@ -99,13 +95,11 @@ describe("вид вопроса: secret доезжает, line опускает�
       ask: "q? ",
     });
   });
-  for (
-    const bad of [
-      '{"ask":"q? ","kind":"Secret"}',
-      '{"ask":"q? ","kind":"menu"}',
-      '{"ask":"q? ","kind":1}',
-    ]
-  ) {
+  for (const bad of [
+    '{"ask":"q? ","kind":"Secret"}',
+    '{"ask":"q? ","kind":"menu"}',
+    '{"ask":"q? ","kind":1}',
+  ]) {
     // Чужой вид — плохой кадр, а не молчаливое «видимый»: скрытое не
     // должно становиться видимым по ошибке.
     it(bad, () => {
@@ -115,14 +109,16 @@ describe("вид вопроса: secret доезжает, line опускает�
 });
 
 describe("тело ответа по номеру: номер и ответ, мусор — пусто", () => {
-  const cases:
-    readonly (readonly [string, { ticket: string; answer: string }])[] = [
-      ['{"ticket":"ab","answer":"y"}', { ticket: "ab", answer: "y" }],
-      ['{"ticket":"ab"}', { ticket: "ab", answer: "" }],
-      ['{"ticket":1,"answer":true}', { ticket: "", answer: "" }],
-      ["[]", { ticket: "", answer: "" }],
-      ["{", { ticket: "", answer: "" }],
-    ];
+  const cases: readonly (readonly [
+    string,
+    { ticket: string; answer: string },
+  ])[] = [
+    ['{"ticket":"ab","answer":"y"}', { ticket: "ab", answer: "y" }],
+    ['{"ticket":"ab"}', { ticket: "ab", answer: "" }],
+    ['{"ticket":1,"answer":true}', { ticket: "", answer: "" }],
+    ["[]", { ticket: "", answer: "" }],
+    ["{", { ticket: "", answer: "" }],
+  ];
   for (const [text, expected] of cases) {
     it(text, () => expect(ticketAnswerOf(text)).toStrictEqual(expected));
   }
@@ -138,20 +134,17 @@ describe("собранный ответ: итог кодом или вопрос
     expect(collectedOf(JSON.stringify(exited))).toStrictEqual(exited);
     expect(collectedOf(JSON.stringify(asked))).toStrictEqual(asked);
     expect(collectedOf(JSON.stringify(secret))).toStrictEqual(secret);
-    expect(collectedOf(JSON.stringify({ ...asked, kind: "line" })))
-      .toStrictEqual(
-        asked,
-      );
+    expect(
+      collectedOf(JSON.stringify({ ...asked, kind: "line" })),
+    ).toStrictEqual(asked);
   });
-  for (
-    const bad of [
-      "{",
-      "[]",
-      '{"stdout":"a"}',
-      '{"stdout":"","stderr":""}',
-      '{"stdout":"","stderr":"","ask":"q? ","kind":"menu","ticket":"ab"}',
-    ]
-  ) {
+  for (const bad of [
+    "{",
+    "[]",
+    '{"stdout":"a"}',
+    '{"stdout":"","stderr":""}',
+    '{"stdout":"","stderr":"","ask":"q? ","kind":"menu","ticket":"ab"}',
+  ]) {
     it(bad, () => {
       expect(() => collectedOf(bad)).toThrow(BadFrame);
     });
@@ -166,20 +159,19 @@ describe("собранный ответ: вывод файлом вместо st
     slice: true,
   };
   beforeAll(() => {
-    expect(collectedOf(JSON.stringify({ file, stderr: "", exit: 0 })))
-      .toStrictEqual({ stdout: "", stderr: "", exit: 0, file });
+    expect(
+      collectedOf(JSON.stringify({ file, stderr: "", exit: 0 })),
+    ).toStrictEqual({ stdout: "", stderr: "", exit: 0, file });
   });
-  for (
-    const bad of [
-      JSON.stringify({ stdout: "a", file, stderr: "", exit: 0 }),
-      JSON.stringify({ file, exit: 0 }),
-      JSON.stringify({ file: "x", stderr: "", exit: 0 }),
-      JSON.stringify({ file: { ...file, bytes: "1" }, stderr: "", exit: 0 }),
-      JSON.stringify({ file: { ...file, lines: 1.5 }, stderr: "", exit: 0 }),
-      JSON.stringify({ file: { ...file, slice: 1 }, stderr: "", exit: 0 }),
-      JSON.stringify({ file: { ...file, path: 1 }, stderr: "", exit: 0 }),
-    ]
-  ) {
+  for (const bad of [
+    JSON.stringify({ stdout: "a", file, stderr: "", exit: 0 }),
+    JSON.stringify({ file, exit: 0 }),
+    JSON.stringify({ file: "x", stderr: "", exit: 0 }),
+    JSON.stringify({ file: { ...file, bytes: "1" }, stderr: "", exit: 0 }),
+    JSON.stringify({ file: { ...file, lines: 1.5 }, stderr: "", exit: 0 }),
+    JSON.stringify({ file: { ...file, slice: 1 }, stderr: "", exit: 0 }),
+    JSON.stringify({ file: { ...file, path: 1 }, stderr: "", exit: 0 }),
+  ]) {
     it(bad, () => {
       expect(() => collectedOf(bad)).toThrow(BadFrame);
     });
@@ -189,8 +181,9 @@ describe("собранный ответ: вывод файлом вместо st
 it("первый кадр: caller — строка или нет поля", () => {
   const base = { words: ["it"], cwd: "/" };
   expect(lineRequest(JSON.stringify(base)).caller).toStrictEqual(undefined);
-  expect(lineRequest(JSON.stringify({ ...base, caller: "ppid:7" })).caller)
-    .toBe("ppid:7");
+  expect(
+    lineRequest(JSON.stringify({ ...base, caller: "ppid:7" })).caller,
+  ).toBe("ppid:7");
   const err = thrown(
     () => lineRequest(JSON.stringify({ ...base, caller: 7 })),
     BadFrame,
@@ -222,24 +215,20 @@ describe("кадр картинки: четыре вида доезжают, п�
       });
     });
   }
-  for (
-    const bad of [
-      '{"picture":"x"}',
-      '{"picture":{"mime":"image/svg+xml","data":"AAAA"}}',
-      '{"picture":{"mime":"image/jpeg","data":1}}',
-      '{"picture":{"mime":"image/jpeg"}}',
-    ]
-  ) {
+  for (const bad of [
+    '{"picture":"x"}',
+    '{"picture":{"mime":"image/svg+xml","data":"AAAA"}}',
+    '{"picture":{"mime":"image/jpeg","data":1}}',
+    '{"picture":{"mime":"image/jpeg"}}',
+  ]) {
     it(bad, () => {
       expect(() => serverFrameOf(bad)).toThrow(BadFrame);
     });
   }
-  for (
-    const bad of [
-      '{"stdout":"","stderr":"","exit":0,"pictures":{}}',
-      '{"stdout":"","stderr":"","exit":0,"pictures":[{"mime":"image/bmp","data":""}]}',
-    ]
-  ) {
+  for (const bad of [
+    '{"stdout":"","stderr":"","exit":0,"pictures":{}}',
+    '{"stdout":"","stderr":"","exit":0,"pictures":[{"mime":"image/bmp","data":""}]}',
+  ]) {
     it(bad, () => {
       expect(() => collectedOf(bad)).toThrow(BadFrame);
     });

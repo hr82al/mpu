@@ -161,13 +161,15 @@ class ChatConfirm implements Rival {
     return (places) =>
       new Form({
         places,
-        steps: [{
-          head,
-          text: this.#text,
-          options: CHOICES.map((choice) => ({ label: choice.label })),
-          choice: ONE,
-          reply: BUTTONS_ONLY,
-        }],
+        steps: [
+          {
+            head,
+            text: this.#text,
+            options: CHOICES.map((choice) => ({ label: choice.label })),
+            choice: ONE,
+            reply: BUTTONS_ONLY,
+          },
+        ],
         answerLine: ANSWER_LINE,
       });
   }
@@ -209,7 +211,7 @@ class ChatRivalry implements Rivalry {
     // дублирует, пока вопрос в ряду.
     const key = sessionKeyOf(env);
     this.#stage = this.#stage.ask(() =>
-      key.seatUrgent(sessions, () => questions.ask(form(window)))
+      key.seatUrgent(sessions, () => questions.ask(form(window))),
     );
     try {
       await this.#stage.decided(decide);

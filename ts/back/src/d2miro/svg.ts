@@ -70,11 +70,9 @@ function decodeName(encoded: string): string | undefined {
 function pathBox(d: string): Omit<SvgShape, "name"> | undefined {
   const xs: number[] = [];
   const ys: number[] = [];
-  for (
-    const step of d.matchAll(
-      /([MLCSQTAVHZmlcsqtavhz])([^MLCSQTAVHZmlcsqtavhz]*)/g,
-    )
-  ) {
+  for (const step of d.matchAll(
+    /([MLCSQTAVHZmlcsqtavhz])([^MLCSQTAVHZmlcsqtavhz]*)/g,
+  )) {
     const [, command, tail] = step;
     const numbers = (tail.match(NUMBER) ?? []).map(Number);
     if (command === "V" || command === "v") {

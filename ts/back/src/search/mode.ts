@@ -34,9 +34,7 @@ export type SearchMode = "local" | "email" | "x10-selector";
  */
 export function modeOf(inputs: ModeInputs): SearchMode {
   if (isEmail(inputs.value) && inputs.scope !== "access") return "email";
-  if (
-    inputs.reasonGiven || inputs.refreshCache || inputs.scope !== "auto"
-  ) {
+  if (inputs.reasonGiven || inputs.refreshCache || inputs.scope !== "auto") {
     return "x10-selector";
   }
   return "local";

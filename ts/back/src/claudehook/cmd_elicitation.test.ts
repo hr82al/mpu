@@ -13,13 +13,15 @@ it("15: однострока и фрагмент настроек — как в 
     "Как ответить на форму MCP-сервера из Telegram?",
   );
   const fragment = command.help.slice(command.help.lastIndexOf("\n{") + 1);
-  expect(JSON.parse(fragment)).toStrictEqual(JSON.parse(
-    await readFile(
-      new URL(
-        "testdata/elicitation/settings-fragment-elicitation.json",
-        import.meta.url,
+  expect(JSON.parse(fragment)).toStrictEqual(
+    JSON.parse(
+      await readFile(
+        new URL(
+          "testdata/elicitation/settings-fragment-elicitation.json",
+          import.meta.url,
+        ),
+        "utf8",
       ),
-      "utf8",
     ),
-  ));
+  );
 });

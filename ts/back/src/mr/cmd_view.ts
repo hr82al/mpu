@@ -17,9 +17,12 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   json: z.boolean().default(false).describe("объект MR целиком"),
 });
 
@@ -116,10 +119,7 @@ squash_commit_sha. diff_refs — три SHA диффа либо null.
 
 Exit: 0 — успех; 2 — нераспознанный id:; 1 — отказ GitLab, ненайденный
 MR, неопределимая ветка.`,
-  examples: [
-    "mpu mr view",
-    "mpu mr view id: group/repo!456 end json",
-  ],
+  examples: ["mpu mr view", "mpu mr view id: group/repo!456 end json"],
   policy: "ro",
   argsSchema,
   resultSchema,

@@ -51,21 +51,21 @@ it("данные кнопки: сборка и разбор туда и обра
 });
 
 it("нажатие другого запуска, другого вопроса, другого шага или чужие данные — «вопрос уже решён»", () => {
-  for (
-    const data of [
-      "r0:7:0:2",
-      "r1:8:0:2",
-      "r1:7:1:2",
-      "r1:7:2",
-      "q1:0",
-      "",
-      "R1:7:0:2",
-      "r1:7:0:-1",
-      "r1:7:0:Later",
-    ]
-  ) {
-    expect(ButtonData.parse(data).pressOn("r1", 7, 0, STEP), data)
-      .toStrictEqual(STALE);
+  for (const data of [
+    "r0:7:0:2",
+    "r1:8:0:2",
+    "r1:7:1:2",
+    "r1:7:2",
+    "q1:0",
+    "",
+    "R1:7:0:2",
+    "r1:7:0:-1",
+    "r1:7:0:Later",
+  ]) {
+    expect(
+      ButtonData.parse(data).pressOn("r1", 7, 0, STEP),
+      data,
+    ).toStrictEqual(STALE);
   }
 });
 

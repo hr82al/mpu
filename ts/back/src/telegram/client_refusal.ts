@@ -21,7 +21,8 @@ import { CryptoInitError, layerFailure } from "./errors.ts";
  * выдать ошибку программы за отказ Telegram.
  */
 export function clientRefusal(err: unknown): unknown {
-  const fromClient = err instanceof tl.RpcError ||
+  const fromClient =
+    err instanceof tl.RpcError ||
     err instanceof MtcuteError ||
     err instanceof CryptoInitError ||
     err instanceof VerbatimError ||

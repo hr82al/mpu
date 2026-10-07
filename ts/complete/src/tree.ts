@@ -146,8 +146,9 @@ class Node implements Place {
     if (child !== undefined) return child;
     const variant = this.#node.variants.find((one) => one.value === word);
     if (variant !== undefined) {
-      const variants = this.#node.variants
-        .filter((one) => one.input !== variant.input);
+      const variants = this.#node.variants.filter(
+        (one) => one.input !== variant.input,
+      );
       return new Node({ ...this.#node, variants });
     }
     return new Keyword(this.#node, [], false).step(word);
@@ -188,8 +189,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function strings(value: unknown): value is string[] {
-  return Array.isArray(value) &&
-    value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 /** Записи со строковыми полями `fields`; прочие отбрасываются. */
@@ -198,8 +200,10 @@ function records<K extends string>(
   fields: readonly K[],
 ): Record<K, string>[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((item): item is Record<K, string> =>
-    isRecord(item) && fields.every((field) => typeof item[field] === "string")
+  return value.filter(
+    (item): item is Record<K, string> =>
+      isRecord(item) &&
+      fields.every((field) => typeof item[field] === "string"),
   );
 }
 
@@ -236,8 +240,11 @@ export function treeOf(text: string): Place {
   }
   if (!isRecord(body) || !Array.isArray(body.nodes)) return NOWHERE;
   // Отбор понимает результат любого узла: список в снимке один.
-  const selection = records(body.selection, ["selector", "kind", "purpose"])
-    .map((line) => ({ value: line.selector, summary: line.purpose }));
+  const selection = records(body.selection, [
+    "selector",
+    "kind",
+    "purpose",
+  ]).map((line) => ({ value: line.selector, summary: line.purpose }));
   const raws = new Map<string, RawNode>();
   for (const value of body.nodes) {
     const raw = rawNode(value);
@@ -250,7 +257,8 @@ export function treeOf(text: string): Place {
     const raw = raws.get(keyOf(path));
     if (raw === undefined) return undefined;
     const unary = new Set(
-      raw.messages.filter((line) => line.kind === "unary")
+      raw.messages
+        .filter((line) => line.kind === "unary")
         .map((line) => line.selector),
     );
     const place = new Node({

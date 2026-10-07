@@ -158,23 +158,22 @@ it("точечные опции правят поля авто-тела", async 
 describe("--body отменяет точечные опции, а не смешивается", () => {
   it("тело уходит целиком", async () => {
     const { session, sent } = sessionOf();
-    await runRequest(
-      { spreadsheet: SS, body: '{"свой":"формат"}' },
-      ioOf(),
-      { session },
-    );
+    await runRequest({ spreadsheet: SS, body: '{"свой":"формат"}' }, ioOf(), {
+      session,
+    });
     // Ни одного поля кнопки: тело заменено, а не дополнено.
-    expect(sent[0].body).toStrictEqual({ "свой": "формат" });
+    expect(sent[0].body).toStrictEqual({ свой: "формат" });
   });
 
   it("вместе с точечной опцией — отказ до сети", async () => {
     const { session, sent } = sessionOf();
-    const err = await rejected(() =>
-      runRequest(
-        { spreadsheet: SS, body: "{}", reason: "текст" },
-        ioOf(),
-        { session },
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runRequest({ spreadsheet: SS, body: "{}", reason: "текст" }, ioOf(), {
+          session,
+        }),
+      UsageError,
+    );
     expect(err.message).toContain("оставь что-то одно");
     expect(sent.length).toBe(0);
   });
@@ -186,15 +185,14 @@ describe("--body отменяет точечные опции, а не смеш�
       ioOf({ "/тело.json": '{"из":"файла"}' }),
       { session },
     );
-    expect(sent[0].body).toStrictEqual({ "из": "файла" });
-    const err = await rejected(() =>
-      runRequest(
-        { spreadsheet: SS, "body-file": "/нет.json" },
-        ioOf(),
-        {
+    expect(sent[0].body).toStrictEqual({ из: "файла" });
+    const err = await rejected(
+      () =>
+        runRequest({ spreadsheet: SS, "body-file": "/нет.json" }, ioOf(), {
           session,
-        },
-      ), UsageError);
+        }),
+      UsageError,
+    );
     expect(err.message).toContain("/нет.json");
   });
 });
@@ -206,11 +204,13 @@ it("status только читает и в main-БД не ходит", async () 
     session,
     openSession: db.open,
   });
-  expect(sent).toStrictEqual([{
-    method: "GET",
-    path: `/admin/ss/${SS}/my-access`,
-    body: undefined,
-  }]);
+  expect(sent).toStrictEqual([
+    {
+      method: "GET",
+      path: `/admin/ss/${SS}/my-access`,
+      body: undefined,
+    },
+  ]);
   expect(db.queries.length).toBe(0);
   expect(result.response).toStrictEqual([{ id: "grant-1" }]);
 });
@@ -281,9 +281,11 @@ it("--grant-id обходит резолв, а main-БД не открывает
   expect(db.queries.length).toBe(0);
   expect(sent.length).toBe(1);
   expect(
-    (sent[0].body as {
-      data: { grantId: string; revokedByUserId: null; reason: string };
-    }).data,
+    (
+      sent[0].body as {
+        data: { grantId: string; revokedByUserId: null; reason: string };
+      }
+    ).data,
   ).toStrictEqual({
     grantId: "явный-1",
     revokedByUserId: null,
@@ -294,11 +296,14 @@ it("--grant-id обходит резолв, а main-БД не открывает
 it("отказ main-БД отличается от отказа sl-back", async () => {
   const { session, sent } = sessionOf();
   const db = dbOf([[]], new Error("connection refused"));
-  const err = await rejected(() =>
-    runRevoke({ spreadsheet: SS }, ioOf(), {
-      session,
-      openSession: db.open,
-    }), GrantResolveError);
+  const err = await rejected(
+    () =>
+      runRevoke({ spreadsheet: SS }, ioOf(), {
+        session,
+        openSession: db.open,
+      }),
+    GrantResolveError,
+  );
   // Сообщение называет резолв и указывает на базу: иначе оператор
   // пойдёт чинить sl-back, который в этот момент цел.
   expect(err.message).toContain("резолв выдачи в main-БД");
@@ -312,11 +317,7 @@ it("reset: отзыв, ожидание, повторная выдача", async
   const { session, sent } = sessionOf();
   // Первый опрос — резолв (выдача есть), второй — всё ещё есть,
   // третий — ушла из индекса.
-  const db = dbOf([
-    [["grant-1", "applied"]],
-    [["grant-1", "applied"]],
-    [],
-  ]);
+  const db = dbOf([[["grant-1", "applied"]], [["grant-1", "applied"]], []]);
   const clock = clockOf();
   const result = await runReset({ spreadsheet: SS }, ioOf(), {
     session,
@@ -325,8 +326,9 @@ it("reset: отзыв, ожидание, повторная выдача", async
     sleep: clock.sleep,
   });
   // Отзыв идёт своей причиной, а не `--reason`: тот относится к выдаче.
-  expect((sent[0].body as { data: { reason: string } }).data.reason)
-    .toStrictEqual(RESET_REVOKE_REASON);
+  expect(
+    (sent[0].body as { data: { reason: string } }).data.reason,
+  ).toStrictEqual(RESET_REVOKE_REASON);
   // Последний вызов — повторная выдача с авто-телом.
   expect(sent[sent.length - 1].path).toStrictEqual(
     `/admin/ss/${SS}/my-access/request`,
@@ -340,13 +342,15 @@ it("reset: --reason относится к выдаче, а не к отзыву"
   const { session, sent } = sessionOf();
   const db = dbOf([[["grant-1", "applied"]], []]);
   const clock = clockOf();
-  await runReset(
-    { spreadsheet: SS, reason: "по обращению клиента" },
-    ioOf(),
-    { session, openSession: db.open, now: clock.now, sleep: clock.sleep },
-  );
-  expect((sent[0].body as { data: { reason: string } }).data.reason)
-    .toStrictEqual(RESET_REVOKE_REASON);
+  await runReset({ spreadsheet: SS, reason: "по обращению клиента" }, ioOf(), {
+    session,
+    openSession: db.open,
+    now: clock.now,
+    sleep: clock.sleep,
+  });
+  expect(
+    (sent[0].body as { data: { reason: string } }).data.reason,
+  ).toStrictEqual(RESET_REVOKE_REASON);
   expect((sent[sent.length - 1].body as { reason: string }).reason).toBe(
     "по обращению клиента",
   );
@@ -357,14 +361,17 @@ it("reset: предел ожидания истёк — код 1, а не мол
   // Выдача из индекса не уходит никогда.
   const db = dbOf([[["grant-1", "applied"]]]);
   const clock = clockOf();
-  const err = await rejected(() =>
-    runReset({ spreadsheet: SS }, ioOf(), {
-      session,
-      openSession: db.open,
-      now: clock.now,
-      sleep: clock.sleep,
-      limitMs: 9_000,
-    }), DomainError);
+  const err = await rejected(
+    () =>
+      runReset({ spreadsheet: SS }, ioOf(), {
+        session,
+        openSession: db.open,
+        now: clock.now,
+        sleep: clock.sleep,
+        limitMs: 9_000,
+      }),
+    DomainError,
+  );
   // Текст называет предел в секундах и оставшуюся выдачу.
   expect(err.message).toContain("9 с");
   expect(err.message).toContain("grant-1 (applied)");
@@ -399,12 +406,20 @@ it("две активные выдачи — отказ: индекс обеща
   // Резолв обязан не «отозвать обе», а сказать, что база разошлась со
   // снимком: уникальность держит частичный индекс, и две активные по
   // одной паре означают, что индекса больше нет.
-  const db = dbOf([[["grant-1", "applied"], ["grant-2", "created"]]]);
-  const err = await rejected(() =>
-    runRevoke({ spreadsheet: SS }, ioOf(), {
-      session,
-      openSession: db.open,
-    }), GrantResolveError);
+  const db = dbOf([
+    [
+      ["grant-1", "applied"],
+      ["grant-2", "created"],
+    ],
+  ]);
+  const err = await rejected(
+    () =>
+      runRevoke({ spreadsheet: SS }, ioOf(), {
+        session,
+        openSession: db.open,
+      }),
+    GrantResolveError,
+  );
   expect(err.message).toContain("индекс");
   expect(err.message).toContain("не больше одной");
   expect(sent.length).toBe(0);

@@ -34,9 +34,10 @@ class Signature implements Kind {
   }
 
   matches(bytes: Uint8Array): boolean {
-    return this.#parts.every(({ at, bytes: part }) =>
-      bytes.byteLength >= at + part.byteLength &&
-      part.every((byte, i) => bytes[at + i] === byte)
+    return this.#parts.every(
+      ({ at, bytes: part }) =>
+        bytes.byteLength >= at + part.byteLength &&
+        part.every((byte, i) => bytes[at + i] === byte),
     );
   }
 
@@ -47,16 +48,14 @@ class Signature implements Kind {
 
 function part(at: number, ...bytes: readonly (number | string)[]): Part {
   const flat = bytes.flatMap((one) =>
-    typeof one === "number" ? [one] : [...new TextEncoder().encode(one)]
+    typeof one === "number" ? [one] : [...new TextEncoder().encode(one)],
   );
   return { at, bytes: new Uint8Array(flat) };
 }
 
 const SIGNATURES: readonly Signature[] = [
-  new Signature("image/jpeg", [part(0, 0xFF, 0xD8, 0xFF)]),
-  new Signature("image/png", [
-    part(0, 0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A),
-  ]),
+  new Signature("image/jpeg", [part(0, 0xff, 0xd8, 0xff)]),
+  new Signature("image/png", [part(0, 0x89, "PNG", 0x0d, 0x0a, 0x1a, 0x0a)]),
   new Signature("image/gif", [part(0, "GIF87a")]),
   new Signature("image/gif", [part(0, "GIF89a")]),
   new Signature("image/webp", [part(0, "RIFF"), part(8, "WEBP")]),

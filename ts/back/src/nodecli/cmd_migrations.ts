@@ -27,9 +27,10 @@ import {
 
 /** Общее у всех трёх групп: имя миграции, необязательное. */
 const nameArg = {
-  name: z.string().optional().describe(
-    "имя миграции; незаданный флаг в inner-команду не идёт",
-  ),
+  name: z
+    .string()
+    .optional()
+    .describe("имя миграции; незаданный флаг в inner-команду не идёт"),
 };
 
 const appArgs = z.object({ ...targetArgs, ...nameArg });
@@ -38,9 +39,10 @@ const clientsArgs = z.object({
   ...commonArgs,
   ...nameArg,
   type: z.string().describe("тип клиентской схемы: обязателен"),
-  forced: z.boolean().default(false).describe(
-    "выполнить принудительно; голый флаг без значения",
-  ),
+  forced: z
+    .boolean()
+    .default(false)
+    .describe("выполнить принудительно; голый флаг без значения"),
 });
 
 const clientsAllArgs = z.object({
@@ -100,8 +102,7 @@ function appMigrations(sub: string): Command {
     path: ["app-migrations", sub],
     keys: {},
     summary: `Миграции схемы приложения: ${sub}.`,
-    usage:
-      `mpu app-migrations ${sub} [print [local]] target: СЕЛЕКТОР [name: N]`,
+    usage: `mpu app-migrations ${sub} [print [local]] target: СЕЛЕКТОР [name: N]`,
     help: `Звать, когда схеме приложения sl-back на сервере нужен шаг
 миграций ${sub}.
 
@@ -139,8 +140,7 @@ function clientsMigrations(sub: string): Command {
     path: ["clients-migrations", sub],
     keys: {},
     summary: `Миграции клиентской схемы: ${sub}.`,
-    usage:
-      `mpu clients-migrations ${sub} [forced] [print [local]] target: СЕЛЕКТОР type: T [name: N]`,
+    usage: `mpu clients-migrations ${sub} [forced] [print [local]] target: СЕЛЕКТОР type: T [name: N]`,
     help: `Звать, когда схеме одного клиента нужен шаг миграций ${sub}.
 
 ${delivery("clients-migrations", "clientsMigrations", method)}
@@ -192,9 +192,7 @@ function clientsMigrationsAll(): Command {
 ${delivery("clients-migrations", "clientsMigrations", "latestAll")}
 
 type: обязателен.`,
-    examples: [
-      "mpu clients-migrations latest-all print target: sl-8 type: wb",
-    ],
+    examples: ["mpu clients-migrations latest-all print target: sl-8 type: wb"],
     policy: "rw",
     helpWhenBare: true,
     errorName: "clients-migrations",
@@ -223,8 +221,7 @@ function datasetsMigrations(sub: string): Command {
     path: ["datasets-migrations", sub],
     keys: {},
     summary: `Миграции датасетов клиента: ${sub}.`,
-    usage:
-      `mpu datasets-migrations ${sub} [print [local]] target: СЕЛЕКТОР dataset: D [name: N]`,
+    usage: `mpu datasets-migrations ${sub} [print [local]] target: СЕЛЕКТОР dataset: D [name: N]`,
     help: `Звать, когда датасету клиента нужен шаг миграций ${sub}.
 
 ${delivery("datasets-migrations", "datasetsMigrations", method)}

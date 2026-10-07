@@ -22,10 +22,15 @@ async function run(file: string, argv: readonly string[]) {
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const code = await lineEntry(consentOf(file))(argv, makeFakeIo(), {
-    stdout: (text: string) => void out.push(text),
-    stderr: (text: string) => void err.push(text),
-  }, journal);
+  const code = await lineEntry(consentOf(file))(
+    argv,
+    makeFakeIo(),
+    {
+      stdout: (text: string) => void out.push(text),
+      stderr: (text: string) => void err.push(text),
+    },
+    journal,
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), called };
 }
 
@@ -42,12 +47,12 @@ describe("отказы с готовой строкой — раздел 2", () 
     [
       ["kiten", "comment", "id:", "55", "text:", "ok", "-m", "x"],
       "mpu kiten comment id: 55 text: ok: значение ok не понимает -m; " +
-      "текст — ключом: mpu kiten comment id: 55 text: ok text: x",
+        "текст — ключом: mpu kiten comment id: 55 text: ok text: x",
     ],
     [
       ["xlsx", "get", "file:", "a.xlsx", "-n", "Лист1"],
       "mpu xlsx get file: a.xlsx: значение a.xlsx не понимает -n; " +
-      "флаг — полным именем: mpu xlsx get file: a.xlsx --sheet Лист1",
+        "флаг — полным именем: mpu xlsx get file: a.xlsx --sheet Лист1",
     ],
     [
       ["kiten", "ls", "--date_from", "2026-01-01"],
@@ -60,7 +65,7 @@ describe("отказы с готовой строкой — раздел 2", () 
     [
       ["kiten", "status", "--out", "group"],
       "mpu kiten status: формат — сообщение результату: " +
-      `mpu kiten status ${END} group`,
+        `mpu kiten status ${END} group`,
     ],
     [
       ["mr", "view", "--mr", "5"],
@@ -69,12 +74,12 @@ describe("отказы с готовой строкой — раздел 2", () 
     [
       ["mr", "create", "--title", "t", "--target", "main"],
       "mpu mr create: --target — теперь ключ into: " +
-      "mpu mr create title: t into: main",
+        "mpu mr create title: t into: main",
     ],
     [
       ["kiten", "status", "--time-since", "30d"],
       "mpu kiten status: --time-since — теперь ключ horizon: " +
-      "mpu kiten status horizon: 30d",
+        "mpu kiten status horizon: 30d",
     ],
   ];
   for (const [argv, stderr] of cases) {
@@ -87,7 +92,8 @@ describe("отказы с готовой строкой — раздел 2", () 
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -109,7 +115,7 @@ describe("отказы с готовой строкой — раздел 3", () 
     [
       ["confirm", "text:", "да?", "-y"],
       "mpu confirm text: да?: значение да? не понимает -y; вариант — словом " +
-      "до ключей: mpu confirm yes text: да?",
+        "до ключей: mpu confirm yes text: да?",
     ],
     [
       ["confirm", "-m", "да?"],
@@ -127,7 +133,7 @@ describe("отказы с готовой строкой — раздел 3", () 
     [
       ["move-client-back", "rm", "1234"],
       "mpu move-client-back rm: значение — ключом: " +
-      "mpu move-client-back rm target: 1234",
+        "mpu move-client-back rm target: 1234",
     ],
   ];
   for (const [argv, stderr] of cases) {
@@ -140,7 +146,8 @@ describe("отказы с готовой строкой — раздел 3", () 
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -149,12 +156,12 @@ describe("отказы с готовой строкой — раздел 4", () 
     [
       ["process", "target:", "54", "--spreadsheet_id", "X"],
       "mpu process: ключ через дефис: " +
-      "mpu process target: 54 --spreadsheet-id X",
+        "mpu process target: 54 --spreadsheet-id X",
     ],
     [
       ["ss-update", "target:", "54", "--update_type", "full"],
       "mpu ss-update: ключ через дефис: " +
-      "mpu ss-update target: 54 --update-type full",
+        "mpu ss-update target: 54 --update-type full",
     ],
     [
       ["ozon-jobs", "sl-2", "show"],
@@ -163,7 +170,7 @@ describe("отказы с готовой строкой — раздел 4", () 
     [
       ["ozon-jobs", "show", "sl-2"],
       "mpu ozon-jobs show: значение — ключом: " +
-      "mpu ozon-jobs show target: sl-2",
+        "mpu ozon-jobs show target: sl-2",
     ],
     [
       ["move-client", "target:", "54", "--target", "sl-2"],
@@ -184,7 +191,8 @@ describe("отказы с готовой строкой — раздел 4", () 
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -193,12 +201,12 @@ describe("отказы с готовой строкой — разделы 5 и 
     [
       ["api", "get-client-module", "54", "wb"],
       "mpu api get-client-module: значение — ключом: " +
-      "mpu api get-client-module client: 54 id: wb",
+        "mpu api get-client-module client: 54 id: wb",
     ],
     [
       ["api", "ss-access", "status", "abc"],
       "mpu api ss-access status: значение — ключом: " +
-      "mpu api ss-access status spreadsheet: abc",
+        "mpu api ss-access status spreadsheet: abc",
     ],
     [
       ["ssh", "sl-1", "--", "ls", "-la"],
@@ -223,6 +231,7 @@ describe("отказы с готовой строкой — разделы 5 и 
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });

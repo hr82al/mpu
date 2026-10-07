@@ -34,7 +34,7 @@ export function renderGetTsv(
 ): string {
   const header = ["range", ...fieldNames(mode)].join("\t");
   const lines = cells.map((cell) =>
-    [escapeTsv(cell.range), ...fields(cell, mode).map(escapeTsv)].join("\t")
+    [escapeTsv(cell.range), ...fields(cell, mode).map(escapeTsv)].join("\t"),
   );
   return [header, ...lines].map((line) => `${line}\n`).join("");
 }
@@ -52,7 +52,7 @@ export function renderGetRaw(
     // «Голое значение»: одно поле без табов — в режиме formulas это
     // формула, иначе значение (подтверждено golden get-raw.txt).
     const cell = cells[0];
-    return mode === "formulas" ? cell.formula ?? "" : stringValue(cell.value);
+    return mode === "formulas" ? (cell.formula ?? "") : stringValue(cell.value);
   }
   return cells.map((cell) => `${fields(cell, mode).join("\t")}\n`).join("");
 }
@@ -72,12 +72,14 @@ export function renderLsLong(sheets: readonly SheetInfo[]): string {
     0,
     ...sheets.map((sheet) => String(sheet.cols).length),
   );
-  return sheets.map((sheet) => {
-    const pad = " ".repeat(titleWidth - codePoints(sheet.title));
-    const title = sheet.title + pad;
-    const cols = String(sheet.cols).padStart(colsWidth);
-    return `${title}  ${sheet.rows}×${cols}  #${sheet.index}\n`;
-  }).join("");
+  return sheets
+    .map((sheet) => {
+      const pad = " ".repeat(titleWidth - codePoints(sheet.title));
+      const title = sheet.title + pad;
+      const cols = String(sheet.cols).padStart(colsWidth);
+      return `${title}  ${sheet.rows}×${cols}  #${sheet.index}\n`;
+    })
+    .join("");
 }
 
 /**

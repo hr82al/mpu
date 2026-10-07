@@ -52,15 +52,18 @@ export async function withFakeLoki(
       db.bootstrap();
       writeLokiCache(db, { hosts: [...hosts], pairs: [] }, 0);
     }
-    await fn({
-      envFile: {
-        get: (name) => values[name],
-        values: () => values,
-        require: (name) => values[name] ?? "",
-        set: () => Promise.resolve(),
+    await fn(
+      {
+        envFile: {
+          get: (name) => values[name],
+          values: () => values,
+          require: (name) => values[name] ?? "",
+          set: () => Promise.resolve(),
+        },
+        openCacheDb: () => openCacheDb(`${dir}/cache.db`),
       },
-      openCacheDb: () => openCacheDb(`${dir}/cache.db`),
-    }, () => asked);
+      () => asked,
+    );
   } finally {
     await server.stop();
     await rm(dir, { recursive: true });

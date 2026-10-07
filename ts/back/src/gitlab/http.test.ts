@@ -41,8 +41,8 @@ it("GET: путь от /api/v4, PRIVATE-TOKEN и Accept", async () => {
 
 it("не-2xx: метод, путь, код и тело до 300 символов", async () => {
   const long = "x".repeat(400);
-  const stand = await startFakeGitlab(() =>
-    new Response(long, { status: 404 })
+  const stand = await startFakeGitlab(
+    () => new Response(long, { status: 404 }),
   );
   try {
     const err = await rejected(
@@ -75,7 +75,7 @@ it("пагинация идёт дальше страницы ровно в ст
   const page = (from: number, count: number) =>
     Array.from({ length: count }, (_, index) => ({ id: from + index }));
   const stand = await startFakeGitlab((seen) =>
-    Response.json(seen.length === 1 ? page(1, 100) : page(101, 7))
+    Response.json(seen.length === 1 ? page(1, 100) : page(101, 7)),
   );
   try {
     const items = await gitlabGetAll(
@@ -102,7 +102,7 @@ it("длина страницы считается по ответу, а не п
     "мусор",
   ];
   const stand = await startFakeGitlab((seen) =>
-    Response.json(seen.length === 1 ? dirty : [{ id: 100 }])
+    Response.json(seen.length === 1 ? dirty : [{ id: 100 }]),
   );
   try {
     const items = await gitlabGetAll(accessTo(stand.baseUrl), "/x");
@@ -114,8 +114,8 @@ it("длина страницы считается по ответу, а не п
 });
 
 it("токен не появляется ни в одном тексте отказа", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
+  const stand = await startFakeGitlab(
+    () => new Response(`{"message":"401 Unauthorized"}`, { status: 401 }),
   );
   try {
     const err = await rejected(
@@ -132,8 +132,8 @@ it("токен не появляется ни в одном тексте отк�
 });
 
 it("ответ не JSON и не той формы — отказ разбора, не молчание", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response("<html>", { status: 200 })
+  const stand = await startFakeGitlab(
+    () => new Response("<html>", { status: 200 }),
   );
   try {
     await rejected(

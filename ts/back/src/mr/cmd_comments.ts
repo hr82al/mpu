@@ -28,16 +28,21 @@ import {
 } from "./threads.ts";
 
 const argsSchema = z.object({
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
-  unresolved: z.boolean().default(false).describe(
-    "только незакрытые треды (resolvable и не resolved)",
-  ),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
+  unresolved: z
+    .boolean()
+    .default(false)
+    .describe("только незакрытые треды (resolvable и не resolved)"),
   file: z.string().optional().describe("подстрока пути позиции треда"),
-  author: z.string().optional().describe(
-    "подстрока автора первой ноты, без учёта регистра",
-  ),
+  author: z
+    .string()
+    .optional()
+    .describe("подстрока автора первой ноты, без учёта регистра"),
   json: z.boolean().default(false).describe("массив тредов JSON"),
   md: z.boolean().default(false).describe("markdown: тред за тредом"),
 });
@@ -123,10 +128,7 @@ notes}; end md печатает markdown с телами нот целиком. 
 Exit: 0 — успех, в том числе когда после фильтров не осталось тредов;
 2 — нераспознанный id:, end json вместе с end md; 1 — отказ GitLab,
 ненайденный MR.`,
-  examples: [
-    "mpu mr comments unresolved",
-    "mpu mr comments id: 456 end md",
-  ],
+  examples: ["mpu mr comments unresolved", "mpu mr comments id: 456 end md"],
   policy: "ro",
   argsSchema,
   formats: { md: ["--md"] },

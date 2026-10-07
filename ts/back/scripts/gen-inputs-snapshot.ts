@@ -39,7 +39,8 @@ const target = new URL(
 );
 await writeFile(target, `${JSON.stringify(snapshot, null, 2)}\n`);
 console.log(
-  `${snapshot.length} команд, ${
-    snapshot.reduce((sum, command) => sum + command.inputs.length, 0)
-  } входов`,
+  `${snapshot.length} команд, ${snapshot.reduce(
+    (sum, command) => sum + command.inputs.length,
+    0,
+  )} входов`,
 );

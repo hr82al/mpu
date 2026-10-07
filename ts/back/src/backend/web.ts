@@ -13,9 +13,8 @@ export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 /** 32 шестнадцатеричных знака. */
 function randomHex(): string {
-  return Array.from(
-    crypto.getRandomValues(new Uint8Array(16)),
-    (byte) => byte.toString(16).padStart(2, "0"),
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
   ).join("");
 }
 
@@ -28,9 +27,8 @@ export async function sessionHash(text: string): Promise<string> {
     "SHA-256",
     new TextEncoder().encode(text),
   );
-  return Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
   ).join("");
 }
 
@@ -109,8 +107,8 @@ export class WebAccess {
   }
 
   #save(): Promise<void> {
-    const rows = [...this.#sessions].map(([hash, until]) =>
-      `${hash} ${until}\n`
+    const rows = [...this.#sessions].map(
+      ([hash, until]) => `${hash} ${until}\n`,
     );
     return this.#file.write(rows.join(""));
   }

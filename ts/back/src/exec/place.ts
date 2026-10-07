@@ -83,9 +83,10 @@ export function ambiguous(
     `container '${name}' ambiguous — ${candidates.length} Portainer endpoints:`,
     {
       details: candidates
-        .map((row) =>
-          `  endpoint=${row.endpointName}  id=${row.endpointId}` +
-          `  url=${row.portainerUrl}`
+        .map(
+          (row) =>
+            `  endpoint=${row.endpointName}  id=${row.endpointId}` +
+            `  url=${row.portainerUrl}`,
         )
         .join("\n"),
     },

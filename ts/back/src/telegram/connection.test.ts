@@ -41,9 +41,9 @@ function acceptedSession(): string {
 }
 
 /** Каждое соединение отказывает; первая попытка отмечается. */
-function refuseConnections():
-  & { readonly attempted: Promise<void> }
-  & Disposable {
+function refuseConnections(): {
+  readonly attempted: Promise<void>;
+} & Disposable {
   const attempted = Promise.withResolvers<void>();
   const realConnect = Socket.prototype.connect;
   // `Reflect.set`: у `connect` сокета несколько перегрузок, одна подмена на
@@ -134,14 +134,10 @@ function run(
   };
   const answers = ["+70001112233"];
   const prompt: Prompt = promptQueue(answers);
-  const code = runCli(
-    argv,
-    makeFakeIo({ envFile, prompt }),
-    {
-      stdout: (text) => void stdout.push(text),
-      stderr: (text) => void stderr.push(text),
-    },
-  );
+  const code = runCli(argv, makeFakeIo({ envFile, prompt }), {
+    stdout: (text) => void stdout.push(text),
+    stderr: (text) => void stderr.push(text),
+  });
   return { code, stdout, stderr, written };
 }
 
@@ -170,9 +166,9 @@ async function expireLimit(
  * пределе. Оборот — сдвиг часов на ноль: он отдаёт ход циклу событий, и
  * отказы сокета (`process.nextTick`) доходят тоже.
  */
-async function drain(
-  operation: { readonly settled: () => boolean },
-): Promise<void> {
+async function drain(operation: {
+  readonly settled: () => boolean;
+}): Promise<void> {
   for (let turn = 0; turn < 20 && !operation.settled(); turn++) {
     await vi.advanceTimersByTimeAsync(0);
   }
@@ -336,7 +332,7 @@ it("сеанс: отказ по пределу соединения — клие
   );
   await Promise.race([refused.attempted, opening.done]);
   await expireLimit(opening);
-  expect(await opening.done instanceof VerbatimError).toBe(true);
+  expect((await opening.done) instanceof VerbatimError).toBe(true);
   expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
 });
 

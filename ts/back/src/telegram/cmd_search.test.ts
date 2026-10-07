@@ -54,12 +54,17 @@ const FOUND: readonly RawMessage[] = [
 ];
 
 it("пустая выдача — пустой массив, не ошибка", async () => {
-  expect(command.renderResult({
-    messages: [],
-    more: false,
-    scanCapped: false,
-    table: false,
-  }, [])).toStrictEqual(await golden("search-empty-stdout.txt"));
+  expect(
+    command.renderResult(
+      {
+        messages: [],
+        more: false,
+        scanCapped: false,
+        table: false,
+      },
+      [],
+    ),
+  ).toStrictEqual(await golden("search-empty-stdout.txt"));
 });
 
 it("--table печатает таблицу тех же данных", async () => {
@@ -73,10 +78,12 @@ it("--table печатает таблицу тех же данных", async () 
     ["--table"],
   );
   expect(text.endsWith("(1 messages)\n")).toBe(true);
-  expect(command.renderResult(
-    { messages: [], more: false, scanCapped: false, table: true },
-    ["--table"],
-  )).toStrictEqual(await golden("search-empty-table-stdout.txt"));
+  expect(
+    command.renderResult(
+      { messages: [], more: false, scanCapped: false, table: true },
+      ["--table"],
+    ),
+  ).toStrictEqual(await golden("search-empty-table-stdout.txt"));
 });
 
 describe("отказы ввода отбиваются до сети", () => {
@@ -139,14 +146,15 @@ describe("объявление команды", () => {
     expect(command.errorName).toBe("telegram search");
   });
   it("формы записи в argv", () => {
-    expect(command.parseArgs(["выгрузка", "--chat", "me", "--table"]))
-      .toStrictEqual({
-        query: "выгрузка",
-        chat: "me",
-        from: "",
-        limit: "50",
-        table: true,
-      });
+    expect(
+      command.parseArgs(["выгрузка", "--chat", "me", "--table"]),
+    ).toStrictEqual({
+      query: "выгрузка",
+      chat: "me",
+      from: "",
+      limit: "50",
+      table: true,
+    });
   });
 });
 
@@ -166,14 +174,15 @@ describe("оборванный потолком скан уезжает в ре�
         yield await Promise.resolve({
           id,
           chat,
-          sender: id % matchEvery === 0
-            ? {
-              peerType: "user" as const,
-              rawId: 500001,
-              title: "Иван",
-              username: null,
-            }
-            : chat,
+          sender:
+            id % matchEvery === 0
+              ? {
+                  peerType: "user" as const,
+                  rawId: 500001,
+                  title: "Иван",
+                  username: null,
+                }
+              : chat,
           date: new Date("2026-08-16T07:54:28.000Z"),
           text: "текст",
           file: noFile(0),

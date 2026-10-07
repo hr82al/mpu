@@ -157,9 +157,7 @@ async function stand(routes: Routes): Promise<Stand> {
 }
 
 /** Все справочники разом: стенд подкоманд, которым нужен весь набор. */
-function fullRoutes(
-  overrides: Record<string, () => Response> = {},
-): Routes {
+function fullRoutes(overrides: Record<string, () => Response> = {}): Routes {
   return {
     [USER_PATH]: () => Response.json(USER),
     [SPACES_PATH]: () => Response.json(SPACES),
@@ -191,10 +189,7 @@ function golden(name: string): Promise<string> {
 }
 
 /** Строки таблицы кэша по возрастанию id. */
-function rows(
-  st: Stand,
-  sql: string,
-): readonly Record<string, unknown>[] {
+function rows(st: Stand, sql: string): readonly Record<string, unknown>[] {
   using db = st.db();
   db.bootstrap();
   // Строки драйвера — записи без прототипа: сверяются копии (`plainRows`).
@@ -337,8 +332,9 @@ describe("roles: без --all системная роль скрыта, с --all
       fullRoutes({ [ROLES_PATH]: () => Response.json(ROLES_ALL) }),
     );
     try {
-      expect(await output(kitenRolesCommand, ["--json", "--all"], st.io))
-        .toStrictEqual(await golden("roles-all.json"));
+      expect(
+        await output(kitenRolesCommand, ["--json", "--all"], st.io),
+      ).toStrictEqual(await golden("roles-all.json"));
     } finally {
       await st.stop();
     }
@@ -366,15 +362,17 @@ describe("скрытые из вывода строки всё равно поп
     );
     try {
       const text = await output(kitenSpacesCommand, ["--json"], st.io);
-      expect((JSON.parse(text) as { id: number }[]).map((space) => space.id))
-        .toStrictEqual([3001, 3002, 3003]);
-      expect(rows(st, "SELECT id, archived FROM kaiten_spaces ORDER BY id"))
-        .toStrictEqual([
-          { id: 3001, archived: 0 },
-          { id: 3002, archived: 0 },
-          { id: 3003, archived: 0 },
-          { id: 3009, archived: 1 },
-        ]);
+      expect(
+        (JSON.parse(text) as { id: number }[]).map((space) => space.id),
+      ).toStrictEqual([3001, 3002, 3003]);
+      expect(
+        rows(st, "SELECT id, archived FROM kaiten_spaces ORDER BY id"),
+      ).toStrictEqual([
+        { id: 3001, archived: 0 },
+        { id: 3002, archived: 0 },
+        { id: 3003, archived: 0 },
+        { id: 3009, archived: 1 },
+      ]);
     } finally {
       await st.stop();
     }
@@ -384,15 +382,17 @@ describe("скрытые из вывода строки всё равно поп
     const st = await stand(fullRoutes());
     try {
       const text = await output(kitenRolesCommand, ["--json"], st.io);
-      expect((JSON.parse(text) as { id: number }[]).map((role) => role.id))
-        .toStrictEqual([7001, 7002, 7003]);
-      expect(rows(st, "SELECT id, name FROM kaiten_roles ORDER BY id"))
-        .toStrictEqual([
-          { id: -1, name: "Employee" },
-          { id: 7001, name: "Роль 1" },
-          { id: 7002, name: "Роль 2" },
-          { id: 7003, name: "Роль 3" },
-        ]);
+      expect(
+        (JSON.parse(text) as { id: number }[]).map((role) => role.id),
+      ).toStrictEqual([7001, 7002, 7003]);
+      expect(
+        rows(st, "SELECT id, name FROM kaiten_roles ORDER BY id"),
+      ).toStrictEqual([
+        { id: -1, name: "Employee" },
+        { id: 7001, name: "Роль 1" },
+        { id: 7002, name: "Роль 2" },
+        { id: 7003, name: "Роль 3" },
+      ]);
     } finally {
       await st.stop();
     }
@@ -407,8 +407,9 @@ describe("скрытые из вывода строки всё равно поп
         st.io,
       );
       expect(JSON.parse(text)).toStrictEqual([]);
-      expect(rows(st, "SELECT id FROM kaiten_boards ORDER BY id"))
-        .toStrictEqual([{ id: 4001 }, { id: 4002 }, { id: 4003 }]);
+      expect(
+        rows(st, "SELECT id FROM kaiten_boards ORDER BY id"),
+      ).toStrictEqual([{ id: 4001 }, { id: 4002 }, { id: 4003 }]);
     } finally {
       await st.stop();
     }
@@ -429,13 +430,15 @@ it("roles: своя запись не стирает кэш пространст
 });
 
 it("lanes: доска с ошибкой пропущена, обход продолжается", async () => {
-  const st = await stand(fullRoutes({
-    [lanesPath(4002)]: () => new Response("нет доступа", { status: 403 }),
-    [lanesPath(4003)]: () =>
-      Response.json([
-        { id: 5100, board_id: 4003, title: "Дорожка третьей доски" },
-      ]),
-  }));
+  const st = await stand(
+    fullRoutes({
+      [lanesPath(4002)]: () => new Response("нет доступа", { status: 403 }),
+      [lanesPath(4003)]: () =>
+        Response.json([
+          { id: 5100, board_id: 4003, title: "Дорожка третьей доски" },
+        ]),
+    }),
+  );
   try {
     seedLane(st, {
       id: 5900,
@@ -446,18 +449,20 @@ it("lanes: доска с ошибкой пропущена, обход прод�
     const text = await output(kitenLanesCommand, ["--json"], st.io);
 
     // Отказ одной доски не роняет команду и не убирает соседние.
-    expect((JSON.parse(text) as { id: number }[]).map((lane) => lane.id))
-      .toStrictEqual([5001, 5002, 5003, 5100]);
+    expect(
+      (JSON.parse(text) as { id: number }[]).map((lane) => lane.id),
+    ).toStrictEqual([5001, 5002, 5003, 5100]);
     // Замена — только по обойдённым доскам: строка отказавшей доски,
     // лежавшая в кэше до запуска, осталась цела.
-    expect(rows(st, "SELECT id, board_id FROM kaiten_lanes ORDER BY id"))
-      .toStrictEqual([
-        { id: 5001, board_id: 4001 },
-        { id: 5002, board_id: 4001 },
-        { id: 5003, board_id: 4001 },
-        { id: 5100, board_id: 4003 },
-        { id: 5900, board_id: 4002 },
-      ]);
+    expect(
+      rows(st, "SELECT id, board_id FROM kaiten_lanes ORDER BY id"),
+    ).toStrictEqual([
+      { id: 5001, board_id: 4001 },
+      { id: 5002, board_id: 4001 },
+      { id: 5003, board_id: 4001 },
+      { id: 5100, board_id: 4003 },
+      { id: 5900, board_id: 4002 },
+    ]);
   } finally {
     await st.stop();
   }
@@ -465,11 +470,13 @@ it("lanes: доска с ошибкой пропущена, обход прод�
 
 it("lanes: отказ ВСЕХ досок скоупа — пустая выдача, а не ошибка", async () => {
   const denied = () => new Response("нет доступа", { status: 403 });
-  const st = await stand(fullRoutes({
-    [lanesPath(4001)]: denied,
-    [lanesPath(4002)]: denied,
-    [lanesPath(4003)]: denied,
-  }));
+  const st = await stand(
+    fullRoutes({
+      [lanesPath(4001)]: denied,
+      [lanesPath(4002)]: denied,
+      [lanesPath(4003)]: denied,
+    }),
+  );
   try {
     expect(await output(kitenLanesCommand, ["--json"], st.io)).toBe("[]\n");
     expect(await output(kitenLanesCommand, [], st.io)).toBe("(нет дорожек)\n");
@@ -480,11 +487,13 @@ it("lanes: отказ ВСЕХ досок скоупа — пустая выда
 
 it("columns: отказ ВСЕХ досок скоупа — пустая выдача, а не ошибка", async () => {
   const denied = () => new Response("нет доступа", { status: 403 });
-  const st = await stand(fullRoutes({
-    [columnsPath(4001)]: denied,
-    [columnsPath(4002)]: denied,
-    [columnsPath(4003)]: denied,
-  }));
+  const st = await stand(
+    fullRoutes({
+      [columnsPath(4001)]: denied,
+      [columnsPath(4002)]: denied,
+      [columnsPath(4003)]: denied,
+    }),
+  );
   try {
     expect(await output(kitenColumnsCommand, ["--json"], st.io)).toBe("[]\n");
     expect(await output(kitenColumnsCommand, [], st.io)).toBe(
@@ -720,11 +729,10 @@ describe("нерезолвящийся REF — ошибка ввода (exit 2)"
   it("--space", async () => {
     const st = await stand(fullRoutes());
     try {
-      const err = await rejected(() =>
-        kitenBoardsCommand.invoke(
-          ["--space", "Нет такого"],
-          st.io,
-        ), UsageError);
+      const err = await rejected(
+        () => kitenBoardsCommand.invoke(["--space", "Нет такого"], st.io),
+        UsageError,
+      );
       expect(err.message).toContain("space 'Нет такого' не найден");
     } finally {
       await st.stop();

@@ -103,8 +103,10 @@ export class Orchestra {
    */
   async step(): Promise<void> {
     const board = this.#board();
-    const pending = [...this.#troupes.values()]
-      .reduce((sum, troupe) => sum + troupe.pending(), 0);
+    const pending = [...this.#troupes.values()].reduce(
+      (sum, troupe) => sum + troupe.pending(),
+      0,
+    );
     const capacity = new Capacity(board.maxBusy, board.busy + pending);
     for (const snapshot of board.snapshots) {
       const reread = (role: string) => this.#reread(snapshot.project, role);
@@ -133,8 +135,8 @@ export class Orchestra {
       const all = projects.all().map(snapshotOf);
       board = {
         snapshots: all.filter((one) => one.roles.length > 0),
-        busy: all.flatMap((one) => one.roles)
-          .filter((role) => role.isBusy()).length,
+        busy: all.flatMap((one) => one.roles).filter((role) => role.isBusy())
+          .length,
         maxBusy: maxBusyOf(configValue(db, TASK_MAX_BUSY.key)),
       };
     });
@@ -143,7 +145,10 @@ export class Orchestra {
 
   #reread(project: string, role: string): Role {
     using db = this.#openDb();
-    const found = Projects.open(db).at(project).roles().all()
+    const found = Projects.open(db)
+      .at(project)
+      .roles()
+      .all()
       .find((one) => one.name() === role);
     if (found === undefined) throw new Error(`роли ${project} ${role} нет`);
     return found;

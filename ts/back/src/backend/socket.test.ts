@@ -15,10 +15,8 @@ it("клиент ушёл до первого чтения: чтение отв�
     port: 0,
     upgrades,
     fetch: (request) =>
-      upgrades.accept(
-        request,
-        undefined,
-        (socket) => served.resolve(socketLine(socket)),
+      upgrades.accept(request, undefined, (socket) =>
+        served.resolve(socketLine(socket)),
       ) ?? new Response(null, { status: 400 }),
   });
   try {

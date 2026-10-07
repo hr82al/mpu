@@ -71,7 +71,7 @@ export async function runComposite(
           кадры: ran.frames.map((frame) =>
             "out" in frame
               ? { out: marked(frame.out) }
-              : { err: marked(frame.err) }
+              : { err: marked(frame.err) },
           ),
           созданные: stand.posted(),
           отказ: ran.refusals[0] ?? null,
@@ -83,7 +83,7 @@ export async function runComposite(
         using book = RuleBook.open(file, []);
         book.set(RulePath.parse("kiten comment"), ASK);
       },
-    )
+    ),
   );
   if (taken === undefined) throw new Error("стенд не прогнал случай");
   return taken;

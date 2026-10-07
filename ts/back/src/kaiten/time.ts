@@ -169,10 +169,14 @@ export async function listCardTimeLogs(
   cardId: number,
   options: KaitenCallOptions = {},
 ): Promise<readonly TimeLog[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/cards/${cardId}/time-logs`,
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/cards/${cardId}/time-logs`,
+    },
+    options,
+  );
   return collectTimeLogs(raw);
 }
 
@@ -231,10 +235,14 @@ export async function deleteCardTimeLog(
   logId: number,
   options: KaitenCallOptions = {},
 ): Promise<void> {
-  await kaitenCall(access, {
-    method: "DELETE",
-    path: `/cards/${cardId}/time-logs/${logId}`,
-  }, options);
+  await kaitenCall(
+    access,
+    {
+      method: "DELETE",
+      path: `/cards/${cardId}/time-logs/${logId}`,
+    },
+    options,
+  );
 }
 
 /**
@@ -247,11 +255,15 @@ export async function listUserTimeLogs(
   window: TimeLogWindow,
   options: KaitenCallOptions = {},
 ): Promise<readonly UserTimeLog[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: `/users/${userId}/time-logs`,
-    query: { from: window.from, to: window.to },
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: `/users/${userId}/time-logs`,
+      query: { from: window.from, to: window.to },
+    },
+    options,
+  );
   const logs: UserTimeLog[] = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
@@ -332,10 +344,14 @@ export async function resetUserTimer(
   timerId: number,
   options: KaitenCallOptions = {},
 ): Promise<void> {
-  await kaitenCall(access, {
-    method: "DELETE",
-    path: `/user-timers/${timerId}`,
-  }, options);
+  await kaitenCall(
+    access,
+    {
+      method: "DELETE",
+      path: `/user-timers/${timerId}`,
+    },
+    options,
+  );
 }
 
 /** 9. Роли компании — «типы работ», используемые как `role_id`. */
@@ -343,10 +359,14 @@ export async function listUserRoles(
   access: KaitenAccess,
   options: KaitenCallOptions = {},
 ): Promise<readonly KaitenRole[]> {
-  const raw = await kaitenCallArray(access, {
-    method: "GET",
-    path: "/user-roles",
-  }, options);
+  const raw = await kaitenCallArray(
+    access,
+    {
+      method: "GET",
+      path: "/user-roles",
+    },
+    options,
+  );
   const roles: KaitenRole[] = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
@@ -486,7 +506,8 @@ function conflictInBody(raw: unknown): TimerStartOutcome | null {
  */
 function conflictInFailure(err: unknown): TimerStartOutcome | null {
   if (
-    !(err instanceof KaitenError) || err.status !== 400 ||
+    !(err instanceof KaitenError) ||
+    err.status !== 400 ||
     err.body === undefined
   ) {
     return null;

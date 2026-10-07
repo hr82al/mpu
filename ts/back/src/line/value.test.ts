@@ -87,12 +87,10 @@ it("сценарий 1: ask — вопрос с вычисленным знач�
   }));
 
 describe("сценарий 2: не-скаляр — отказ, ничего не исполнено", () => {
-  for (
-    const [group, kind] of [[["policy"], "список"], [
-      ["sun"],
-      "запись",
-    ]] as const
-  ) {
+  for (const [group, kind] of [
+    [["policy"], "список"],
+    [["sun"], "запись"],
+  ] as const) {
     it(group.join(" "), () =>
       withPolicyFile(async (file) => {
         allowEverything(file);
@@ -111,7 +109,8 @@ describe("сценарий 2: не-скаляр — отказ, ничего н�
           `mpu kiten comment: значение ключа text — не скаляр (${kind})\n`,
         );
         expect(got.called.includes("kiten comment")).toBeFalsy();
-      }));
+      }),
+    );
   }
 });
 
@@ -187,11 +186,10 @@ it("сценарий 5: stdin дважды — отказ до исполнен�
 it("stdin взят ключом — команда сама его не читает", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
-    const got = await run(
-      file,
-      ["sql-ro", "dry", "target:", STDIN],
-      { stdin: "sl-1\n", io: SQL_IO },
-    );
+    const got = await run(file, ["sql-ro", "dry", "target:", STDIN], {
+      stdin: "sl-1\n",
+      io: SQL_IO,
+    });
     expect(got.code, got.stderr).toBe(2);
     expect(got.stderr).toBe("mpu sql-ro: stdin уже прочитан ключом target\n");
     expect(got.reads).toBe(1);
@@ -261,20 +259,24 @@ it("сценарий 7: группа-запись в строке без ask —
 
 it("ask: группа-запись спрашивает первой; «нет» — ничего не исполнено", () =>
   withPolicyFile(async (file) => {
-    const got = await run(file, [
-      "ask",
-      "sql-ro",
-      "target:",
-      "sl-1",
-      "sql:",
-      DO,
-      "sql",
-      "target:",
-      "sl-1",
-      "sql:",
-      "x",
-      END,
-    ], { answers: ["n"] });
+    const got = await run(
+      file,
+      [
+        "ask",
+        "sql-ro",
+        "target:",
+        "sl-1",
+        "sql:",
+        DO,
+        "sql",
+        "target:",
+        "sl-1",
+        "sql:",
+        "x",
+        END,
+      ],
+      { answers: ["n"] },
+    );
     expect(got.code).toBe(1);
     expect(got.stderr).toStrictEqual(
       "выполнить mpu sql target: sl-1 sql: x? [y/N] " +
@@ -344,34 +346,42 @@ it("ключ-список: stdin и группа — элементами, по 
   withPolicyFile(async (policy) => {
     allowEverything(policy);
     await withSample(async (file) => {
-      const piped = await run(policy, [
-        "xlsx",
-        "get",
-        "file:",
-        file,
-        "range:",
-        STDIN,
-        "range:",
-        "Данные!B1",
-        END,
-        "json",
-      ], { stdin: "Данные!A1\n", io: FILES });
+      const piped = await run(
+        policy,
+        [
+          "xlsx",
+          "get",
+          "file:",
+          file,
+          "range:",
+          STDIN,
+          "range:",
+          "Данные!B1",
+          END,
+          "json",
+        ],
+        { stdin: "Данные!A1\n", io: FILES },
+      );
       expect(piped.code, piped.stderr).toBe(0);
       expect(rangesOf(piped.stdout)).toStrictEqual(["Данные!A1", "Данные!B1"]);
       expect(piped.reads).toBe(1);
 
-      const grouped = await run(policy, [
-        "xlsx",
-        "get",
-        "file:",
-        file,
-        "range:",
-        DO,
-        "jsdate",
-        END,
-        "range:",
-        "Данные!B1",
-      ], { io: FILES });
+      const grouped = await run(
+        policy,
+        [
+          "xlsx",
+          "get",
+          "file:",
+          file,
+          "range:",
+          DO,
+          "jsdate",
+          END,
+          "range:",
+          "Данные!B1",
+        ],
+        { io: FILES },
+      );
       expect(grouped.called).toStrictEqual(["jsdate", "xlsx get"]);
 
       assert(/\d{14}/.test(grouped.stderr), grouped.stderr);
@@ -388,25 +398,23 @@ it("деление: остаток отбору — ключ ввода с те�
     expect(asked.code).toBe(2);
     expect(asked.stderr).toBe("mpu sql-ro dry: не хватает ключа sql\n");
     expect(asked.called).toStrictEqual([]);
-    for (
-      const given of [
-        { argv: [...line, "1", END, "size"], stdin: "select 1\n" },
-        {
-          argv: [
-            "sql-ro",
-            "dry",
-            "target:",
-            "sl-1",
-            "sql:",
-            "select 1",
-            ...line.slice(4),
-            "1",
-            END,
-            "size",
-          ],
-        },
-      ]
-    ) {
+    for (const given of [
+      { argv: [...line, "1", END, "size"], stdin: "select 1\n" },
+      {
+        argv: [
+          "sql-ro",
+          "dry",
+          "target:",
+          "sl-1",
+          "sql:",
+          "select 1",
+          ...line.slice(4),
+          "1",
+          END,
+          "size",
+        ],
+      },
+    ]) {
       const got = await run(file, given.argv, {
         io: SQL_IO,
         stdin: given.stdin,
@@ -420,16 +428,11 @@ it("xlsx get from: - — stdin, взятый ключом, называется 
   withPolicyFile(async (policy) => {
     allowEverything(policy);
     await withSample(async (file) => {
-      const got = await run(policy, [
-        "xlsx",
-        "get",
-        "file:",
-        file,
-        "range:",
-        STDIN,
-        "from:",
-        "-",
-      ], { stdin: "Данные!A1\n", io: FILES });
+      const got = await run(
+        policy,
+        ["xlsx", "get", "file:", file, "range:", STDIN, "from:", "-"],
+        { stdin: "Данные!A1\n", io: FILES },
+      );
       expect(got.code).toBe(2);
       expect(got.stderr).toBe("mpu xlsx: stdin уже прочитан ключом range\n");
     });

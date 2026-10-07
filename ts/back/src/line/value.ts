@@ -18,7 +18,9 @@ import {
 
 /** Итог группы: как кончилась строка и что она напечатала в stdout. */
 export interface GroupRun {
-  (words: readonly string[]): Promise<{
+  (
+    words: readonly string[],
+  ): Promise<{
     readonly outcome: Outcome;
     readonly printed: string;
   }>;
@@ -88,8 +90,7 @@ export class StdinOnce implements LineStdin {
 /** Вид отказа: ввод строки — её программа (`platform/program-input.md`). */
 const INPUT_BUSY = "ввод занят программой";
 
-const BUSY_TEXT =
-  `${INPUT_BUSY} — программу передай файлом: mpu ${GRAMMAR.run} <файл.mpu>`;
+const BUSY_TEXT = `${INPUT_BUSY} — программу передай файлом: mpu ${GRAMMAR.run} <файл.mpu>`;
 
 /**
  * Ввод строки занят её программой (программа из stdin): любое чтение —
@@ -121,10 +122,10 @@ function valueOf(
   if (["string", "number", "boolean"].includes(typeof data)) {
     return String(data);
   }
-  const fields = typeof data === "object" && data !== null &&
-      !Array.isArray(data)
-    ? Object.values(data)
-    : [];
+  const fields =
+    typeof data === "object" && data !== null && !Array.isArray(data)
+      ? Object.values(data)
+      : [];
   if (
     fields.length === 1 &&
     ["string", "number", "boolean"].includes(typeof fields[0])

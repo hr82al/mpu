@@ -194,7 +194,10 @@ function calls(seen: readonly CapturedRequest[]): readonly string[] {
 
 /** Заголовок таблицы ячейками: колонки разделены двумя и более пробелами. */
 function headerCells(table: string): readonly string[] {
-  return table.split("\n")[0].trim().split(/\s{2,}/);
+  return table
+    .split("\n")[0]
+    .trim()
+    .split(/\s{2,}/);
 }
 
 /** Колонка ID в порядке печати; строки-продолжения переноса пропускаются. */
@@ -259,8 +262,9 @@ describe("time ls: таблица, фильтры и состав вызовов
   it("--json: голден побайтово", async () => {
     const { io, stop } = await readStand();
     try {
-      expect(await output(kitenTimeLsCommand, [SELECTOR, "--json"], io))
-        .toStrictEqual(await golden("ls-json-stdout.txt"));
+      expect(
+        await output(kitenTimeLsCommand, [SELECTOR, "--json"], io),
+      ).toStrictEqual(await golden("ls-json-stdout.txt"));
     } finally {
       await stop();
     }
@@ -417,12 +421,11 @@ describe("time add: создание записи", () => {
         Response.json(rawMutationLog({ comment: "" })),
     });
     try {
-      await output(kitenTimeAddCommand, [
-        SELECTOR,
-        "45",
-        "--date",
-        "2026-08-14",
-      ], io);
+      await output(
+        kitenTimeAddCommand,
+        [SELECTOR, "45", "--date", "2026-08-14"],
+        io,
+      );
       expect(JSON.parse(seen[1].body).comment).toBe("");
     } finally {
       await stop();
@@ -619,9 +622,11 @@ describe("time edit: частичное обновление", () => {
           io,
           UsageError,
         ),
-      ).toStrictEqual(`mpu kiten time edit: ${await golden(
-        "err-edit-duration-zero-message.txt",
-      )}`);
+      ).toStrictEqual(
+        `mpu kiten time edit: ${await golden(
+          "err-edit-duration-zero-message.txt",
+        )}`,
+      );
     } finally {
       await stop();
     }
@@ -702,8 +707,9 @@ describe("time rm: удаление записи", () => {
       [`DELETE ${logPath(7000003)}`]: () => new Response(null, { status: 204 }),
     });
     try {
-      expect(await output(kitenTimeRmCommand, [SELECTOR, "7000003"], io))
-        .toStrictEqual(await expected("rm-stdout.txt", baseUrl));
+      expect(
+        await output(kitenTimeRmCommand, [SELECTOR, "7000003"], io),
+      ).toStrictEqual(await expected("rm-stdout.txt", baseUrl));
       expect(calls(seen)).toStrictEqual([
         `GET ${LOGS_PATH}`,
         `GET ${CURRENT_USER_PATH}`,
@@ -724,8 +730,9 @@ describe("time rm: удаление записи", () => {
       [`DELETE ${logPath(7000001)}`]: () => new Response(null, { status: 204 }),
     });
     try {
-      expect(await output(kitenTimeRmCommand, [SELECTOR, "7000001"], io))
-        .toStrictEqual(await expected("rm-with-comment-stdout.txt", baseUrl));
+      expect(
+        await output(kitenTimeRmCommand, [SELECTOR, "7000001"], io),
+      ).toStrictEqual(await expected("rm-with-comment-stdout.txt", baseUrl));
     } finally {
       await stop();
     }
@@ -790,8 +797,7 @@ describe("time rm: удаление записи", () => {
 /** Заведомо будущий день по МСК: сегодня плюс неделя. */
 function futureDate(): string {
   const week = 7 * 24 * 60 * 60 * 1000;
-  return new Date(Date.now() + week + 3 * 60 * 60 * 1000).toISOString().slice(
-    0,
-    10,
-  );
+  return new Date(Date.now() + week + 3 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }

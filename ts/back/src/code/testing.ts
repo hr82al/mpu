@@ -78,10 +78,10 @@ async function treeFiles(dir: URL, prefix: string): Promise<readonly string[]> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       found.push(
-        ...await treeFiles(
+        ...(await treeFiles(
           new URL(`${entry.name}/`, dir),
           `${prefix}${entry.name}/`,
-        ),
+        )),
       );
       continue;
     }

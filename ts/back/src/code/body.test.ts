@@ -16,7 +16,8 @@ import { UsageError } from "../command/mod.ts";
 import { renderTwins, runTwins } from "./cmd_twins.ts";
 import type { Repo } from "./workspace.ts";
 
-const PROJECT = '{"compilerOptions":{"strict":true,"noEmit":true},' +
+const PROJECT =
+  '{"compilerOptions":{"strict":true,"noEmit":true},' +
   '"include":["src/**/*"]}\n';
 
 /** Репозиторий из одного файла с проектом. */

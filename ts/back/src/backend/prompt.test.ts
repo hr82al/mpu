@@ -62,9 +62,11 @@ it("ворота в конвейере: вопрос клиенту, ответ,
     expect(asked(frames)).toStrictEqual([{ ask: "Применить? [y/N] " }]);
     expect(frames.at(-1)).toStrictEqual({ exit: 0 });
     // Буфер конвейера прошёл насквозь: эхо в stderr, данные в stdout.
-    expect(frames.filter((frame) => "out" in frame)).toStrictEqual([{
-      out: "данные конвейера\n",
-    }]);
+    expect(frames.filter((frame) => "out" in frame)).toStrictEqual([
+      {
+        out: "данные конвейера\n",
+      },
+    ]);
   }));
 
 it("ответ «нет»: ворота отбивают конвейер, код 1", () =>
@@ -91,24 +93,27 @@ it("спросить некого: отказ с диагностикой, во�
   }));
 
 it("два вопроса подряд: каждый ждёт своего ответа", () =>
-  withBack(async (back) => {
-    // `telegram login` спрашивает согласие, затем ключи: три вопроса
-    // подряд в одной строке (`docs/specs/telegram-login.md`).
-    // Первый вопрос — правил подтверждения (команда мутирующая), два
-    // следующих — самого сценария: каждый ждёт своего ответа.
-    const frames = await lineAsking(back, ["ask", "telegram", "login"], {
-      answers: ["y", "y", "", ""],
-    });
-    expect(asked(frames).map((frame) => frame.ask)).toStrictEqual([
-      "выполнить mpu telegram login? [y/N] ",
-      "Set up Telegram now? [y/N]: ",
-      "api_id (integer): ",
-      "api_hash (32 hex chars): ",
-    ]);
-    expect(frames.map((frame) => frame.err ?? "").join("")).toContain(
-      "# telegram: пропущено (api_id/api_hash пустые)",
-    );
-  }, { io: emptyEnvFile() }));
+  withBack(
+    async (back) => {
+      // `telegram login` спрашивает согласие, затем ключи: три вопроса
+      // подряд в одной строке (`docs/specs/telegram-login.md`).
+      // Первый вопрос — правил подтверждения (команда мутирующая), два
+      // следующих — самого сценария: каждый ждёт своего ответа.
+      const frames = await lineAsking(back, ["ask", "telegram", "login"], {
+        answers: ["y", "y", "", ""],
+      });
+      expect(asked(frames).map((frame) => frame.ask)).toStrictEqual([
+        "выполнить mpu telegram login? [y/N] ",
+        "Set up Telegram now? [y/N]: ",
+        "api_id (integer): ",
+        "api_hash (32 hex chars): ",
+      ]);
+      expect(frames.map((frame) => frame.err ?? "").join("")).toContain(
+        "# telegram: пропущено (api_id/api_hash пустые)",
+      );
+    },
+    { io: emptyEnvFile() },
+  ));
 
 it("ответ по номеру: тело в журнал и диагностику не попадает", () =>
   withBack(async (back) => {
@@ -139,40 +144,43 @@ it("ответ по номеру: тело в журнал и диагности
   }));
 
 it("ответ человека не выходит из строки: ни в журнал, ни в вывод", () =>
-  withBack(async (back) => {
-    const password = "п4роль-м4ркер";
-    const client = new Client(back, "/line");
-    await client.opened();
-    // Живого второго фактора Telegram в прогоне нет, поэтому скрытый
-    // вопрос задаёт сама строка: `mpu confirm` спрашивает видимо, а
-    // здесь проверяется, что вид доезжает до клиента и что ответ на
-    // него не выходит наружу ни одним путём.
-    client.send({
-      words: ["ask", "telegram", "login"],
-      cwd: process.cwd(),
-      human: true,
-    });
-    const asking = await within(
-      client.frame((frame) => "ask" in frame),
-      5000,
-      "вопрос правил",
-    );
-    expect(asking).toStrictEqual({
-      ask: "выполнить mpu telegram login? [y/N] ",
-    });
-    client.answer(password);
-    const frames = await client.finished();
-    // Ответ человека не появляется ни в журнале, ни в кадрах строки, ни
-    // в диагностике сервера (`platform/line-prompt.md`, инварианты).
-    const texts = [
-      ...back.logged,
-      ...back.diagnosed,
-      ...frames.map((frame) => JSON.stringify(frame)),
-    ];
-    for (const text of texts) {
-      expect(text.includes(password), `ответ в «${text}»`).toBe(false);
-    }
-  }, { io: emptyEnvFile() }));
+  withBack(
+    async (back) => {
+      const password = "п4роль-м4ркер";
+      const client = new Client(back, "/line");
+      await client.opened();
+      // Живого второго фактора Telegram в прогоне нет, поэтому скрытый
+      // вопрос задаёт сама строка: `mpu confirm` спрашивает видимо, а
+      // здесь проверяется, что вид доезжает до клиента и что ответ на
+      // него не выходит наружу ни одним путём.
+      client.send({
+        words: ["ask", "telegram", "login"],
+        cwd: process.cwd(),
+        human: true,
+      });
+      const asking = await within(
+        client.frame((frame) => "ask" in frame),
+        5000,
+        "вопрос правил",
+      );
+      expect(asking).toStrictEqual({
+        ask: "выполнить mpu telegram login? [y/N] ",
+      });
+      client.answer(password);
+      const frames = await client.finished();
+      // Ответ человека не появляется ни в журнале, ни в кадрах строки, ни
+      // в диагностике сервера (`platform/line-prompt.md`, инварианты).
+      const texts = [
+        ...back.logged,
+        ...back.diagnosed,
+        ...frames.map((frame) => JSON.stringify(frame)),
+      ];
+      for (const text of texts) {
+        expect(text.includes(password), `ответ в «${text}»`).toBe(false);
+      }
+    },
+    { io: emptyEnvFile() },
+  ));
 
 it("копирование: кадр clip у человека, у агента его нет", () =>
   withBack(async (back) => {
@@ -220,9 +228,8 @@ it("терминал сервера не открывается ни разу", 
         answers: ["y"],
       });
       await lineAsking(back, ["confirm"], { stdin: "д\n", human: false });
-      opened = spies.flatMap((spy) =>
-        spy.mock.calls.map(([path]) => String(path))
-      )
+      opened = spies
+        .flatMap((spy) => spy.mock.calls.map(([path]) => String(path)))
         .filter((path) => path.includes("/dev/tty"));
     } finally {
       for (const spy of spies) spy.mockRestore();
@@ -306,10 +313,10 @@ it("голдены: кадры вопроса, скрытого вопроса �
       answers: ["y"],
     });
     await golden("frames-confirm.json", {
-      "описание": "confirm посреди конвейера: вопрос, ответ, буфер дальше",
-      "слова": ["confirm"],
-      "ответы": ["y"],
-      "кадры": confirm,
+      описание: "confirm посреди конвейера: вопрос, ответ, буфер дальше",
+      слова: ["confirm"],
+      ответы: ["y"],
+      кадры: confirm,
     });
     const secret = "п4роль-м4ркер";
     const line = askingLine([secret]);
@@ -322,12 +329,12 @@ it("голдены: кадры вопроса, скрытого вопроса �
       answers: [secret],
     });
     await golden("frames-secret.json", {
-      "описание":
+      описание:
         "скрытый вопрос: кадр с видом и ответ, которого нет ни в кадрах " +
         "строки, ни в записи журнала. Кадр снят с объекта вопроса, а не " +
         "с живой команды: команды, спрашивающей пароль вне живого " +
         "клиента Telegram, нет",
-      "кадр": askFrame(line.asks[0].question, line.asks[0].kind),
+      кадр: askFrame(line.asks[0].question, line.asks[0].kind),
       "кадры строки": line.frames,
       "кадры отвеченной строки": answered,
       "запись журнала": back.logged,
@@ -347,8 +354,8 @@ it("голдены: кадры вопроса, скрытого вопроса �
       answers: ["y"],
     });
     await golden("frames-clip.json", {
-      "описание": "копирование: кадр clip у человека, у агента его нет",
-      "слова": words,
+      описание: "копирование: кадр clip у человека, у агента его нет",
+      слова: words,
       "кадры у человека": human,
       "кадры у агента": agent,
     });

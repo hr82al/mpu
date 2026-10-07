@@ -22,12 +22,14 @@ it("keys каждой команды — её ключи из каталога",
   );
   for (const command of commands) {
     const keys = nodes.get(command.path.join(" "))?.keys ?? [];
-    const written = keys.map((key) =>
-      key.kind === "flag" ? `--${key.name}` : `${key.name}:`
-    ).sort();
+    const written = keys
+      .map((key) => (key.kind === "flag" ? `--${key.name}` : `${key.name}:`))
+      .sort();
     const addresses = [
       ...addressesOf(command, Object.keys(formatsOf(command.path))).values(),
-    ].filter((address) => !address.includes(" ")).sort();
+    ]
+      .filter((address) => !address.includes(" "))
+      .sort();
     expect(written, command.path.join(" ")).toStrictEqual([
       ...new Set(addresses),
     ]);
@@ -38,8 +40,12 @@ it("образцы: ключи kiten card, форматы sql-ro, сообщен
   expect(
     node("kiten card").keys.map((key) => [key.name, key.kind, key.required]),
   ).toStrictEqual([["id", "value", true]]);
-  expect(node("kiten card").variants.map((line) => [line.selector, line.input]))
-    .toStrictEqual([["no-comments", "comments"], ["no-images", "images"]]);
+  expect(
+    node("kiten card").variants.map((line) => [line.selector, line.input]),
+  ).toStrictEqual([
+    ["no-comments", "comments"],
+    ["no-images", "images"],
+  ]);
   expect(node("sql-ro").formats).toStrictEqual(["json", "md"]);
   expect(node("kiten").formats).toStrictEqual([]);
   expect(node("kiten").keys).toStrictEqual([]);

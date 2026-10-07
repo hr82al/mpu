@@ -90,9 +90,11 @@ function tabsReply(): { status: number; text: string } {
 function harness(
   db: CacheDb,
   overrides: Partial<CommandIo> = {},
-  post: (url: string, body: string) => Promise<
-    { status: number; text: string }
-  > = () => Promise.resolve(tabsReply()),
+  post: (
+    url: string,
+    body: string,
+  ) => Promise<{ status: number; text: string }> = () =>
+    Promise.resolve(tabsReply()),
 ) {
   const launched: string[] = [];
   const notes: string[] = [];
@@ -195,10 +197,9 @@ describe("alias add: что отвергается до записи", () => {
 
   it("короткий хвост ссылки идентификатором не станет", async () => {
     await withDb(async (db) => {
-      await expect(sheetAliasAddCommand.invoke(
-        ["otchet", `${URL_OF}abc/edit`],
-        ioOf(db),
-      )).rejects.toThrow(UsageError);
+      await expect(
+        sheetAliasAddCommand.invoke(["otchet", `${URL_OF}abc/edit`], ioOf(db)),
+      ).rejects.toThrow(UsageError);
       expect(aliasRowsOf(db).length).toBe(0);
     });
   });
@@ -278,8 +279,9 @@ it("open ЛИСТ: gid числовой, ключ метаданных появ�
     // из спеки сверяется дословно.
     expect(result.sheet_id).toBe(42);
     expect(result.url).toStrictEqual(`${URL_OF}${SS}/edit#gid=42`);
-    expect(db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length)
-      .toBe(1);
+    expect(
+      db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length,
+    ).toBe(1);
   });
 });
 
@@ -306,8 +308,9 @@ it("open ЛИСТ пользуется кэшем, а не чистит его",
       options,
     );
     expect(result.url).toStrictEqual(`${URL_OF}${SS}/edit#gid=42`);
-    expect(db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length)
-      .toBe(1);
+    expect(
+      db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length,
+    ).toBe(1);
   });
 });
 

@@ -84,10 +84,7 @@ export interface ToolEntry {
   readonly errorName: string;
   /** Пометка журнала вызовов (`platform/invoke-log.md`). */
   readonly journal: OutputPolicy;
-  readonly invoke: (
-    args: unknown,
-    io: CommandIo,
-  ) => Promise<ToolCallResult>;
+  readonly invoke: (args: unknown, io: CommandIo) => Promise<ToolCallResult>;
 }
 
 /**
@@ -132,9 +129,10 @@ export function fitDescription(
     // читается как законченная мысль: перечень кодов выхода, оборванный
     // на втором из трёх, выглядит перечнем из двух.
     const blank = head.lastIndexOf("\n\n");
-    const whole2 = blank > 0
-      ? withMarker(head.slice(0, blank), description, path)
-      : undefined;
+    const whole2 =
+      blank > 0
+        ? withMarker(head.slice(0, blank), description, path)
+        : undefined;
     return whole2 ?? cut;
   }
   // Ни одной строки не уцелело: остаётся сказать хотя бы, что текст
@@ -158,8 +156,10 @@ function withMarker(
 }
 
 function marker(dropped: number, path: readonly string[]): string {
-  return `[справка усечена: отброшено ${dropped} байт; ` +
-    `полностью — \`mpu ${path.join(" ")} --help\`]`;
+  return (
+    `[справка усечена: отброшено ${dropped} байт; ` +
+    `полностью — \`mpu ${path.join(" ")} --help\`]`
+  );
 }
 
 /**

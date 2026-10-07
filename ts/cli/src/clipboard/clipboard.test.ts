@@ -31,9 +31,9 @@ function capturedWrites(sink: Map<number, number[]>) {
     sink.set(fd, [...(sink.get(fd) ?? []), ...data]);
     return data.length;
   };
-  return vi.spyOn(fs, "writeSync").mockImplementation(
-    write as typeof fs.writeSync,
-  );
+  return vi
+    .spyOn(fs, "writeSync")
+    .mockImplementation(write as typeof fs.writeSync);
 }
 
 const decoder = new TextDecoder();
@@ -51,12 +51,13 @@ function ports(answers: {
       written.push(bytes);
       return Promise.resolve(answers.terminal ?? false);
     },
-    env: (name) => name === "TMUX" ? answers.tmux : undefined,
+    env: (name) => (name === "TMUX" ? answers.tmux : undefined),
     runUtility: (bin, args, stdin) => {
       utilities.push([bin, ...args].join(" "));
       return Promise.resolve(
-        answers.utility === undefined ? false : answers.utility(bin) &&
-          decoder.decode(stdin) === TEXT,
+        answers.utility === undefined
+          ? false
+          : answers.utility(bin) && decoder.decode(stdin) === TEXT,
       );
     },
   };
@@ -110,8 +111,10 @@ it("последовательность уходит в stderr, а не в stdo
     spy.mockRestore();
   }
   const stdout = new TextDecoder().decode(Uint8Array.from(writes.get(1) ?? []));
-  expect(stdout, `в stdout ушли байты: ${JSON.stringify(stdout)}`)
-    .toStrictEqual("");
+  expect(
+    stdout,
+    `в stdout ушли байты: ${JSON.stringify(stdout)}`,
+  ).toStrictEqual("");
 });
 
 describe("OSC 52: форма последовательности", () => {
@@ -147,9 +150,11 @@ describe("OSC 52: форма последовательности", () => {
   it("текст уходит как есть, без обрезки", () => {
     const bytes = osc52("хвост\n\n", undefined);
     const encoded = decoder.decode(bytes.subarray(7, bytes.length - 1));
-    expect(new TextDecoder().decode(
-      Uint8Array.from(atob(encoded), (ch) => ch.charCodeAt(0)),
-    )).toBe("хвост\n\n");
+    expect(
+      new TextDecoder().decode(
+        Uint8Array.from(atob(encoded), (ch) => ch.charCodeAt(0)),
+      ),
+    ).toBe("хвост\n\n");
   });
 });
 
@@ -185,9 +190,9 @@ describe("настоящие порты: утилита, её код выход�
     // подменяется признаком: в прогоне тестов stderr перехвачен.
     const writes = new Map<number, number[]>();
     const write = capturedWrites(writes);
-    const terminal = vi.spyOn(tty, "isatty").mockImplementation((fd) =>
-      fd === 2
-    );
+    const terminal = vi
+      .spyOn(tty, "isatty")
+      .mockImplementation((fd) => fd === 2);
     try {
       expect(await io.writeTerminal(osc52(TEXT, undefined))).toBe(true);
     } finally {
@@ -197,8 +202,10 @@ describe("настоящие порты: утилита, её код выход�
     expect(Uint8Array.from(writes.get(2) ?? [])).toStrictEqual(
       osc52(TEXT, undefined),
     );
-    expect(writes.get(1) ?? [], "байты ушли в stdout — конвейер испорчен")
-      .toStrictEqual([]);
+    expect(
+      writes.get(1) ?? [],
+      "байты ушли в stdout — конвейер испорчен",
+    ).toStrictEqual([]);
   });
 
   it("stderr не терминал — попытка 1 честно неуспешна", async () => {
@@ -209,8 +216,9 @@ describe("настоящие порты: утилита, её код выход�
   });
 
   it("бинаря нет — тоже неуспешна, без ошибки наружу", async () => {
-    expect(await io.runUtility("/bin/net-takogo-binarya", [], bytes, 2_000))
-      .toBe(false);
+    expect(
+      await io.runUtility("/bin/net-takogo-binarya", [], bytes, 2_000),
+    ).toBe(false);
   });
 });
 

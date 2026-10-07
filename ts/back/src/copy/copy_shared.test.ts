@@ -57,8 +57,8 @@ describe("argv: env-файлы по порядку, цель и список т�
   const argv = composeArgs(CONFIG, "pg-prod-1.example.test", false, () => true);
 
   it("env-файлы в порядке спеки", () => {
-    const envFiles = argv.filter((_, index) =>
-      argv[index - 1] === "--env-file"
+    const envFiles = argv.filter(
+      (_, index) => argv[index - 1] === "--env-file",
     );
     expect(envFiles).toStrictEqual([
       `${CONFIG}/.sl-base.env`,
@@ -75,8 +75,8 @@ describe("argv: env-файлы по порядку, цель и список т�
       false,
       (path) => !path.endsWith(".env") || path.endsWith("base.env"),
     );
-    const envFiles = lean.filter((_, index) =>
-      lean[index - 1] === "--env-file"
+    const envFiles = lean.filter(
+      (_, index) => lean[index - 1] === "--env-file",
     );
     // Базовые остаются всегда: их отсутствие обязано быть отказом
     // compose'а, а не тихой недостачей переменных.
@@ -158,11 +158,14 @@ describe("отказы конфигурации — до запуска docker",
 
   it("нет каталога mp-config-local", async () => {
     await withIo(async (io) => {
-      const err = await rejected(() =>
-        runCopyShared({ selector: "sl-1" }, io, {
-          runLocal: () => Promise.reject(new Error("docker не ожидается")),
-          exists: () => false,
-        }), UsageError);
+      const err = await rejected(
+        () =>
+          runCopyShared({ selector: "sl-1" }, io, {
+            runLocal: () => Promise.reject(new Error("docker не ожидается")),
+            exists: () => false,
+          }),
+        UsageError,
+      );
       expect(err.message).toContain(`mp-config-local dir not found: ${CONFIG}`);
       expect(String(err.hint)).toContain("MPU_MP_CONFIG_LOCAL");
     });

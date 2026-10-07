@@ -74,9 +74,9 @@ export function schemaIdOf(
 ): number {
   if (explicit !== undefined) return explicit;
   const ids = new Set(
-    candidates.map((candidate) => candidate.clientId).filter((id) =>
-      id !== null
-    ),
+    candidates
+      .map((candidate) => candidate.clientId)
+      .filter((id) => id !== null),
   );
   if (ids.size === 1) return [...ids][0];
   if (ids.size === 0 && CLIENT_ID.test(selector.trim())) {
@@ -100,8 +100,10 @@ export function backupSql(
   schemaId: number,
   date: string,
 ): string {
-  return `CREATE TABLE backups.${table.table}_${schemaId}_${date} AS\n` +
-    `SELECT * FROM schema_${schemaId}.${table.table};`;
+  return (
+    `CREATE TABLE backups.${table.table}_${schemaId}_${date} AS\n` +
+    `SELECT * FROM schema_${schemaId}.${table.table};`
+  );
 }
 
 /** План целиком: имена, дата и готовый запрос. */

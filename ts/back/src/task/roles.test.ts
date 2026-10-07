@@ -37,7 +37,8 @@ async function roles(stand: Stand, ...tail: string[]): Promise<string> {
   return run.stdout;
 }
 
-const R2_BLOCK = "exec  -  -\n" +
+const R2_BLOCK =
+  "exec  -  -\n" +
   "  session: w  window: demo-exec  model: opus  mode: auto\n" +
   "  dir: /tmp/demo/ts\n" +
   "  powers: прод — только чтение\n";
@@ -338,7 +339,8 @@ it("все ключи профиля: блоки ролей через пуст�
         "  dir: /home/u/mr/mp/mpu\n" +
         "  read: /home/u/q.md\n" +
         "  powers: субагенты — нельзя\n" +
-        "\n" + R2_BLOCK,
+        "\n" +
+        R2_BLOCK,
     );
   }));
 
@@ -347,8 +349,9 @@ it("R15: посев правил ролей", () =>
     const run = await stand.agent("policy");
     expect(run.code, run.stderr).toBe(0);
     const rules = new Map(
-      (JSON.parse(run.stdout) as { path: string; verdict: string }[])
-        .map((rule) => [rule.path, rule.verdict]),
+      (JSON.parse(run.stdout) as { path: string; verdict: string }[]).map(
+        (rule) => [rule.path, rule.verdict],
+      ),
     );
     for (const path of ["task roles", "task busy", "task idle"]) {
       expect(rules.get(path), path).toBe("allow");

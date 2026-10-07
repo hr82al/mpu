@@ -66,7 +66,7 @@ export async function followEntries(
     if (deps.signal.aborted) break;
     const from = lastSeenNs === undefined ? startNs : lastSeenNs + 1n;
     try {
-      lastSeenNs = await poll(deps, plan, from, POLL_LIMIT) ?? lastSeenNs;
+      lastSeenNs = (await poll(deps, plan, from, POLL_LIMIT)) ?? lastSeenNs;
     } catch (err) {
       const failure = lokiFailure(err, plan.logql);
       if (!(failure instanceof DomainError)) throw failure;

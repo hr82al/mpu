@@ -38,46 +38,56 @@ const ARTEFACT_PROPERTY_ID = 610303;
 /** Имя поля в выводе `artefact`: короткое, как у прежней реализации. */
 const ARTEFACT_TITLE = "AI-артефакт";
 
-const selector = z.string({ error: "нужен id: id карточки или её URL" })
+const selector = z
+  .string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
 const setArgsSchema = z.object({
   selector,
-  kind: z.enum(FIELD_KINDS, {
-    error: `field: — одно из: ${FIELD_KINDS.join(", ")}`,
-  }).describe("какое поле карточки писать"),
-  value: z.string({ error: "нужен text: значение поля" })
+  kind: z
+    .enum(FIELD_KINDS, {
+      error: `field: — одно из: ${FIELD_KINDS.join(", ")}`,
+    })
+    .describe("какое поле карточки писать"),
+  value: z
+    .string({ error: "нужен text: значение поля" })
     .describe("значение поля: пишется ровно как передано; пустое — очистка"),
 });
 
 const setResultSchema = z.object({
   kind: z.enum(FIELD_KINDS).describe("вид поля, как передан в аргументе"),
-  value: z.string().nullable().describe(
-    "записанное значение; null — поле очищено",
-  ),
+  value: z
+    .string()
+    .nullable()
+    .describe("записанное значение; null — поле очищено"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
 const artefactSetArgsSchema = z.object({
   selector,
-  path: z.string({ error: "нужен path: путь к md-файлу" })
+  path: z
+    .string({ error: "нужен path: путь к md-файлу" })
     .describe("md-файл артефакта; имя обязано оканчиваться на .md"),
 });
 
 const artefactSetResultSchema = z.object({
   name: z.string().describe("имя файла из ответа загрузки"),
-  fileUrl: z.string().describe(
-    "url файла из ответа загрузки: приходит без доменного имени и не открывается",
-  ),
+  fileUrl: z
+    .string()
+    .describe(
+      "url файла из ответа загрузки: приходит без доменного имени и не открывается",
+    ),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
 const artefactRmArgsSchema = z.object({ selector });
 
 const artefactRmResultSchema = z.object({
-  removed: z.array(z.string()).describe(
-    "имена удалённых файлов в порядке files[] карточки; пусто — поле было пусто",
-  ),
+  removed: z
+    .array(z.string())
+    .describe(
+      "имена удалённых файлов в порядке files[] карточки; пусто — поле было пусто",
+    ),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
@@ -148,9 +158,7 @@ async function runKitenArtefactSet(
   const cardId = parseCardRef(args.selector);
   const name = baseName(args.path);
   if (!/\.md$/i.test(name)) {
-    throw new UsageError(
-      `артефакт должен быть .md-файлом, получен '${name}'`,
-    );
+    throw new UsageError(`артефакт должен быть .md-файлом, получен '${name}'`);
   }
   const access = kaitenAccess(io);
   const bytes = await readArtefact(io, args.path);
@@ -208,10 +216,7 @@ async function runKitenArtefactRm(
  * Байты артефакта. Нет пути либо это не обычный файл — ошибка ВВОДА
  * (exit 2, до сети), как и всякий отказ чтения: сеть тут ни при чём.
  */
-async function readArtefact(
-  io: FieldIo,
-  path: string,
-): Promise<Uint8Array> {
+async function readArtefact(io: FieldIo, path: string): Promise<Uint8Array> {
   try {
     return await io.readRegularFile(path);
   } catch (err) {
@@ -305,9 +310,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (не .md, пути
 нет либо он не обычный файл, селектор, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten field artefact set id: 65634936 path: razbor.md",
-  ],
+  examples: ["mpu kiten field artefact set id: 65634936 path: razbor.md"],
   policy: "rw",
   argsSchema: artefactSetArgsSchema,
   forms: {
@@ -341,9 +344,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
 ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten field artefact rm id: 65634936",
-  ],
+  examples: ["mpu kiten field artefact rm id: 65634936"],
   policy: "rw",
   argsSchema: artefactRmArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -352,7 +353,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
   render: (result) =>
     result.removed.length === 0
       ? `ok: поле «${ARTEFACT_TITLE}» уже пусто · ${result.cardUrl}\n`
-      : `ok: удалено из «${ARTEFACT_TITLE}»: ${
-        result.removed.join(", ")
-      } · ${result.cardUrl}\n`,
+      : `ok: удалено из «${ARTEFACT_TITLE}»: ${result.removed.join(
+          ", ",
+        )} · ${result.cardUrl}\n`,
 });

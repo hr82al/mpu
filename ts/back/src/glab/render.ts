@@ -65,16 +65,17 @@ function table(
   rows: readonly (readonly string[])[],
 ): string {
   const widths = header.map((title, column) =>
-    Math.max(textWidth(title), ...rows.map((row) => textWidth(row[column])))
+    Math.max(textWidth(title), ...rows.map((row) => textWidth(row[column]))),
   );
   return [header, ...rows]
     .map((row) =>
       row
-        .map((cell, column) =>
-          cell + " ".repeat(Math.max(widths[column] - textWidth(cell), 0))
+        .map(
+          (cell, column) =>
+            cell + " ".repeat(Math.max(widths[column] - textWidth(cell), 0)),
         )
         .join(GAP)
-        .trimEnd()
+        .trimEnd(),
     )
     .map((line) => `${line}\n`)
     .join("");
@@ -95,7 +96,7 @@ function cellsOf(row: StatusRow, titleWidth: number): readonly string[] {
     String(row.iid),
     truncate(row.title, titleWidth),
     ...PIPELINE_BRANCHES.map((branch) =>
-      row.landed.includes(branch) ? "✅" : ""
+      row.landed.includes(branch) ? "✅" : "",
     ),
   ];
 }
@@ -115,8 +116,8 @@ function titleBudget(
     Math.max(textWidth("id"), ...rows.map((row) => String(row.iid).length)),
     ...PIPELINE_BRANCHES.map((branch) => Math.max(textWidth(branch), 2)),
   ];
-  const used = fixed.reduce((sum, width) => sum + width, 0) +
-    GAP.length * fixed.length;
+  const used =
+    fixed.reduce((sum, width) => sum + width, 0) + GAP.length * fixed.length;
   return Math.max(columns - used, 0);
 }
 
@@ -126,7 +127,10 @@ export function renderRows(
   columns: number | null,
 ): string {
   const width = titleBudget(rows, columns);
-  return table(TABLE_HEADER, rows.map((row) => [...cellsOf(row, width)]));
+  return table(
+    TABLE_HEADER,
+    rows.map((row) => [...cellsOf(row, width)]),
+  );
 }
 
 /** Шапка MR: адрес, состояние и ветки. */
@@ -135,9 +139,10 @@ export function headline(row: StatusRow): string {
   const state = row.state === "" ? "?" : row.state;
   // У MR без коммитов обе ветки пусты, и сегмент опускается целиком:
   // «· →» без имён не сказал бы ничего.
-  const branches = row.source_branch === "" && row.target_branch === ""
-    ? ""
-    : ` · ${row.source_branch} → ${row.target_branch}`;
+  const branches =
+    row.source_branch === "" && row.target_branch === ""
+      ? ""
+      : ` · ${row.source_branch} → ${row.target_branch}`;
   return `${project}!${row.iid} · ${state}${branches}`;
 }
 
@@ -163,8 +168,8 @@ export function renderFooter(
   if (rows.length === 1) {
     return `прочие ветки: ${otherCell(rows[0], full)}\n`;
   }
-  const lines = rows.map((row) =>
-    `  ${row.project ?? "?"}!${row.iid}: ${otherCell(row, full)}\n`
+  const lines = rows.map(
+    (row) => `  ${row.project ?? "?"}!${row.iid}: ${otherCell(row, full)}\n`,
   );
   return `прочие ветки:\n${lines.join("")}`;
 }

@@ -156,18 +156,12 @@ const SETS: readonly FixtureSet[] = [
   {
     channel: "kiten-ls",
     copy: "kiten-ls/",
-    names: [
-      "ls-global.json",
-      "ls-global.md",
-    ],
+    names: ["ls-global.json", "ls-global.md"],
   },
   {
     channel: "kiten-status",
     copy: "kiten-status/",
-    names: [
-      "status.json",
-      "status.md",
-    ],
+    names: ["status.json", "status.md"],
   },
   {
     channel: "kiten-checklist",
@@ -195,35 +189,34 @@ describe("копии фикстур совпадают с каналом спе�
   for (const set of SETS) {
     for (const name of set.names) {
       it(`${set.channel}/${name}`, async () => {
-        expect(await readFile(new URL(`${set.copy}${name}`, copyRoot), "utf8"))
-          .toStrictEqual(
-            await readFile(
-              new URL(`${set.channel}/${name}`, channelRoot),
-              "utf8",
-            ),
-          );
+        expect(
+          await readFile(new URL(`${set.copy}${name}`, copyRoot), "utf8"),
+        ).toStrictEqual(
+          await readFile(
+            new URL(`${set.channel}/${name}`, channelRoot),
+            "utf8",
+          ),
+        );
       });
     }
   }
 });
 
 it("в testdata нет копий, которых нет в канале", async () => {
-  const declared = SETS
-    .flatMap((set) => set.names.map((name) => `${set.copy}${name}`))
-    .sort();
+  const declared = SETS.flatMap((set) =>
+    set.names.map((name) => `${set.copy}${name}`),
+  ).sort();
   expect((await copiedNames()).sort()).toStrictEqual(declared);
 });
 
 /** Всё, что лежит в `testdata/`, путями относительно него. */
 async function copiedNames(prefix = ""): Promise<string[]> {
   const found: string[] = [];
-  for (
-    const entry of await readdir(new URL(prefix, copyRoot), {
-      withFileTypes: true,
-    })
-  ) {
+  for (const entry of await readdir(new URL(prefix, copyRoot), {
+    withFileTypes: true,
+  })) {
     if (entry.isDirectory()) {
-      found.push(...await copiedNames(`${prefix}${entry.name}/`));
+      found.push(...(await copiedNames(`${prefix}${entry.name}/`)));
       continue;
     }
     found.push(`${prefix}${entry.name}`);

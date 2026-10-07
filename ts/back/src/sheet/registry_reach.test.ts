@@ -53,8 +53,8 @@ it("у каждого экспорта реестра есть читатель"
     new URL("../", import.meta.url),
     "sheet/registry.ts",
   );
-  const orphans = declared.filter((name) =>
-    !texts.some((text) => new RegExp(`\\b${name}\\b`).test(text))
+  const orphans = declared.filter(
+    (name) => !texts.some((text) => new RegExp(`\\b${name}\\b`).test(text)),
   );
   expect(orphans, `экспорт без читателей: ${orphans.join(", ")}`).toStrictEqual(
     [],

@@ -79,9 +79,11 @@ Exit: 0 — ответ 2xx и dry; 1 — ответ не 2xx, нет ответ�
 /** Ключи строки использования. */
 function usageKeys(receiver: Receiver): string {
   const cabinet = receiver.help.cabinetId.toUpperCase();
-  return `target: КЛИЕНТ [cabinet: ${cabinet}] ` +
+  return (
+    `target: КЛИЕНТ [cabinet: ${cabinet}] ` +
     `${receiver.marketplace.address.usage} [body: JSON] [method: GET|POST] ` +
-    `[timeout: СЕК] [${GRAMMAR.close} json]`;
+    `[timeout: СЕК] [${GRAMMAR.close} json]`
+  );
 }
 
 /**
@@ -89,14 +91,18 @@ function usageKeys(receiver: Receiver): string {
  *
  * @param deps внешнее вызова: в дереве — `LIVE`, на стенде — заглушки
  */
-export function callMessage(receiver: Receiver, declared: {
-  readonly name: string;
-  readonly policy: "ro" | "rw";
-  readonly access: Access;
-  readonly summary: string;
-  readonly help: string;
-  readonly examples: readonly string[];
-}, deps: CallDeps) {
+export function callMessage(
+  receiver: Receiver,
+  declared: {
+    readonly name: string;
+    readonly policy: "ro" | "rw";
+    readonly access: Access;
+    readonly summary: string;
+    readonly help: string;
+    readonly examples: readonly string[];
+  },
+  deps: CallDeps,
+) {
   const { marketplace } = receiver;
   const path = [...marketplace.path, declared.name];
   return defineCommand({

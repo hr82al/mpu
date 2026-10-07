@@ -282,8 +282,10 @@ async function refusal(
     // Подсказка ведёт к службе, а не к дереву исходников: у человека,
     // у которого сломалась установка, дерева под рукой может не быть
     // (`platform/cutover.md`).
-    return `сервер строк не отвечает на ${env.base} ` +
-      `(запуск: systemctl --user start ${ME})`;
+    return (
+      `сервер строк не отвечает на ${env.base} ` +
+      `(запуск: systemctl --user start ${ME})`
+    );
   }
   await response.body?.cancel();
   if (response.status === 401 || response.status === 403) {
@@ -408,12 +410,12 @@ async function lineCode(
   using terminal = await env.openTerminal();
   // Тем же терминалом решается и судьба кадра `clip`: буфер обмена
   // есть у того, у кого есть терминал (`platform/line-prompt.md`).
-  const asker: Asker = terminal === undefined
-    ? NOBODY
-    : humanAsker(env.openTerminal);
-  const clip: Clip = terminal === undefined
-    ? shown(env.stderr)
-    : clipboard(env.copy, env.stderr);
+  const asker: Asker =
+    terminal === undefined ? NOBODY : humanAsker(env.openTerminal);
+  const clip: Clip =
+    terminal === undefined
+      ? shown(env.stderr)
+      : clipboard(env.copy, env.stderr);
   const door = chooseDoor(await env.mainToken(), await env.agentToken(), asker);
   if (door === undefined) {
     fate.complain(`нет токена доступа (${env.mainTokenPath})`);

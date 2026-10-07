@@ -34,9 +34,7 @@ describe("копии фикстур совпадают с каналом спе�
 
 it("в testdata нет копий, которых нет в канале", async () => {
   const copied: string[] = [];
-  for (
-    const entry of await readdir(copyDir, { withFileTypes: true })
-  ) {
+  for (const entry of await readdir(copyDir, { withFileTypes: true })) {
     copied.push(entry.name);
   }
   expect(copied.sort()).toStrictEqual([...FIXTURES].sort());

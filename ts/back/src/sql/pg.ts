@@ -27,17 +27,15 @@ import type { PgTarget } from "./target.ts";
 /** Клиент драйвера: одно соединение, простой протокол, без пула. */
 export interface PgClient {
   readonly connect: () => Promise<void>;
-  readonly query: (
-    config: {
-      readonly text: string;
-      readonly rowMode: "array";
-      /**
-       * Значения по местам `$n`. Заданы — драйвер идёт расширенным
-       * протоколом, и текст обязан нести ровно один оператор.
-       */
-      readonly values?: readonly unknown[];
-    },
-  ) => Promise<unknown>;
+  readonly query: (config: {
+    readonly text: string;
+    readonly rowMode: "array";
+    /**
+     * Значения по местам `$n`. Заданы — драйвер идёт расширенным
+     * протоколом, и текст обязан нести ровно один оператор.
+     */
+    readonly values?: readonly unknown[];
+  }) => Promise<unknown>;
   readonly end: () => Promise<void>;
 }
 
@@ -50,9 +48,7 @@ interface DatabaseErrorLike extends Error {
 /** Часть поверхности драйвера, которой пользуется модуль. */
 interface PgDriver {
   readonly Client: new (options: ClientOptions) => PgClient;
-  readonly DatabaseError: abstract new (
-    ...args: never[]
-  ) => DatabaseErrorLike;
+  readonly DatabaseError: abstract new (...args: never[]) => DatabaseErrorLike;
   readonly types: {
     readonly getTypeParser: (
       oid: number,
@@ -123,7 +119,8 @@ const MARK = "mpu_sql_ro";
  * запятой после текста пользователя стоит на своей строке: хвостовой
  * `--`-комментарий иначе съел бы её вместе с замыкающими операторами.
  */
-const WRAP_HEAD = "BEGIN READ ONLY;\n" +
+const WRAP_HEAD =
+  "BEGIN READ ONLY;\n" +
   "SELECT current_setting('transaction_read_only');\n" +
   `SAVEPOINT ${MARK};\n`;
 
@@ -202,10 +199,7 @@ export async function openPgSession(
  * вызовом вместе с ним, поэтому снять режим только-чтения из самого
  * текста нельзя (`platform/readonly-default.md`).
  */
-async function readOnlyRun(
-  client: PgClient,
-  sql: string,
-): Promise<SqlOutcome> {
+async function readOnlyRun(client: PgClient, sql: string): Promise<SqlOutcome> {
   try {
     return outcomeAt(
       await send(client, WRAP_HEAD + sql + WRAP_TAIL),
@@ -311,10 +305,7 @@ function send(
  * драйвер за заданное не считает и всё равно смотрит в `PGBINARY` /
  * `PGREPLICATION`.
  */
-export function clientOptions(
-  target: PgTarget,
-  mode: SqlMode,
-): ClientOptions {
+export function clientOptions(target: PgTarget, mode: SqlMode): ClientOptions {
   return {
     host: target.host,
     port: target.port,

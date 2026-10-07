@@ -45,8 +45,8 @@ export type X10Send = (
  * пользователь одинаково часто пишет и адрес приложения, и адрес API.
  */
 export function x10BaseUrl(env: EnvKeys): string {
-  const raw = value(env, "X10_URL") ?? value(env, "X10_API_URL") ??
-    DEFAULT_BASE_URL;
+  const raw =
+    value(env, "X10_URL") ?? value(env, "X10_API_URL") ?? DEFAULT_BASE_URL;
   const trimmed = raw.replace(/\/+$/, "");
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
@@ -73,14 +73,14 @@ export async function x10Call(
     response = await send(new URL(`${baseUrl}${request.path}`), {
       method: request.method,
       headers,
-      body: request.body === undefined
-        ? undefined
-        : JSON.stringify(request.body),
+      body:
+        request.body === undefined ? undefined : JSON.stringify(request.body),
     });
   } catch (err) {
-    const reason = err instanceof HttpCallError || err instanceof Error
-      ? err.message
-      : String(err);
+    const reason =
+      err instanceof HttpCallError || err instanceof Error
+        ? err.message
+        : String(err);
     throw new DomainError(`${where}: transport error: ${reason}`, {
       cause: err instanceof Error ? err : undefined,
     });

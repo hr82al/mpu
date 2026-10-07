@@ -61,7 +61,8 @@ const REVIEW: ColumnDefault = {
 };
 
 const moveArgsSchema = z.object({
-  selector: z.string({ error: "нужен id: id карточки либо её URL" })
+  selector: z
+    .string({ error: "нужен id: id карточки либо её URL" })
     .describe("id карточки либо её URL"),
   lane: z.string().optional().describe("дорожка: id или подстрока названия"),
   column: z.string().optional().describe("колонка: id или подстрока названия"),
@@ -69,28 +70,35 @@ const moveArgsSchema = z.object({
 });
 
 const fixedArgsSchema = z.object({
-  selector: z.string({ error: "нужен id: id карточки либо её URL" })
+  selector: z
+    .string({ error: "нужен id: id карточки либо её URL" })
     .describe("id карточки либо её URL"),
-  column: z.string().optional().describe(
-    "целевая колонка: id или подстрока названия",
-  ),
+  column: z
+    .string()
+    .optional()
+    .describe("целевая колонка: id или подстрока названия"),
   note: z.string().optional().describe("заметка в журнал перемещений"),
-  "dry-run": z.boolean().default(false).describe(
-    "печать намерения; выполняются только чтения",
-  ),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("печать намерения; выполняются только чтения"),
 });
 
 const resultSchema = z.object({
   cardUrl: z.string().describe("web-URL карточки"),
   from: z.string().describe("положение «до»: доска · колонка · дорожка"),
-  to: z.string().nullable().describe(
-    "положение «после» по свежему чтению; при dry — null",
-  ),
+  to: z
+    .string()
+    .nullable()
+    .describe("положение «после» по свежему чтению; при dry — null"),
   relog: z.boolean().describe("перенос сводится к релог-bump"),
-  column: z.object({
-    id: z.number().int().describe("id целевой колонки"),
-    title: z.string().describe("название целевой колонки"),
-  }).nullable().describe("целевая колонка; у move без --column — null"),
+  column: z
+    .object({
+      id: z.number().int().describe("id целевой колонки"),
+      title: z.string().describe("название целевой колонки"),
+    })
+    .nullable()
+    .describe("целевая колонка; у move без --column — null"),
   dryRun: z.boolean().describe("намерение напечатано, PATCH не отправлен"),
 });
 
@@ -107,18 +115,25 @@ async function runKitenMove(
   io: MoveIo,
 ): Promise<KitenMoveResult> {
   if (
-    args.lane === undefined && args.column === undefined &&
+    args.lane === undefined &&
+    args.column === undefined &&
     args.board === undefined
   ) {
     throw new UsageError("нужно хотя бы одно из --lane / --column / --board");
   }
   const cardId = parseCardRef(args.selector);
   const access = kaitenAccess(io);
-  return await runMove(access, io, cardId, {
-    board: args.board,
-    lane: args.lane,
-    column: args.column,
-  }, { note: "", dryRun: false });
+  return await runMove(
+    access,
+    io,
+    cardId,
+    {
+      board: args.board,
+      lane: args.lane,
+      column: args.column,
+    },
+    { note: "", dryRun: false },
+  );
 }
 
 /** `ready`/`review`: перенос в фиксированную колонку текущей доски. */
@@ -129,9 +144,15 @@ async function runFixedMove(
 ): Promise<KitenMoveResult> {
   const cardId = parseCardRef(args.selector);
   const access = kaitenAccess(io);
-  return await runMove(access, io, cardId, {
-    column: columnRef(args.column, io, fixed),
-  }, { note: args.note ?? "", dryRun: args["dry-run"] });
+  return await runMove(
+    access,
+    io,
+    cardId,
+    {
+      column: columnRef(args.column, io, fixed),
+    },
+    { note: args.note ?? "", dryRun: args["dry-run"] },
+  );
 }
 
 /** Ссылки на оси, как их задал пользователь; незаданная — `undefined`. */
@@ -165,9 +186,10 @@ async function runMove(
   const board = await targetBoard(access, card, refs.board);
   const { targets, columns } = await resolveTargets(access, board, refs);
   const made = planAxisMove(card, targets);
-  const column = targets.column === null
-    ? null
-    : { id: targets.column.id, title: targets.column.title };
+  const column =
+    targets.column === null
+      ? null
+      : { id: targets.column.id, title: targets.column.title };
   if (options.dryRun) {
     return {
       cardUrl: url,
@@ -252,19 +274,24 @@ async function resolveTargets(
   readonly targets: AxisTargets;
   readonly columns: readonly Column[];
 }> {
-  const lane = refs.lane === undefined ? null : resolveRef(
-    "lane",
-    await read(() => listBoardLanes(access, board.id)),
-    refs.lane,
-  );
+  const lane =
+    refs.lane === undefined
+      ? null
+      : resolveRef(
+          "lane",
+          await read(() => listBoardLanes(access, board.id)),
+          refs.lane,
+        );
   // Колонки нужны только заданной колонке и релогу, а релог без неё не
   // случается: без `--column` за списком команда не ходит.
-  const columns = refs.column === undefined
-    ? []
-    : await read(() => listBoardColumns(access, board.id));
-  const column = refs.column === undefined
-    ? null
-    : resolveRef("column", columns, refs.column);
+  const columns =
+    refs.column === undefined
+      ? []
+      : await read(() => listBoardColumns(access, board.id));
+  const column =
+    refs.column === undefined
+      ? null
+      : resolveRef("column", columns, refs.column);
   return {
     targets: { board: board.asked ? board : null, lane, column },
     columns,
@@ -313,11 +340,14 @@ function renderMove(result: KitenMoveResult): string {
   // Положение «после» без `--dry-run` даёт финальный GET; его отсутствие
   // значило бы, что перемещения не было, — молча выдать за успех нельзя.
   if (result.to === null) throw new TypeError("перенос без положения «после»");
-  return moveOkLine({
-    from: result.from,
-    to: result.to,
-    relog: result.relog,
-  }, result.cardUrl);
+  return moveOkLine(
+    {
+      from: result.from,
+      to: result.to,
+      relog: result.relog,
+    },
+    result.cardUrl,
+  );
 }
 
 const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY, KITEN_BASE_URL`;

@@ -32,10 +32,12 @@ export function renderIndex(
   const lines = entries.map(
     (entry) => `  ${entry.name.padEnd(width)}  ${entry.summary}\n`,
   );
-  return `Использование: ${usage}\n\n${summary}\n\nПодкоманды:\n` +
+  return (
+    `Использование: ${usage}\n\n${summary}\n\nПодкоманды:\n` +
     lines.join("") +
     notes +
-    "\nПодробнее: --help у каждой подкоманды.\n";
+    "\nПодробнее: --help у каждой подкоманды.\n"
+  );
 }
 
 /**
@@ -46,9 +48,11 @@ export function renderIndex(
  * со схемой и съедало предел описания тула.
  */
 export function renderCommandHelp(command: Command): string {
-  return `Использование: ${command.usage}\n\n${command.summary}\n\n` +
+  return (
+    `Использование: ${command.usage}\n\n${command.summary}\n\n` +
     renderInputs(command) +
-    `${command.help}\n`;
+    `${command.help}\n`
+  );
 }
 
 /**
@@ -75,8 +79,9 @@ function renderInputs(command: Command): string {
   const width = Math.max(0, ...rows.map((row) => row.label.length));
   const positional = rows.filter((row) => row.input.form.positional);
   const flags = rows.filter((row) => row.input.form.positional === undefined);
-  return section("Аргументы", positional, width) +
-    section("Флаги", flags, width);
+  return (
+    section("Аргументы", positional, width) + section("Флаги", flags, width)
+  );
 }
 
 interface HelpRow {
@@ -147,6 +152,8 @@ function wrap(label: string, text: string): string {
   const [first = "", ...rest] = lines;
   // trimEnd — на случай входа без описания: строка не должна кончаться
   // колонкой пробелов, это видно в diff'ах и в golden-эталонах.
-  return `${`  ${label}  ${first}`.trimEnd()}\n` +
-    rest.map((line) => `${indent}${line}\n`).join("");
+  return (
+    `${`  ${label}  ${first}`.trimEnd()}\n` +
+    rest.map((line) => `${indent}${line}\n`).join("")
+  );
 }

@@ -83,13 +83,14 @@ export function commandLine(
   argv: readonly string[],
   options: MaskOptions = {},
 ): string {
-  const masked = options.path !== undefined
-    ? maskAfterPath(argv, options.path)
-    // Чужая командная строка в хвосте — не наши опции: значения в ней
-    // не прячутся, иначе запись потеряет то, ради чего её читают.
-    : options.foreignTail === true
-    ? maskArgv(argv)
-    : maskArgv(argv, options);
+  const masked =
+    options.path !== undefined
+      ? maskAfterPath(argv, options.path)
+      : // Чужая командная строка в хвосте — не наши опции: значения в ней
+        // не прячутся, иначе запись потеряет то, ради чего её читают.
+        options.foreignTail === true
+        ? maskArgv(argv)
+        : maskArgv(argv, options);
   return ["mpu", ...masked.map(shellQuote)].join(" ");
 }
 
@@ -219,8 +220,8 @@ function maskArgv(
     // Значение объявленной опции пишется: она не может оказаться
     // опечаткой в имени секретной, а читаемость записи — то, ради чего
     // журнал ведут (`--limit 10`, `--since 1m`).
-    const hides = isSecretName(name) ||
-      (known !== undefined && declared === undefined);
+    const hides =
+      isSecretName(name) || (known !== undefined && declared === undefined);
     if (eq < 0) {
       pending = hides ? "secret" : isBodyOption(name) ? "body" : "none";
       // Булев флаг значения не берёт: следующий токен — не его, и

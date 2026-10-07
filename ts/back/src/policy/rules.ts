@@ -45,12 +45,7 @@ export class Rule implements Ruling {
     channel: Channel,
     address: Address,
   ): Promise<T> {
-    return this.#verdict.settle(
-      execution,
-      channel,
-      this.#path.text(),
-      address,
-    );
+    return this.#verdict.settle(execution, channel, this.#path.text(), address);
   }
 
   admits(address: Address): boolean {
@@ -107,6 +102,6 @@ export class Rules {
   list(): RuleEntry[] {
     return this.#rules
       .map((rule) => rule.entry())
-      .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   }
 }

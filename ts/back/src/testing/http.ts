@@ -56,16 +56,17 @@ export async function serveFetch(
       res.destroy();
     });
   };
-  const server: Server = tls === undefined
-    ? createHttpServer(listener)
-    : createHttpsServer({ cert: tls.cert, key: tls.key }, listener);
+  const server: Server =
+    tls === undefined
+      ? createHttpServer(listener)
+      : createHttpsServer({ cert: tls.cert, key: tls.key }, listener);
   const port = await listenLoopback(server);
   return {
     baseUrl: `${scheme}://127.0.0.1:${port}`,
     port,
     stop: () =>
       new Promise<void>((resolve, reject) => {
-        server.close((err) => err === undefined ? resolve() : reject(err));
+        server.close((err) => (err === undefined ? resolve() : reject(err)));
         server.closeIdleConnections();
       }),
   };
@@ -90,7 +91,7 @@ export async function closedPort(): Promise<number> {
   const server = createNetServer();
   const port = await listenLoopback(server);
   await new Promise<void>((resolve, reject) =>
-    server.close((err) => err === undefined ? resolve() : reject(err))
+    server.close((err) => (err === undefined ? resolve() : reject(err))),
   );
   return port;
 }
@@ -157,9 +158,10 @@ async function requestOf(
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk);
   const method = req.method ?? "GET";
-  const body = method === "GET" || method === "HEAD"
-    ? undefined
-    : new Uint8Array(Buffer.concat(chunks));
+  const body =
+    method === "GET" || method === "HEAD"
+      ? undefined
+      : new Uint8Array(Buffer.concat(chunks));
   // Запрос к прокси несёт адрес целиком (`GET http://…`), прочие — путь.
   const url = new URL(req.url ?? "/", `${scheme}://${req.headers.host}`);
   return new Request(url, {

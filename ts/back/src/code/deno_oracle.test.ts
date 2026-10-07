@@ -47,8 +47,9 @@ describe("ответ на deno-дереве совпадает с оракуло
   });
 
   it("оракул даёт три файла", async () => {
-    expect(await renameOracle(repo.root, "src/days.ts", "addDays"))
-      .toStrictEqual(CONSUMERS);
+    expect(
+      await renameOracle(repo.root, "src/days.ts", "addDays"),
+    ).toStrictEqual(CONSUMERS);
   });
 
   it("ответ команды равен ответу оракула", async () => {
@@ -57,8 +58,9 @@ describe("ответ на deno-дереве совпадает с оракуло
       { cwd: () => repo.root },
       [repo],
     );
-    expect(answered(result).consumers.places.map((place) => place.path))
-      .toStrictEqual(CONSUMERS);
+    expect(
+      answered(result).consumers.places.map((place) => place.path),
+    ).toStrictEqual(CONSUMERS);
     expect(answered(result).consumers.total).toStrictEqual(CONSUMERS.length);
   });
 });
@@ -105,7 +107,7 @@ async function brokenFiles(root: string): Promise<readonly string[]> {
     stdio: ["ignore", "ignore", "pipe"],
   });
   let text = "";
-  child.stderr.setEncoding("utf8").on("data", (chunk) => text += chunk);
+  child.stderr.setEncoding("utf8").on("data", (chunk) => (text += chunk));
   const [code] = await once(child, "close");
   const found = new Set<string>();
   // `deno check` печатает место ошибки строкой вида
@@ -127,8 +129,5 @@ function answered(result: { section: { kind: string } }) {
   if (result.section.kind !== "answer") {
     throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
   }
-  return result.section as Extract<
-    RefsResult["section"],
-    { kind: "answer" }
-  >;
+  return result.section as Extract<RefsResult["section"], { kind: "answer" }>;
 }

@@ -109,8 +109,9 @@ it("чистка при task.history не удаляет действующий 
       "json",
     );
     expect(run.code, run.stderr).toBe(0);
-    const kinds = (JSON.parse(run.stdout) as { kind: string }[])
-      .map((row) => row.kind);
+    const kinds = (JSON.parse(run.stdout) as { kind: string }[]).map(
+      (row) => row.kind,
+    );
     expect(kinds).toStrictEqual(["task"]);
   }, "0"));
 

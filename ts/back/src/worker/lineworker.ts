@@ -236,7 +236,7 @@ export class LineWorker {
   async close(): Promise<void> {
     await this.#spawned.wire.close();
     this.#drained = this.#drain().catch((err) =>
-      this.#parts.diagnose(`[worker ${this.pid()}] вывод не дочитан: ${err}`)
+      this.#parts.diagnose(`[worker ${this.pid()}] вывод не дочитан: ${err}`),
     );
   }
 
@@ -263,7 +263,7 @@ export class LineWorker {
       // Исполнитель уже не читает: его остановят сигналы ниже.
     });
     this.#escalate().catch((err) =>
-      this.#parts.diagnose(`mpu-back: исполнитель не остановлен: ${err}`)
+      this.#parts.diagnose(`mpu-back: исполнитель не остановлен: ${err}`),
     );
   }
 
@@ -340,9 +340,11 @@ export class LineWorker {
     if ("note" in frame) return io.note(frame.note);
     if ("stdin" in frame) {
       return await this.#unlessGone(
-        io.readStdin().then((bytes) =>
-          this.#send({ stdin: new TextDecoder().decode(bytes) })
-        ),
+        io
+          .readStdin()
+          .then((bytes) =>
+            this.#send({ stdin: new TextDecoder().decode(bytes) }),
+          ),
       );
     }
     if ("ask" in frame) {
@@ -415,6 +417,6 @@ class LazyRemote implements Sink {
   }
 
   #opened(): RemoteOutput {
-    return this.#remote ??= this.#io.openRemoteOutput();
+    return (this.#remote ??= this.#io.openRemoteOutput());
   }
 }

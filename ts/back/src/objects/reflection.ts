@@ -96,8 +96,9 @@ export function wordListing(
 
 function keyListing(keys: readonly KeyLine[]): Listing {
   const rows = keys.map((key) =>
-    [key.name, key.kind, key.required ? "обязателен" : "-", key.purpose]
-      .join("\t")
+    [key.name, key.kind, key.required ? "обязателен" : "-", key.purpose].join(
+      "\t",
+    ),
   );
   return new Listing(keys, lines(rows));
 }
@@ -130,11 +131,8 @@ const RETIRED: ReadonlyMap<string, (sent: Named) => never> = new Map([
 ]);
 
 const PROTOCOL: readonly Method<Reflection>[] = [
-  unary(
-    "messages",
-    about("собственные сообщения объекта"),
-    LISTED,
-    (self) => messageListing(self.messages()),
+  unary("messages", about("собственные сообщения объекта"), LISTED, (self) =>
+    messageListing(self.messages()),
   ),
   keyword(
     { understands: "value" },
@@ -147,11 +145,8 @@ const PROTOCOL: readonly Method<Reflection>[] = [
       return new Listing(answer, `${answer}\n`);
     },
   ),
-  unary(
-    "keys",
-    about("ключи ключевого сообщения команды"),
-    LISTED,
-    (self) => keyListing(self.keys()),
+  unary("keys", about("ключи ключевого сообщения команды"), LISTED, (self) =>
+    keyListing(self.keys()),
   ),
   unary(
     "formats",
@@ -162,16 +157,11 @@ const PROTOCOL: readonly Method<Reflection>[] = [
       return new Listing(formats, lines(formats));
     },
   ),
-  unary(
-    "variants",
-    about("варианты команды"),
-    LISTED,
-    (self) => {
-      const variants = self.variants();
-      const rows = variants.map((line) => `${line.selector}\t${line.purpose}`);
-      return new Listing(variants, lines(rows));
-    },
-  ),
+  unary("variants", about("варианты команды"), LISTED, (self) => {
+    const variants = self.variants();
+    const rows = variants.map((line) => `${line.selector}\t${line.purpose}`);
+    return new Listing(variants, lines(rows));
+  }),
   keyword(
     { candidates: "value", like: "value" },
     ["candidates"],
@@ -179,10 +169,7 @@ const PROTOCOL: readonly Method<Reflection>[] = [
     LISTED,
     async (self, args) =>
       valueListing(
-        await self.candidates(
-          String(args.candidates),
-          String(args.like ?? ""),
-        ),
+        await self.candidates(String(args.candidates), String(args.like ?? "")),
       ),
   ),
 ];
@@ -198,9 +185,9 @@ const PROTOCOL_WORDS: ReadonlySet<string> = new Set([
   ...PROTOCOL.flatMap((method) => {
     const into = new Description();
     method.describe(into);
-    return into.build().keyword.flatMap((one) =>
-      Object.keys(one.keys).map((key) => `${key}:`)
-    );
+    return into
+      .build()
+      .keyword.flatMap((one) => Object.keys(one.keys).map((key) => `${key}:`));
   }),
 ]);
 

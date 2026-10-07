@@ -72,29 +72,35 @@ function messages(): ReadonlyMap<number, MessageFile> {
   return new Map([
     [
       42,
-      documentFile(42, {
-        name: "разбор.md",
-        size: 1234,
-        mime: "text/markdown",
-      }, () => parts(F1_BODY.slice(0, 1000), F1_BODY.slice(1000))),
+      documentFile(
+        42,
+        {
+          name: "разбор.md",
+          size: 1234,
+          mime: "text/markdown",
+        },
+        () => parts(F1_BODY.slice(0, 1000), F1_BODY.slice(1000)),
+      ),
     ],
     [43, photoFile(43, 2048, () => parts(new Uint8Array(2048)))],
     [
       44,
-      documentFile(44, {
-        name: "../../x.md",
-        size: 10,
-        mime: "text/markdown",
-      }, () => parts(encoder.encode("0123456789"))),
+      documentFile(
+        44,
+        {
+          name: "../../x.md",
+          size: 10,
+          mime: "text/markdown",
+        },
+        () => parts(encoder.encode("0123456789")),
+      ),
     ],
     [45, noFile(45)],
     [47, noFile(47)],
     [
       48,
-      documentFile(
-        48,
-        { name: null, size: 300, mime: "audio/ogg" },
-        () => parts(new Uint8Array(300)),
+      documentFile(48, { name: null, size: 300, mime: "audio/ogg" }, () =>
+        parts(new Uint8Array(300)),
       ),
     ],
   ]);
@@ -187,12 +193,15 @@ it("F1: документ — путь, имя, записанный размер
 });
 
 it("F1: строка вывода совпадает с голденом", async () => {
-  const text = command.renderResult({
-    path: "/tmp/mpu-telegram/-1000000000101-42-разбор.md",
-    name: "разбор.md",
-    size: 1234,
-    mime: "text/markdown",
-  }, ["--chat", `${CHAT}`, "--id", "42"]);
+  const text = command.renderResult(
+    {
+      path: "/tmp/mpu-telegram/-1000000000101-42-разбор.md",
+      name: "разбор.md",
+      size: 1234,
+      mime: "text/markdown",
+    },
+    ["--chat", `${CHAT}`, "--id", "42"],
+  );
   expect(text).toStrictEqual(await golden("file-stdout.txt"));
 });
 
@@ -321,14 +330,20 @@ it("F13: чат не найден — отказ про чат, код 1, фай
 it("F16: обрыв — по пути нет файла, других файлов вызова нет", async () => {
   await inTempDir(async (dir) => {
     const session = new FakeSession(
-      new Map([[
-        42,
-        documentFile(42, {
-          name: "разбор.md",
-          size: 1234,
-          mime: "text/markdown",
-        }, () => brokenAfter(F1_BODY.slice(0, 600))),
-      ]]),
+      new Map([
+        [
+          42,
+          documentFile(
+            42,
+            {
+              name: "разбор.md",
+              size: 1234,
+              mime: "text/markdown",
+            },
+            () => brokenAfter(F1_BODY.slice(0, 600)),
+          ),
+        ],
+      ]),
     );
     const err = await rejected(
       () => file({ chat: `${CHAT}`, id: "42" }, dir, session),
@@ -344,17 +359,24 @@ it("F17: обрыв — прежний файл по пути цел", async () 
   await inTempDir(async (dir) => {
     const first = await file({ chat: `${CHAT}`, id: "42" }, dir);
     const session = new FakeSession(
-      new Map([[
-        42,
-        documentFile(42, {
-          name: "разбор.md",
-          size: 1234,
-          mime: "text/markdown",
-        }, () => brokenAfter(new Uint8Array(600))),
-      ]]),
+      new Map([
+        [
+          42,
+          documentFile(
+            42,
+            {
+              name: "разбор.md",
+              size: 1234,
+              mime: "text/markdown",
+            },
+            () => brokenAfter(new Uint8Array(600)),
+          ),
+        ],
+      ]),
     );
-    await expect(file({ chat: `${CHAT}`, id: "42" }, dir, session)).rejects
-      .toThrow(VerbatimError);
+    await expect(
+      file({ chat: `${CHAT}`, id: "42" }, dir, session),
+    ).rejects.toThrow(VerbatimError);
     expect(new Uint8Array(await readFile(first.path))).toStrictEqual(F1_BODY);
     expect(await listing(dir)).toStrictEqual(["-1000000000101-42-разбор.md"]);
   });
@@ -377,15 +399,13 @@ it("F14: справка — вопрос, повод звать, путь фай
 it("F22: справка — картинка агенту блоком, абзац после первого", () => {
   const paragraphs = command.help.split("\n\n");
   const picture = paragraphs[1].replaceAll("\n", " ");
-  for (
-    const part of [
-      "Агенту по MCP картинка",
-      "JPEG, PNG, GIF, WebP до 3 750 000 байт",
-      "блоком изображения",
-      "файл читать не нужно",
-      "Прочие вложения — только файлом",
-    ]
-  ) {
+  for (const part of [
+    "Агенту по MCP картинка",
+    "JPEG, PNG, GIF, WebP до 3 750 000 байт",
+    "блоком изображения",
+    "файл читать не нужно",
+    "Прочие вложения — только файлом",
+  ]) {
     expect(picture).toContain(part);
   }
 });

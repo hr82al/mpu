@@ -33,10 +33,7 @@ function parsed(text: string): { readonly body: unknown } | undefined {
  * @param text тело запроса как есть
  * @param methods методы сервера
  */
-export function answerRpc(
-  text: string,
-  methods: Methods,
-): RpcBody | undefined {
+export function answerRpc(text: string, methods: Methods): RpcBody | undefined {
   const request = parsed(text);
   if (request === undefined) {
     return errorBody(null, RPC_PARSE_ERROR, "Parse error");

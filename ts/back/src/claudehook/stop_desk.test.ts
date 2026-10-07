@@ -160,13 +160,15 @@ it("R2a-1: конец хода — сообщение «ждёт ввода», �
     const told = await stop(payload());
     expect(told).toStrictEqual(SILENT);
     // Хук вышел, а в чате — ровно показ, ни одного апдейта не было.
-    expect(bot.calls).toStrictEqual([{
-      method: "send",
-      message: 0,
-      text: `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}`,
-      buttons: [["Пропустить"]],
-      data: [["r1:1:0:skip"]],
-    }]);
+    expect(bot.calls).toStrictEqual([
+      {
+        method: "send",
+        message: 0,
+        text: `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}`,
+        buttons: [["Пропустить"]],
+        data: [["r1:1:0:skip"]],
+      },
+    ]);
   });
 });
 
@@ -181,17 +183,15 @@ it("R2a-2: продолжение хода (stop_hook_active) — в чат ни
 });
 
 describe("вход не разобран — причина; в чат ничего", () => {
-  for (
-    const [name, stdin, what] of [
-      ["не JSON", "{", "stdin — не JSON-объект"],
-      ["массив", "[]", "stdin — не JSON-объект"],
-      [
-        "нет last_assistant_message",
-        '{"hook_event_name":"Stop"}',
-        "нет last_assistant_message",
-      ],
-    ] as const
-  ) {
+  for (const [name, stdin, what] of [
+    ["не JSON", "{", "stdin — не JSON-объект"],
+    ["массив", "[]", "stdin — не JSON-объект"],
+    [
+      "нет last_assistant_message",
+      '{"hook_event_name":"Stop"}',
+      "нет last_assistant_message",
+    ],
+  ] as const) {
     it(name, () =>
       withStopDesk(async ({ bot, stop }) => {
         expect(await stop(stdin)).toStrictEqual({
@@ -199,7 +199,8 @@ describe("вход не разобран — причина; в чат ниче�
           stderr: `${NO_QUESTION}вход не разобран: ${what}\n`,
         });
         expect(bot.calls).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -228,10 +229,13 @@ it("пустое последнее сообщение — «(без текст�
 
 describe("заголовок: без названия — проект первым; ничего — «💬 сессия»", () => {
   it("ozon, вне tmux", () =>
-    withStopDesk(async ({ bot, payload, stop }) => {
-      await stop(payload(), {});
-      expect(bot.calls[0].text.split("\n")[0]).toBe("💬 ozon");
-    }, { lines: [] }));
+    withStopDesk(
+      async ({ bot, payload, stop }) => {
+        await stop(payload(), {});
+        expect(bot.calls[0].text.split("\n")[0]).toBe("💬 ozon");
+      },
+      { lines: [] },
+    ));
   it("ничего", () =>
     withStopDesk(async ({ bot, stop }) => {
       await stop('{"last_assistant_message":"Готово."}', {});
@@ -249,20 +253,17 @@ describe("R2a-8, R2a2-1–4: снимает только набранный вв
   // Данные случаев — из голдена, поэтому он читается при сборе: Vitest
   // дожидается асинхронной фабрики `describe` до первого случая.
   const [typed, answer] = await aroundStop();
-  for (
-    const [name, record] of [
-      // Живой ввод из голдена: снимает, будучи дописанным после постановки.
-      ["2: user строкой", typed],
-      [
-        "3: user блоком text",
-        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Синий"}]}}',
-      ],
-    ] as const
-  ) {
-    it(
-      name,
-      () =>
-        withStopDesk(async ({ bot, clock, append, payload, stop }) => {
+  for (const [name, record] of [
+    // Живой ввод из голдена: снимает, будучи дописанным после постановки.
+    ["2: user строкой", typed],
+    [
+      "3: user блоком text",
+      '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Синий"}]}}',
+    ],
+  ] as const) {
+    it(name, () =>
+      withStopDesk(
+        async ({ bot, clock, append, payload, stop }) => {
           await stop(payload());
           await clock.paused(WATCH_MS);
           // 1: ответ хода дописан после вызова хука — не ввод.
@@ -280,12 +281,13 @@ describe("R2a-8, R2a2-1–4: снимает только набранный вв
           expect(bot.calls[1]).toStrictEqual({
             method: "edit",
             message: 1546,
-            text:
-              `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}\n✅ решено в терминале`,
+            text: `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}\n✅ решено в терминале`,
             buttons: [],
             data: [],
           });
-        }, { lines: [TITLED[0], typed] }),
+        },
+        { lines: [TITLED[0], typed] },
+      ),
     );
   }
 });
@@ -299,8 +301,7 @@ it("R2a-9: второй Stop той же сессии — прежний «ре�
       {
         method: "edit",
         message: 1546,
-        text:
-          `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}\n✅ решено в терминале`,
+        text: `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}\n✅ решено в терминале`,
         buttons: [],
         data: [],
       },
@@ -513,16 +514,17 @@ it("дубль-2: показанный снят набранным вводом,
     const A = `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}`;
     const B = `💬 ozon\nB ждёт\n${NO_CHANNEL_LINE}`;
     const A2 = `${HEAD_A}\nПринято: синий.\n${NO_CHANNEL_LINE}`;
-    expect(bot.calls.map((call) => [call.method, call.message, call.text]))
-      .toStrictEqual([
-        ["send", 0, A],
-        ["edit", 1546, `${A}\nещё ждут: 1`],
-        ["edit", 1546, `${A}\n✅ решено в терминале`],
-        ["send", 0, B],
-        ["edit", 1547, `${B}\nещё ждут: 1`],
-        ["edit", 1547, `${B}\n✅ решено в терминале`],
-        ["send", 0, `${A2}\nещё ждут: 1`],
-      ]);
+    expect(
+      bot.calls.map((call) => [call.method, call.message, call.text]),
+    ).toStrictEqual([
+      ["send", 0, A],
+      ["edit", 1546, `${A}\nещё ждут: 1`],
+      ["edit", 1546, `${A}\n✅ решено в терминале`],
+      ["send", 0, B],
+      ["edit", 1547, `${B}\nещё ждут: 1`],
+      ["edit", 1547, `${B}\n✅ решено в терминале`],
+      ["send", 0, `${A2}\nещё ждут: 1`],
+    ]);
     expect(bot.twoWithButtons()).toBe("");
   });
 });

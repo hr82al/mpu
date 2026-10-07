@@ -41,16 +41,14 @@ export interface OutputSink {
  * процесса в момент записи: у сервера строк каталог принадлежит строке,
  * а не процессу (`platform/line-concurrency.md`).
  */
-export type InvokeCommand =
-  & { readonly cwd: string }
-  & (
-    | { readonly kind: "argv"; readonly argv: readonly string[] }
-    | {
+export type InvokeCommand = { readonly cwd: string } & (
+  | { readonly kind: "argv"; readonly argv: readonly string[] }
+  | {
       readonly kind: "tool";
       readonly path: readonly string[];
       readonly input: unknown;
     }
-  );
+);
 
 /** Пометка команды: пишутся ли в её запись секции out/err и аргументы. */
 export interface OutputPolicy {

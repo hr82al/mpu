@@ -145,8 +145,8 @@ function ordered(moves: readonly CardMove[]): readonly CardMove[] {
       latest.set(move.cardId, move);
     }
   }
-  return [...latest.values()].sort((a, b) =>
-    b.movedAt - a.movedAt || b.cardId - a.cardId
+  return [...latest.values()].sort(
+    (a, b) => b.movedAt - a.movedAt || b.cardId - a.cardId,
   );
 }
 

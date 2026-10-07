@@ -50,7 +50,8 @@ it("записи Loki: поля из меток, текст без одного 
 it("снимок: строки обоих потоков, метка Docker — время и часть текста", () => {
   const snapshot = {
     container: "mp-api",
-    stdout: "2026-09-23T10:00:00.123456789Z старт\n" +
+    stdout:
+      "2026-09-23T10:00:00.123456789Z старт\n" +
       "2026-09-23T10:00:01.5Z готово\n",
     stderr: "2026-09-23T10:00:00.9Z ERROR\n",
     timestamps: true,
@@ -82,12 +83,14 @@ it("снимок без меток времени — time пусто, пуст�
     stderr: "",
     timestamps: false,
   };
-  expect(snapshotRecords(snapshot)).toStrictEqual([{
-    time: "",
-    host: "",
-    service: "",
-    stream: "stdout",
-    text: "2026-09-23T10:00:00Z похоже на метку",
-  }]);
+  expect(snapshotRecords(snapshot)).toStrictEqual([
+    {
+      time: "",
+      host: "",
+      service: "",
+      stream: "stdout",
+      text: "2026-09-23T10:00:00Z похоже на метку",
+    },
+  ]);
   expect(snapshotRecords({ ...snapshot, stdout: "" })).toStrictEqual([]);
 });

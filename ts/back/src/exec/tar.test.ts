@@ -11,10 +11,9 @@ const decoder = new TextDecoder();
 
 /** Поле заголовка текстом, без хвостовых NUL и пробелов. */
 function field(archive: Uint8Array, at: number, length: number): string {
-  return decoder.decode(archive.subarray(at, at + length)).replaceAll(
-    /[\0 ]+$/g,
-    "",
-  );
+  return decoder
+    .decode(archive.subarray(at, at + length))
+    .replaceAll(/[\0 ]+$/g, "");
 }
 
 it("заголовок ustar: имя, права, размер, тип", () => {

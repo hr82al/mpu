@@ -13,10 +13,12 @@ it("R2a-12: однострока и фрагмент настроек — как
     "Как сообщить владельцу в Telegram, что сессия Claude Code ждёт ввода?",
   );
   const fragment = command.help.slice(command.help.lastIndexOf("\n{") + 1);
-  expect(JSON.parse(fragment)).toStrictEqual(JSON.parse(
-    await readFile(
-      new URL("testdata/stop/settings-fragment-stop.json", import.meta.url),
-      "utf8",
+  expect(JSON.parse(fragment)).toStrictEqual(
+    JSON.parse(
+      await readFile(
+        new URL("testdata/stop/settings-fragment-stop.json", import.meta.url),
+        "utf8",
+      ),
     ),
-  ));
+  );
 });

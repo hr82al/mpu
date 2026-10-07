@@ -30,33 +30,43 @@ describe("golden-записи собираются из полей байт-в-�
     argv: string[],
     patch: Partial<InvokeRecordFields>,
   ][] = [
-    ["record-out-ok.txt", ["sql-ro", "sl-1", "SELECT 1 AS one", "--json"], {
-      startedAt: new Date("2026-08-05T04:42:28.205Z"),
-      pid: 396570,
-      out: '[{"one": 1}]\n',
-      exitCode: 0,
-      durationMs: 371,
-    }],
-    ["record-err-ok.txt", ["sql-ro", "sl-1", "SELECT 1", "--dry"], {
-      startedAt: new Date("2026-08-05T04:39:44.525Z"),
-      pid: 385900,
-      err: "server: sl-1\npg_host: <pg_host>\npg_port: 5432\ndatabase: wb\n" +
-        "mode: read-only\nsql:\nSELECT 1\n",
-      exitCode: 0,
-      durationMs: 286,
-    }],
+    [
+      "record-out-ok.txt",
+      ["sql-ro", "sl-1", "SELECT 1 AS one", "--json"],
+      {
+        startedAt: new Date("2026-08-05T04:42:28.205Z"),
+        pid: 396570,
+        out: '[{"one": 1}]\n',
+        exitCode: 0,
+        durationMs: 371,
+      },
+    ],
+    [
+      "record-err-ok.txt",
+      ["sql-ro", "sl-1", "SELECT 1", "--dry"],
+      {
+        startedAt: new Date("2026-08-05T04:39:44.525Z"),
+        pid: 385900,
+        err:
+          "server: sl-1\npg_host: <pg_host>\npg_port: 5432\ndatabase: wb\n" +
+          "mode: read-only\nsql:\nSELECT 1\n",
+        exitCode: 0,
+        durationMs: 286,
+      },
+    ],
     [
       "record-failed-masked.txt",
       ["sql-ro", "sl-1", "SELECT 1", "--dry", "--token=t0p"],
       {
         startedAt: new Date("2026-08-05T04:39:45.017Z"),
         pid: 385927,
-        err: "Usage: mpu sql-ro [OPTIONS] {selector} [sql]\n" +
+        err:
+          "Usage: mpu sql-ro [OPTIONS] {selector} [sql]\n" +
           "Try 'mpu sql-ro -h' for help.\n" +
           `╭─ Error ${"─".repeat(70)}╮\n` +
-          `│ ${
-            "No such option: --token (Possible options: --json)".padEnd(77)
-          }│\n` +
+          `│ ${"No such option: --token (Possible options: --json)".padEnd(
+            77,
+          )}│\n` +
           `╰${"─".repeat(78)}╯\n`,
         exitCode: 2,
         durationMs: 265,
@@ -69,9 +79,11 @@ describe("golden-записи собираются из полей байт-в-�
         new URL(`testdata/${name}`, import.meta.url),
         "utf8",
       );
-      expect(formatRecord(
-        fields({ ...patch, cwd: "<cwd>", commandLine: commandLine(argv) }),
-      )).toStrictEqual(golden);
+      expect(
+        formatRecord(
+          fields({ ...patch, cwd: "<cwd>", commandLine: commandLine(argv) }),
+        ),
+      ).toStrictEqual(golden);
     });
   }
 });
@@ -112,9 +124,7 @@ describe("пустая секция не печатается", () => {
     );
   });
   it("порядок секций: note, out, err", () => {
-    const text = formatRecord(
-      fields({ note: "n\n", out: "o\n", err: "e\n" }),
-    );
+    const text = formatRecord(fields({ note: "n\n", out: "o\n", err: "e\n" }));
     const markers = text.split("\n").filter((line) => line.startsWith("---"));
     expect(markers.map((line) => line.split(" ")[1])).toStrictEqual([
       "note",
@@ -177,11 +187,12 @@ it("маркеры внутри чужого вывода не рвут запи
   // Запись читается по шапке и `--- end` со своим run_id; строка вывода,
   // похожая на маркер, остаётся частью секции.
   const text = formatRecord(fields({ out: "--- end run=чужой exit=0 ---\n" }));
-  expect(text.split("\n").filter((line) => line.startsWith("--- end")))
-    .toStrictEqual([
-      "--- end run=чужой exit=0 ---",
-      "--- end run=20260805-074228.205-396570 exit=0 dur=0.371s ---",
-    ]);
+  expect(
+    text.split("\n").filter((line) => line.startsWith("--- end")),
+  ).toStrictEqual([
+    "--- end run=чужой exit=0 ---",
+    "--- end run=20260805-074228.205-396570 exit=0 dur=0.371s ---",
+  ]);
 });
 
 describe("длительность — секунды с тремя знаками", () => {
@@ -194,9 +205,7 @@ describe("длительность — секунды с тремя знакам
   for (const [ms, dur] of cases) {
     it(`${ms} мс`, () => {
       expect(formatRecord(fields({ durationMs: ms }))).toMatch(
-        new RegExp(
-          `dur=${dur.replace(".", "\\.")}s ---`,
-        ),
+        new RegExp(`dur=${dur.replace(".", "\\.")}s ---`),
       );
     });
   }

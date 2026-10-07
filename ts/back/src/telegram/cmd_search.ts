@@ -19,62 +19,90 @@ import { LIMIT_MAX, LIMIT_MIN, searchPlan } from "./search_plan.ts";
 import { renderMessagesJson, renderMessagesTable } from "./search_view.ts";
 
 const argsSchema = z.object({
-  query: z.string().default("").describe(
-    "что искать в тексте сообщений; пустой запрос допустим только с --chat",
-  ),
-  chat: z.string().default("").describe(
-    "искать только в этом чате: id, @username, ссылка t.me, название, me",
-  ),
-  from: z.string().default("").describe(
-    "оставить только сообщения этого отправителя",
-  ),
+  query: z
+    .string()
+    .default("")
+    .describe(
+      "что искать в тексте сообщений; пустой запрос допустим только с --chat",
+    ),
+  chat: z
+    .string()
+    .default("")
+    .describe(
+      "искать только в этом чате: id, @username, ссылка t.me, название, me",
+    ),
+  from: z
+    .string()
+    .default("")
+    .describe("оставить только сообщения этого отправителя"),
   // Значение приходит из argv строкой; разбирает его команда, а не
   // схема: спека требует отказ ровно одной строкой, а отказ схемы несёт
   // хвост-подсказку «попробуй: … --help» (`telegram-search.md`,
   // «Граничные случаи»). В отказе показывается исходная строка.
-  limit: z.string().default("50").describe(
-    `сколько сообщений в выдаче, ${LIMIT_MIN}..${LIMIT_MAX}`,
-  ),
+  limit: z
+    .string()
+    .default("50")
+    .describe(`сколько сообщений в выдаче, ${LIMIT_MIN}..${LIMIT_MAX}`),
   table: z.boolean().default(false).describe("таблица вместо JSON"),
 });
 
 const messageSchema = z.object({
   id: z.number().describe("id сообщения внутри его чата"),
-  chat_id: z.number().describe(
-    "маркированный id чата сообщения; пригоден как --chat без правки",
-  ),
-  chat_title: z.string().describe(
-    "название чата: отображаемое имя у пользователя и бота, название у группы и канала; не пришло — пустая строка",
-  ),
-  sender: z.string().nullable().describe(
-    "отображаемое имя отправителя; Telegram его не отдал — null",
-  ),
-  date: z.string().nullable().describe(
-    "время отправки в UTC, ISO-8601 без долей секунды; времени нет — null",
-  ),
-  text: z.string().describe(
-    "текст сообщения либо подпись вложения; ни того ни другого — пустая строка",
-  ),
-  file: z.object({
-    name: z.string().describe(
-      "имя вложения; у фото photo-<id>.jpg, у документа без имени file-<id>",
+  chat_id: z
+    .number()
+    .describe(
+      "маркированный id чата сообщения; пригоден как --chat без правки",
     ),
-    size: z.number().describe("размер в байтах, заявленный Telegram"),
-    mime: z.string().nullable().describe("MIME-тип; не задан — null"),
-  }).nullable().describe(
-    "вложение сообщения; скачать — telegram file chat: <chat_id> id: <id>; " +
-      "вложения нет — null",
-  ),
-  link: z.string().nullable().describe(
-    "ссылка на сообщение у супергруппы и канала; у прочих чатов — null",
-  ),
+  chat_title: z
+    .string()
+    .describe(
+      "название чата: отображаемое имя у пользователя и бота, название у группы и канала; не пришло — пустая строка",
+    ),
+  sender: z
+    .string()
+    .nullable()
+    .describe("отображаемое имя отправителя; Telegram его не отдал — null"),
+  date: z
+    .string()
+    .nullable()
+    .describe(
+      "время отправки в UTC, ISO-8601 без долей секунды; времени нет — null",
+    ),
+  text: z
+    .string()
+    .describe(
+      "текст сообщения либо подпись вложения; ни того ни другого — пустая строка",
+    ),
+  file: z
+    .object({
+      name: z
+        .string()
+        .describe(
+          "имя вложения; у фото photo-<id>.jpg, у документа без имени file-<id>",
+        ),
+      size: z.number().describe("размер в байтах, заявленный Telegram"),
+      mime: z.string().nullable().describe("MIME-тип; не задан — null"),
+    })
+    .nullable()
+    .describe(
+      "вложение сообщения; скачать — telegram file chat: <chat_id> id: <id>; " +
+        "вложения нет — null",
+    ),
+  link: z
+    .string()
+    .nullable()
+    .describe(
+      "ссылка на сообщение у супергруппы и канала; у прочих чатов — null",
+    ),
 });
 
 const resultSchema = z.object({
-  messages: z.array(messageSchema).describe(
-    "найденные сообщения в порядке выдачи сервера: от новых к старым; " +
-      "перечень усечён `--limit`, а есть ли за ним ещё — поле `more`",
-  ),
+  messages: z
+    .array(messageSchema)
+    .describe(
+      "найденные сообщения в порядке выдачи сервера: от новых к старым; " +
+        "перечень усечён `--limit`, а есть ли за ним ещё — поле `more`",
+    ),
   /**
    * Признак «есть ещё». Полного числа совпадений здесь не бывает по
    * построению одного из режимов: при поиске по отправителю сервер
@@ -82,20 +110,24 @@ const resultSchema = z.object({
    * совпавшие. Соврать «всего 50», когда пятьдесят — предел выборки,
    * хуже молчания (`platform/mcp-server.md`, «Объём»).
    */
-  more: z.boolean().describe(
-    "совпадения могли остаться: выдача упёрлась в `--limit` либо скан " +
-      "оборван потолком просмотра",
-  ),
+  more: z
+    .boolean()
+    .describe(
+      "совпадения могли остаться: выдача упёрлась в `--limit` либо скан " +
+        "оборван потолком просмотра",
+    ),
   /**
    * Признак «есть ещё»: скан оборван потолком просмотра, а не концом
    * выдачи. До этого он уходил только в строку хода — то есть человеку
    * в терминале, — и вызвавший тул агент выдачу короче `--limit` не
    * отличал от «совпадений больше нет».
    */
-  scanCapped: z.boolean().describe(
-    "скан остановлен потолком просмотра, а не концом выдачи: совпадения " +
-      "могли остаться за ним",
-  ),
+  scanCapped: z
+    .boolean()
+    .describe(
+      "скан остановлен потолком просмотра, а не концом выдачи: совпадения " +
+        "могли остаться за ним",
+    ),
   table: z.boolean().describe("печатать ли таблицу вместо JSON"),
 });
 
@@ -106,9 +138,9 @@ type TelegramSearchResult = z.infer<typeof resultSchema>;
 type SearchIo = Pick<CommandIo, "envFile" | "progress">;
 
 /** Сеанс, каким его видит поиск: клиент плюс закрытие. */
-export type SearchSession =
-  & SearchClient
-  & { readonly close: () => Promise<void> };
+export type SearchSession = SearchClient & {
+  readonly close: () => Promise<void>;
+};
 
 /**
  * Подстановка сеанса. Умолчание — настоящий MTProto, и грузится он
@@ -129,11 +161,13 @@ export async function runTelegramSearch(
   options: SearchOptions = {},
 ): Promise<TelegramSearchResult> {
   const plan = searchPlan(args);
-  const open = options.openSession ?? (async () => {
-    const config = telegramConfig(io.envFile);
-    const { openSession } = await import("./session.ts");
-    return await openSession(config);
-  });
+  const open =
+    options.openSession ??
+    (async () => {
+      const config = telegramConfig(io.envFile);
+      const { openSession } = await import("./session.ts");
+      return await openSession(config);
+    });
   const session = await open();
   try {
     const found = await findMessages(session, plan);

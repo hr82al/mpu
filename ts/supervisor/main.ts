@@ -42,9 +42,10 @@ if (import.meta.main) {
       onSignal: (signal, handler) => process.on(signal, handler),
       watch: {
         source: SYSTEM_PROCS,
-        hands: runtimeDir === undefined || runtimeDir === ""
-          ? MARKLESS_HANDS
-          : systemHands(`${runtimeDir}/mpu/killed`),
+        hands:
+          runtimeDir === undefined || runtimeDir === ""
+            ? MARKLESS_HANDS
+            : systemHands(`${runtimeDir}/mpu/killed`),
         sleep: SYSTEM_CLOCK.sleep,
         comm: "mpu-worker",
         threshold: defaultThreshold,

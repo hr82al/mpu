@@ -237,9 +237,11 @@ export async function runScript(
     },
   });
   const printed = output.stdout + output.stderr;
-  const calls = (await readFile(place.calls, "utf8")).split("\n")
+  const calls = (await readFile(place.calls, "utf8"))
+    .split("\n")
     .filter((call) => call !== "" && !call.includes("is-active"));
-  const claude = (await readFile(claudeLog, "utf8")).split("\n")
+  const claude = (await readFile(claudeLog, "utf8"))
+    .split("\n")
     .filter((call) => call !== "");
   return {
     code: output.code,

@@ -111,7 +111,7 @@ export class Poller {
         if (signal.aborted) return;
         if (!(err instanceof BotFailure)) throw err;
         this.#failures.failed(err);
-        if (!await this.#rested(signal)) return;
+        if (!(await this.#rested(signal))) return;
         continue;
       }
       this.#failures.succeeded();

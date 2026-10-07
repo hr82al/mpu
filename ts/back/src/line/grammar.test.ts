@@ -24,10 +24,15 @@ async function run(file: string, argv: readonly string[]) {
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const code = await lineEntry(consentOf(file))(argv, makeFakeIo(), {
-    stdout: (text: string) => void out.push(text),
-    stderr: (text: string) => void err.push(text),
-  }, journal);
+  const code = await lineEntry(consentOf(file))(
+    argv,
+    makeFakeIo(),
+    {
+      stdout: (text: string) => void out.push(text),
+      stderr: (text: string) => void err.push(text),
+    },
+    journal,
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), called };
 }
 
@@ -38,7 +43,10 @@ it("do … end у хвостовой команды — та же строка, 
   withPolicyFile(async (file) => {
     const plain = await run(file, READING);
     expect(plain.code, plain.stderr).toBe(0);
-    for (const line of [[...READING, END], [DO, ...READING, END]]) {
+    for (const line of [
+      [...READING, END],
+      [DO, ...READING, END],
+    ]) {
       expect(await run(file, line), line.join(" ")).toStrictEqual(plain);
     }
   }));
@@ -61,9 +69,10 @@ it("данные после end понимают json и отбор", () =>
 
 it("help — последним словом, ничего не исполняет", () =>
   withPolicyFile(async (file) => {
-    for (
-      const line of [["kiten", "card", "help"], ["kiten", "ls", "help"]]
-    ) {
+    for (const line of [
+      ["kiten", "card", "help"],
+      ["kiten", "ls", "help"],
+    ]) {
       const help = await run(file, line);
       expect(help.code, line.join(" ")).toBe(0);
       expect(help.called, line.join(" ")).toStrictEqual([]);
@@ -72,7 +81,8 @@ it("help — последним словом, ничего не исполняе
     expect(await run(file, ["help", "kiten", "card"])).toStrictEqual({
       code: 2,
       stdout: "",
-      stderr: "mpu help: не понимает kiten; справка — последним словом: " +
+      stderr:
+        "mpu help: не понимает kiten; справка — последним словом: " +
         "mpu kiten card help\n",
       called: [],
     });
@@ -138,8 +148,9 @@ it("справка результата, справка справки, повт
       (await run(file, ["kiten", "help"])).stdout,
     );
     const json = (await run(file, ["policy", END, "json"])).stdout;
-    expect((await run(file, ["policy", END, "json", END, "json"])).stdout)
-      .toStrictEqual(`${JSON.stringify(json, null, 2)}\n`);
+    expect(
+      (await run(file, ["policy", END, "json", END, "json"])).stdout,
+    ).toStrictEqual(`${JSON.stringify(json, null, 2)}\n`);
   }));
 
 it("формат результата: json — прежний JSON, чужой — отказ до исполнения", () =>
@@ -151,7 +162,8 @@ it("формат результата: json — прежний JSON, чужой 
     expect(await run(file, [...line, END, "xml"])).toStrictEqual({
       code: 2,
       stdout: "",
-      stderr: `mpu xlsx alias ls ${END}: не понимает xml; есть: json, ` +
+      stderr:
+        `mpu xlsx alias ls ${END}: не понимает xml; есть: json, ` +
         "first, first:, isEmpty, last, last:, pick:, size, sortBy:, where:\n",
       called: [],
     });

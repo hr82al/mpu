@@ -181,25 +181,27 @@ function assertThrowsUsage(body: () => unknown): UsageError {
 }
 
 describe("config: три флага правки взаимоисключающи, и это до сети", () => {
-  for (
-    const pair of [["enable", "disable"], ["enable", "reset"], [
-      "disable",
-      "reset",
-    ]]
-  ) {
+  for (const pair of [
+    ["enable", "disable"],
+    ["enable", "reset"],
+    ["disable", "reset"],
+  ]) {
     it(pair.join(" + "), async () => {
       const { session, sent } = sessionOf();
-      const err = await rejected(() =>
-        runConfig(
-          args({
-            selector: SID,
-            loader: "cards",
-            [pair[0]]: true,
-            [pair[1]]: true,
-          }),
-          ioDirect(),
-          { session },
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          runConfig(
+            args({
+              selector: SID,
+              loader: "cards",
+              [pair[0]]: true,
+              [pair[1]]: true,
+            }),
+            ioDirect(),
+            { session },
+          ),
+        UsageError,
+      );
       expect(err.message).toContain("взаимоисключающи");
       // Ни одного вызова: «последний выигрывает» включил бы загрузчик
       // там, где просили выключить.
@@ -209,20 +211,19 @@ describe("config: три флага правки взаимоисключающ�
 
   it("без флагов — чтение", async () => {
     const { session, sent } = sessionOf();
-    await runConfig(
-      args({ selector: SID, loader: "cards" }),
-      ioDirect(),
-      { session },
-    );
+    await runConfig(args({ selector: SID, loader: "cards" }), ioDirect(), {
+      session,
+    });
     expect(sent[0].method).toBe("GET");
     expect(sent[0].body).toStrictEqual(undefined);
     expect(sent[0].path).toContain(`/loaders/${SID}/cards/v1/config`);
   });
 
   it("включение и выключение: POST с частичной дельтой", async () => {
-    for (
-      const [flag, enabled] of [["enable", true], ["disable", false]] as const
-    ) {
+    for (const [flag, enabled] of [
+      ["enable", true],
+      ["disable", false],
+    ] as const) {
       const { session, sent } = sessionOf();
       await runConfig(
         args({ selector: SID, loader: "cards", [flag]: true }),
@@ -260,17 +261,20 @@ describe("config: три флага правки взаимоисключающ�
 
 it("reset: --state и --from взаимоисключающи, до сети", async () => {
   const { session, sent } = sessionOf();
-  const err = await rejected(() =>
-    runReset(
-      args({
-        selector: SID,
-        loader: "orders",
-        state: "{}",
-        from: "2026-08-01",
-      }),
-      ioDirect(),
-      { session },
-    ), UsageError);
+  const err = await rejected(
+    () =>
+      runReset(
+        args({
+          selector: SID,
+          loader: "orders",
+          state: "{}",
+          from: "2026-08-01",
+        }),
+        ioDirect(),
+        { session },
+      ),
+    UsageError,
+  );
   expect(err.message).toContain("взаимоисключающи");
   expect(sent).toStrictEqual([]);
 });
@@ -304,11 +308,13 @@ describe("--from собирает состояние на день раньше 
 
   it("негодная дата — отказ до сети", async () => {
     const { session, sent } = sessionOf();
-    await expect(runReset(
-      args({ selector: SID, loader: "orders", from: "01.08.2026" }),
-      ioDirect(),
-      { session },
-    )).rejects.toThrow(UsageError);
+    await expect(
+      runReset(
+        args({ selector: SID, loader: "orders", from: "01.08.2026" }),
+        ioDirect(),
+        { session },
+      ),
+    ).rejects.toThrow(UsageError);
     expect(sent).toStrictEqual([]);
   });
 });
@@ -316,12 +322,15 @@ describe("--from собирает состояние на день раньше 
 it("--and-load: отказ прогона не отменяет сброса", async () => {
   // Первый вызов проходит, второй падает.
   const { session, sent } = sessionOf((at) => at === 1);
-  const err = await rejected(() =>
-    runReset(
-      args({ selector: SID, loader: "orders", "and-load": true }),
-      ioDirect(),
-      { session },
-    ), DomainError);
+  const err = await rejected(
+    () =>
+      runReset(
+        args({ selector: SID, loader: "orders", "and-load": true }),
+        ioDirect(),
+        { session },
+      ),
+    DomainError,
+  );
   // Сообщение обязано сказать, что сброс уже произошёл: иначе оператор
   // решит, что состояние прежнее, и повторит сброс.
   expect(err.message).toContain("сброс состояния прошёл");
@@ -394,11 +403,9 @@ describe("resume: показ не мутирует, --all с именем — о
 
   it("с именем идёт resume", async () => {
     const { session, sent } = sessionOf();
-    await runResume(
-      args({ selector: SID, loader: "wbCards" }),
-      ioDirect(),
-      { session },
-    );
+    await runResume(args({ selector: SID, loader: "wbCards" }), ioDirect(), {
+      session,
+    });
     expect(sent[0].path).toBe("/admin/wb-loader/blocked-loaders/v1/resume");
     expect(sent[0].body).toStrictEqual({
       filter: { sid: SID, loader: "wbCards" },
@@ -407,23 +414,24 @@ describe("resume: показ не мутирует, --all с именем — о
 
   it("--all вместе с именем — отказ до сети", async () => {
     const { session, sent } = sessionOf();
-    const err = await rejected(() =>
-      runResume(
-        args({ selector: SID, loader: "wbCards", all: true }),
-        ioDirect(),
-        { session },
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runResume(
+          args({ selector: SID, loader: "wbCards", all: true }),
+          ioDirect(),
+          { session },
+        ),
+      UsageError,
+    );
     expect(err.message).toContain("взаимоисключающи");
     expect(sent).toStrictEqual([]);
   });
 
   it("--all снимает всё: имени в фильтре нет", async () => {
     const { session, sent } = sessionOf();
-    await runResume(
-      args({ selector: SID, all: true }),
-      ioDirect(),
-      { session },
-    );
+    await runResume(args({ selector: SID, all: true }), ioDirect(), {
+      session,
+    });
     expect(sent[0].body).toStrictEqual({ filter: { sid: SID } });
     expect(sent[0].path.endsWith("/resume")).toBe(true);
   });
@@ -452,9 +460,8 @@ describe("резолв по кэшу: показ обходит все каби�
       // значит смотрим все.
       expect(sent.length).toBe(2);
       expect(
-        sent.map((call) =>
-          (call.body as { filter: { sid: string } }).filter.sid
-        )
+        sent
+          .map((call) => (call.body as { filter: { sid: string } }).filter.sid)
           .sort(),
       ).toStrictEqual([SID, OTHER_SID].sort());
       // Проверяется ПАРА, а не два списка порознь: ответ каждого
@@ -464,24 +471,22 @@ describe("резолв по кэшу: показ обходит все каби�
       for (const entry of result.entries) {
         expect(entry.response).toStrictEqual({ ok: true, of: entry.sid });
       }
-      expect(result.entries.map((one) => one.sid).sort()).toStrictEqual([
-        SID,
-        OTHER_SID,
-      ].sort());
+      expect(result.entries.map((one) => one.sid).sort()).toStrictEqual(
+        [SID, OTHER_SID].sort(),
+      );
     });
   });
 
   it("мутация при нескольких — отказ с требованием --sid", async () => {
     await withCache([SID, OTHER_SID], async (io) => {
       const { session, sent } = sessionOf();
-      const err = await rejected(() =>
-        runResume(
-          args({ selector: "777", loader: "wbCards" }),
-          io,
-          {
+      const err = await rejected(
+        () =>
+          runResume(args({ selector: "777", loader: "wbCards" }), io, {
             session,
-          },
-        ), UsageError);
+          }),
+        UsageError,
+      );
       expect(err.message).toContain("несколько WB sid");
       expect(String(err.details)).toContain(SID);
       expect(String(err.details)).toContain(OTHER_SID);
@@ -566,10 +571,10 @@ function curlCount(text: string): number {
 it("status: слаг в пути, прямой режим без кэша", async () => {
   // Через `--print`: настоящий сеанс здесь пошёл бы в сеть, а проверяем
   // мы путь, а не поход.
-  const result = await wbLoaderStatusCommand.invoke(
+  const result = (await wbLoaderStatusCommand.invoke(
     [SID, "adv-fullstats", "--print"],
     ioDirect(),
-  ) as { call: { path: string }; printed: boolean };
+  )) as { call: { path: string }; printed: boolean };
   expect(result.printed).toBe(true);
   expect(result.call.path).toStrictEqual(
     `/admin/wb-loader/loaders/${SID}/adv-fullstats/v1/status`,

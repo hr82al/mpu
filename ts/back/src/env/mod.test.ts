@@ -192,10 +192,7 @@ it("set: дубликат ключа в файле — текст ошибки �
   // обязан отказать раньше, чем `store.write` тронет диск.
   const { store, written } = fakeStore("PG_PORT=5432\nPG_PORT=6432\n");
   const envFile = makeEnvFile(store);
-  const err = await rejected(
-    () => envFile.set("PG_PORT", "7777"),
-    DomainError,
-  );
+  const err = await rejected(() => envFile.set("PG_PORT", "7777"), DomainError);
   expect(written).toStrictEqual([]);
   // Сверка целиком, а не подстрокой: раз всё сообщение сверяется дословно,
   // значение для записи (секрет) не может незаметно оказаться в тексте

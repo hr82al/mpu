@@ -62,10 +62,14 @@ export const systemClock: Clock = {
   delay: (ms, signal) =>
     new Promise((resolve) => {
       const id = setTimeout(resolve, ms);
-      signal.addEventListener("abort", () => {
-        clearTimeout(id);
-        resolve();
-      }, { once: true });
+      signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(id);
+          resolve();
+        },
+        { once: true },
+      );
     }),
 };
 

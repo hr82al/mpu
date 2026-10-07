@@ -14,9 +14,10 @@ import { cacheSettings } from "./settings.ts";
 import { type SheetIo, targetOf } from "./sources.ts";
 
 const argsSchema = z.object({
-  spreadsheet: z.string().optional().describe(
-    "цель: URL, ID, алиас, client_id или подстрока заголовка",
-  ),
+  spreadsheet: z
+    .string()
+    .optional()
+    .describe("цель: URL, ID, алиас, client_id или подстрока заголовка"),
 });
 
 const resultSchema = z.object({

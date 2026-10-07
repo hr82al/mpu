@@ -74,7 +74,7 @@ function keyRow(key: HelpKey): readonly [string, string] {
 function unnamed(data: HelpData): HelpKey[] {
   const named = new Set(
     data.messages.flatMap((message) =>
-      message.selector.split(":").filter((key) => key !== "")
+      message.selector.split(":").filter((key) => key !== ""),
     ),
   );
   return data.keys.filter((key) => !named.has(key.name));
@@ -89,19 +89,25 @@ export const OBJECT_VIEW: HelpView = {
   render(data) {
     const text = withExamples(data.text, data.examples);
     const shown = unnamed(data);
-    const variants = data.variants.length === 0 ? "" : section(
-      "Варианты",
-      data.variants.map((line) => [line.selector, line.purpose] as const),
-    );
+    const variants =
+      data.variants.length === 0
+        ? ""
+        : section(
+            "Варианты",
+            data.variants.map((line) => [line.selector, line.purpose] as const),
+          );
     const keys = shown.length === 0 ? "" : section("Ключи", shown.map(keyRow));
-    const messages = data.messages.length === 0 && shown.length > 0
-      ? ""
-      : section(
-        "Сообщения",
-        data.messages.map((line) => [line.selector, line.purpose] as const),
-      );
-    return `Использование: ${data.path} <сообщение>\n\n${data.purpose}\n\n` +
-      `${text}${variants}${keys}${messages}`;
+    const messages =
+      data.messages.length === 0 && shown.length > 0
+        ? ""
+        : section(
+            "Сообщения",
+            data.messages.map((line) => [line.selector, line.purpose] as const),
+          );
+    return (
+      `Использование: ${data.path} <сообщение>\n\n${data.purpose}\n\n` +
+      `${text}${variants}${keys}${messages}`
+    );
   },
 };
 

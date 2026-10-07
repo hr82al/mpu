@@ -98,16 +98,21 @@ export function documentFile(
   },
   bytes: FileBytes,
 ): MessageFile {
-  return new AttachedFile(messageId, {
-    // Пустое имя — то же «имени нет», что и его отсутствие: иначе путь
-    // кончался бы префиксом, а в выводе стояло бы пустое имя.
-    name: described.name === null || described.name === ""
-      ? `file-${messageId}`
-      : described.name,
-    size: described.size,
-    // Пустой тип — «отправитель не задал», а не тип с пустым именем.
-    mime: described.mime === "" ? null : described.mime,
-  }, bytes);
+  return new AttachedFile(
+    messageId,
+    {
+      // Пустое имя — то же «имени нет», что и его отсутствие: иначе путь
+      // кончался бы префиксом, а в выводе стояло бы пустое имя.
+      name:
+        described.name === null || described.name === ""
+          ? `file-${messageId}`
+          : described.name,
+      size: described.size,
+      // Пустой тип — «отправитель не задал», а не тип с пустым именем.
+      mime: described.mime === "" ? null : described.mime,
+    },
+    bytes,
+  );
 }
 
 /** Фото: имени у него не бывает, тип задаёт команда. */
@@ -116,11 +121,15 @@ export function photoFile(
   size: number,
   bytes: FileBytes,
 ): MessageFile {
-  return new AttachedFile(messageId, {
-    name: `photo-${messageId}.jpg`,
-    size,
-    mime: "image/jpeg",
-  }, bytes);
+  return new AttachedFile(
+    messageId,
+    {
+      name: `photo-${messageId}.jpg`,
+      size,
+      mime: "image/jpeg",
+    },
+    bytes,
+  );
 }
 
 /** Сообщение без вложения: текст, превью ссылки, геоточка, служебное. */
@@ -156,9 +165,10 @@ function onDisk(prefix: string, name: string): string {
   const room = NAME_LIMIT - bytesIn(prefix);
   if (bytesIn(safe) <= room) return prefix + safe;
   const dot = safe.lastIndexOf(".");
-  const extension = dot > 0 && bytesIn(safe.slice(dot)) <= EXTENSION_LIMIT
-    ? safe.slice(dot)
-    : "";
+  const extension =
+    dot > 0 && bytesIn(safe.slice(dot)) <= EXTENSION_LIMIT
+      ? safe.slice(dot)
+      : "";
   const stem = safe.slice(0, safe.length - extension.length);
   return prefix + cut(stem, room - bytesIn(extension)) + extension;
 }

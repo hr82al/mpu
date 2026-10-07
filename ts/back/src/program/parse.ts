@@ -126,8 +126,7 @@ function keyName(word: string): string | undefined {
 
 /** Голое слово: не ключ, не знак, не слово грамматики. */
 function isPlain(word: string): boolean {
-  return !GRAMMAR_WORDS.has(word) && !isKey(word) &&
-    !/^[-^@:]/.test(word);
+  return !GRAMMAR_WORDS.has(word) && !isKey(word) && !/^[-^@:]/.test(word);
 }
 
 /** Слово, на котором значения нет: конец выражения или закрытие. */
@@ -206,7 +205,7 @@ class Parser {
   }
 
   program(): Program {
-    return new Program(this.#statements((n) => this.#statement = n));
+    return new Program(this.#statements((n) => (this.#statement = n)));
   }
 
   /**
@@ -457,9 +456,8 @@ class Parser {
       );
     }
     if (!this.#names.has(name) && !this.#params.bound(name)) {
-      throw this.#params.missing(
-        name,
-        () => unbound.refuse(name, word, this.#names.list(), span),
+      throw this.#params.missing(name, () =>
+        unbound.refuse(name, word, this.#names.list(), span),
       );
     }
     return this.#literalAt(new Variable(name));
@@ -689,7 +687,7 @@ class Parser {
   #keyWord(word: string, flag: boolean, parts: Part[]): boolean {
     parts.push(new Written([word]));
     this.#at++;
-    return !(word.includes("=") || flag && word.startsWith("--"));
+    return !(word.includes("=") || (flag && word.startsWith("--")));
   }
 
   /**
@@ -913,9 +911,8 @@ const NOT_BOUND = "не связана";
 
 /** Отказ «`x` не связана» и какие связаны. */
 function unboundText(name: string, bound: readonly string[]): string {
-  const said = bound.length === 0
-    ? "связанных нет"
-    : `связаны: ${bound.join(", ")}`;
+  const said =
+    bound.length === 0 ? "связанных нет" : `связаны: ${bound.join(", ")}`;
   return `${name} не связана; ${said}`;
 }
 

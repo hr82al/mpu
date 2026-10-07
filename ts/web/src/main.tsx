@@ -46,10 +46,13 @@ const router = createRouter({
 });
 
 async function main() {
-  await enter({
-    href: location.href,
-    replace: (url) => history.replaceState(null, "", url),
-  }, { fetch: (...args) => fetch(...args), base: location.origin });
+  await enter(
+    {
+      href: location.href,
+      replace: (url) => history.replaceState(null, "", url),
+    },
+    { fetch: (...args) => fetch(...args), base: location.origin },
+  );
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });

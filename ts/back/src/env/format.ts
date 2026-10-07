@@ -24,9 +24,7 @@ export function assignEnvValue(
   value: string,
 ): string {
   if (value.includes("\n") || value.includes("'")) {
-    throw new EnvValueError(
-      "env value contains a newline or a single quote",
-    );
+    throw new EnvValueError("env value contains a newline or a single quote");
   }
 
   const lines = text === "" ? [] : text.split("\n");
@@ -119,8 +117,7 @@ function stripUnquotedComment(value: string): string {
   // `https://…#section`) или произвольного токена без пробелов
   // (`va#lue`) резался бы посимвольно, хотя это не комментарий.
   const spaceHashIndex = value.search(/\s#/);
-  const withoutComment = spaceHashIndex === -1
-    ? value
-    : value.slice(0, spaceHashIndex);
+  const withoutComment =
+    spaceHashIndex === -1 ? value : value.slice(0, spaceHashIndex);
   return withoutComment.trimEnd();
 }

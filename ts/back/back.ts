@@ -37,15 +37,15 @@ if (import.meta.main) {
       io,
       // Без HOME каталога состояния нет: основной токен не создастся с
       // той же ошибкой, что у `mpu mcp`, раньше агентского.
-      agentToken: stateDir === undefined
-        ? io
-        : tokenFile(`${stateDir}/agent-token`),
+      agentToken:
+        stateDir === undefined ? io : tokenFile(`${stateDir}/agent-token`),
       log: processLog(io),
       policyFile: policyFile(stateDir),
       imageFile: imageFile(stateDir),
-      snapshotFile: home === undefined || home === ""
-        ? undefined
-        : `${home}/.cache/mpu/tree.json`,
+      snapshotFile:
+        home === undefined || home === ""
+          ? undefined
+          : `${home}/.cache/mpu/tree.json`,
       // Без HOME основной токен не создастся раньше, чем понадобятся
       // сессии браузера, — путь к ним не важен.
       webSessions: secretText(`${stateDir ?? ""}/web-sessions`),
@@ -66,9 +66,10 @@ if (import.meta.main) {
             now: () => Date.now(),
           }),
         // Отметки пишет сторож супервизора; без `XDG_RUNTIME_DIR` их нет.
-        markers: runtimeDir === undefined || runtimeDir === ""
-          ? NO_MARKERS
-          : new MarkerDir(`${runtimeDir}/mpu/killed`),
+        markers:
+          runtimeDir === undefined || runtimeDir === ""
+            ? NO_MARKERS
+            : new MarkerDir(`${runtimeDir}/mpu/killed`),
       },
     }),
   );

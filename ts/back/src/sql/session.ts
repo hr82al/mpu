@@ -85,9 +85,7 @@ export class StatementError extends Error {
 }
 
 /** Открыватель сессии: read-only задаётся при подключении. */
-export type OpenSession = (
-  target: PgTarget,
-) => Promise<SqlSession>;
+export type OpenSession = (target: PgTarget) => Promise<SqlSession>;
 
 /**
  * Сервер отклонил запись (SQLSTATE 25006). Отдельный класс, потому что

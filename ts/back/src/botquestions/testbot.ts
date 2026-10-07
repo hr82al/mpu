@@ -111,9 +111,9 @@ export class FakeBot implements BotApi {
     if (keyboard.length > 0) this.#withButtons.add(message);
     else this.#withButtons.delete(message);
     if (this.#withButtons.size > 1 && this.#twice === "") {
-      this.#twice = `вызов ${this.calls.length - 1}: кнопки у ${
-        [...this.#withButtons].join(", ")
-      }`;
+      this.#twice = `вызов ${this.calls.length - 1}: кнопки у ${[
+        ...this.#withButtons,
+      ].join(", ")}`;
     }
   }
 
@@ -276,15 +276,17 @@ export function pressUpdate(
   data: string,
   chat: number = from,
 ): Update {
-  return parseUpdates([{
-    update_id: id,
-    callback_query: {
-      id: `cb${id}`,
-      from: { id: from },
-      message: { chat: { id: chat } },
-      data,
+  return parseUpdates([
+    {
+      update_id: id,
+      callback_query: {
+        id: `cb${id}`,
+        from: { id: from },
+        message: { chat: { id: chat } },
+        data,
+      },
     },
-  }])[0];
+  ])[0];
 }
 
 /**
@@ -298,26 +300,25 @@ export function textUpdate(
   date: number,
   chat: number = from,
 ): Update {
-  return parseUpdates([{
-    update_id: id,
-    message: {
-      message_id: id,
-      from: { id: from },
-      chat: { id: chat },
-      date,
-      text,
+  return parseUpdates([
+    {
+      update_id: id,
+      message: {
+        message_id: id,
+        from: { id: from },
+        chat: { id: chat },
+        date,
+        text,
+      },
     },
-  }])[0];
+  ])[0];
 }
 
 /**
  * Служба вопросов на фейке для потребителей (хук `PermissionRequest`):
  * владелец `111`, метка запуска `r1`, опрос без пауз; журнал — `log`.
  */
-export function fakeQuestions(
-  bot: FakeBot,
-  log: string[] = [],
-): BotQuestions {
+export function fakeQuestions(bot: FakeBot, log: string[] = []): BotQuestions {
   return new BotQuestions({
     bot,
     owner: 111,

@@ -28,8 +28,12 @@ interface LoginRun {
 async function login(
   run: LoginRun = {},
 ): Promise<{ code: number; stderr: string; written: Record<string, string> }> {
-  const { extra = {}, broken, argv = ["telegram", "login"], stderr: err = [] } =
-    run;
+  const {
+    extra = {},
+    broken,
+    argv = ["telegram", "login"],
+    stderr: err = [],
+  } = run;
   const values: Record<string, string> = {
     TELEGRAM_API_ID: "1",
     TELEGRAM_API_HASH: "проба",
@@ -51,11 +55,10 @@ async function login(
   };
   const answers = ["+70001112233"];
   const prompt: Prompt = promptQueue(answers);
-  const code = await runCli(
-    argv,
-    makeFakeIo({ envFile, prompt }),
-    { stdout: () => {}, stderr: (text) => void err.push(text) },
-  );
+  const code = await runCli(argv, makeFakeIo({ envFile, prompt }), {
+    stdout: () => {},
+    stderr: (text) => void err.push(text),
+  });
   return { code, stderr: err.join(""), written };
 }
 
@@ -64,8 +67,9 @@ describe("mpu telegram login: сбой самого входа — пропущ�
     // Байты модуля встроены, читать нечего: сбой подделывается в
     // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
     // лишь пока модуль не поднят: у поднятого `initSync` — пустой вызов.
-    expect(__getWasm(), "модуль уже поднят — случай ничего не проверит")
-      .toBe(undefined);
+    expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
+      undefined,
+    );
     const real = WebAssembly.Module;
     Reflect.set(WebAssembly, "Module", function () {
       throw new Error("нет встроенного модуля");

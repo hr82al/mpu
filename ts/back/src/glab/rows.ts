@@ -146,14 +146,20 @@ export function rowOf(
 ): StatusRow {
   const project = mr.project === "" ? null : mr.project;
   const found = branches === undefined ? undefined : new Set(branches);
-  const landed = found === undefined
-    ? []
-    : PIPELINE_BRANCHES.filter((branch) => found.has(branch));
-  const other = found === undefined ? null : [...found]
-    .filter((branch) =>
-      !PIPELINE_BRANCHES.includes(branch) && branch !== mr.source_branch
-    )
-    .sort();
+  const landed =
+    found === undefined
+      ? []
+      : PIPELINE_BRANCHES.filter((branch) => found.has(branch));
+  const other =
+    found === undefined
+      ? null
+      : [...found]
+          .filter(
+            (branch) =>
+              !PIPELINE_BRANCHES.includes(branch) &&
+              branch !== mr.source_branch,
+          )
+          .sort();
   return {
     repo: shortRepo(project),
     iid: mr.iid,

@@ -69,9 +69,10 @@ it("отказы back: 401/403, истёкший номер, не по конт�
   ];
   for (const [response, text, call] of cases) {
     const line = new BackLine(TARGET, QUICK, scripted([response]).fetcher);
-    const reply = call === "start"
-      ? await line.start(["x"], false)
-      : await line.answer("n1", "y");
+    const reply =
+      call === "start"
+        ? await line.start(["x"], false)
+        : await line.answer("n1", "y");
     expect(reply).toStrictEqual({ failed: text });
   }
 });
@@ -90,8 +91,10 @@ it("отмена в ожидании подъёма: ждать перестаё
   // сроком.
   const after = attempts();
   await new Promise((resolve) => setTimeout(resolve, QUICK.everyMs * 3));
-  expect(attempts(), `попытки после отмены: ${before} → ${after}`)
-    .toStrictEqual(after);
+  expect(
+    attempts(),
+    `попытки после отмены: ${before} → ${after}`,
+  ).toStrictEqual(after);
 });
 
 it("строка несёт caller сессии агента; сессии нет — поля нет", async () => {
@@ -103,6 +106,7 @@ it("строка несёт caller сессии агента; сессии не�
   const line = new BackLine(TARGET, QUICK, fetcher);
   await line.start(["it"], false, { caller: "mcp:s1" });
   await line.start(["it"], false);
-  expect(bodies.map((body) => (body as { caller?: string }).caller))
-    .toStrictEqual(["mcp:s1", undefined]);
+  expect(
+    bodies.map((body) => (body as { caller?: string }).caller),
+  ).toStrictEqual(["mcp:s1", undefined]);
 });

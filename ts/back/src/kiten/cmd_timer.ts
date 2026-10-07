@@ -57,23 +57,24 @@ import {
   timeLogViewSchema,
 } from "./time_view.ts";
 
-const selector = z.string({ error: "нужен id: id карточки или её URL" })
+const selector = z
+  .string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
-const comment = z.string().optional().describe(
-  "комментарий; без флага у stop берётся комментарий самого таймера",
-);
+const comment = z
+  .string()
+  .optional()
+  .describe("комментарий; без флага у stop берётся комментарий самого таймера");
 
-const cardUrlField = z.string().describe(
-  "адрес карточки: базовый URL и её id",
-);
+const cardUrlField = z.string().describe("адрес карточки: базовый URL и её id");
 
 const startArgsSchema = z.object({ selector, comment });
 
 const startResultSchema = z.object({
-  startedAt: z.string().nullable().describe(
-    "метка старта из ответа сервера; сервер её не назвал — null",
-  ),
+  startedAt: z
+    .string()
+    .nullable()
+    .describe("метка старта из ответа сервера; сервер её не назвал — null"),
   cardUrl: cardUrlField,
 });
 
@@ -84,56 +85,75 @@ const statusArgsSchema = z.object({
 
 const timerViewSchema = z.object({
   id: z.number().int().describe("id таймера"),
-  started_at: z.string().nullable().describe(
-    "метка старта, как её отдал сервер",
-  ),
-  elapsed_minutes: z.number().int().describe(
-    "сколько таймер идёт, в целых минутах вверх",
-  ),
+  started_at: z
+    .string()
+    .nullable()
+    .describe("метка старта, как её отдал сервер"),
+  elapsed_minutes: z
+    .number()
+    .int()
+    .describe("сколько таймер идёт, в целых минутах вверх"),
   comment: z.string().describe("комментарий таймера; пустая строка — его нет"),
 });
 
 const statusResultSchema = z.object({
   cardId: z.number().int().describe("id карточки, чей таймер прочитан"),
-  timer: timerViewSchema.nullable().describe(
-    "идущий таймер; не запущен — null",
-  ),
-  totalMinutes: z.number().int().describe(
-    "сумма минут записей карточки; идущий таймер в неё не входит",
-  ),
+  timer: timerViewSchema
+    .nullable()
+    .describe("идущий таймер; не запущен — null"),
+  totalMinutes: z
+    .number()
+    .int()
+    .describe("сумма минут записей карточки; идущий таймер в неё не входит"),
 });
 
 const stopArgsSchema = z.object({
   selector,
-  time: z.string().optional().describe(
-    "длительность записи вместо натёкшей: 3h | 1h15m | 1:15 | 90 | 2.5h",
-  ),
-  role: z.string().optional().describe(
-    "роль: id либо название; нечисловое значение резолвится справочником",
-  ),
+  time: z
+    .string()
+    .optional()
+    .describe(
+      "длительность записи вместо натёкшей: 3h | 1h15m | 1:15 | 90 | 2.5h",
+    ),
+  role: z
+    .string()
+    .optional()
+    .describe(
+      "роль: id либо название; нечисловое значение резолвится справочником",
+    ),
   comment,
 });
 
 const stopResultSchema = z.object({
-  log: timeLogViewSchema.nullable().describe(
-    "созданная запись, перечитанная из списка записей карточки; перечитать не удалось — null",
-  ),
-  logId: z.number().int().nullable().describe(
-    "id созданной записи из ответа остановки; сервер его не назвал — null",
-  ),
+  log: timeLogViewSchema
+    .nullable()
+    .describe(
+      "созданная запись, перечитанная из списка записей карточки; перечитать не удалось — null",
+    ),
+  logId: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "id созданной записи из ответа остановки; сервер его не назвал — null",
+    ),
   factMinutes: z.number().int().describe("сколько таймер шёл на самом деле"),
-  timeMinutes: z.number().int().nullable().describe(
-    "длительность, названная --time; без флага — null",
-  ),
+  timeMinutes: z
+    .number()
+    .int()
+    .nullable()
+    .describe("длительность, названная --time; без флага — null"),
   cardUrl: cardUrlField,
 });
 
 const discardArgsSchema = z.object({ selector });
 
 const discardResultSchema = z.object({
-  elapsedMinutes: z.number().int().nullable().describe(
-    "сколько шёл сброшенный таймер; таймера не было — null",
-  ),
+  elapsedMinutes: z
+    .number()
+    .int()
+    .nullable()
+    .describe("сколько шёл сброшенный таймер; таймера не было — null"),
   cardUrl: cardUrlField,
 });
 
@@ -241,9 +261,8 @@ async function runKitenTimeStop(
   io: TimerIo,
 ): Promise<KitenTimeStopResult> {
   const cardId = parseCardRef(args.selector);
-  const timeMinutes = args.time === undefined
-    ? null
-    : parseDuration(args.time, "--time");
+  const timeMinutes =
+    args.time === undefined ? null : parseDuration(args.time, "--time");
   const access = kaitenAccess(io);
   try {
     const timer = await requireTimer(access, cardId);
@@ -260,9 +279,8 @@ async function runKitenTimeStop(
       roleId,
     });
     const logId = stopped.cardTimeLogId;
-    const log = logId === null
-      ? null
-      : await rereadLog(access, cardId, logId, roles);
+    const log =
+      logId === null ? null : await rereadLog(access, cardId, logId, roles);
     if (log !== null) warnShiftedDay(io, cardId, log, span.finishedAtMs);
     return {
       log,
@@ -339,7 +357,8 @@ async function conflictError(
   const clock = startedClock(timer.startedAt);
   const since = clock === null ? "" : ` (с ${clock})`;
   return new DomainError(`таймер уже идёт на карточке ${cardId}${since}`, {
-    advice: `останови \`mpu kiten time stop id: ${cardId}\` или сбрось ` +
+    advice:
+      `останови \`mpu kiten time stop id: ${cardId}\` или сбрось ` +
       `\`mpu kiten time discard id: ${cardId}\``,
   });
 }
@@ -403,9 +422,9 @@ function stopSpan(
     finishedAt: isoAt(finish, zone),
     finishedAtMs: finish,
     factMinutes,
-    warning: `внимание: --time ${formatDuration(minutes)} больше фактических ${
-      formatDuration(factMinutes)
-    } — начало сдвинуто назад`,
+    warning: `внимание: --time ${formatDuration(minutes)} больше фактических ${formatDuration(
+      factMinutes,
+    )} — начало сдвинуто назад`,
   };
 }
 
@@ -474,9 +493,9 @@ function renderStatus(result: KitenTimeStatusResult): string {
   const clock = startedClock(timer.started_at);
   const since = clock === null ? "" : ` (с ${clock})`;
   const note = timer.comment === "" ? "" : ` · «${timer.comment}»`;
-  return `таймер: идёт ${
-    formatDuration(timer.elapsed_minutes)
-  }${since}${note}\n${total}`;
+  return `таймер: идёт ${formatDuration(
+    timer.elapsed_minutes,
+  )}${since}${note}\n${total}`;
 }
 
 /** Запись `status`: её печатает json и видит отбор. */
@@ -507,15 +526,15 @@ function renderStop(result: KitenTimeStopResult): string {
   }
   // «По факту» показывается, когда --time разошёлся с НАТЁКШИМ временем,
   // а не с тем, что записал сервер: расходится именно с фактом.
-  const fact = result.timeMinutes !== null &&
-      result.timeMinutes !== result.factMinutes
-    ? ` (по факту ${formatDuration(result.factMinutes)})`
-    : "";
-  return `${head} · записано ${
-    formatDuration(log.minutes)
-  }${fact} · ${log.for_date} · ${
-    roleLabel(log)
-  } · запись ${log.id} · ${result.cardUrl}\n`;
+  const fact =
+    result.timeMinutes !== null && result.timeMinutes !== result.factMinutes
+      ? ` (по факту ${formatDuration(result.factMinutes)})`
+      : "";
+  return `${head} · записано ${formatDuration(
+    log.minutes,
+  )}${fact} · ${log.for_date} · ${roleLabel(
+    log,
+  )} · запись ${log.id} · ${result.cardUrl}\n`;
 }
 
 const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL
@@ -549,9 +568,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — таймер уже идёт, ошибка API Kaiten; 2 — ошибка
 ввода (селектор, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    'mpu kiten time start id: 10000001 text: "разбор жалобы"',
-  ],
+  examples: ['mpu kiten time start id: 10000001 text: "разбор жалобы"'],
   policy: "rw",
   argsSchema: startArgsSchema,
   forms: { selector: { positional: "one" }, comment: { short: "m" } },
@@ -588,9 +605,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
 ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time status id: 10000001",
-  ],
+  examples: ["mpu kiten time status id: 10000001"],
   policy: "ro",
   argsSchema: statusArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -633,9 +648,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — таймер не запущен, ошибка API Kaiten; 2 — ошибка
 ввода (длительность, роль, селектор, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time stop id: 10000001 role: Диагностика text: разбор",
-  ],
+  examples: ["mpu kiten time stop id: 10000001 role: Диагностика text: разбор"],
   policy: "rw",
   argsSchema: stopArgsSchema,
   forms: { selector: { positional: "one" }, comment: { short: "m" } },
@@ -664,9 +677,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех и «нечего сбрасывать»; 1 — ошибка API Kaiten; 2 — ошибка
 ввода (селектор, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time discard id: 10000001",
-  ],
+  examples: ["mpu kiten time discard id: 10000001"],
   policy: "rw",
   argsSchema: discardArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -675,7 +686,7 @@ Exit: 0 — успех и «нечего сбрасывать»; 1 — ошиб�
   render: ({ elapsedMinutes, cardUrl }) =>
     elapsedMinutes === null
       ? `ok: таймера нет — нечего сбрасывать · ${cardUrl}\n`
-      : `ok: таймер сброшен без записи (шёл ${
-        formatDuration(elapsedMinutes)
-      }) · ${cardUrl}\n`,
+      : `ok: таймер сброшен без записи (шёл ${formatDuration(
+          elapsedMinutes,
+        )}) · ${cardUrl}\n`,
 });

@@ -76,8 +76,9 @@ describe("репозитории — подкаталоги первого ур�
     expect(repoOf(repos, `${root}/wb/src/deep`)?.name).toBe("wb");
     expect(repoOf(repos, `${root}/scratch`)).toStrictEqual(undefined);
     // Имя-префикс соседа своим репозиторием не притворяется.
-    expect(repoOf([{ name: "wb", root: "/w/wb" } as Repo], "/w/wbx"))
-      .toStrictEqual(undefined);
+    expect(
+      repoOf([{ name: "wb", root: "/w/wb" } as Repo], "/w/wbx"),
+    ).toStrictEqual(undefined);
   });
 
   it("ни одного репозитория — отказ слоя", async () => {

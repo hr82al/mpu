@@ -95,7 +95,7 @@ function placeheld(frames: readonly Frame[]): Frame[] {
 /** Кадры WebSocket в виде потока: у `ask` — номер. */
 function asStream(frames: readonly Frame[]): Frame[] {
   return frames.map((frame) =>
-    "ask" in frame ? { ...frame, ticket: "<ticket>" } : frame
+    "ask" in frame ? { ...frame, ticket: "<ticket>" } : frame,
   );
 }
 
@@ -126,8 +126,9 @@ describe("поток NDJSON равен кадрам WebSocket, ответ кон
           `testdata/back-http-line/${one.name}.ndjson`,
           import.meta.url,
         );
-        expect(frames.map((frame) => JSON.stringify(frame)).join("\n") + "\n")
-          .toStrictEqual(await readFile(golden, "utf8"));
+        expect(
+          frames.map((frame) => JSON.stringify(frame)).join("\n") + "\n",
+        ).toStrictEqual(await readFile(golden, "utf8"));
       });
     });
   }
@@ -146,18 +147,22 @@ describe("собранный ответ — склейка кадров пото
           await post(back, one.path, body(one), { accept: "application/json" }),
         );
         const fold = (key: "out" | "err") =>
-          streamed.filter((frame) => key in frame).map((frame) => frame[key])
+          streamed
+            .filter((frame) => key in frame)
+            .map((frame) => frame[key])
             .join("");
         const { out: _o, err: _e, ...tail } = streamed.at(-1) ?? {};
         const refused = streamed.find((frame) => "refusal" in frame) ?? {};
-        expect({ ...whole, ticket: "ticket" in whole ? "<ticket>" : undefined })
-          .toStrictEqual({
-            stdout: fold("out"),
-            stderr: fold("err"),
-            ...refused,
-            ...tail,
-            ticket: "ticket" in tail ? "<ticket>" : undefined,
-          });
+        expect({
+          ...whole,
+          ticket: "ticket" in whole ? "<ticket>" : undefined,
+        }).toStrictEqual({
+          stdout: fold("out"),
+          stderr: fold("err"),
+          ...refused,
+          ...tail,
+          ticket: "ticket" in tail ? "<ticket>" : undefined,
+        });
       });
     });
   }
@@ -176,8 +181,9 @@ it("вопрос номером: да — правило записано, не�
     );
     expect(TICKET.test(String(asked.at(-1)?.ticket))).toBe(true);
     expect(done.at(-1)).toStrictEqual({ exit: 0 });
-    expect(rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"))
-      .toStrictEqual({ path: "kiten ls", verdict: "allow" });
+    expect(
+      rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"),
+    ).toStrictEqual({ path: "kiten ls", verdict: "allow" });
     const [, refused] = await httpLine(
       back,
       "/line",
@@ -214,9 +220,14 @@ async function answer(
   ticket: string,
   agent = false,
 ) {
-  const response = await post(back, `${path}/answer`, { ticket, answer: "y" }, {
-    agent,
-  });
+  const response = await post(
+    back,
+    `${path}/answer`,
+    { ticket, answer: "y" },
+    {
+      agent,
+    },
+  );
   // Ответ, не закончивший поток, — отказ теста, а не зависание.
   const text = await within(response.text(), 5000, "тело ответа по номеру");
   back.seen.push(text);
@@ -324,24 +335,32 @@ function gated() {
 
 it("клиент оборвал поток: исполнение до конца, очередь отпущена", async () => {
   const { gate, reading, io } = gated();
-  await withBack(async (back) => {
-    const abort = new AbortController();
-    const response = await post(back, "/line", {
-      words: ["xlsx", "ls", "file:", "/a.xlsx"],
-      cwd: process.cwd(),
-    }, { signal: abort.signal });
-    await reading.promise;
-    await response.body?.cancel();
-    abort.abort();
-    gate.resolve();
-    const next = await within(
-      httpLine(back, "/line", { words: ["version"], cwd: process.cwd() }),
-      5000,
-      "строка после оборванной",
-    );
-    expect(next).toStrictEqual([[{ out: "0.1.0\n" }, { exit: 0 }]]);
-    expect(back.called).toStrictEqual(["xlsx ls"]);
-  }, { io });
+  await withBack(
+    async (back) => {
+      const abort = new AbortController();
+      const response = await post(
+        back,
+        "/line",
+        {
+          words: ["xlsx", "ls", "file:", "/a.xlsx"],
+          cwd: process.cwd(),
+        },
+        { signal: abort.signal },
+      );
+      await reading.promise;
+      await response.body?.cancel();
+      abort.abort();
+      gate.resolve();
+      const next = await within(
+        httpLine(back, "/line", { words: ["version"], cwd: process.cwd() }),
+        5000,
+        "строка после оборванной",
+      );
+      expect(next).toStrictEqual([[{ out: "0.1.0\n" }, { exit: 0 }]]);
+      expect(back.called).toStrictEqual(["xlsx ls"]);
+    },
+    { io },
+  );
 });
 
 const SQL_ENV: Readonly<Record<string, string>> = {
@@ -353,52 +372,58 @@ const SQL_ENV: Readonly<Record<string, string>> = {
 it("вывод больше мегабайта идёт потоком: первый кадр — до exit", async () => {
   const finish = Promise.withResolvers<void>();
   const sql = `SELECT '${"x".repeat(1024 * 1024)}'`;
-  await withBack(async (back) => {
-    const response = await post(back, "/line", {
-      words: ["sql-ro", "dry", "target:", "sl-1", "sql:", sql],
-      cwd: process.cwd(),
-    });
-    const reader = response.body?.pipeThrough(new TextDecoderStream())
-      .getReader();
-    let text = "";
-    const firstFrames = async () => {
-      while (!text.includes(sql)) {
+  await withBack(
+    async (back) => {
+      const response = await post(back, "/line", {
+        words: ["sql-ro", "dry", "target:", "sl-1", "sql:", sql],
+        cwd: process.cwd(),
+      });
+      const reader = response.body
+        ?.pipeThrough(new TextDecoderStream())
+        .getReader();
+      let text = "";
+      const firstFrames = async () => {
+        while (!text.includes(sql)) {
+          const chunk = await reader?.read();
+          if (chunk === undefined || chunk.done) break;
+          text += chunk.value;
+        }
+      };
+      // Запись журнала ещё не кончилась — кадра `exit` быть не может.
+      await within(firstFrames(), 10_000, "кадр с запросом до конца строки");
+      expect(text.includes('"exit"')).toBe(false);
+      finish.resolve();
+      while (true) {
         const chunk = await reader?.read();
         if (chunk === undefined || chunk.done) break;
         text += chunk.value;
       }
-    };
-    // Запись журнала ещё не кончилась — кадра `exit` быть не может.
-    await within(firstFrames(), 10_000, "кадр с запросом до конца строки");
-    expect(text.includes('"exit"')).toBe(false);
-    finish.resolve();
-    while (true) {
-      const chunk = await reader?.read();
-      if (chunk === undefined || chunk.done) break;
-      text += chunk.value;
-    }
-    back.seen.push(text);
-    const frames = text.split("\n").filter((row) => row !== "").map((row) =>
-      JSON.parse(row) as Frame
-    );
-    expect(frames.at(-1)).toStrictEqual({ exit: 0 });
-    expect(
-      frames.filter((frame) => "err" in frame).map((frame) => frame.err).join(
-        "",
-      )
-        .includes(`${sql}\n`),
-    ).toBe(true);
-  }, {
-    io: {
-      envFile: {
-        get: (name) => SQL_ENV[name],
-        values: () => ({ ...SQL_ENV }),
-        require: (name) => SQL_ENV[name] ?? "",
-        set: () => Promise.reject(new Error("запись env-файла не ожидается")),
-      },
+      back.seen.push(text);
+      const frames = text
+        .split("\n")
+        .filter((row) => row !== "")
+        .map((row) => JSON.parse(row) as Frame);
+      expect(frames.at(-1)).toStrictEqual({ exit: 0 });
+      expect(
+        frames
+          .filter((frame) => "err" in frame)
+          .map((frame) => frame.err)
+          .join("")
+          .includes(`${sql}\n`),
+      ).toBe(true);
     },
-    finished: () => finish.promise,
-  });
+    {
+      io: {
+        envFile: {
+          get: (name) => SQL_ENV[name],
+          values: () => ({ ...SQL_ENV }),
+          require: (name) => SQL_ENV[name] ?? "",
+          set: () => Promise.reject(new Error("запись env-файла не ожидается")),
+        },
+      },
+      finished: () => finish.promise,
+    },
+  );
 });
 
 describe("Accept: умолчания, веса, 406; тело не JSON — плохой кадр", () => {
@@ -416,10 +441,15 @@ describe("Accept: умолчания, веса, 406; тело не JSON — пл
   for (const [accept, expected] of cases) {
     it(String(accept), () =>
       withBack(async (back) => {
-        const response = await post(back, "/line", {
-          words: ["version"],
-          ...CWD,
-        }, { accept });
+        const response = await post(
+          back,
+          "/line",
+          {
+            words: ["version"],
+            ...CWD,
+          },
+          { accept },
+        );
         const text = await response.text();
         back.seen.push(text);
         if (typeof expected === "number") {
@@ -427,7 +457,8 @@ describe("Accept: умолчания, веса, 406; тело не JSON — пл
           return;
         }
         expect(response.headers.get("Content-Type")).toStrictEqual(expected);
-      }));
+      }),
+    );
   }
   it("тело не JSON", () =>
     withBack(async (back) => {
@@ -459,20 +490,23 @@ it("GET и POST на одном пути, прочие методы — 405 с A
 
 it("остановка: поток в работе получает err и exit 1", async () => {
   const { gate, reading, io } = gated();
-  await withBack(async (back) => {
-    const response = await post(back, "/line", {
-      words: ["xlsx", "ls", "file:", "/a.xlsx"],
-      cwd: process.cwd(),
-    });
-    await reading.promise;
-    const stopping = back.running.stop();
-    gate.resolve();
-    await stopping;
-    expect(await ndjson(back, response)).toStrictEqual([
-      { err: "mpu-back: остановлен\n" },
-      { exit: 1 },
-    ]);
-  }, { io });
+  await withBack(
+    async (back) => {
+      const response = await post(back, "/line", {
+        words: ["xlsx", "ls", "file:", "/a.xlsx"],
+        cwd: process.cwd(),
+      });
+      await reading.promise;
+      const stopping = back.running.stop();
+      gate.resolve();
+      await stopping;
+      expect(await ndjson(back, response)).toStrictEqual([
+        { err: "mpu-back: остановлен\n" },
+        { exit: 1 },
+      ]);
+    },
+    { io },
+  );
 });
 
 it("поток NDJSON: очередь набита — печатающий ждёт читателя", async () => {

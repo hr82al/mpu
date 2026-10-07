@@ -55,9 +55,7 @@ export function targetsOf(
   if (scope.kind === "all") {
     const numbers = instanceServerNumbers(sources.cache);
     if (numbers.length === 0) {
-      throw new UsageError(
-        "в SQLite-кэше нет sl-N (N>0); запусти `mpu init`",
-      );
+      throw new UsageError("в SQLite-кэше нет sl-N (N>0); запусти `mpu init`");
     }
     return numbers.map((serverNumber) => ({
       label: `sl-${serverNumber}`,

@@ -90,7 +90,7 @@ async function openIo(
 ): Promise<{ io: ConfigIo; db: CacheDb; close: () => Promise<void> }> {
   const { db, close } = await openTempCache();
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? stand.home : undefined,
+    env: (name) => (name === "HOME" ? stand.home : undefined),
     openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
   });
   return { io, db, close };
@@ -98,7 +98,11 @@ async function openIo(
 
 /** Первые `n` строк текста — с переводом строки у каждой. */
 function firstLines(text: string, n: number): string {
-  return text.split("\n").slice(0, n).map((line) => `${line}\n`).join("");
+  return text
+    .split("\n")
+    .slice(0, n)
+    .map((line) => `${line}\n`)
+    .join("");
 }
 
 describe("список: пять строк эталона канала, шестая — image.dir (C1), седьмая — task.history, восьмая — task.max_busy", () => {
@@ -113,18 +117,21 @@ describe("список: пять строк эталона канала, шес�
   ];
   for (const { home, line } of cases) {
     it(`HOME=${home}`, () =>
-      withIo(async (io) => {
-        const text = renderConfig(await runConfig(args(), io), false);
-        expect(firstLines(text, 5)).toStrictEqual(
-          await golden("list-default.stdout"),
-        );
-        expect(text.split("\n").slice(5)).toStrictEqual([
-          line,
-          TASK_HISTORY_LINE,
-          TASK_MAX_BUSY_LINE,
-          "",
-        ]);
-      }, { home }));
+      withIo(
+        async (io) => {
+          const text = renderConfig(await runConfig(args(), io), false);
+          expect(firstLines(text, 5)).toStrictEqual(
+            await golden("list-default.stdout"),
+          );
+          expect(text.split("\n").slice(5)).toStrictEqual([
+            line,
+            TASK_HISTORY_LINE,
+            TASK_MAX_BUSY_LINE,
+            "",
+          ]);
+        },
+        { home },
+      ));
   }
 });
 
@@ -137,25 +144,29 @@ it("список --json: форма записи — эталон канала",
     // читает человек. Шестая — image.dir (C2), седьмая — task.history,
     // восьмая — task.max_busy.
     expect(entries.slice(0, 5)).toStrictEqual(original);
-    expect(entries.slice(5)).toStrictEqual([{
-      key: "image.dir",
-      value: `${H}/mr/mp/mpu/image`,
-      source: "default",
-      default: `${H}/mr/mp/mpu/image`,
-      description: IMAGE_DIR_DESCRIPTION,
-    }, {
-      key: "task.history",
-      value: "3",
-      source: "default",
-      default: "3",
-      description: TASK_HISTORY_DESCRIPTION,
-    }, {
-      key: "task.max_busy",
-      value: "4",
-      source: "default",
-      default: "4",
-      description: TASK_MAX_BUSY_DESCRIPTION,
-    }]);
+    expect(entries.slice(5)).toStrictEqual([
+      {
+        key: "image.dir",
+        value: `${H}/mr/mp/mpu/image`,
+        source: "default",
+        default: `${H}/mr/mp/mpu/image`,
+        description: IMAGE_DIR_DESCRIPTION,
+      },
+      {
+        key: "task.history",
+        value: "3",
+        source: "default",
+        default: "3",
+        description: TASK_HISTORY_DESCRIPTION,
+      },
+      {
+        key: "task.max_busy",
+        value: "4",
+        source: "default",
+        default: "4",
+        description: TASK_MAX_BUSY_DESCRIPTION,
+      },
+    ]);
   });
 });
 
@@ -169,8 +180,8 @@ it("значение из хранилища печатается без суф�
     const json = JSON.parse(
       renderConfig(await runConfig(args({ json: true }), io), true),
     );
-    const entry = json.find((row: { key: string }) =>
-      row.key === "sheet.default"
+    const entry = json.find(
+      (row: { key: string }) => row.key === "sheet.default",
     );
     expect([entry.value, entry.source, entry.default]).toStrictEqual([
       "4326",
@@ -319,13 +330,11 @@ describe("реестр закрыт: имя вне списка не созда�
   let close: () => Promise<void>;
   beforeAll(async () => {
     ({ io, db, close } = await openIo());
-    for (
-      const call of [
-        args({ key: "nope.key" }),
-        args({ key: "nope.key", value: "1" }),
-        args({ key: "nope.key", unset: true }),
-      ]
-    ) {
+    for (const call of [
+      args({ key: "nope.key" }),
+      args({ key: "nope.key", value: "1" }),
+      args({ key: "nope.key", unset: true }),
+    ]) {
       const err = await rejected(() => runConfig(call, io), UsageError);
       expect(err.message, JSON.stringify(call)).toBe(
         `unknown config key: "nope.key"`,
@@ -338,10 +347,14 @@ describe("реестр закрыт: имя вне списка не созда�
     expect(configValue(db, "nope.key")).toStrictEqual(undefined);
     // Таблицы нет вовсе: отказ случился до всякой записи, а bootstrap
     // делает только она.
-    expect(plainRows(db.query(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-      "config",
-    ))).toStrictEqual([]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+          "config",
+        ),
+      ),
+    ).toStrictEqual([]);
   });
 
   it("подсказка перечисляет ключи реестра", async () => {
@@ -350,7 +363,8 @@ describe("реестр закрыт: имя вне списка не созда�
       UsageError,
     );
     const text = formatCommandError("config", err);
-    const tail = (await golden("err-unknown-key.stderr")).trim()
+    const tail = (await golden("err-unknown-key.stderr"))
+      .trim()
       .split("допустимые ключи: ")[1];
     // Состав — голден, image.dir, task.history и task.max_busy
     // (`platform/config.md`).
@@ -394,20 +408,26 @@ it("переменные окружения на выдачу не влияют 
       // Ни одного «9999»: источников значения два, и окружения среди
       // них нет (`platform/config.md`, «Граничные случаи»).
       expect(list.includes("9999"), list).toBe(false);
-      expect(renderConfig(
-        await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
-        false,
-      )).toBe("7200\n");
-      expect(renderConfig(
-        await runConfig(args({ key: "sheet.default" }), io),
-        false,
-      )).toBe("");
+      expect(
+        renderConfig(
+          await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
+          false,
+        ),
+      ).toBe("7200\n");
+      expect(
+        renderConfig(
+          await runConfig(args({ key: "sheet.default" }), io),
+          false,
+        ),
+      ).toBe("");
       // И запись в хранилище от окружения тоже не зависит.
       setConfigValue(db, "sheet.cache.tab_ttl", "7000");
-      expect(renderConfig(
-        await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
-        false,
-      )).toBe("7000\n");
+      expect(
+        renderConfig(
+          await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
+          false,
+        ),
+      ).toBe("7000\n");
     });
   } finally {
     for (const [name, value] of saved) {
@@ -438,10 +458,7 @@ it("справка config перечисляет ключи из реестра"
 it("unset image.dir печатает умолчание от HOME (C3)", async () => {
   await withIo(async (io) => {
     await runConfig(args({ key: "image.dir", value: "/tmp/x" }), io);
-    const result = await runConfig(
-      args({ key: "image.dir", unset: true }),
-      io,
-    );
+    const result = await runConfig(args({ key: "image.dir", unset: true }), io);
     expect(renderConfig(result, false)).toStrictEqual(
       `image.dir сброшен к дефолту: ${H}/mr/mp/mpu/image\n`,
     );
@@ -482,10 +499,12 @@ it("пустое значение не оседает невидимой стр�
     expect(err instanceof UsageError).toBe(true);
     expect(configValue(db, "sheet.default")).toStrictEqual(undefined);
     expect(
-      plainRows(db.query(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-        "config",
-      )),
+      plainRows(
+        db.query(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+          "config",
+        ),
+      ),
       "хранилище не тронуто",
     ).toStrictEqual([]);
   });
@@ -521,10 +540,7 @@ describe("ввод разбирается до хранилища: отказ н
 
   const cases: readonly [string, Parameters<typeof runConfig>[0]][] = [
     ["имя вне реестра", args({ key: "nope.key" })],
-    [
-      "нечисловое значение",
-      args({ key: "sheet.cache.tab_ttl", value: "abc" }),
-    ],
+    ["нечисловое значение", args({ key: "sheet.cache.tab_ttl", value: "abc" })],
     ["--unset без ключа", args({ unset: true })],
     ["пустое значение", args({ key: "sheet.default", value: "" })],
   ];

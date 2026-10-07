@@ -130,16 +130,16 @@ describe("S1, S5 через клиент: ответ ядра как есть, �
       withBack(async (back) => {
         const one = cases.find((c) => c.id === id);
         assert(one !== undefined);
-        const stdin = one.tool_name === undefined
-          ? "не json"
-          : await payloadOf(id);
+        const stdin =
+          one.tool_name === undefined ? "не json" : await payloadOf(id);
         expect(await hookVia(back, stdin)).toStrictEqual({
           code: 0,
           stdout: one.stdout,
           stderr: one.stderr,
         });
         expect(back.called).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -188,12 +188,16 @@ describe("S20e, S20f: путь хука не allow — правила недос
   beforeAll(async () => {
     stdin = await payloadOf("S1");
   });
-  for (const [id, verdict] of [["S20e", DENY], ["S20f", ASK]] as const) {
+  for (const [id, verdict] of [
+    ["S20e", DENY],
+    ["S20f", ASK],
+  ] as const) {
     it(id, () =>
       withBack(async (back) => {
         hookPathRuled(back.policyFile, verdict);
         assertEnv(await hookVia(back, stdin), await envCase(id));
-      }));
+      }),
+    );
   }
 });
 
@@ -212,7 +216,8 @@ describe("S21: справка хука — обычная строка, код 0
           ),
           seen.stdout,
         );
-      }));
+      }),
+    );
   }
 });
 
@@ -238,14 +243,15 @@ function framed(...frames: readonly object[]): Script {
 it("код ядра не 0: причина — первая строка кадров err как есть", () =>
   withFakeServer(
     async (base) => {
-      expect(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }))
-        .toStrictEqual({
-          code: 0,
-          stdout: "",
-          stderr: PRE_TOOL_USE.undecided(
-            PRE_TOOL_USE.unavailable("mpu: текст ядра"),
-          ),
-        });
+      expect(
+        await viaClient(PRE_TOOL_USE.words, { base, main: "t" }),
+      ).toStrictEqual({
+        code: 0,
+        stdout: "",
+        stderr: PRE_TOOL_USE.undecided(
+          PRE_TOOL_USE.unavailable("mpu: текст ядра"),
+        ),
+      });
     },
     {
       script: framed(
@@ -259,14 +265,15 @@ it("код ядра не 0: причина — первая строка кад�
 it("обрыв после кадра out: stdout пуст, одна строка без решения, код 0", () =>
   withFakeServer(
     async (base) => {
-      expect(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }))
-        .toStrictEqual({
-          code: 0,
-          stdout: "",
-          stderr: PRE_TOOL_USE.undecided(
-            PRE_TOOL_USE.unavailable("сервер оборвал строку"),
-          ),
-        });
+      expect(
+        await viaClient(PRE_TOOL_USE.words, { base, main: "t" }),
+      ).toStrictEqual({
+        code: 0,
+        stdout: "",
+        stderr: PRE_TOOL_USE.undecided(
+          PRE_TOOL_USE.unavailable("сервер оборвал строку"),
+        ),
+      });
     },
     { script: framed({ out: '{"hookSpecificOutput":{}}\n' }) },
   ));

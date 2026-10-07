@@ -30,11 +30,13 @@ function reader(outcome: SqlOutcome): SqlSession {
   };
 }
 
-const STATEMENTS = seedStatements(5175, [{
-  sid: "cab-1",
-  name: "Магазин",
-  trade_mark: "ТМ",
-}]);
+const STATEMENTS = seedStatements(5175, [
+  {
+    sid: "cab-1",
+    name: "Магазин",
+    trade_mark: "ТМ",
+  },
+]);
 const of = (label: string) =>
   STATEMENTS.filter((statement) => statement.label === label);
 const sqlOf = (label: string) => of(label)[0].sql;
@@ -47,18 +49,16 @@ const sqlOf = (label: string) => of(label)[0].sql;
  */
 const linkInsert = () =>
   STATEMENTS.find((item) =>
-    item.sql.startsWith("INSERT INTO public.workspaces_wb_cabinets")
+    item.sql.startsWith("INSERT INTO public.workspaces_wb_cabinets"),
   )!;
 
 it("проводка идемпотентна: у каждой вставки есть ON CONFLICT", () => {
   expect(STATEMENTS.length > 0).toBe(true);
   // Снятие чужой привязки — не вставка: у него своя идемпотентность —
   // повторный прогон просто не находит, что снимать.
-  for (
-    const statement of STATEMENTS.filter((item) =>
-      item.sql.startsWith("INSERT")
-    )
-  ) {
+  for (const statement of STATEMENTS.filter((item) =>
+    item.sql.startsWith("INSERT"),
+  )) {
     // Повторный прогон — обычный случай: второй пользователь с тем же
     // адресом сделал бы вход неоднозначным.
     expect(statement.sql).toContain("ON CONFLICT");
@@ -122,8 +122,9 @@ describe("значения уходят параметрами, а не текс
     // место даёт «bind message supplies N parameters», недостающее —
     // молча уехавшее не то значение.
     for (const statement of STATEMENTS) {
-      const places = [...statement.sql.matchAll(/\$(\d+)/g)]
-        .map((match) => Number(match[1]));
+      const places = [...statement.sql.matchAll(/\$(\d+)/g)].map((match) =>
+        Number(match[1]),
+      );
       expect(Math.max(0, ...places), statement.label).toStrictEqual(
         statement.params?.length ?? 0,
       );
@@ -141,9 +142,11 @@ describe("значения уходят параметрами, а не текс
   });
 
   it("sid уходит параметром во всех трёх операторах кабинета", () => {
-    for (
-      const label of ["wb_cabinets", "workspaces_wb_cabinets", "subscriptions"]
-    ) {
+    for (const label of [
+      "wb_cabinets",
+      "workspaces_wb_cabinets",
+      "subscriptions",
+    ]) {
       const [statement] = of(label);
       expect(statement.sql.includes("cab-1"), label).toBe(false);
       expect(statement.params?.includes("cab-1"), label).toBe(true);
@@ -244,8 +247,8 @@ describe("форма по снятой схеме воркспейсов", () =>
     // сверяется по первому слову оператора — оно и различает снятие от
     // вставки.
     expect(
-      STATEMENTS.map((statement) =>
-        `${statement.sql.split(" ")[0]} ${statement.label}`
+      STATEMENTS.map(
+        (statement) => `${statement.sql.split(" ")[0]} ${statement.label}`,
       ),
     ).toStrictEqual([
       "INSERT users",
@@ -266,7 +269,10 @@ it("пустые имена кабинета заменяются на заго�
   const outcome: SqlOutcome = {
     kind: "rows",
     columns: ["sid", "name", "trade_mark"],
-    rows: [["cab-1", "", null], ["cab-2", "  ", "ТМ"]],
+    rows: [
+      ["cab-1", "", null],
+      ["cab-2", "  ", "ТМ"],
+    ],
   };
   const cabinets = await cabinetsOf(reader(outcome), 5175);
   expect(cabinets).toStrictEqual([
@@ -321,10 +327,13 @@ describe("число снятых привязок берётся у серве�
     run: () => Promise.reject(new Error("run не ожидается")),
     runMany: (statements) =>
       Promise.resolve(
-        statements.map((statement) => ({
-          kind: "done",
-          rowcount: statement.sql.startsWith(DETACH_SQL) ? detached : 1,
-        } as SqlOutcome)),
+        statements.map(
+          (statement) =>
+            ({
+              kind: "done",
+              rowcount: statement.sql.startsWith(DETACH_SQL) ? detached : 1,
+            }) as SqlOutcome,
+        ),
       ),
     close: () => Promise.resolve(),
   });

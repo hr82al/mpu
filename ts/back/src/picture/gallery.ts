@@ -52,8 +52,11 @@ export class Gallery implements Shelf {
     if (!this.fits(bytes.byteLength)) return;
     this.#sum += bytes.byteLength;
     // `Buffer`, а не `Uint8Array#toBase64`: того нет в Node 24.
-    const data = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-      .toString("base64");
+    const data = Buffer.from(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    ).toString("base64");
     this.#taken.push({ mime, data });
   }
 }

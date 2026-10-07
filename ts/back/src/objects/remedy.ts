@@ -185,7 +185,10 @@ export function substitutedAloud(
 /** Слова селектора, как их набирают: `id:text:` → `id:`, `text:`. */
 function parts(selector: string): string[] {
   if (!selector.endsWith(":")) return [selector];
-  return selector.slice(0, -1).split(":").map((part) => `${part}:`);
+  return selector
+    .slice(0, -1)
+    .split(":")
+    .map((part) => `${part}:`);
 }
 
 /**

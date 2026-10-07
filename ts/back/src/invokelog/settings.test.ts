@@ -50,8 +50,9 @@ describe("путь файла — из ключа, иначе дефолт", () 
     expect(settingsOf({ MPU_LOG_FILE: "" }).file).toStrictEqual(DEFAULT_FILE);
   });
   it("дефолта нет — журналу некуда писать", () => {
-    expect(readSettings({ get: () => undefined }, undefined).file)
-      .toStrictEqual(undefined);
+    expect(
+      readSettings({ get: () => undefined }, undefined).file,
+    ).toStrictEqual(undefined);
   });
 });
 
@@ -82,7 +83,7 @@ describe("битое числовое значение — дефолт и note 
       expect(settings.keep).toStrictEqual(DEFAULT_KEEP);
       expect(settings.notes).toStrictEqual([
         `MPU_LOG_KEEP=${value}: не целое неотрицательное число,` +
-        ` взято умолчание ${DEFAULT_KEEP}`,
+          ` взято умолчание ${DEFAULT_KEEP}`,
       ]);
     });
   }

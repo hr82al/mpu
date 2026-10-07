@@ -37,9 +37,9 @@ function fakeLoki(
       const beforeEnd = endInclusive ? ns <= query.endNs : ns < query.endNs;
       return ns >= query.startNs && beforeEnd;
     });
-    const newestFirst = [...inside].reverse().sort((a, b) =>
-      Number(BigInt(b.tsNs) - BigInt(a.tsNs))
-    );
+    const newestFirst = [...inside]
+      .reverse()
+      .sort((a, b) => Number(BigInt(b.tsNs) - BigInt(a.tsNs)));
     return Promise.resolve(newestFirst.slice(0, query.limit));
   };
   return { asked, read };
@@ -64,11 +64,13 @@ it("limit в пределах страницы — один запрос, как
   const loki = fakeLoki(all, 5000);
   const got = await readNewest(loki.read, WINDOW, 200, 5000);
   expect(got).toStrictEqual(all.slice(-200));
-  expect(loki.asked).toStrictEqual([{
-    ...WINDOW,
-    limit: 200,
-    direction: "backward",
-  }]);
+  expect(loki.asked).toStrictEqual([
+    {
+      ...WINDOW,
+      limit: 200,
+      direction: "backward",
+    },
+  ]);
 });
 
 describe("граница страниц с одним временем — без дублей и потерь", () => {
@@ -93,8 +95,9 @@ describe("граница страниц с одним временем — бе�
       async () => {
         const loki = fakeLoki(all, 5, endInclusive);
         const got = await readNewest(loki.read, WINDOW, 100, 5);
-        expect([...got].map((one) => `${one.tsNs}:${one.line}`).sort())
-          .toStrictEqual(all.map((one) => `${one.tsNs}:${one.line}`).sort());
+        expect(
+          [...got].map((one) => `${one.tsNs}:${one.line}`).sort(),
+        ).toStrictEqual(all.map((one) => `${one.tsNs}:${one.line}`).sort());
         expect(got.map((one) => one.tsNs)).toStrictEqual(
           all.map((one) => one.tsNs),
         );

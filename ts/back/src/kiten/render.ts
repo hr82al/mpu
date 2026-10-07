@@ -39,8 +39,8 @@ export function renderJson(card: CardView): string {
  * включая GFM-чекбоксы — Kaiten их интерактивными не делает нигде.
  */
 export function renderMarkdown(card: CardView, names: PropertyNames): string {
-  const header = headerFields(card).map(({ label, value }) =>
-    `- **${label}**: ${value}`
+  const header = headerFields(card).map(
+    ({ label, value }) => `- **${label}**: ${value}`,
   );
   const blocks = [`# ${card.title}`, header.join("\n")];
 

@@ -91,7 +91,8 @@ if (import.meta.main) {
   // (`claude-channel.md`). Склейка — на `node:*` (`ts/CLAUDE.md`,
   // «Библиотеки и приёмы»).
   const args = process.argv.slice(2);
-  const channel = args.length === CHANNEL_WORDS.length &&
+  const channel =
+    args.length === CHANNEL_WORDS.length &&
     args.every((word, i) => word === CHANNEL_WORDS[i]);
   if (channel) {
     process.exit(
@@ -102,7 +103,9 @@ if (import.meta.main) {
         lines: createInterface({ input: process.stdin, crlfDelay: Infinity }),
         write: (text) =>
           new Promise((resolve, reject) =>
-            process.stdout.write(text, (err) => err ? reject(err) : resolve())
+            process.stdout.write(text, (err) =>
+              err ? reject(err) : resolve(),
+            ),
           ),
         stderr: (text) => void process.stderr.write(text),
         pause: (ms, signal) => sleep(ms, undefined, { signal }),

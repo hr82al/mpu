@@ -180,7 +180,7 @@ async function run(
   const end = await runProgram(words, {
     commands: COMMANDS,
     core: core(lines),
-    print: (text) => out += text,
+    print: (text) => (out += text),
     signal,
     pace: new Every(20, () => performance.now()),
     naming,
@@ -238,7 +238,7 @@ const PRINTS: readonly (readonly [string, string])[] = [
   ["kiten card id: 11 md", 'md: {"id":11,"comments":[0,1]}\n'],
   [
     `x := kiten ls ${END} json . x size`,
-    `${[...'json: {"rows":' + JSON.stringify(ROWS) + "}"].length}\n`,
+    `${[...('json: {"rows":' + JSON.stringify(ROWS) + "}")].length}\n`,
   ],
   ["x := 1 . x isNil", "false\n"],
   [`3 greater: 2 and: ${DO} 1 less: 2 ${DONE}`, "true\n"],
@@ -469,8 +469,8 @@ describe("текст ^…^: отказы до исполнения с готов
     [
       "^ответ: 2^ готово^",
       "выражение 1: текст ^…^ закрылся раньше: слово «2^» закрыло его, " +
-      "а «готово^» дальше закрывать нечему. Если ^ — часть текста, " +
-      "удвой: 2^^ — mpu ^ответ: 2^^ готово^",
+        "а «готово^» дальше закрывать нечему. Если ^ — часть текста, " +
+        "удвой: 2^^ — mpu ^ответ: 2^^ готово^",
       ["^ответ:", "2^^", "готово^"],
     ],
     [
@@ -600,7 +600,8 @@ it("несвязанная @x в значении ключа команды — 
 });
 
 it("рекурсия блока через переменную на глубину 100 000", async () => {
-  const line = `f := ${DO} :n @n less: 1 ifTrue: ${DO} 0 ${DONE} ifFalse: ` +
+  const line =
+    `f := ${DO} :n @n less: 1 ifTrue: ${DO} 0 ${DONE} ifFalse: ` +
     `${DO} @f value: ${DO} @n minus: 1 ${END} ${DONE} ${DONE} . f value: 100000`;
   const ran = await run(line);
   expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
@@ -625,7 +626,10 @@ it("отмена останавливает бесконечный цикл, к�
 
 describe("строка команды с кодом ≠ 0 — программа кончается", () => {
   // Отказ до исполнения (2) — как есть, прочий — 1 (`ask-composite.md`).
-  const cases: readonly [string, number][] = [["nope", 2], ["fail", 1]];
+  const cases: readonly [string, number][] = [
+    ["nope", 2],
+    ["fail", 1],
+  ];
   for (const [word, exit] of cases) {
     it(word, async () => {
       const ran = await run(`x := 1 . ${word} . 2 print`);
@@ -705,38 +709,44 @@ describe("ключ-текст: слово как есть, выражение �
     [
       [
         "telegram send chat: @kalabass text: ^@kalabass Иван, итог: всё готово.^",
-        [[
-          "telegram",
-          "send",
-          "chat:",
-          "@kalabass",
-          "text:",
-          "@kalabass Иван, итог: всё готово.",
-        ]],
+        [
+          [
+            "telegram",
+            "send",
+            "chat:",
+            "@kalabass",
+            "text:",
+            "@kalabass Иван, итог: всё готово.",
+          ],
+        ],
       ],
       [
         ["telegram", "send", "chat:", "@kalabass", "text:", "@kalabass Иван."],
-        [[
-          "telegram",
-          "send",
-          "chat:",
-          "@kalabass",
-          "text:",
-          "@kalabass Иван.",
-        ]],
+        [
+          [
+            "telegram",
+            "send",
+            "chat:",
+            "@kalabass",
+            "text:",
+            "@kalabass Иван.",
+          ],
+        ],
       ],
       ["x := 1 . telegram send chat: me text: .", [sent(".")]],
-      [`x := 1 . telegram send chat: me text: ${GRAMMAR.comment}`, [
-        sent("rem"),
-      ]],
+      [
+        `x := 1 . telegram send chat: me text: ${GRAMMAR.comment}`,
+        [sent("rem")],
+      ],
       [`x := 1 . telegram send chat: me text: ${DONE}`, [sent(DONE)]],
       [
         `telegram send chat: me text: ^итог: 5 штук. ${END}^`,
         [["telegram", "send", "chat:", "me", "text:", `итог: 5 штук. ${END}`]],
       ],
-      ["telegram send chat: me text: ^ответ: 2^^ готово^", [
-        sent("ответ: 2^ готово"),
-      ]],
+      [
+        "telegram send chat: me text: ^ответ: 2^^ готово^",
+        [sent("ответ: 2^ готово")],
+      ],
       ["telegram send chat: me text: ^a b^ print", [sent("a b")]],
       [
         "telegram send chat: ^Иван Петров^ text: ура^",
@@ -762,7 +772,8 @@ describe("ключ-текст: слово как есть, выражение �
 
 describe("ключ-текст: связанная переменная — отказ до исполнения", () => {
   const each = `kiten ls each: ${DO} :c telegram send chat: me text:`;
-  const said = "выражение 1, блок each:: ключ-текст берёт слово как есть; " +
+  const said =
+    "выражение 1, блок each:: ключ-текст берёт слово как есть; " +
     `переменную — группой: text: ${DO} @c ${END}`;
   const cases: readonly (readonly [string, string])[] = [
     [`${each} @c ${DONE}`, said],
@@ -809,8 +820,8 @@ it("run: не первым словом — отказ разбора, ниче�
 
 /** Программа файла `x.mpu` с ключами вызова `given`. */
 function runFile(line: string, given: Record<string, string>): Promise<Ran> {
-  const typed = Object.entries(given).map(([key, value]) =>
-    ` ${key}: ${value}`
+  const typed = Object.entries(given).map(
+    ([key, value]) => ` ${key}: ${value}`,
   );
   const source = `mpu ${GRAMMAR.run} x.mpu${typed.join("")}`;
   const params = fileParams(source, new Map(Object.entries(given)));
@@ -848,14 +859,9 @@ describe("параметры файла: @имя — ключ вызова, го
       { msg: "hi" },
     );
     expect(ran.end.exit).toBe(0);
-    expect(ran.lines).toStrictEqual([[
-      "telegram",
-      "send",
-      "chat:",
-      "me",
-      "text:",
-      "hi",
-    ]]);
+    expect(ran.lines).toStrictEqual([
+      ["telegram", "send", "chat:", "me", "text:", "hi"],
+    ]);
   });
   it("параметр — текст: число не распознаётся", async () => {
     const ran = await runFile("@n plus: 1", { n: "5" });
@@ -883,21 +889,21 @@ describe("параметры файла: отказы до исполнения 
       "col := 1 . @col print",
       { col: "review" },
       "mpu run: x.mpu col: review: параметр col: совпадает с переменной " +
-      "col := — переименуй одно из них",
+        "col := — переименуй одно из них",
       "совпадает с переменной",
     ],
     [
       `kiten ls each: ${DO} :col @col id print ${DONE}`,
       { col: "review" },
       "mpu run: x.mpu col: review: параметр col: совпадает с параметром " +
-      "блока :col — переименуй одно из них",
+        "блока :col — переименуй одно из них",
       "совпадает с переменной",
     ],
     [
       "telegram send chat: me text: @msg",
       { msg: "hi" },
       "mpu run: x.mpu msg: hi: выражение 1: ключ-текст берёт слово как есть; " +
-      `переменную — группой: text: ${DO} @msg ${END}`,
+        `переменную — группой: text: ${DO} @msg ${END}`,
       "ключ-текст берёт слово как есть",
     ],
   ];

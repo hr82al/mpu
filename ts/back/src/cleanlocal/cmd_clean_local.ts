@@ -35,12 +35,14 @@ import {
 } from "./plan.ts";
 
 const argsSchema = z.object({
-  keep: z.string().optional().describe(
-    "client_id через запятую, которых оставить; дефолт 54,776",
-  ),
-  yes: z.boolean().default(false).describe(
-    "выполнить удаление; без флага — только печать плана",
-  ),
+  keep: z
+    .string()
+    .optional()
+    .describe("client_id через запятую, которых оставить; дефолт 54,776"),
+  yes: z
+    .boolean()
+    .default(false)
+    .describe("выполнить удаление; без флага — только печать плана"),
 });
 
 const resultSchema = z.object({
@@ -171,8 +173,8 @@ export async function runCleanLocal(
   // «read-only без --yes» держится тогда сервером, а не дисциплиной
   // вызовов внутри команды.
   const mode = args.yes ? "write" : "read-only";
-  const open = options.openSession ??
-    ((target: PgTarget) => openPgSession(target, mode));
+  const open =
+    options.openSession ?? ((target: PgTarget) => openPgSession(target, mode));
 
   const sl1 = await open(sl1Target(io));
   try {
@@ -257,13 +259,15 @@ async function cleanWorkspaces(
         `AND owner_id = '${userId}'`,
     );
     if (firstColumn(owns) !== undefined) {
-      await session.run([
-        `DELETE FROM public.subscriptions WHERE sid IN (SELECT sid FROM ` +
-        `public.workspaces_wb_cabinets WHERE workspace_id = ${id});`,
-        `DELETE FROM public.workspaces_wb_cabinets WHERE workspace_id = ${id};`,
-        `DELETE FROM public.wb_cabinets WHERE workspace_id = ${id};`,
-        `DELETE FROM public.workspaces WHERE id = ${id};`,
-      ].join("\n"));
+      await session.run(
+        [
+          `DELETE FROM public.subscriptions WHERE sid IN (SELECT sid FROM ` +
+            `public.workspaces_wb_cabinets WHERE workspace_id = ${id});`,
+          `DELETE FROM public.workspaces_wb_cabinets WHERE workspace_id = ${id};`,
+          `DELETE FROM public.wb_cabinets WHERE workspace_id = ${id};`,
+          `DELETE FROM public.workspaces WHERE id = ${id};`,
+        ].join("\n"),
+      );
       removed += 1;
     }
     // User убирается в любом случае: он наш по сигнатуре, даже если
@@ -278,8 +282,10 @@ export function renderCleanLocal(result: CleanResult): string {
   const head = planReport(result.clients, result.keep, result.targets);
   if (result.targets.length === 0) return `${head}${NOTHING_TAIL}\n`;
   if (result.dryRun) return `${head}${DRY_RUN_TAIL}\n`;
-  return `${head}удалено клиентов: ${result.deleted}; ` +
-    `снято workspace-проводок: ${result.workspaces}\n`;
+  return (
+    `${head}удалено клиентов: ${result.deleted}; ` +
+    `снято workspace-проводок: ${result.workspaces}\n`
+  );
 }
 
 export const cleanLocalClientsCommand = defineCommand({

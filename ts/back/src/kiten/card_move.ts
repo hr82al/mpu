@@ -23,10 +23,7 @@ import {
 import type { RefItem } from "./ref.ts";
 
 /** Место карточки: ровно то, из чего складывается строка положения. */
-export type CardPlace = Pick<
-  Card,
-  "boardTitle" | "columnTitle" | "laneTitle"
->;
+export type CardPlace = Pick<Card, "boardTitle" | "columnTitle" | "laneTitle">;
 
 /** Что и куда переносится: цель, положение «до» и способ переноса. */
 export interface MovePlan {
@@ -90,7 +87,9 @@ export function planAxisMove(
   targets: AxisTargets,
 ): AppliedMove {
   const column = targets.column;
-  const stays = column !== null && column.id === card.columnId &&
+  const stays =
+    column !== null &&
+    column.id === card.columnId &&
     (targets.board === null || targets.board.id === card.boardId) &&
     (targets.lane === null || targets.lane.title === card.laneTitle);
   return {
@@ -191,9 +190,7 @@ export function relogNeighbour(
  * `sort_order` (`platform/kaiten-api-refs.md`). Вес не назван — колонка
  * уходит в конец: место без веса впереди сдвинуло бы всю доску.
  */
-export function orderedColumns(
-  columns: readonly Column[],
-): readonly Column[] {
+export function orderedColumns(columns: readonly Column[]): readonly Column[] {
   return [...columns].sort((a, b) => weight(a) - weight(b) || a.id - b.id);
 }
 
@@ -202,16 +199,19 @@ export function orderedColumns(
  * дорожки через ` · `; все пусты — прочерк (`kiten-move.md`).
  */
 export function positionLabel(card: CardPlace): string {
-  const parts = [card.boardTitle, card.columnTitle, card.laneTitle]
-    .filter((title): title is string => title !== null && title !== "");
+  const parts = [card.boardTitle, card.columnTitle, card.laneTitle].filter(
+    (title): title is string => title !== null && title !== "",
+  );
   return parts.length === 0 ? "—" : parts.join(" · ");
 }
 
 /** Строка намерения `--dry-run`: что и куда, без единой мутации. */
 export function moveDryRunLine(plan: MovePlan): string {
   const what = plan.relog ? "релог (влево→обратно)" : "перемещение";
-  return `dry-run: ${what} → «${plan.columnTitle}» (колонка ${plan.columnId}); ` +
-    `сейчас ${plan.from}; PATCH не отправлен\n`;
+  return (
+    `dry-run: ${what} → «${plan.columnTitle}» (колонка ${plan.columnId}); ` +
+    `сейчас ${plan.from}; PATCH не отправлен\n`
+  );
 }
 
 /** Куда и откуда переехала карточка — всё, что нужно строке успеха. */
@@ -333,9 +333,10 @@ export function moveRecordOf(
     cardId: card.id,
     title: card.title,
     url: entry.cardUrl,
-    toColumn: card.columnTitle === null || card.columnTitle === ""
-      ? "—"
-      : card.columnTitle,
+    toColumn:
+      card.columnTitle === null || card.columnTitle === ""
+        ? "—"
+        : card.columnTitle,
     fromColumn: entry.fromColumn,
     lane: card.laneTitle,
     board: card.boardTitle,

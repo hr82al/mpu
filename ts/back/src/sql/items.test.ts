@@ -20,10 +20,20 @@ const META = {
 it("набор строк — записи и обратно", () => {
   const result: SqlResult = {
     ...META,
-    outcome: { kind: "rows", columns: ["n", "s"], rows: [[1, "a"], [2, null]] },
+    outcome: {
+      kind: "rows",
+      columns: ["n", "s"],
+      rows: [
+        [1, "a"],
+        [2, null],
+      ],
+    },
   };
   const records = SQL_ITEMS.records(result);
-  expect(records).toStrictEqual([{ n: 1, s: "a" }, { n: 2, s: null }]);
+  expect(records).toStrictEqual([
+    { n: 1, s: "a" },
+    { n: 2, s: null },
+  ]);
   expect(SQL_ITEMS.with(result, records.slice(1))).toStrictEqual({
     ...META,
     outcome: { kind: "rows", columns: ["n", "s"], rows: [[2, null]] },
@@ -31,12 +41,10 @@ it("набор строк — записи и обратно", () => {
 });
 
 it("без набора строк — пусто, результат прежний", () => {
-  for (
-    const result of [
-      { ...META, outcome: { kind: "done" as const, rowcount: 3 } },
-      { ...META, dry: true, outcome: null },
-    ]
-  ) {
+  for (const result of [
+    { ...META, outcome: { kind: "done" as const, rowcount: 3 } },
+    { ...META, dry: true, outcome: null },
+  ]) {
     expect(SQL_ITEMS.records(result)).toStrictEqual([]);
     expect(SQL_ITEMS.with(result, [])).toStrictEqual(result);
   }

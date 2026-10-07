@@ -159,7 +159,7 @@ async function tmuxAt(
       stderr: "piped",
     });
   } catch (err) {
-    if (!(hasErrorCode(err, "ENOENT"))) throw err;
+    if (!hasErrorCode(err, "ENOENT")) throw err;
     return { success: false, said: reasonLine(err) };
   }
   const said = decoder.decode(output.success ? output.stdout : output.stderr);
@@ -184,12 +184,16 @@ async function hookCall(
     stderr: "piped",
   });
   const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(JSON.stringify({
-    tool_name: "Bash",
-    tool_input: { command: "true" },
-    transcript_path: `${subject.home}/нет-транскрипта.jsonl`,
-    cwd: subject.home,
-  })));
+  await writer.write(
+    new TextEncoder().encode(
+      JSON.stringify({
+        tool_name: "Bash",
+        tool_input: { command: "true" },
+        transcript_path: `${subject.home}/нет-транскрипта.jsonl`,
+        cwd: subject.home,
+      }),
+    ),
+  );
   await writer.close();
   const output = await child.output();
   return {
@@ -512,28 +516,37 @@ const REFUSAL_DEADLINE_MS = 30_000;
 
 function checks(subject: Subject): readonly Check[] {
   return [
-    ["version", async () => {
-      const outcome = await runOk(subject, ["version"]);
-      assert.deepStrictEqual(outcome.stdout.trim(), VERSION, "не та версия");
-    }],
+    [
+      "version",
+      async () => {
+        const outcome = await runOk(subject, ["version"]);
+        assert.deepStrictEqual(outcome.stdout.trim(), VERSION, "не та версия");
+      },
+    ],
     // Собранный клиент читает основной токен (`cli-client.md`).
     // Проверяется наблюдаемым следом: основной токен прочитан — значит
     // клиент пришёл дверью человека, и ему доступен её собственный
     // метод; не прочитан — дверь была бы агентской, и метода бы не было.
-    ["клиент: основной токен читается, дверь человека", async () => {
-      const outcome = await runOk(subject, ["web"]);
-      assert(
-        outcome.stdout.startsWith("http://mpu.localhost"),
-        `ссылка входа не та: ${JSON.stringify(outcome.stdout)}`,
-      );
-    }],
+    [
+      "клиент: основной токен читается, дверь человека",
+      async () => {
+        const outcome = await runOk(subject, ["web"]);
+        assert(
+          outcome.stdout.startsWith("http://mpu.localhost"),
+          `ссылка входа не та: ${JSON.stringify(outcome.stdout)}`,
+        );
+      },
+    ],
     // Клиент живёт без `PATH`: программы копирования названы
     // абсолютными путями (`cli/src/clipboard/mod.ts`, `cli-client.md`,
     // «Права клиента и `PATH`»).
-    ["клиент стартует без PATH в окружении", async () => {
-      const outcome = await run(subject, ["version"]);
-      assert.deepStrictEqual(outcome.stdout.trim(), VERSION, outcome.stderr);
-    }],
+    [
+      "клиент стартует без PATH в окружении",
+      async () => {
+        const outcome = await run(subject, ["version"]);
+        assert.deepStrictEqual(outcome.stdout.trim(), VERSION, outcome.stderr);
+      },
+    ],
     // Временный файл дампа `copy-client`/`copy-dev`
     // (`docs/specs/copy-client.md`, «Известные ловушки»): собранный бинарь
     // заводит его в каталоге временных файлов до первого обращения к PG.
@@ -558,9 +571,9 @@ function checks(subject: Subject): readonly Check[] {
           // печатает уже после создания файла.
           assert(
             /\/tmp\/mpu-copy-dev-\w+\.dump/.test(text),
-            `в выводе нет пути временного дампа под /tmp: ${
-              JSON.stringify(text)
-            }`,
+            `в выводе нет пути временного дампа под /tmp: ${JSON.stringify(
+              text,
+            )}`,
           );
         } finally {
           await removeEnvFile(subject);
@@ -602,14 +615,13 @@ function checks(subject: Subject): readonly Check[] {
         await rm(envPath);
         // Путь не резолвится — код 2 и с JSON: код отдаёт результат, а не
         // форма (`platform/line-grammar.md` [D.6]).
-        const fromProcessEnv = await run(subject, [
-          "xlsx",
-          "resolve",
-          GRAMMAR.close,
-          "json",
-        ], {
-          MPU_XLSX: book,
-        });
+        const fromProcessEnv = await run(
+          subject,
+          ["xlsx", "resolve", GRAMMAR.close, "json"],
+          {
+            MPU_XLSX: book,
+          },
+        );
         assert.deepStrictEqual(fromProcessEnv.code, 2, fromProcessEnv.stderr);
         const envResult = JSON.parse(fromProcessEnv.stdout) as {
           resolved: { source: string } | null;
@@ -707,9 +719,9 @@ function checks(subject: Subject): readonly Check[] {
             if (reached === "срок вышел") child.kill("SIGKILL");
             await child.status;
             throw new Error(
-              `до узла Telegram не дошёл (${reached}): ${
-                (await stderr).trim()
-              }`,
+              `до узла Telegram не дошёл (${reached}): ${(
+                await stderr
+              ).trim()}`,
             );
           }
         } finally {
@@ -766,9 +778,9 @@ function checks(subject: Subject): readonly Check[] {
             child.kill("SIGKILL");
             const late = await output;
             throw new Error(
-              `за ${REFUSAL_DEADLINE_MS} мс не отказал: ${
-                new TextDecoder().decode(late.stderr).trim()
-              }`,
+              `за ${REFUSAL_DEADLINE_MS} мс не отказал: ${new TextDecoder()
+                .decode(late.stderr)
+                .trim()}`,
             );
           }
           const stdout = new TextDecoder().decode(outcome.stdout);
@@ -785,82 +797,93 @@ function checks(subject: Subject): readonly Check[] {
         }
       },
     ],
-    ["init: справка собранного бинаря несёт числа пределов", async () => {
-      const outcome = await runOk(subject, ["init", "--help"]);
-      for (
-        const value of [HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS, WARMUP_BUDGET_MS]
-      ) {
-        assert(
-          outcome.stdout.includes(String(value)),
-          `в справке init нет числа ${value}`,
-        );
-      }
-    }],
+    [
+      "init: справка собранного бинаря несёт числа пределов",
+      async () => {
+        const outcome = await runOk(subject, ["init", "--help"]);
+        for (const value of [
+          HEADERS_TIMEOUT_MS,
+          TOTAL_TIMEOUT_MS,
+          WARMUP_BUDGET_MS,
+        ]) {
+          assert(
+            outcome.stdout.includes(String(value)),
+            `в справке init нет числа ${value}`,
+          );
+        }
+      },
+    ],
     // Бинарь ходит в Portainer и заводит кэш-БД в каталоге состояния.
     // Конфигурация приходит только из env-файла: окружение подпроцесса
     // очищено (`clearEnv`), в нём есть один HOME.
-    ["init: discovery через фейковый Portainer и кэш-БД в HOME", async () => {
-      const server = await serveFetch(
-        (req) => {
+    [
+      "init: discovery через фейковый Portainer и кэш-БД в HOME",
+      async () => {
+        const server = await serveFetch((req) => {
           const url = new URL(req.url);
           if (url.pathname === "/api/endpoints") {
             return Response.json([{ Id: 1, Name: "prod", Status: 1 }]);
           }
-          return Response.json([{
-            Id: "c1",
-            Names: ["/sl-1-cli"],
-            State: "running",
-            Image: "img",
-          }]);
-        },
-      );
-      try {
+          return Response.json([
+            {
+              Id: "c1",
+              Names: ["/sl-1-cli"],
+              State: "running",
+              Image: "img",
+            },
+          ]);
+        });
+        try {
+          const envPath = `${subject.home}/.config/mpu/.env`;
+          await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+            recursive: true,
+          });
+          await writeFile(
+            envPath,
+            "PORTAINER_API_KEY=proba-kluch\n" +
+              `PORTAINER_URL=${server.baseUrl}\n`,
+          );
+          const outcome = await runOk(subject, ["init", "dry"]);
+          assert(
+            outcome.stdout.includes("sl-1: sl-1-cli [running]"),
+            `сводка не та: ${JSON.stringify(outcome.stdout)}`,
+          );
+          assert(
+            outcome.stderr.includes("# bootstrap: схема в"),
+            `нет строки шага 1: ${JSON.stringify(outcome.stderr)}`,
+          );
+          // Файл кэш-БД заведён самим бинарём в каталоге состояния.
+          await stat(`${subject.home}/.config/mpu/mpu.db`);
+          await rm(envPath);
+        } finally {
+          await server.stop();
+        }
+      },
+    ],
+    // Клиент PostgreSQL в собранном бинаре создаётся и доходит до сети.
+    // Живого PG здесь нет и не нужно: адрес заведомо закрыт, ценно то,
+    // КАКОЙ ошибкой команда завершается.
+    [
+      "update: PG-клиент отказывает по сети",
+      async () => {
         const envPath = `${subject.home}/.config/mpu/.env`;
         await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
           recursive: true,
         });
         await writeFile(
           envPath,
-          "PORTAINER_API_KEY=proba-kluch\n" +
-            `PORTAINER_URL=${server.baseUrl}\n`,
+          "pg_0=127.0.0.1\nPG_PORT=1\n" +
+            "PG_MAIN_USER_NAME=proba\nPG_MAIN_USER_PASSWORD=proba\n",
         );
-        const outcome = await runOk(subject, ["init", "dry"]);
+        const outcome = await run(subject, ["update"]);
+        assert.deepStrictEqual(outcome.code, 1, `stderr: ${outcome.stderr}`);
         assert(
-          outcome.stdout.includes("sl-1: sl-1-cli [running]"),
-          `сводка не та: ${JSON.stringify(outcome.stdout)}`,
+          outcome.stderr.startsWith("mpu update: main (sl-0) недоступен: "),
+          `не тот отказ: ${JSON.stringify(outcome.stderr)}`,
         );
-        assert(
-          outcome.stderr.includes("# bootstrap: схема в"),
-          `нет строки шага 1: ${JSON.stringify(outcome.stderr)}`,
-        );
-        // Файл кэш-БД заведён самим бинарём в каталоге состояния.
-        await stat(`${subject.home}/.config/mpu/mpu.db`);
         await rm(envPath);
-      } finally {
-        await server.stop();
-      }
-    }],
-    // Клиент PostgreSQL в собранном бинаре создаётся и доходит до сети.
-    // Живого PG здесь нет и не нужно: адрес заведомо закрыт, ценно то,
-    // КАКОЙ ошибкой команда завершается.
-    ["update: PG-клиент отказывает по сети", async () => {
-      const envPath = `${subject.home}/.config/mpu/.env`;
-      await mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
-        recursive: true,
-      });
-      await writeFile(
-        envPath,
-        "pg_0=127.0.0.1\nPG_PORT=1\n" +
-          "PG_MAIN_USER_NAME=proba\nPG_MAIN_USER_PASSWORD=proba\n",
-      );
-      const outcome = await run(subject, ["update"]);
-      assert.deepStrictEqual(outcome.code, 1, `stderr: ${outcome.stderr}`);
-      assert(
-        outcome.stderr.startsWith("mpu update: main (sl-0) недоступен: "),
-        `не тот отказ: ${JSON.stringify(outcome.stderr)}`,
-      );
-      await rm(envPath);
-    }],
+      },
+    ],
     // Граница состояния и конфигурации на собранном бинаре: `HOME`
     // адресует кэш-БД и журнал, `XDG_CONFIG_HOME` — env-файл и
     // выведенный из его кред токен-кэш sl-back. Разводит каталоги одна
@@ -871,8 +894,8 @@ function checks(subject: Subject): readonly Check[] {
     [
       "границы каталогов: XDG_CONFIG_HOME уводит токен-кэш, но не кэш-БД",
       async () => {
-        const server = await serveFetch(
-          () => Response.json({ accessToken: "проба-токена" }),
+        const server = await serveFetch(() =>
+          Response.json({ accessToken: "проба-токена" }),
         );
         const cachePath = `${subject.configHome}/mpu/.api-token.json`;
         try {
@@ -906,86 +929,90 @@ function checks(subject: Subject): readonly Check[] {
     // план и не ходит в службу. Доски у smoke нет и быть не должно —
     // живая пара за спецификатором; здесь проверяется, что маршрут
     // `native` у команды рабочий и фикстуры читаются.
-    ["d2-miro: план --dry-run печатается собранным бинарём", async () => {
-      const base = `${subject.home}/схема`;
-      const from = new URL(
-        "../src/d2miro/testdata/d2-miro/",
-        import.meta.url,
-      );
-      // Порядок копирования значим: SVG обязан быть не старше `.d2`,
-      // иначе бинарь пойдёт звать `d2`, которого в окружении нет.
-      await writeFile(
-        `${base}.d2`,
-        await readFile(new URL("sample.d2", from), "utf8"),
-      );
-      await writeFile(
-        `${base}.svg`,
-        await readFile(new URL("sample.svg", from), "utf8"),
-      );
-      const outcome = await runOk(subject, [
-        "d2-miro",
-        "dry",
-        "file:",
-        `${base}.d2`,
-      ]);
-      assert(
-        outcome.stdout.includes("[dry-run] would create:") &&
-          outcome.stdout.includes("shape(can)           mart  kind=cylinder"),
-        `не тот план: ${JSON.stringify(outcome.stdout)}`,
-      );
-      assert(
-        outcome.stderr.includes("5 shapes, 5 edges, 1 markdown blocks"),
-        `не та строка [info]: ${JSON.stringify(outcome.stderr)}`,
-      );
-    }],
+    [
+      "d2-miro: план --dry-run печатается собранным бинарём",
+      async () => {
+        const base = `${subject.home}/схема`;
+        const from = new URL(
+          "../src/d2miro/testdata/d2-miro/",
+          import.meta.url,
+        );
+        // Порядок копирования значим: SVG обязан быть не старше `.d2`,
+        // иначе бинарь пойдёт звать `d2`, которого в окружении нет.
+        await writeFile(
+          `${base}.d2`,
+          await readFile(new URL("sample.d2", from), "utf8"),
+        );
+        await writeFile(
+          `${base}.svg`,
+          await readFile(new URL("sample.svg", from), "utf8"),
+        );
+        const outcome = await runOk(subject, [
+          "d2-miro",
+          "dry",
+          "file:",
+          `${base}.d2`,
+        ]);
+        assert(
+          outcome.stdout.includes("[dry-run] would create:") &&
+            outcome.stdout.includes("shape(can)           mart  kind=cylinder"),
+          `не тот план: ${JSON.stringify(outcome.stdout)}`,
+        );
+        assert(
+          outcome.stderr.includes("5 shapes, 5 edges, 1 markdown blocks"),
+          `не та строка [info]: ${JSON.stringify(outcome.stderr)}`,
+        );
+      },
+    ],
     // Подпроцесс собранного бинаря (`node:child_process`, `subprocess`):
     // запуск, оба потока и код выхода. Годится не всякий подпроцесс:
     // `d2` в этом окружении нет вовсе, а `ssh` в PATH есть.
-    ["ssh: подпроцесс запускается и отказывает сам", async () => {
-      // Ищется там же, где его будет искать бинарь: ему передаётся
-      // именно этот PATH, и наличие ssh в PATH самого smoke ничего бы
-      // о вызове не говорило.
-      const sshBin = await firstExisting(["/usr/bin/ssh", "/bin/ssh"]);
-      if (sshBin === undefined) {
-        throw new Skipped("`ssh` не найден в /usr/bin и /bin: нечего звать");
-      }
-      const envDir = `${subject.configHome}/mpu`;
-      await mkdir(envDir, { recursive: true });
-      await writeFile(
-        `${envDir}/.env`,
-        // Петля с закрытым портом: ssh обязан запуститься и отказать
-        // сам. Наружу вызов не идёт — ни к dev-ноде по умолчанию, ни
-        // куда-либо ещё.
-        "DEV_NODE_HOST=127.0.0.1\nDEV_NODE_USER=nobody\n",
-      );
-      try {
-        const outcome = await run(subject, [
-          "ssh",
-          "target:",
-          "dev:1",
-          "cmd:",
-          "echo hi",
-        ], {
-          XDG_CONFIG_HOME: subject.configHome,
-          PATH: "/usr/bin:/bin",
-        });
-        // Утверждение — про то, что говорит сам ssh: строка про
-        // недоступный ключ приходит и когда порт закрыт, и когда на
-        // машине поднят sshd (тогда отказ будет на аутентификации).
-        // Привязка к «connection refused» краснела бы на машине с
-        // sshd, ничего не сообщая о запуске.
-        assert(
-          outcome.stderr.includes("Identity file") &&
-            outcome.stderr.includes(".ssh/id_rsa"),
-          `подпроцесс ssh не запускался: ${JSON.stringify(outcome.stderr)}`,
+    [
+      "ssh: подпроцесс запускается и отказывает сам",
+      async () => {
+        // Ищется там же, где его будет искать бинарь: ему передаётся
+        // именно этот PATH, и наличие ssh в PATH самого smoke ничего бы
+        // о вызове не говорило.
+        const sshBin = await firstExisting(["/usr/bin/ssh", "/bin/ssh"]);
+        if (sshBin === undefined) {
+          throw new Skipped("`ssh` не найден в /usr/bin и /bin: нечего звать");
+        }
+        const envDir = `${subject.configHome}/mpu`;
+        await mkdir(envDir, { recursive: true });
+        await writeFile(
+          `${envDir}/.env`,
+          // Петля с закрытым портом: ssh обязан запуститься и отказать
+          // сам. Наружу вызов не идёт — ни к dev-ноде по умолчанию, ни
+          // куда-либо ещё.
+          "DEV_NODE_HOST=127.0.0.1\nDEV_NODE_USER=nobody\n",
         );
-        // Код ssh доносится как есть (`exec-transport.md`): 255 — это
-        // он, а не наша трактовка; отказ запуска дал бы 1.
-        assert.deepStrictEqual(outcome.code, 255, "код ssh не донесён");
-      } finally {
-        await rm(`${envDir}/.env`);
-      }
-    }],
+        try {
+          const outcome = await run(
+            subject,
+            ["ssh", "target:", "dev:1", "cmd:", "echo hi"],
+            {
+              XDG_CONFIG_HOME: subject.configHome,
+              PATH: "/usr/bin:/bin",
+            },
+          );
+          // Утверждение — про то, что говорит сам ssh: строка про
+          // недоступный ключ приходит и когда порт закрыт, и когда на
+          // машине поднят sshd (тогда отказ будет на аутентификации).
+          // Привязка к «connection refused» краснела бы на машине с
+          // sshd, ничего не сообщая о запуске.
+          assert(
+            outcome.stderr.includes("Identity file") &&
+              outcome.stderr.includes(".ssh/id_rsa"),
+            `подпроцесс ssh не запускался: ${JSON.stringify(outcome.stderr)}`,
+          );
+          // Код ssh доносится как есть (`exec-transport.md`): 255 — это
+          // он, а не наша трактовка; отказ запуска дал бы 1.
+          assert.deepStrictEqual(outcome.code, 255, "код ssh не донесён");
+        } finally {
+          await rm(`${envDir}/.env`);
+        }
+      },
+    ],
     // Канал Claude Code (`claude-channel.md`): собранный клиент держит
     // stdio сессии на `node:*` и регистрируется в ядре по
     // `CLAUDE_CODE_MESSAGING_SOCKET`; значение
@@ -1010,10 +1037,12 @@ function checks(subject: Subject): readonly Check[] {
         });
         const stdout = new Response(child.stdout).text();
         const writer = child.stdin.getWriter();
-        await writer.write(new TextEncoder().encode(
-          '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}\n' +
-            '{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
-        ));
+        await writer.write(
+          new TextEncoder().encode(
+            '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}\n' +
+              '{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
+          ),
+        );
         // Регистрация — след в stderr канала; дождаться его, затем EOF.
         const errors = child.stderr.getReader();
         let said = "";
@@ -1047,157 +1076,163 @@ function checks(subject: Subject): readonly Check[] {
     // tmux прогона отмечает каждый такой вызов хуком
     // `after-display-message`: отметка и есть след запуска tmux собранным
     // `mpu-back`. Клиент несёт `TMUX` и `TMUX_PANE`.
-    ["tmux: подпись окна вопроса запускает /usr/bin/tmux", async () => {
-      const socket = `${subject.home}/tmux.sock`;
-      const tmux = (...args: string[]) => tmuxAt(socket, args);
-      const started = await tmux(
-        "-f",
-        "/dev/null",
-        "new-session",
-        "-d",
-        "-s",
-        "w",
-        "-n",
-        "probe",
-        "sleep 600",
-      );
-      // Сервер tmux не поднялся (нет программы, сокеты запрещены
-      // окружением) — проверять нечем; причина — его словами.
-      if (!started.success) throw new Skipped(started.said);
-      try {
-        const pane = (await tmux("list-panes", "-F", "#{pane_id}")).said;
-        await tmux(
-          "set-hook",
-          "-g",
-          "after-display-message",
-          "set-option -g @shown yes",
+    [
+      "tmux: подпись окна вопроса запускает /usr/bin/tmux",
+      async () => {
+        const socket = `${subject.home}/tmux.sock`;
+        const tmux = (...args: string[]) => tmuxAt(socket, args);
+        const started = await tmux(
+          "-f",
+          "/dev/null",
+          "new-session",
+          "-d",
+          "-s",
+          "w",
+          "-n",
+          "probe",
+          "sleep 600",
         );
-        await using server = await serve(subject);
-        const outcome = await hookCall(subject, server.url, {
-          TMUX: `${socket},1,0`,
-          TMUX_PANE: pane,
-        });
-        assert.deepStrictEqual(
-          [outcome.code, outcome.stdout],
-          [0, ""],
-          outcome.stderr,
-        );
-        assert.deepStrictEqual(
-          (await tmux("show-options", "-gv", "@shown")).said,
-          "yes",
-          "mpu-back не запускал tmux",
-        );
-      } finally {
-        await tmux("kill-server");
-      }
-    }],
+        // Сервер tmux не поднялся (нет программы, сокеты запрещены
+        // окружением) — проверять нечем; причина — его словами.
+        if (!started.success) throw new Skipped(started.said);
+        try {
+          const pane = (await tmux("list-panes", "-F", "#{pane_id}")).said;
+          await tmux(
+            "set-hook",
+            "-g",
+            "after-display-message",
+            "set-option -g @shown yes",
+          );
+          await using server = await serve(subject);
+          const outcome = await hookCall(subject, server.url, {
+            TMUX: `${socket},1,0`,
+            TMUX_PANE: pane,
+          });
+          assert.deepStrictEqual(
+            [outcome.code, outcome.stdout],
+            [0, ""],
+            outcome.stderr,
+          );
+          assert.deepStrictEqual(
+            (await tmux("show-options", "-gv", "@shown")).said,
+            "yes",
+            "mpu-back не запускал tmux",
+          );
+        } finally {
+          await tmux("kill-server");
+        }
+      },
+    ],
     // Журнал вызовов: одна запись на вызов и ни одной лишней. Журнал
     // живёт в каталоге состояния, а путь приходит ключом env-файла, не
     // окружением процесса (`platform/invoke-log.md`).
-    ["журнал вызовов: по записи на вызов", async () => {
-      const configDir = `${subject.home}/.config/mpu`;
-      const logPath = `${configDir}/invoke.log`;
-      await mkdir(configDir, { recursive: true });
-      await writeFile(
-        `${configDir}/.env`,
-        `MPU_LOG_FILE=${logPath}\n`,
-      );
-      try {
-        await rm(logPath);
-      } catch {
-        // Файла ещё нет: считаем записи этой проверки, а не прогона.
-      }
-      try {
-        // Пути нет — код 2 (`platform/line-grammar.md` [D.6]); запись
-        // журнала от кода не зависит.
-        const resolve = await run(subject, [
-          "xlsx",
-          "resolve",
-          GRAMMAR.close,
-          "json",
-        ]);
-        assert.deepStrictEqual(resolve.code, 2, resolve.stderr);
-        const afterFirst = await readFile(logPath, "utf8");
-        assert.deepStrictEqual(
-          logRecords(afterFirst),
-          [`$ mpu xlsx resolve ${GRAMMAR.close} json`],
-          `не одна запись вызова: ${JSON.stringify(afterFirst)}`,
-        );
-        // Второй вызов — вторая запись, не больше и не меньше: пока
-        // жил маршрут `legacy`, запись о его вызове делал подпроцесс, и
-        // обвязка своей не добавляла. Маршрута нет, записи делает
-        // только обвязка — считаем, что ровно по одной.
-        await runOk(subject, ["config", GRAMMAR.close, "json"]);
-        const afterSecond = await readFile(logPath, "utf8");
-        assert.deepStrictEqual(
-          logRecords(afterSecond),
-          [
-            `$ mpu xlsx resolve ${GRAMMAR.close} json`,
-            `$ mpu config ${GRAMMAR.close} json`,
-          ],
-          `записи задвоились: ${JSON.stringify(afterSecond)}`,
-        );
-        assert.deepStrictEqual(
-          (await modeOf(logPath)).toString(8),
-          "600",
-          "права файла журнала не 0600",
-        );
-      } finally {
-        await rm(`${configDir}/.env`);
-      }
-    }],
+    [
+      "журнал вызовов: по записи на вызов",
+      async () => {
+        const configDir = `${subject.home}/.config/mpu`;
+        const logPath = `${configDir}/invoke.log`;
+        await mkdir(configDir, { recursive: true });
+        await writeFile(`${configDir}/.env`, `MPU_LOG_FILE=${logPath}\n`);
+        try {
+          await rm(logPath);
+        } catch {
+          // Файла ещё нет: считаем записи этой проверки, а не прогона.
+        }
+        try {
+          // Пути нет — код 2 (`platform/line-grammar.md` [D.6]); запись
+          // журнала от кода не зависит.
+          const resolve = await run(subject, [
+            "xlsx",
+            "resolve",
+            GRAMMAR.close,
+            "json",
+          ]);
+          assert.deepStrictEqual(resolve.code, 2, resolve.stderr);
+          const afterFirst = await readFile(logPath, "utf8");
+          assert.deepStrictEqual(
+            logRecords(afterFirst),
+            [`$ mpu xlsx resolve ${GRAMMAR.close} json`],
+            `не одна запись вызова: ${JSON.stringify(afterFirst)}`,
+          );
+          // Второй вызов — вторая запись, не больше и не меньше: пока
+          // жил маршрут `legacy`, запись о его вызове делал подпроцесс, и
+          // обвязка своей не добавляла. Маршрута нет, записи делает
+          // только обвязка — считаем, что ровно по одной.
+          await runOk(subject, ["config", GRAMMAR.close, "json"]);
+          const afterSecond = await readFile(logPath, "utf8");
+          assert.deepStrictEqual(
+            logRecords(afterSecond),
+            [
+              `$ mpu xlsx resolve ${GRAMMAR.close} json`,
+              `$ mpu config ${GRAMMAR.close} json`,
+            ],
+            `записи задвоились: ${JSON.stringify(afterSecond)}`,
+          );
+          assert.deepStrictEqual(
+            (await modeOf(logPath)).toString(8),
+            "600",
+            "права файла журнала не 0600",
+          );
+        } finally {
+          await rm(`${configDir}/.env`);
+        }
+      },
+    ],
     // Проверка, поднимающая клиент PostgreSQL `sql-ro`. Живого
     // PostgreSQL у smoke нет, поэтому адрес заведомо закрытый: важно,
     // что отказ пришёл от драйвера.
-    ["sql-ro: мета-блок из env-файла и живой PG-клиент", async () => {
-      const configDir = `${subject.home}/.config/mpu`;
-      await mkdir(configDir, { recursive: true });
-      await writeFile(
-        `${configDir}/.env`,
-        "pg_1=127.0.0.1\nPG_PORT=1\nPG_MY_USER_NAME=u\nPG_MY_USER_PASSWORD=p\n",
-      );
-      try {
-        const dry = await runOk(subject, [
-          "sql-ro",
-          "dry",
-          "verbose",
-          "target:",
-          "sl-1",
-          "sql:",
-          "SELECT 1",
-        ]);
-        assert.deepStrictEqual(
-          dry.stdout,
-          "",
-          "у --dry stdout обязан быть пуст",
+    [
+      "sql-ro: мета-блок из env-файла и живой PG-клиент",
+      async () => {
+        const configDir = `${subject.home}/.config/mpu`;
+        await mkdir(configDir, { recursive: true });
+        await writeFile(
+          `${configDir}/.env`,
+          "pg_1=127.0.0.1\nPG_PORT=1\nPG_MY_USER_NAME=u\nPG_MY_USER_PASSWORD=p\n",
         );
-        assert.deepStrictEqual(
-          dry.stderr,
-          "server: sl-1\npg_host: 127.0.0.1\npg_port: 1\ndatabase: wb\n" +
-            "mode: read-only\nsql:\nSELECT 1\n",
-          "мета-блок собран не из env-файла",
-        );
+        try {
+          const dry = await runOk(subject, [
+            "sql-ro",
+            "dry",
+            "verbose",
+            "target:",
+            "sl-1",
+            "sql:",
+            "SELECT 1",
+          ]);
+          assert.deepStrictEqual(
+            dry.stdout,
+            "",
+            "у --dry stdout обязан быть пуст",
+          );
+          assert.deepStrictEqual(
+            dry.stderr,
+            "server: sl-1\npg_host: 127.0.0.1\npg_port: 1\ndatabase: wb\n" +
+              "mode: read-only\nsql:\nSELECT 1\n",
+            "мета-блок собран не из env-файла",
+          );
 
-        const live = await run(subject, [
-          "sql-ro",
-          "target:",
-          "sl-1",
-          "sql:",
-          "SELECT 1",
-        ]);
-        assert.deepStrictEqual(
-          live.code,
-          1,
-          `не отказ БД: ${JSON.stringify(live)}`,
-        );
-        assert(
-          live.stderr.startsWith("db error: "),
-          `отказ не от драйвера: ${JSON.stringify(live.stderr)}`,
-        );
-      } finally {
-        await rm(`${configDir}/.env`);
-      }
-    }],
+          const live = await run(subject, [
+            "sql-ro",
+            "target:",
+            "sl-1",
+            "sql:",
+            "SELECT 1",
+          ]);
+          assert.deepStrictEqual(
+            live.code,
+            1,
+            `не отказ БД: ${JSON.stringify(live)}`,
+          );
+          assert(
+            live.stderr.startsWith("db error: "),
+            `отказ не от драйвера: ${JSON.stringify(live.stderr)}`,
+          );
+        } finally {
+          await rm(`${configDir}/.env`);
+        }
+      },
+    ],
     // Разбор кода собранным бинарём: `mpu code refs` строит программу
     // проекта компилятором TypeScript, запечённым в бинарь, и зовёт
     // `git` за отметкой дерева. Тесты идут по исходникам; здесь —
@@ -1312,173 +1347,194 @@ function checks(subject: Subject): readonly Check[] {
     // отвечает `сбой`, код 1. Метод посеян записью в `image.db`, правило
     // `image sync` — `allow` (`ALLOWED`): вопроса в прогоне задать
     // некому.
-    ["каталог образа: файл метода пишется ядром", async () => {
-      seedImageMethod(subject.home);
-      await mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
-      const outcome = await run(subject, ["image", "sync"]);
-      assert.deepStrictEqual(
-        [outcome.code, outcome.stdout],
-        [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
-        `stderr: ${outcome.stderr}`,
-      );
-      await stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
-    }],
+    [
+      "каталог образа: файл метода пишется ядром",
+      async () => {
+        seedImageMethod(subject.home);
+        await mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
+        const outcome = await run(subject, ["image", "sync"]);
+        assert.deepStrictEqual(
+          [outcome.code, outcome.stdout],
+          [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
+          `stderr: ${outcome.stderr}`,
+        );
+        await stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
+      },
+    ],
     // Два файла корня рабочей области (`mp-clone.md`, «Корень и права»):
     // `.gitignore` и сентинел пишет сама команда; не записав, строка
     // отвечает `сбой`, код 1. Служебные субрепо заведены `git
     // init` заранее — все «уже есть», поэтому ни ssh, ни сервера прогон
     // не касается. Правило `mp-clone` — `allow` (`ALLOWED`).
-    ["mp-clone: два файла корня пишутся ядром", async () => {
-      const root = `${subject.home}/mr/mp`;
-      await mkdir(root, { recursive: true });
-      await writeFile(
-        `${root}/mp.code-workspace`,
-        JSON.stringify({ folders: [{ path: "." }] }),
-      );
-      for (const name of ["mp-config-local", "ai-tools", "opiu-service"]) {
-        await mkdir(`${root}/${name}`);
-        await gitIn(`${root}/${name}`, ["init", "-q"]);
-        await gitIn(`${root}/${name}`, [
-          "-c",
-          "user.name=smoke",
-          "-c",
-          "user.email=smoke@localhost",
-          "commit",
-          "-q",
-          "--allow-empty",
-          "-m",
-          "smoke",
-        ]);
-      }
-      // Сервер прогона стартует с чистым окружением: `git` ищется по
-      // PATH, как у ssh выше.
-      const outcome = await run(subject, ["mp-clone"], {
-        PATH: "/usr/bin:/bin",
-      });
-      assert.deepStrictEqual(outcome.code, 0, `stderr: ${outcome.stderr}`);
-      assert.deepStrictEqual(
-        await readFile(`${root}/.mp-workspace-root`, "utf8"),
-        "",
-      );
-      assert.deepStrictEqual(
-        await readFile(`${root}/.gitignore`, "utf8"),
-        "# Detected subrepos:\n/mp-config-local/\n/ai-tools/\n/opiu-service/\n",
-      );
-    }],
+    [
+      "mp-clone: два файла корня пишутся ядром",
+      async () => {
+        const root = `${subject.home}/mr/mp`;
+        await mkdir(root, { recursive: true });
+        await writeFile(
+          `${root}/mp.code-workspace`,
+          JSON.stringify({ folders: [{ path: "." }] }),
+        );
+        for (const name of ["mp-config-local", "ai-tools", "opiu-service"]) {
+          await mkdir(`${root}/${name}`);
+          await gitIn(`${root}/${name}`, ["init", "-q"]);
+          await gitIn(`${root}/${name}`, [
+            "-c",
+            "user.name=smoke",
+            "-c",
+            "user.email=smoke@localhost",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "smoke",
+          ]);
+        }
+        // Сервер прогона стартует с чистым окружением: `git` ищется по
+        // PATH, как у ssh выше.
+        const outcome = await run(subject, ["mp-clone"], {
+          PATH: "/usr/bin:/bin",
+        });
+        assert.deepStrictEqual(outcome.code, 0, `stderr: ${outcome.stderr}`);
+        assert.deepStrictEqual(
+          await readFile(`${root}/.mp-workspace-root`, "utf8"),
+          "",
+        );
+        assert.deepStrictEqual(
+          await readFile(`${root}/.gitignore`, "utf8"),
+          "# Detected subrepos:\n/mp-config-local/\n/ai-tools/\n/opiu-service/\n",
+        );
+      },
+    ],
     // Файл программы `run:` читает ядро (`program-input.md`, «держится
     // на»), ключ вызова — параметр.
-    ["run: файл программы читается ядром", async () => {
-      const path = `${subject.home}/probe.mpu`;
-      await writeFile(path, "@col print");
-      const outcome = await run(subject, ["run:", path, "col:", "review"]);
-      assert.deepStrictEqual(
-        [outcome.code, outcome.stdout],
-        [0, "review\n"],
-        `stderr: ${outcome.stderr}`,
-      );
-    }],
-    ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
-      // Отказ печатает собранный бинарь: маршрута воркспейсов больше
-      // нет, а алиас остаётся распознанным ради причины по делу.
-      const outcome = await run(subject, [
-        "sql-ro",
-        "target:",
-        "sw",
-        "sql:",
-        "SELECT 1",
-      ]);
-      assert.deepStrictEqual(
-        outcome.code,
-        2,
-        `не ошибка ввода: ${outcome.stderr}`,
-      );
-      assert.deepStrictEqual(
-        outcome.stderr,
-        "mpu sql-ro: маршрут sw выброшен: доступа к контуру " +
-          "воркспейсов нет\n",
-      );
-      assert.deepStrictEqual(outcome.stdout, "");
-    }],
-    ["схема main-БД: голдены сходятся с information_schema", async () => {
-      // Единственная проверка smoke, которой нужен живой стенд.
-      // Остальное здесь работает всегда, поэтому пропуск тут — не
-      // формальность: без него голдены схемы сверялись бы только сами с
-      // собой, а расхождение с базой ловила бы живая пара (замер порции
-      // 79: колонки `id` в таблице нет вовсе).
-      const goldens = await schemaGoldens();
-      assert(goldens.length > 0, "голденов схемы нет вовсе");
-      const session = await openMainDb();
-      try {
-        for (const golden of goldens) {
-          const live = await liveColumns(session, golden.table);
-          if (live.length === 0) {
-            throw new Error(
-              `таблицы ${golden.table} в main-БД нет, а голден её описывает`,
+    [
+      "run: файл программы читается ядром",
+      async () => {
+        const path = `${subject.home}/probe.mpu`;
+        await writeFile(path, "@col print");
+        const outcome = await run(subject, ["run:", path, "col:", "review"]);
+        assert.deepStrictEqual(
+          [outcome.code, outcome.stdout],
+          [0, "review\n"],
+          `stderr: ${outcome.stderr}`,
+        );
+      },
+    ],
+    [
+      "sql-ro: выброшенный sw-маршрут отказывает, а не резолвит",
+      async () => {
+        // Отказ печатает собранный бинарь: маршрута воркспейсов больше
+        // нет, а алиас остаётся распознанным ради причины по делу.
+        const outcome = await run(subject, [
+          "sql-ro",
+          "target:",
+          "sw",
+          "sql:",
+          "SELECT 1",
+        ]);
+        assert.deepStrictEqual(
+          outcome.code,
+          2,
+          `не ошибка ввода: ${outcome.stderr}`,
+        );
+        assert.deepStrictEqual(
+          outcome.stderr,
+          "mpu sql-ro: маршрут sw выброшен: доступа к контуру " +
+            "воркспейсов нет\n",
+        );
+        assert.deepStrictEqual(outcome.stdout, "");
+      },
+    ],
+    [
+      "схема main-БД: голдены сходятся с information_schema",
+      async () => {
+        // Единственная проверка smoke, которой нужен живой стенд.
+        // Остальное здесь работает всегда, поэтому пропуск тут — не
+        // формальность: без него голдены схемы сверялись бы только сами с
+        // собой, а расхождение с базой ловила бы живая пара (замер порции
+        // 79: колонки `id` в таблице нет вовсе).
+        const goldens = await schemaGoldens();
+        assert(goldens.length > 0, "голденов схемы нет вовсе");
+        const session = await openMainDb();
+        try {
+          for (const golden of goldens) {
+            const live = await liveColumns(session, golden.table);
+            if (live.length === 0) {
+              throw new Error(
+                `таблицы ${golden.table} в main-БД нет, а голден её описывает`,
+              );
+            }
+            // Сверка — общей функцией, проверяемой своим тестом: вторая
+            // её копия здесь разошлась бы с первой незаметно.
+            const diff = compareColumns(golden.columns, live);
+            // Обе стороны названы своими словами: пропавшая колонка и
+            // новая — разные новости, и чинятся они по-разному.
+            assert.deepStrictEqual(
+              diff.missing,
+              [],
+              `${golden.table}: в базе нет колонок голдена: ${diff.missing.join(
+                ", ",
+              )}`,
+            );
+            assert.deepStrictEqual(
+              diff.extra,
+              [],
+              `${golden.table}: в базе есть колонки сверх голдена: ${diff.extra.join(
+                ", ",
+              )}`,
             );
           }
-          // Сверка — общей функцией, проверяемой своим тестом: вторая
-          // её копия здесь разошлась бы с первой незаметно.
-          const diff = compareColumns(golden.columns, live);
-          // Обе стороны названы своими словами: пропавшая колонка и
-          // новая — разные новости, и чинятся они по-разному.
-          assert.deepStrictEqual(
-            diff.missing,
-            [],
-            `${golden.table}: в базе нет колонок голдена: ${
-              diff.missing.join(", ")
-            }`,
-          );
-          assert.deepStrictEqual(
-            diff.extra,
-            [],
-            `${golden.table}: в базе есть колонки сверх голдена: ${
-              diff.extra.join(", ")
-            }`,
-          );
+        } finally {
+          await session.close();
         }
-      } finally {
-        await session.close();
-      }
-    }],
+      },
+    ],
     // Все семь программ установки отвечают версией сборки, ничего не
     // поднимая (`platform/supervisor-install.md`, «Части»): так их
     // проверяет и `install.sh` перед подменой.
-    ["семь программ: --version, ничего не поднимая", async () => {
-      for (const [, program] of PROGRAMS) {
-        const out = await runProgram(`${subject.home}/${program}`, {
-          args: ["--version"],
-          clearEnv: true,
-          stdout: "piped",
-          stderr: "piped",
-        });
-        assert.deepStrictEqual(
-          [out.code, decoder.decode(out.stdout).trim()],
-          [0, VERSION],
-          `${program}: ${decoder.decode(out.stderr)}`,
-        );
-      }
-    }],
+    [
+      "семь программ: --version, ничего не поднимая",
+      async () => {
+        for (const [, program] of PROGRAMS) {
+          const out = await runProgram(`${subject.home}/${program}`, {
+            args: ["--version"],
+            clearEnv: true,
+            stdout: "piped",
+            stderr: "piped",
+          });
+          assert.deepStrictEqual(
+            [out.code, decoder.decode(out.stdout).trim()],
+            [0, VERSION],
+            `${program}: ${decoder.decode(out.stderr)}`,
+          );
+        }
+      },
+    ],
     // Кэш-БД оркестратора (`task-orchestrator.md`, «Порты»): первый шаг
     // идёт сразу при старте и открывает журнал канала — таблицы
     // появляются в `mpu.db`. Не записав, шаг падает строкой лога
     // `шаг: …`, и таблиц нет. Проектов с ролями нет — tmux не зовётся.
-    ["mpu-task: кэш-БД — таблицы канала при старте", async () => {
-      const child = await startProgram(subject.task, {
-        clearEnv: true,
-        env: { HOME: subject.home, XDG_RUNTIME_DIR: subject.runtimeDir },
-        stdout: "piped",
-        stderr: "piped",
-      });
-      const tables = await taskTablesWithin(subject.home, 10_000);
-      child.kill("SIGTERM");
-      const out = await child.output();
-      const stdout = decoder.decode(out.stdout);
-      assert.deepStrictEqual(
-        { code: out.code, tables, stdout },
-        { code: 0, tables: true, stdout: "старт\nостановка\n" },
-        decoder.decode(out.stderr),
-      );
-    }],
+    [
+      "mpu-task: кэш-БД — таблицы канала при старте",
+      async () => {
+        const child = await startProgram(subject.task, {
+          clearEnv: true,
+          env: { HOME: subject.home, XDG_RUNTIME_DIR: subject.runtimeDir },
+          stdout: "piped",
+          stderr: "piped",
+        });
+        const tables = await taskTablesWithin(subject.home, 10_000);
+        child.kill("SIGTERM");
+        const out = await child.output();
+        const stdout = decoder.decode(out.stdout);
+        assert.deepStrictEqual(
+          { code: out.code, tables, stdout },
+          { code: 0, tables: true, stdout: "старт\nостановка\n" },
+          decoder.decode(out.stderr),
+        );
+      },
+    ],
   ];
 }
 
@@ -1502,9 +1558,13 @@ async function hasTaskTables(path: string): Promise<boolean> {
   }
   const db = new DatabaseSync(path, { readOnly: true });
   try {
-    return db.prepare(
-      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_projects'",
-    ).all().length === 1;
+    return (
+      db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_projects'",
+        )
+        .all().length === 1
+    );
   } finally {
     db.close();
   }

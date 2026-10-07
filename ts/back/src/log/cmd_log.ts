@@ -31,18 +31,25 @@ export type LogIo = Pick<
 >;
 
 const argsSchema = z.object({
-  tail: z.number().int().default(DEFAULT_TAIL).describe(
-    "сколько последних записей печатать; 0 и меньше — все",
-  ),
-  failed: z.boolean().default(false).describe(
-    "только записи с ненулевым кодом выхода",
-  ),
-  cmd: z.string().optional().describe(
-    "записи, чей вызов начинается с `mpu <префикс>` или `mpu ask <префикс>`",
-  ),
-  since: z.string().optional().describe(
-    "не старше момента: <число>{s|m|h|d} назад либо unix-ts",
-  ),
+  tail: z
+    .number()
+    .int()
+    .default(DEFAULT_TAIL)
+    .describe("сколько последних записей печатать; 0 и меньше — все"),
+  failed: z
+    .boolean()
+    .default(false)
+    .describe("только записи с ненулевым кодом выхода"),
+  cmd: z
+    .string()
+    .optional()
+    .describe(
+      "записи, чей вызов начинается с `mpu <префикс>` или `mpu ask <префикс>`",
+    ),
+  since: z
+    .string()
+    .optional()
+    .describe("не старше момента: <число>{s|m|h|d} назад либо unix-ts"),
   run: z.string().optional().describe("одна запись по идентификатору вызова"),
   file: z.string().optional().describe("читать этот файл вместо журнала"),
 });
@@ -119,9 +126,10 @@ export async function runLog(
   io: LogIo,
   options: LogOptions = {},
 ): Promise<LogResult> {
-  const since = args.since === undefined
-    ? undefined
-    : sinceOf(args.since, (options.nowSeconds ?? defaultNow)());
+  const since =
+    args.since === undefined
+      ? undefined
+      : sinceOf(args.since, (options.nowSeconds ?? defaultNow)());
   const records = await readAll(args.file, io);
 
   if (args.run !== undefined) {

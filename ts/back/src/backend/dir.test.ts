@@ -30,11 +30,7 @@ async function lineIn(
 }
 
 /** Две строки разом; обе доходят до конца. */
-function bothIn(
-  back: TestBack,
-  first: Line,
-  second: Line,
-): Promise<Frame[][]> {
+function bothIn(back: TestBack, first: Line, second: Line): Promise<Frame[][]> {
   return Promise.all([
     lineIn(back, first.cwd, first.words, first.answers),
     lineIn(back, second.cwd, second.words, second.answers),
@@ -80,9 +76,11 @@ it("рабочий каталог команды — каталог её стр�
 
 /** Одна запись журнала в формате, который читает `mpu log`. */
 function record(text: string): string {
-  return `### 2026-09-21 10:00:00.000 +03:00 run=20260921-100000.000-1 ` +
+  return (
+    `### 2026-09-21 10:00:00.000 +03:00 run=20260921-100000.000-1 ` +
     `pid=1 cwd=/где-то\n$ mpu ${text}\n` +
-    `--- end run=20260921-100000.000-1 exit=0 dur=0.001s ---\n\n`;
+    `--- end run=20260921-100000.000-1 exit=0 dur=0.001s ---\n\n`
+  );
 }
 
 it("относительный путь разрешается от каталога строки", async () => {
@@ -91,20 +89,23 @@ it("относительный путь разрешается от катало
   try {
     await writeFile(`${a}/свой.log`, record("строка из A"));
     await writeFile(`${b}/свой.log`, record("строка из B"));
-    await withBack(async (back) => {
-      const words = ["log", "file:", "свой.log"];
-      const [first, second] = await bothIn(
-        back,
-        { cwd: a, words },
-        { cwd: b, words },
-      );
-      const out = (frames: readonly Frame[]) =>
-        frames.map((frame) => frame.out ?? "").join("");
-      expect(out(first)).toContain("mpu строка из A");
-      expect(out(second)).toContain("mpu строка из B");
-      expect(first.at(-1)).toStrictEqual({ exit: 0 });
-      expect(second.at(-1)).toStrictEqual({ exit: 0 });
-    }, { io: { readTextFile: (path: string) => readFile(path, "utf8") } });
+    await withBack(
+      async (back) => {
+        const words = ["log", "file:", "свой.log"];
+        const [first, second] = await bothIn(
+          back,
+          { cwd: a, words },
+          { cwd: b, words },
+        );
+        const out = (frames: readonly Frame[]) =>
+          frames.map((frame) => frame.out ?? "").join("");
+        expect(out(first)).toContain("mpu строка из A");
+        expect(out(second)).toContain("mpu строка из B");
+        expect(first.at(-1)).toStrictEqual({ exit: 0 });
+        expect(second.at(-1)).toStrictEqual({ exit: 0 });
+      },
+      { io: { readTextFile: (path: string) => readFile(path, "utf8") } },
+    );
   } finally {
     await rm(a, { recursive: true });
     await rm(b, { recursive: true });
@@ -122,14 +123,14 @@ it("голден: кадры двух одновременных строк с �
         { cwd: b, words: ["version"] },
       );
       const snapshot = {
-        "описание": "две одновременные строки с разными каталогами",
-        "строки": [
+        описание: "две одновременные строки с разными каталогами",
+        строки: [
           {
             cwd: MASK,
             words: ["code", "refs", "address:", "чегоТоНет"],
-            "кадры": masked(first, a),
+            кадры: masked(first, a),
           },
-          { cwd: MASK, words: ["version"], "кадры": masked(second, b) },
+          { cwd: MASK, words: ["version"], кадры: masked(second, b) },
         ],
       };
       const golden = new URL(
@@ -151,8 +152,8 @@ const MASK = "<каталог строки>";
 
 /** Кадры с подставленным вместо каталога маркером. */
 function masked(frames: readonly Frame[], dir: string): Frame[] {
-  return frames.map((frame) =>
-    JSON.parse(JSON.stringify(frame).replaceAll(dir, MASK)) as Frame
+  return frames.map(
+    (frame) => JSON.parse(JSON.stringify(frame).replaceAll(dir, MASK)) as Frame,
   );
 }
 
@@ -179,55 +180,58 @@ it("запись журнала называет каталог своей ст�
 it("две строки пишут в кэш-БД разом — доходят обе записи", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    await withBack(async (back) => {
-      const [first, second] = await bothIn(
-        back,
-        // Запись в кэш-БД — мутирующая команда: посев даёт ей `ask`,
-        // и человек отвечает «да».
-        {
-          cwd: dir,
-          words: [
-            "ask",
-            "xlsx",
-            "alias",
-            "add",
-            "name:",
-            "pervyi",
-            "path:",
-            "/1.xlsx",
-          ],
-          answers: ["y"],
-        },
-        {
-          cwd: dir,
-          words: [
-            "ask",
-            "xlsx",
-            "alias",
-            "add",
-            "name:",
-            "vtoroi",
-            "path:",
-            "/2.xlsx",
-          ],
-          answers: ["y"],
-        },
-      );
-      expect(first.at(-1)).toStrictEqual({ exit: 0 });
-      expect(second.at(-1)).toStrictEqual({ exit: 0 });
-      const listed = await lineIn(back, dir, [
-        "xlsx",
-        "alias",
-        "ls",
-        GRAMMAR.close,
-        "json",
-      ]);
-      const text = listed.map((frame) => frame.out ?? "").join("");
-      expect(text).toContain("pervyi");
-      expect(text).toContain("vtoroi");
-      // Кэш-БД настоящая: очереди строк больше нет, и записи идут в
-      // один файл одновременно (`platform/line-concurrency.md`).
-    }, { io: { openCacheDb: () => openCacheDb(`${dir}/mpu.db`) } });
+    await withBack(
+      async (back) => {
+        const [first, second] = await bothIn(
+          back,
+          // Запись в кэш-БД — мутирующая команда: посев даёт ей `ask`,
+          // и человек отвечает «да».
+          {
+            cwd: dir,
+            words: [
+              "ask",
+              "xlsx",
+              "alias",
+              "add",
+              "name:",
+              "pervyi",
+              "path:",
+              "/1.xlsx",
+            ],
+            answers: ["y"],
+          },
+          {
+            cwd: dir,
+            words: [
+              "ask",
+              "xlsx",
+              "alias",
+              "add",
+              "name:",
+              "vtoroi",
+              "path:",
+              "/2.xlsx",
+            ],
+            answers: ["y"],
+          },
+        );
+        expect(first.at(-1)).toStrictEqual({ exit: 0 });
+        expect(second.at(-1)).toStrictEqual({ exit: 0 });
+        const listed = await lineIn(back, dir, [
+          "xlsx",
+          "alias",
+          "ls",
+          GRAMMAR.close,
+          "json",
+        ]);
+        const text = listed.map((frame) => frame.out ?? "").join("");
+        expect(text).toContain("pervyi");
+        expect(text).toContain("vtoroi");
+        // Кэш-БД настоящая: очереди строк больше нет, и записи идут в
+        // один файл одновременно (`platform/line-concurrency.md`).
+      },
+      { io: { openCacheDb: () => openCacheDb(`${dir}/mpu.db`) } },
+    );
   } finally {
     await rm(dir, { recursive: true });
   }

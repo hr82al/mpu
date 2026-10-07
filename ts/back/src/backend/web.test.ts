@@ -139,13 +139,11 @@ it("cookie действует только при Origin страницы фро
   withBack(async (back) => {
     const value = await session(back);
     expect(await rpcWithCookie(back, value, origin(back))).toBe(200);
-    for (
-      const from of [
-        undefined,
-        "http://localhost:5173",
-        "http://mpu.localhost:9999",
-      ]
-    ) {
+    for (const from of [
+      undefined,
+      "http://localhost:5173",
+      "http://mpu.localhost:9999",
+    ]) {
       expect(await rpcWithCookie(back, value, from), String(from)).toBe(401);
     }
     expect(await rpcWithCookie(back, "0".repeat(32), origin(back))).toBe(401);
@@ -185,8 +183,9 @@ it("cookie: сокет /line и изменение правила через н�
       body: JSON.stringify({ ticket, answer: "y" }),
     });
     expect((await ndjson(back, answered)).at(-1)).toStrictEqual({ exit: 0 });
-    expect(rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"))
-      .toStrictEqual({ path: "kiten ls", verdict: "allow" });
+    expect(
+      rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"),
+    ).toStrictEqual({ path: "kiten ls", verdict: "allow" });
   }));
 
 it("файл сессий: 0600, только хэши, переживает перезапуск", async () => {
@@ -262,11 +261,16 @@ it("policy.tree — голден на «глубокой цепочке»", () =
 
 it("policy.tree после deny: kiten — kiten и потомки без своего правила", () =>
   withBack(async (back) => {
-    const [, done] = await httpLine(back, "/line", {
-      words: ["deny:", "kiten"],
-      cwd: process.cwd(),
-      human: true,
-    }, ["y"]);
+    const [, done] = await httpLine(
+      back,
+      "/line",
+      {
+        words: ["deny:", "kiten"],
+        cwd: process.cwd(),
+        human: true,
+      },
+      ["y"],
+    );
     expect(done.at(-1)).toStrictEqual({ exit: 0 });
     const nodes = await tree(back);
     const own = new Set(rulesOf(back.policyFile).map((rule) => rule.path));
@@ -311,40 +315,43 @@ it("policy.tree решает тем же набором правил, что с�
   }));
 
 it("статика: index.html, assets, маршруты, CSP, без токена", () =>
-  withBack(async (back) => {
-    const get = async (path: string) => {
-      const response = await fetch(`${back.url}${path}`);
-      return {
-        status: response.status,
-        body: await response.text(),
-        csp: response.headers.get("Content-Security-Policy"),
+  withBack(
+    async (back) => {
+      const get = async (path: string) => {
+        const response = await fetch(`${back.url}${path}`);
+        return {
+          status: response.status,
+          body: await response.text(),
+          csp: response.headers.get("Content-Security-Policy"),
+        };
       };
-    };
-    const index = await get("/");
-    expect(index).toStrictEqual({
-      status: 200,
-      body: "<html>mpu</html>",
-      csp: "default-src 'self'",
-    });
-    expect((await get("/rules")).body).toBe("<html>mpu</html>");
-    const script = await get("/assets/x.js");
-    expect([script.status, script.body, script.csp]).toStrictEqual([
-      200,
-      "console.log(1)",
-      "default-src 'self'",
-    ]);
-    // `..` в пути клиент нормализует сам; закодированный слэш раскодирует
-    // уже сервер — выход за каталог отбивается там.
-    expect((await get("/assets/..%2f..%2fweb-sessions")).status).toBe(404);
-    expect((await get("/assets/nope.js")).status).toBe(404);
-  }, {
-    webRoot: (dir) => {
-      mkdirSync(`${dir}/web/assets`, { recursive: true });
-      writeFileSync(`${dir}/web/index.html`, "<html>mpu</html>");
-      writeFileSync(`${dir}/web/assets/x.js`, "console.log(1)");
-      return `${dir}/web`;
+      const index = await get("/");
+      expect(index).toStrictEqual({
+        status: 200,
+        body: "<html>mpu</html>",
+        csp: "default-src 'self'",
+      });
+      expect((await get("/rules")).body).toBe("<html>mpu</html>");
+      const script = await get("/assets/x.js");
+      expect([script.status, script.body, script.csp]).toStrictEqual([
+        200,
+        "console.log(1)",
+        "default-src 'self'",
+      ]);
+      // `..` в пути клиент нормализует сам; закодированный слэш раскодирует
+      // уже сервер — выход за каталог отбивается там.
+      expect((await get("/assets/..%2f..%2fweb-sessions")).status).toBe(404);
+      expect((await get("/assets/nope.js")).status).toBe(404);
     },
-  }));
+    {
+      webRoot: (dir) => {
+        mkdirSync(`${dir}/web/assets`, { recursive: true });
+        writeFileSync(`${dir}/web/index.html`, "<html>mpu</html>");
+        writeFileSync(`${dir}/web/assets/x.js`, "console.log(1)");
+        return `${dir}/web`;
+      },
+    },
+  ));
 
 it("статики нет — текст «фронт не установлен»", () =>
   withBack(async (back) => {

@@ -38,21 +38,19 @@ export async function startFakeKaiten(
   reply: (seen: readonly CapturedRequest[]) => Response | Promise<Response>,
 ): Promise<FakeKaiten> {
   const seen: CapturedRequest[] = [];
-  const server = await serveFetch(
-    async (req) => {
-      const url = new URL(req.url);
-      seen.push({
-        method: req.method,
-        pathname: url.pathname,
-        search: url.search,
-        contentType: req.headers.get("content-type"),
-        accept: req.headers.get("accept"),
-        authorization: req.headers.get("authorization"),
-        body: await req.text(),
-      });
-      return reply(seen);
-    },
-  );
+  const server = await serveFetch(async (req) => {
+    const url = new URL(req.url);
+    seen.push({
+      method: req.method,
+      pathname: url.pathname,
+      search: url.search,
+      contentType: req.headers.get("content-type"),
+      accept: req.headers.get("accept"),
+      authorization: req.headers.get("authorization"),
+      body: await req.text(),
+    });
+    return reply(seen);
+  });
   return {
     baseUrl: server.baseUrl,
     seen,

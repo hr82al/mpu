@@ -30,19 +30,20 @@ if (import.meta.main) {
   const home = process.env.HOME ?? "";
   const runtime = process.env.XDG_RUNTIME_DIR ?? "";
   if (args.length > 0 || home === "" || runtime === "") {
-    console.error(
-      "mpu-task: аргументов нет; нужны HOME и XDG_RUNTIME_DIR",
-    );
+    console.error("mpu-task: аргументов нет; нужны HOME и XDG_RUNTIME_DIR");
     process.exit(2);
   }
   const line = (text: string) => console.log(text);
-  const orchestra = new Orchestra({
-    windows: new TmuxWindows(SYSTEM_RUN),
-    clock: SYSTEM_CLOCK,
-    notices: new SystemNotices(line, SYSTEM_RUN),
-    letters: SYSTEM_LETTERS,
-    letterDir: `${runtime}/mpu-task`,
-  }, () => openCacheDb(`${home}/.config/mpu/mpu.db`));
+  const orchestra = new Orchestra(
+    {
+      windows: new TmuxWindows(SYSTEM_RUN),
+      clock: SYSTEM_CLOCK,
+      notices: new SystemNotices(line, SYSTEM_RUN),
+      letters: SYSTEM_LETTERS,
+      letterDir: `${runtime}/mpu-task`,
+    },
+    () => openCacheDb(`${home}/.config/mpu/mpu.db`),
+  );
   const stopping = new AbortController();
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     process.on(signal, () => stopping.abort());

@@ -37,16 +37,22 @@ function io(): CommandIo {
 }
 
 it("вывод JSON собирается из выдачи клиента", async () => {
-  expect(command.renderResult({
-    dialogs: dialogsOf(DIALOGS),
-    more: false,
-    table: false,
-  }, [])).toStrictEqual(await golden("ls-json-stdout.txt"));
+  expect(
+    command.renderResult(
+      {
+        dialogs: dialogsOf(DIALOGS),
+        more: false,
+        table: false,
+      },
+      [],
+    ),
+  ).toStrictEqual(await golden("ls-json-stdout.txt"));
 });
 
 it("пустая выдача — пустой массив, не ошибка", async () => {
-  expect(command.renderResult({ dialogs: [], more: false, table: false }, []))
-    .toStrictEqual(await golden("ls-empty-stdout.txt"));
+  expect(
+    command.renderResult({ dialogs: [], more: false, table: false }, []),
+  ).toStrictEqual(await golden("ls-empty-stdout.txt"));
 });
 
 it("--table печатает таблицу тех же данных", async () => {
@@ -55,9 +61,11 @@ it("--table печатает таблицу тех же данных", async () 
     ["--table"],
   );
   expect(text.endsWith("(3 dialogs)\n")).toBe(true);
-  expect(command.renderResult({ dialogs: [], more: false, table: true }, [
-    "--table",
-  ])).toStrictEqual(await golden("ls-empty-table-stdout.txt"));
+  expect(
+    command.renderResult({ dialogs: [], more: false, table: true }, [
+      "--table",
+    ]),
+  ).toStrictEqual(await golden("ls-empty-table-stdout.txt"));
 });
 
 describe("--limit вне диапазона — отказ до сети", () => {
@@ -116,9 +124,8 @@ describe("объявление команды", () => {
 /** Диалоги в форме результата команды. */
 function dialogsOf(chats: readonly RawChat[]) {
   return chats.map((chat) => ({
-    id: chat.peerType === "channel"
-      ? -(1000000000000 + chat.rawId)
-      : chat.rawId,
+    id:
+      chat.peerType === "channel" ? -(1000000000000 + chat.rawId) : chat.rawId,
     title: chat.title,
     kind: chat.peerType === "channel" ? "channel" : chat.peerType,
     username: chat.username,

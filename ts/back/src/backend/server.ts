@@ -218,9 +218,8 @@ function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
     caller: (request, context) =>
       Promise.resolve(
         keys.find((key) =>
-          presentation.shows(request, key.token(context.tokens))
-        )
-          ?.caller,
+          presentation.shows(request, key.token(context.tokens)),
+        )?.caller,
       ),
   };
 }
@@ -282,7 +281,10 @@ const OPEN_GATE: Gate = { caller: () => Promise.resolve(OWNER) };
 
 function offeredProtocols(request: Request): string[] {
   const header = request.headers.get("Sec-WebSocket-Protocol") ?? "";
-  return header.split(",").map((one) => one.trim()).filter((one) => one !== "");
+  return header
+    .split(",")
+    .map((one) => one.trim())
+    .filter((one) => one !== "");
 }
 
 /**
@@ -295,8 +297,8 @@ function webSocketOf(
   request: Request,
   use: (socket: AcceptedSocket) => void,
 ): Response {
-  const chosen = offeredProtocols(request).find((one) =>
-    !one.startsWith(BEARER_PROTOCOL)
+  const chosen = offeredProtocols(request).find(
+    (one) => !one.startsWith(BEARER_PROTOCOL),
   );
   return upgrades.accept(request, chosen, use) ?? empty(400);
 }
@@ -580,10 +582,8 @@ class Back {
         // Канал запускает Claude Code от имени владельца: дверь — его.
         gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
         handle: (request) =>
-          webSocketOf(
-            this.#upgrades,
-            request,
-            (socket) => this.#channel(socket),
+          webSocketOf(this.#upgrades, request, (socket) =>
+            this.#channel(socket),
           ),
       },
     });
@@ -649,11 +649,7 @@ class Back {
    * Путь и его методы. Проверки по порядку: метод (чужой — 405 с
    * `Allow`), `Origin`, токен входа метода.
    */
-  #route(
-    app: Hono,
-    path: string,
-    methods: Readonly<Record<string, Handler>>,
-  ) {
+  #route(app: Hono, path: string, methods: Readonly<Record<string, Handler>>) {
     const byMethod = new Map(Object.entries(methods));
     const allow = [...byMethod.keys()].join(", ");
     app.all(path, async (context) => {
@@ -911,7 +907,7 @@ class Back {
       cwd: "",
     });
     const log: InvokeLog = {
-      begin: (command) => recorded = this.#options.log.begin(command),
+      begin: (command) => (recorded = this.#options.log.begin(command)),
     };
     const code = await runJournaled(request.words, entry, io, log, line);
     line.ran(
@@ -962,9 +958,9 @@ export async function serveBack(options: BackOptions): Promise<RunningBack> {
     port: server.port,
     hostname: server.hostname,
     stop: () =>
-      stopping ??= (async () => {
+      (stopping ??= (async () => {
         await back.stop();
         await server.stop();
-      })(),
+      })()),
   };
 }

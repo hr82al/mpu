@@ -56,9 +56,8 @@ export function notUnderstood(
   candidates: readonly string[],
   label: string,
 ): Refusal {
-  const named = candidates.length > 0
-    ? `; ${label}: ${candidates.join(", ")}`
-    : "";
+  const named =
+    candidates.length > 0 ? `; ${label}: ${candidates.join(", ")}` : "";
   return new Refusal(`${said}${named}${separated(selector)}`, {
     reason: NOT_UNDERSTOOD,
     candidates,

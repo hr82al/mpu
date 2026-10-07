@@ -13,7 +13,8 @@ import type { WatchSetup } from "./watchdog.ts";
  */
 export const VERSION = "0.1.0";
 
-const USAGE = "mpu-supervisor: использование: mpu-supervisor --back <путь> " +
+const USAGE =
+  "mpu-supervisor: использование: mpu-supervisor --back <путь> " +
   "--mcp <путь> --task <путь>\n";
 
 /** Сигналы, на которые отвечает супервизор. */
@@ -28,10 +29,7 @@ export interface SupervisorProcess {
   /** Сторож памяти исполнителей (`platform/line-executor.md`). */
   readonly watch: WatchSetup;
   /** Подписка на сигналы процесса. */
-  readonly onSignal: (
-    signal: SupervisorSignal,
-    handler: () => void,
-  ) => void;
+  readonly onSignal: (signal: SupervisorSignal, handler: () => void) => void;
 }
 
 /** Пути дочерних из флагов; не разобрались — `undefined`. */
@@ -44,7 +42,9 @@ function pathsOf(
   const mcp = flags.get("--mcp");
   const task = flags.get("--task");
   if (
-    args.length !== 6 || back === undefined || mcp === undefined ||
+    args.length !== 6 ||
+    back === undefined ||
+    mcp === undefined ||
     task === undefined
   ) {
     return undefined;
@@ -77,9 +77,11 @@ export async function runSupervisor(
   // Обработчик сигнала результата не ждёт: перезапуск идёт сам, его
   // сбой — строка в stderr, а не потерянный отказ.
   const restart = (child: Child) => () => {
-    child.restart().catch((err) =>
-      proc.log.err(`[supervisor] перезапуск не удался: ${String(err)}`)
-    );
+    child
+      .restart()
+      .catch((err) =>
+        proc.log.err(`[supervisor] перезапуск не удался: ${String(err)}`),
+      );
   };
   const actions: readonly (readonly [SupervisorSignal, () => void])[] = [
     ["SIGUSR1", restart(supervisor.back)],

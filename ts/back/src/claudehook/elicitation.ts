@@ -193,10 +193,12 @@ function enumField(
   values: readonly string[],
   names: readonly string[],
 ): Field {
-  return buttonsField(values.map((value, index) => ({
-    label: names[index] ?? value,
-    answer: valueOf(name, value),
-  })));
+  return buttonsField(
+    values.map((value, index) => ({
+      label: names[index] ?? value,
+      answer: valueOf(name, value),
+    })),
+  );
 }
 
 function textField(name: string): Field {
@@ -215,10 +217,7 @@ const NEED_NUMBER = notice("нужно число");
  *
  * @param numeric число ли это поле, по тексту без пробелов по краям
  */
-function numberField(
-  name: string,
-  numeric: (text: string) => boolean,
-): Field {
+function numberField(name: string, numeric: (text: string) => boolean): Field {
   const normal = (text: string) => text.trim().replace(",", ".");
   return {
     offers: [],
@@ -294,7 +293,7 @@ function fieldSteps(entries: readonly Entry[]): Steps {
           index === 0 ? message : entry.title,
           [...entry.field.offers, ...entry.extra],
           entry.field,
-        )
+        ),
       ),
   };
 }
@@ -318,9 +317,9 @@ const CLOSE_ONLY: Steps = {
 
 /** Откуда название сессии: транскрипт, если payload его назвал. */
 export interface TitleSource {
-  title(read: (path: string) => Promise<readonly string[]>): Promise<
-    readonly string[]
-  >;
+  title(
+    read: (path: string) => Promise<readonly string[]>,
+  ): Promise<readonly string[]>;
 }
 
 const UNTITLED: TitleSource = { title: () => Promise.resolve([]) };
@@ -453,7 +452,7 @@ function planOf(entries: readonly Entry[]): Plan {
   return {
     add: (entry) =>
       entries.length < MAX_STEPS ? planOf([...entries, entry]) : CLOSED_PLAN,
-    steps: () => entries.length === 0 ? ACCEPT_ONLY : fieldSteps(entries),
+    steps: () => (entries.length === 0 ? ACCEPT_ONLY : fieldSteps(entries)),
   };
 }
 
@@ -466,13 +465,14 @@ function stepsOf(schema: unknown): Steps {
   if (!isFields(schema) || !isFields(schema.properties)) return CLOSE_ONLY;
   const { properties } = schema;
   const required = Array.isArray(schema.required) ? schema.required : [];
-  return Object.entries(properties).reduce((plan, [name, spec]) => {
-    const title = isFields(spec) && typeof spec.title === "string"
-      ? spec.title
-      : name;
-    const extra = required.includes(name) ? [] : [SKIP_OFFER];
-    return fieldOf(name, spec).into(plan, title, extra);
-  }, planOf([])).steps();
+  return Object.entries(properties)
+    .reduce((plan, [name, spec]) => {
+      const title =
+        isFields(spec) && typeof spec.title === "string" ? spec.title : name;
+      const extra = required.includes(name) ? [] : [SKIP_OFFER];
+      return fieldOf(name, spec).into(plan, title, extra);
+    }, planOf([]))
+    .steps();
 }
 
 const NOT_OBJECT = "stdin — не JSON-объект";
@@ -509,9 +509,10 @@ export function elicitationOf(text: string): Elicitation {
     message,
     steps: stepsOf(payload.requested_schema),
     project: projectOf(payload.cwd),
-    title: typeof payload.transcript_path === "string"
-      ? titleAt(payload.transcript_path)
-      : UNTITLED,
+    title:
+      typeof payload.transcript_path === "string"
+        ? titleAt(payload.transcript_path)
+        : UNTITLED,
   });
   return { reply: (asking) => asking.ask(question) };
 }

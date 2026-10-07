@@ -19,9 +19,10 @@ import {
 const argsSchema = z.object({
   ...commonArgs,
   ...periodArgs,
-  "nm-ids": z.string().optional().describe(
-    "артикулы WB одним литералом без пробелов, [1,2,3]",
-  ),
+  "nm-ids": z
+    .string()
+    .optional()
+    .describe("артикулы WB одним литералом без пробелов, [1,2,3]"),
   nm_ids: z.string().optional().describe("то же, что --nm-ids"),
 });
 

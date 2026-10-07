@@ -170,14 +170,15 @@ export class Card implements Body {
     const fixed = [this.#title, ...this.#lines, ...tail];
     // Перевод строки на каждую из строк, кроме первой, плюс одна —
     // перед текстом шага.
-    const used = fixed.reduce((sum, line) => sum + line.length, 0) +
-      fixed.length;
+    const used =
+      fixed.reduce((sum, line) => sum + line.length, 0) + fixed.length;
     const step = this.#clip.fit(this.#text, MESSAGE_LIMIT - used);
     const lines = [this.#title, step, ...this.#lines, ...tail];
     // Одни неусекаемые части длиннее предела — режется хвост целого:
     // выход за предел Telegram отвергает, а не обрезает.
     const text = cut(lines.join("\n"), MESSAGE_LIMIT);
-    const entities = this.#markup.entities(step, this.#title.length + 1)
+    const entities = this.#markup
+      .entities(step, this.#title.length + 1)
       .filter((entity) => entity.offset + entity.length <= text.length);
     return { text, entities };
   }

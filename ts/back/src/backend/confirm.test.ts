@@ -71,9 +71,9 @@ describe("ответ канала раньше подписи окна — в ч
       head: "❓ mpu ask",
       sessions: new Sessions(REAL_CLOCK),
     });
-    const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
-      () => {},
-    );
+    const rivalry = confirms
+      .rival("выполнить mpu x? [y/N] ", "line")
+      .start(() => {});
     rivalry.answered();
     caption.resolve("w:2 claude\n");
     await rivalry.closed();
@@ -90,9 +90,9 @@ describe("ответ канала раньше подписи окна — в ч
       head: "❓ mpu ask",
       sessions: new Sessions(REAL_CLOCK),
     });
-    const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
-      () => {},
-    );
+    const rivalry = confirms
+      .rival("выполнить mpu x? [y/N] ", "line")
+      .start(() => {});
     await asked;
     rivalry.lapsed();
     await rivalry.closed();
@@ -118,9 +118,9 @@ it("R3c-6: подтверждение в ряду — срочный вопро�
       seated: () => "снимок",
       busy: () => "вопрос уже в чате",
     });
-  const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
-    () => {},
-  );
+  const rivalry = confirms
+    .rival("выполнить mpu x? [y/N] ", "line")
+    .start(() => {});
   await asked;
   expect(snapshot()).toBe("вопрос уже в чате");
   rivalry.lapsed();

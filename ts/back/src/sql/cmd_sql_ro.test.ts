@@ -276,8 +276,9 @@ describe("sw-селектор: отказ до чтения SQL", () => {
         return Promise.resolve(new TextEncoder().encode("select 1"));
       },
     });
-    await expect(runSql(args({ selector: "sw" }), io, { mode: "read-only" }))
-      .rejects.toThrow(UsageError);
+    await expect(
+      runSql(args({ selector: "sw" }), io, { mode: "read-only" }),
+    ).rejects.toThrow(UsageError);
     expect(read, "SQL прочитан до отказа").toBe(false);
   });
 });
@@ -299,11 +300,10 @@ describe("источник SQL: аргумент, затем stdin, затем �
     const { io, progress } = harness({
       readStdin: () => Promise.resolve(new TextEncoder().encode("SELECT 2\n")),
     });
-    const result = await runSql(
-      args({ selector: "sl-1", sql: "   " }),
-      io,
-      { mode: "read-only", openSession: sessions.open },
-    );
+    const result = await runSql(args({ selector: "sl-1", sql: "   " }), io, {
+      mode: "read-only",
+      openSession: sessions.open,
+    });
     expect(result.sql).toBe("SELECT 2\n");
     // Приглашения в пайпе нет.
     expect(progress).toStrictEqual([]);
@@ -327,11 +327,14 @@ describe("источник SQL: аргумент, затем stdin, затем �
     const { io } = harness({
       readStdin: () => Promise.resolve(new TextEncoder().encode("  \n")),
     });
-    const err = await rejected(() =>
-      runSql(args({ selector: "sl-1" }), io, {
-        mode: "read-only",
-        openSession: sessions.open,
-      }), UsageError);
+    const err = await rejected(
+      () =>
+        runSql(args({ selector: "sl-1" }), io, {
+          mode: "read-only",
+          openSession: sessions.open,
+        }),
+      UsageError,
+    );
     expect(err.message).toBe("empty SQL");
     expect(sessions.targets.length).toBe(0);
   });
@@ -364,11 +367,10 @@ describe("мета-блок: эталоны канала байт в байт", 
     it(`${name}: ${title}`, async () => {
       const sessions = fakeSessions(answers());
       const { io, stderr } = harness();
-      const result = await runSql(
-        { ...base, dry: true, verbose: true },
-        io,
-        { mode: "read-only", openSession: sessions.open },
-      );
+      const result = await runSql({ ...base, dry: true, verbose: true }, io, {
+        mode: "read-only",
+        openSession: sessions.open,
+      });
       const expected = (await golden(name))
         .replaceAll("<pg_host>", PG_HOST)
         .replaceAll("<dev_pg_host>", DEV_HOST)
@@ -382,26 +384,23 @@ describe("мета-блок: эталоны канала байт в байт", 
     });
   }
 
-  it(
-    "dry-v-client-stderr.txt: резолв по client_id даёт search_path",
-    async () => {
-      await withCache(async (open) => {
-        const sessions = fakeSessions(answers());
-        const { io, stderr } = harness({ openCacheDb: open });
-        await runSql(
-          args({ selector: "42", sql: "SELECT 1", dry: true, verbose: true }),
-          io,
-          { mode: "read-only", openSession: sessions.open },
-        );
-        expect(stderr()).toStrictEqual(
-          (await golden("dry-v-client-stderr.txt"))
-            .replaceAll("<pg_host>", PG_HOST)
-            .replaceAll("<client_id>", "42")
-            .replaceAll("<N>", "3"),
-        );
-      });
-    },
-  );
+  it("dry-v-client-stderr.txt: резолв по client_id даёт search_path", async () => {
+    await withCache(async (open) => {
+      const sessions = fakeSessions(answers());
+      const { io, stderr } = harness({ openCacheDb: open });
+      await runSql(
+        args({ selector: "42", sql: "SELECT 1", dry: true, verbose: true }),
+        io,
+        { mode: "read-only", openSession: sessions.open },
+      );
+      expect(stderr()).toStrictEqual(
+        (await golden("dry-v-client-stderr.txt"))
+          .replaceAll("<pg_host>", PG_HOST)
+          .replaceAll("<client_id>", "42")
+          .replaceAll("<N>", "3"),
+      );
+    });
+  });
 });
 
 describe("мета-блок печатается ⇔ --verbose или --dry", () => {
@@ -530,18 +529,17 @@ describe("read-only проверяется на соединении до пол
     const sessions = fakeSessions((text) =>
       text.startsWith("SELECT current_setting")
         ? { kind: "rows", columns: ["c"], rows: [["off"]] }
-        : DONE
+        : DONE,
     );
     const { io } = harness();
-    const err = await rejected(() =>
-      runSql(
-        args({ selector: "sl-1", sql: "DROP TABLE x" }),
-        io,
-        {
+    const err = await rejected(
+      () =>
+        runSql(args({ selector: "sl-1", sql: "DROP TABLE x" }), io, {
           mode: "read-only",
           openSession: sessions.open,
-        },
-      ), DomainError);
+        }),
+      DomainError,
+    );
     expect(err.message).toBe(
       "read-only сессия не действует на этом соединении — запрос не выполнен",
     );
@@ -557,13 +555,15 @@ describe("read-only проверяется на соединении до пол
       const sessions = fakeSessions((text) =>
         text.startsWith("SELECT current_setting")
           ? { kind: "rows", columns: ["c"], rows: [[null]] }
-          : DONE
+          : DONE,
       );
       const { io } = harness({ openCacheDb: open });
-      await expect(runSql(args({ selector: "42", sql: "SELECT 1" }), io, {
-        mode: "read-only",
-        openSession: sessions.open,
-      })).rejects.toThrow(DomainError);
+      await expect(
+        runSql(args({ selector: "42", sql: "SELECT 1" }), io, {
+          mode: "read-only",
+          openSession: sessions.open,
+        }),
+      ).rejects.toThrow(DomainError);
       expect(sessions.asked.length).toBe(1);
     });
   });
@@ -591,19 +591,18 @@ describe("отказы БД: свой текст на запись, дослов
       text.startsWith("SELECT current_setting")
         ? READ_ONLY_ON
         : new WriteRefusedError(
-          "cannot execute UPDATE in a read-only transaction",
-        )
+            "cannot execute UPDATE in a read-only transaction",
+          ),
     );
     const { io } = harness();
-    const err = await rejected(() =>
-      runSql(
-        args({ selector: "sl-1", sql: "UPDATE t SET a = 1" }),
-        io,
-        {
+    const err = await rejected(
+      () =>
+        runSql(args({ selector: "sl-1", sql: "UPDATE t SET a = 1" }), io, {
           mode: "read-only",
           openSession: sessions.open,
-        },
-      ), DomainError);
+        }),
+      DomainError,
+    );
     expect(`${formatCommandError("sql-ro", err)}\n`).toStrictEqual(
       await golden("write-refused-stderr.txt"),
     );
@@ -616,15 +615,18 @@ describe("отказы БД: свой текст на запись, дослов
     const sessions = fakeSessions((text) =>
       text.startsWith("SELECT current_setting")
         ? READ_ONLY_ON
-        : new TransactionEndedError("no such savepoint: mpu_sql_ro")
+        : new TransactionEndedError("no such savepoint: mpu_sql_ro"),
     );
     const { io } = harness();
-    const err = await rejected(() =>
-      runSql(
-        args({ selector: "sl-1", sql: "COMMIT; BEGIN READ WRITE; COMMIT" }),
-        io,
-        { mode: "read-only", openSession: sessions.open },
-      ), DomainError);
+    const err = await rejected(
+      () =>
+        runSql(
+          args({ selector: "sl-1", sql: "COMMIT; BEGIN READ WRITE; COMMIT" }),
+          io,
+          { mode: "read-only", openSession: sessions.open },
+        ),
+      DomainError,
+    );
     expect(formatCommandError("sql-ro", err)).toStrictEqual(
       "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
         "только-чтения не подтверждена, результат не печатается",
@@ -640,28 +642,29 @@ describe("отказы БД: свой текст на запись, дослов
     // открывавшуюся точку сохранения при целой транзакции вызова и
     // целой метке обёртки: тем же кодом `3B001`, тот же отказ
     // (`platform/readonly-default.md`).
-    for (
-      const server of [
-        "ROLLBACK TO SAVEPOINT can only be used in transaction blocks",
-        'savepoint "mpu_sql_ro" does not exist',
-        'savepoint "bar" does not exist',
-      ]
-    ) {
+    for (const server of [
+      "ROLLBACK TO SAVEPOINT can only be used in transaction blocks",
+      'savepoint "mpu_sql_ro" does not exist',
+      'savepoint "bar" does not exist',
+    ]) {
       const sessions = fakeSessions((text) =>
         text.startsWith("SELECT current_setting")
           ? READ_ONLY_ON
-          : new TransactionEndedError(server)
+          : new TransactionEndedError(server),
       );
       const { io } = harness();
-      const err = await rejected(() =>
-        runSql(
-          args({
-            selector: "sl-1",
-            sql: "ROLLBACK TO SAVEPOINT bar; SELECT 1",
-          }),
-          io,
-          { mode: "read-only", openSession: sessions.open },
-        ), DomainError);
+      const err = await rejected(
+        () =>
+          runSql(
+            args({
+              selector: "sl-1",
+              sql: "ROLLBACK TO SAVEPOINT bar; SELECT 1",
+            }),
+            io,
+            { mode: "read-only", openSession: sessions.open },
+          ),
+        DomainError,
+      );
       const shown = formatCommandError("sql-ro", err);
       expect(shown).toStrictEqual(
         "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
@@ -690,24 +693,28 @@ describe("отказы БД: свой текст на запись, дослов
   });
 
   it("db-error-stderr.txt — текст сервера без префикса", async () => {
-    const server = 'relation "nonexistent_table_xyz" does not exist\n' +
+    const server =
+      'relation "nonexistent_table_xyz" does not exist\n' +
       "LINE 1: SELECT * FROM nonexistent_table_xyz\n" +
       "                      ^";
     const sessions = fakeSessions((text) =>
       text.startsWith("SELECT current_setting")
         ? READ_ONLY_ON
-        : new DbError(server)
+        : new DbError(server),
     );
     const { io } = harness();
-    const err = await rejected(() =>
-      runSql(
-        args({
-          selector: "sl-1",
-          sql: "SELECT * FROM nonexistent_table_xyz",
-        }),
-        io,
-        { mode: "read-only", openSession: sessions.open },
-      ), VerbatimError);
+    const err = await rejected(
+      () =>
+        runSql(
+          args({
+            selector: "sl-1",
+            sql: "SELECT * FROM nonexistent_table_xyz",
+          }),
+          io,
+          { mode: "read-only", openSession: sessions.open },
+        ),
+      VerbatimError,
+    );
     expect(`${formatCommandError("sql-ro", err)}\n`).toStrictEqual(
       await golden("db-error-stderr.txt"),
     );
@@ -747,8 +754,9 @@ describe("результат и его рендер", () => {
 
   it("--md — markdown-таблица", async () => {
     const result = await run({ md: true });
-    expect(sqlRoCommand.renderResult(result, ["sl-1", "SELECT 1 AS a", "--md"]))
-      .toBe("| a |\n| --- |\n| 1 |\n");
+    expect(
+      sqlRoCommand.renderResult(result, ["sl-1", "SELECT 1 AS a", "--md"]),
+    ).toBe("| a |\n| --- |\n| 1 |\n");
   });
 
   it("--dry — stdout пуст", async () => {

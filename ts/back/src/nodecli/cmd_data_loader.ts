@@ -17,9 +17,10 @@ import {
 
 const argsSchema = z.object({
   ...commonArgs,
-  sids: z.array(z.string()).optional().describe(
-    "кабинеты-кандидаты; флаг повторяется, обязателен",
-  ),
+  sids: z
+    .array(z.string())
+    .optional()
+    .describe("кабинеты-кандидаты; флаг повторяется, обязателен"),
   sid: z.array(z.string()).optional().describe("то же, что --sids"),
 });
 

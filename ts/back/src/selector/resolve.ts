@@ -185,10 +185,7 @@ export function requireSingleClient(resolved: Resolved): number {
   return clientIds[0];
 }
 
-function search(
-  sources: SelectorSources,
-  value: string,
-): readonly Candidate[] {
+function search(sources: SelectorSources, value: string): readonly Candidate[] {
   for (const predicate of PREDICATES) {
     const found = predicate(sources, value);
     if (found.length > 0) return found;
@@ -215,10 +212,9 @@ function verdict(selector: string, candidates: readonly Candidate[]): Resolved {
       .filter((serverNumber) => serverNumber !== null),
   );
   if (servers.size === 0) {
-    throw new SelectorError(
-      `matched but no server resolvable: '${selector}'`,
-      { candidates },
-    );
+    throw new SelectorError(`matched but no server resolvable: '${selector}'`, {
+      candidates,
+    });
   }
   if (servers.size > 1) {
     throw new SelectorError(
@@ -295,21 +291,20 @@ function byServerAddress(
   }
   if (numbers.size === 0) return [];
   const serverNumber = [...numbers][0];
-  return [{
-    clientId: null,
-    spreadsheetId: null,
-    title: null,
-    server: `sl-${serverNumber}`,
-    serverNumber,
-    sids: [],
-  }];
+  return [
+    {
+      clientId: null,
+      spreadsheetId: null,
+      title: null,
+      server: `sl-${serverNumber}`,
+      serverNumber,
+      sids: [],
+    },
+  ];
 }
 
 function bySid(sources: SelectorSources, value: string): readonly Candidate[] {
-  return clientCandidates(
-    sources.cache,
-    clientIdsOfSid(sources.cache, value),
-  );
+  return clientCandidates(sources.cache, clientIdsOfSid(sources.cache, value));
 }
 
 function bySpreadsheetId(

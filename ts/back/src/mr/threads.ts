@@ -85,7 +85,8 @@ export function filterDiscussions(
       return false;
     }
     if (
-      filters.author !== undefined && !matchesAuthor(thread, filters.author)
+      filters.author !== undefined &&
+      !matchesAuthor(thread, filters.author)
     ) {
       return false;
     }
@@ -99,16 +100,18 @@ function matchesFile(thread: Discussion, substring: string): boolean {
   if (position === null) return false;
   // Оба пути, а не один: тред на переименованном файле оператор ищет
   // по тому имени, которое помнит.
-  return (position.new_path ?? "").includes(substring) ||
-    (position.old_path ?? "").includes(substring);
+  return (
+    (position.new_path ?? "").includes(substring) ||
+    (position.old_path ?? "").includes(substring)
+  );
 }
 
 /** Автор — первая нота треда; сравнение без учёта регистра. */
 function matchesAuthor(thread: Discussion, substring: string): boolean {
   const first = thread.notes[0];
   if (first === undefined) return false;
-  const haystack = `${first.author_username} ${first.author_name}`
-    .toLowerCase();
+  const haystack =
+    `${first.author_username} ${first.author_name}`.toLowerCase();
   return haystack.includes(substring.toLowerCase());
 }
 
@@ -159,8 +162,10 @@ export function renderThreadTable(
     ["DISC", "RES", "LOCATION", "AUTHOR", "NOTES", "EXCERPT"],
     rows,
   );
-  return `${headline}\n${table}(${threads.length} discussions, ` +
-    `${unresolvedCount(threads)} unresolved)\n`;
+  return (
+    `${headline}\n${table}(${threads.length} discussions, ` +
+    `${unresolvedCount(threads)} unresolved)\n`
+  );
 }
 
 /** Состояние треда словом: общий тред резолву не подлежит вовсе. */
@@ -171,9 +176,8 @@ export function statusWord(thread: Thread): string {
 
 /** Заголовок ноты: кто, когда и с каким номером. */
 export function noteHeadline(note: Thread["notes"][number]): string {
-  const name = note.author_name === ""
-    ? note.author_username
-    : note.author_name;
+  const name =
+    note.author_name === "" ? note.author_username : note.author_name;
   // Первые 16 символов ISO-времени с пробелом вместо «T»: секунды и
   // зона в списке ревью не нужны, а строка становится читаемой.
   const at = note.created_at.slice(0, 16).replace("T", " ");
@@ -190,8 +194,7 @@ export function renderThreadsMarkdown(
     parts.push(
       `## ${thread.id.slice(0, SHORT_ID)} · ${
         thread.location ?? "general"
-      } · ` +
-        statusWord(thread),
+      } · ` + statusWord(thread),
     );
     for (const note of thread.notes) {
       parts.push(noteHeadline(note), "", note.body, "");

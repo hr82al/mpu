@@ -34,20 +34,26 @@ import {
 import { SERVICE_REPOS, Workspace } from "./workspace.ts";
 
 const argsSchema = z.object({
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать план, не клонируя и не записывая",
-  ),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("напечатать план, не клонируя и не записывая"),
 });
 
 const resultSchema = z.object({
-  summary: z.string().describe(
-    "итог `mp-clone: N склонировано, M уже было, K нет на сервере`; " +
-      "пусто — команда остановилась",
-  ),
+  summary: z
+    .string()
+    .describe(
+      "итог `mp-clone: N склонировано, M уже было, K нет на сервере`; " +
+        "пусто — команда остановилась",
+    ),
   dryRun: z.boolean(),
-  exitCode: z.number().int().describe(
-    "0 — область готова; 1 — упал git; 3 — ключа GitLab нет в known_hosts",
-  ),
+  exitCode: z
+    .number()
+    .int()
+    .describe(
+      "0 — область готова; 1 — упал git; 3 — ключа GitLab нет в known_hosts",
+    ),
 });
 
 type MpCloneArgs = z.infer<typeof argsSchema>;
@@ -78,9 +84,9 @@ export async function runMpClone(
     shell: options.shell ?? systemShell,
     disk,
     workspace: Workspace.open(home, disk),
-    backupDir: `${home}/tmp/mp-clone-backup/${
-      (options.clock ?? systemClock).stamp()
-    }`,
+    backupDir: `${home}/tmp/mp-clone-backup/${(
+      options.clock ?? systemClock
+    ).stamp()}`,
     say: io.progress,
   };
   const dryRun = args["dry-run"];
@@ -112,12 +118,12 @@ async function stepOf(
 ): Promise<Step> {
   const dir = context.workspace.dirOf(name);
   if (!context.disk.exists(dir)) {
-    return await remote.has(name) ? new Fresh(name) : new NotOnServer(name);
+    return (await remote.has(name)) ? new Fresh(name) : new NotOnServer(name);
   }
   if (await ownsGit(context, dir)) {
     return new Present(name, await headOf(context.shell, dir));
   }
-  return await remote.has(name)
+  return (await remote.has(name))
     ? new OverDummy(name, `${context.backupDir}/${name}`)
     : new NotOnServer(name);
 }
@@ -270,10 +276,7 @@ dry печатает план с префиксом «план:»; git ls-remote
 Exit: 0 — область готова, в том числе без субрепо, которых нет на
 сервере; 2 — нет ~/mr/mp/mp.code-workspace; 1 — упал git (ls-remote
 ошибкой сети или ключа, clone); 3 — ключа GitLab нет в known_hosts.`,
-  examples: [
-    "mpu ask mp-clone dry",
-    "mpu ask mp-clone",
-  ],
+  examples: ["mpu ask mp-clone dry", "mpu ask mp-clone"],
   policy: "rw",
   argsSchema,
   forms: { "dry-run": { short: "n" } },

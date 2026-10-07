@@ -79,7 +79,7 @@ export const listAllContainerNamesOverHttp: ListAllContainerNames = async (
 ) => {
   const containers = await listContainers(access, endpointId);
   return containers.flatMap((container) =>
-    container.names.map((name) => name.replace(/^\//, ""))
+    container.names.map((name) => name.replace(/^\//, "")),
   );
 };
 

@@ -80,10 +80,12 @@ const sectionSchema = z.discriminatedUnion("kind", [
      * именем. `null` — образца сигнатуры взять неоткуда, и печатать
      * раздел пустым значило бы утверждать, что соседей нет.
      */
-    neighbours: z.object({
-      total: z.number().int().nonnegative(),
-      items: z.array(declarationSchema).describe(TRUNCATION_NOTE),
-    }).nullable(),
+    neighbours: z
+      .object({
+        total: z.number().int().nonnegative(),
+        items: z.array(declarationSchema).describe(TRUNCATION_NOTE),
+      })
+      .nullable(),
     unresolved: unresolvedSchema,
   }),
   z.object({
@@ -115,13 +117,16 @@ export async function collectName(
   limit: number,
   repos: readonly Repo[],
 ): Promise<NameResult> {
-  const jobs = await jobsOf(repos, (repo): NameJob => ({
-    kind: "name",
-    repo,
-    name,
-    dir: window.dir,
-    limit,
-  }));
+  const jobs = await jobsOf(
+    repos,
+    (repo): NameJob => ({
+      kind: "name",
+      repo,
+      name,
+      dir: window.dir,
+      limit,
+    }),
+  );
   return { name, sections: await sectionsOf(jobs, nameSection, sectionSchema) };
 }
 
@@ -145,9 +150,8 @@ export async function nameSection(
     // платить за них незачем (`platform/code-analyzer.md`, «Стоимость
     // ответа»). У `refs` и `twins` так нельзя — потребитель и близнец
     // живут в любом проекте репозитория.
-    const window = job.dir === undefined
-      ? undefined
-      : `${job.repo.root}/${job.dir}`;
+    const window =
+      job.dir === undefined ? undefined : `${job.repo.root}/${job.dir}`;
     return await sectionOf(job, await openRepoAnalyzer(repo, window));
   } catch (err) {
     // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
@@ -199,9 +203,10 @@ async function sectionOf(
     // не с чем, и раздел не печатается вовсе. Считать по числу
     // объявлений было бы не по тому признаку: два тёзки-константы
     // образца не дают.
-    neighbours: wanted.length === 0
-      ? null
-      : neighboursOf(analyzer, files, name, wanted, limit),
+    neighbours:
+      wanted.length === 0
+        ? null
+        : neighboursOf(analyzer, files, name, wanted, limit),
     // Перечень неразрешённого — по проектам ОКНА, а не по всему
     // репозиторию: соседние программы не строятся, и того, чего они не
     // разрешили, здесь нет. Хвост говорит о надёжности этого ответа, а

@@ -119,15 +119,20 @@ describe("отметка снимается у git", () => {
 
 describe("шапка раздела: обе формы отметки и обе гарантии", () => {
   it("под git — пять полей", () => {
-    expect(renderMark({
-      repo: "ozon",
-      state: {
-        kind: "git",
-        branch: "feat/checklist/serving/screen-data-endpoint",
-        commit: "989c0bf9",
-        dirty: false,
-      },
-    }, "types")).toBe(
+    expect(
+      renderMark(
+        {
+          repo: "ozon",
+          state: {
+            kind: "git",
+            branch: "feat/checklist/serving/screen-data-endpoint",
+            commit: "989c0bf9",
+            dirty: false,
+          },
+        },
+        "types",
+      ),
+    ).toBe(
       "ozon · feat/checklist/serving/screen-data-endpoint · 989c0bf9 · дерево чистое · разбор по типам — ответ полон",
     );
   });
@@ -142,9 +147,11 @@ describe("шапка раздела: обе формы отметки и обе 
     expect(markLabel({ repo: "x", state: { kind: "out-of-git" } })).toBe(
       "вне git",
     );
-    expect(markLabel({
-      repo: "x",
-      state: { kind: "git", branch: "main", commit: "989c0bf9", dirty: true },
-    })).toBe("main 989c0bf9");
+    expect(
+      markLabel({
+        repo: "x",
+        state: { kind: "git", branch: "main", commit: "989c0bf9", dirty: true },
+      }),
+    ).toBe("main 989c0bf9");
   });
 });

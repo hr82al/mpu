@@ -82,8 +82,7 @@ function webMethods(services: DoorServices): readonly RootMethod[] {
       selector: "web-logout",
       doc: {
         purpose: "погасить сессии браузера",
-        help:
-          "Гасит все сессии и ключи входа в браузере; ответ — число сессий.",
+        help: "Гасит все сессии и ключи входа в браузере; ответ — число сессий.",
       },
       produce: () => services.web.logout(),
     },
@@ -124,7 +123,7 @@ const NO_PROMPTS: PromptDoor = {
 /** `/line`: клиент отвечает на вопросы, включая изменение правила. */
 export const HUMAN_DOOR: Door = {
   channel: clientChannel,
-  prompting: (human) => human ? HUMAN_PROMPTS : NO_PROMPTS,
+  prompting: (human) => (human ? HUMAN_PROMPTS : NO_PROMPTS),
   rootMethods: webMethods,
   author: "human",
   confirmHead: "❓ mpu ask",
@@ -138,7 +137,7 @@ export const HUMAN_DOOR: Door = {
 /** `/agent/line`: вопрос `ask` — клиенту, изменение правила — никому. */
 export const AGENT_DOOR: Door = {
   channel: (line, human) => new Agent(clientChannel(line, human)),
-  prompting: (human) => human ? AGENT_PROMPTS : NO_PROMPTS,
+  prompting: (human) => (human ? AGENT_PROMPTS : NO_PROMPTS),
   rootMethods: () => [],
   author: "agent",
   confirmHead: "❓ mpu ask (MCP)",

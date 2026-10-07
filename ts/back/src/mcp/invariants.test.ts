@@ -44,10 +44,12 @@ it("профили не пересекаются и на /ro нет полити
   expect(
     ro.filter((entry) => rwNames.has(entry.tool.name)).map((e) => e.tool.name),
   ).toStrictEqual([]);
-  expect(ro.filter((entry) => entry.policy === "rw").map((e) => e.tool.name))
-    .toStrictEqual([]);
-  expect(rw.filter((entry) => entry.policy === "ro").map((e) => e.tool.name))
-    .toStrictEqual([]);
+  expect(
+    ro.filter((entry) => entry.policy === "rw").map((e) => e.tool.name),
+  ).toStrictEqual([]);
+  expect(
+    rw.filter((entry) => entry.policy === "ro").map((e) => e.tool.name),
+  ).toStrictEqual([]);
   // Профили в сумме дают ровно закрытый список — ни больше, ни меньше.
   expect(ro.length).toStrictEqual(toolPolicies.ro.length);
   expect(rw.length).toStrictEqual(toolPolicies.rw.length);
@@ -197,7 +199,7 @@ function countedLists(schema: unknown, at: string): [string, string][] {
   return [
     ...here,
     ...Object.entries(node).flatMap(([key, value]) =>
-      countedLists(value, `${at}.${key}`)
+      countedLists(value, `${at}.${key}`),
     ),
   ];
 }
@@ -247,7 +249,7 @@ it("у тула с ограничителем признак усечения н
       const inputs = tool.inputSchema["properties"];
       if (typeof inputs !== "object" || inputs === null) continue;
       const limiter = Object.keys(inputs).filter((name) =>
-        LIMITERS.includes(name)
+        LIMITERS.includes(name),
       );
       if (limiter.length === 0) continue;
       found.push(tool.name);
@@ -255,12 +257,14 @@ it("у тула с ограничителем признак усечения н
       // рядом с тем, чем режут, либо с полем полного числа. Иначе
       // зачлось бы любое мимо-описание с тем же корнем.
       const said = descriptions(tool.outputSchema).filter((text) =>
-        text.includes("усеч")
+        text.includes("усеч"),
       );
       expect(
-        said.some((text) =>
-          text.includes("total") || text.includes("more") ||
-          limiter.some((name) => text.includes(name))
+        said.some(
+          (text) =>
+            text.includes("total") ||
+            text.includes("more") ||
+            limiter.some((name) => text.includes(name)),
         ),
         `${tool.name}: ограничитель ${limiter.join(",")} есть, ` +
           `а про усечение результата сказано ${
@@ -356,7 +360,7 @@ describe("snapshot списка тулов по каждому профилю", 
 describe("необратимые тулы требуют подтверждения", () => {
   const destructive = new Set(toolPolicies.destructive);
   const entries = PROFILES.flatMap((profile) =>
-    profileTools(commands, profile).map((entry) => ({ profile, entry }))
+    profileTools(commands, profile).map((entry) => ({ profile, entry })),
   );
 
   it("секция destructive непуста и лежит в rw", () => {
@@ -390,8 +394,10 @@ describe("необратимые тулы требуют подтвержден�
     // Сверка с известным минимумом: имён в секции столько же, сколько
     // проверено. Расхождение значит одно из двух — тул потерял
     // пометку либо имя из секции не публикуется вовсе.
-    expect(checked, "помеченных проверено не столько, сколько имён в секции")
-      .toStrictEqual(destructive.size);
+    expect(
+      checked,
+      "помеченных проверено не столько, сколько имён в секции",
+    ).toStrictEqual(destructive.size);
   });
 
   it("прочие тулы rw не помечены", () => {
@@ -446,7 +452,7 @@ describe("публикация подчинена закрытому списк�
       name: entry.tool.name,
       command: entry.path.join(" "),
       policy: entry.policy,
-    }))
+    })),
   );
 
   it("опубликованный набор равен закрытому списку", () => {
@@ -462,8 +468,9 @@ describe("публикация подчинена закрытому списк�
     // Прежде имя могло разрешаться и в лист слепка: подпроцессные
     // команды публиковались тулами. Маршрут снят (порция 97), и
     // источник у тула остался один — объявление команды в коде.
-    expect([...policies.ro, ...policies.rw].filter((name) => !native.has(name)))
-      .toStrictEqual([]);
+    expect(
+      [...policies.ro, ...policies.rw].filter((name) => !native.has(name)),
+    ).toStrictEqual([]);
   });
 
   it("политика каждого тула совпадает со списком", () => {
@@ -486,8 +493,9 @@ describe("публикация подчинена закрытому списк�
     // токен доступа, и правило fail-closed — единственное, что держит её
     // вне тулов.
     expect(outside.length > 0, "нечего проверять: список полон").toBe(true);
-    expect(published.filter((item) => outside.includes(item.command)))
-      .toStrictEqual([]);
+    expect(
+      published.filter((item) => outside.includes(item.command)),
+    ).toStrictEqual([]);
   });
 
   it("узел дерева тулом не становится", () => {
@@ -496,15 +504,16 @@ describe("публикация подчинена закрытому списк�
     // команды реестра, а у группы объявления нет вовсе — публиковать
     // нечего по построению. Здесь остаётся наблюдаемая часть: ни одно
     // имя списка не совпадает с промежуточным уровнем дерева.
-    const groups = readManifest(treeManifest).commands
-      .filter((node) => node.group === true)
+    const groups = readManifest(treeManifest)
+      .commands.filter((node) => node.group === true)
       .map((node) => node.path.join(" "));
     expect(groups.length > 0, "в слепке нет ни одной группы").toBe(true);
     expect(
       [...policies.ro, ...policies.rw].filter((name) => groups.includes(name)),
     ).toStrictEqual([]);
-    expect(published.filter((item) => groups.includes(item.command)))
-      .toStrictEqual([]);
+    expect(
+      published.filter((item) => groups.includes(item.command)),
+    ).toStrictEqual([]);
   });
 
   it("расхождение политики со списком — отказ собрать тулы", () => {

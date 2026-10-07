@@ -67,9 +67,8 @@ export async function callWebapp(
     try {
       response = await (deps.post ?? postJson)(deps.url, body);
     } catch (err) {
-      const reason = err instanceof Error
-        ? firstLine(err.message)
-        : String(err);
+      const reason =
+        err instanceof Error ? firstLine(err.message) : String(err);
       lastError = `transport: ${reason}`;
       if (last) throw failed(action, lastError);
       deps.note(`${action}: попытка ${attempt + 1} — ${lastError}`);
@@ -134,8 +133,9 @@ function failed(action: string, reason: string): DomainError {
 /** Признак квоты в теле ответа: регистр не важен. */
 function quotaText(text: string): boolean {
   const lowered = text.toLowerCase();
-  return lowered.includes("quota exceeded") ||
-    lowered.includes("too many requests");
+  return (
+    lowered.includes("quota exceeded") || lowered.includes("too many requests")
+  );
 }
 
 /** Разбор тела: не JSON и не объект — разные тексты, оба без повтора. */

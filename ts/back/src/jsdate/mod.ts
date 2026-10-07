@@ -48,9 +48,7 @@ YYYYMMDDhhmmss. Разряды местные, с учётом часового 
 конце. Тулом MCP-сервера команда не публикуется.
 
 Exit: 0 — успех; 2 — лишний аргумент.`,
-  examples: [
-    "mpu jsdate",
-  ],
+  examples: ["mpu jsdate"],
   policy: "ro",
   argsSchema: z.object({}),
   resultSchema,

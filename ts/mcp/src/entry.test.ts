@@ -48,11 +48,11 @@ function fileToken(path: string): TokenFile {
 
 /** Фальшивый `back`: справка корня — из переданной строки. */
 function fakeBack(help: () => string): Promise<FakeHttp> {
-  return serveFetch(() =>
-    new Response(
-      JSON.stringify({ stdout: help(), stderr: "", exit: 0 }),
-      { headers: { "Content-Type": "application/json" } },
-    )
+  return serveFetch(
+    () =>
+      new Response(JSON.stringify({ stdout: help(), stderr: "", exit: 0 }), {
+        headers: { "Content-Type": "application/json" },
+      }),
   );
 }
 

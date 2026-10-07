@@ -26,9 +26,11 @@ async function sampleBytes(): Promise<Uint8Array> {
 /** Минимальная книга из одного листа с данным телом worksheet-XML. */
 function oneSheetParts(sheetXml: string): Map<string, Uint8Array> {
   const parts: Record<string, string> = {
-    "xl/workbook.xml": `<workbook><sheets>` +
+    "xl/workbook.xml":
+      `<workbook><sheets>` +
       `<sheet name="Лист" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-    "xl/_rels/workbook.xml.rels": `<Relationships>` +
+    "xl/_rels/workbook.xml.rels":
+      `<Relationships>` +
       `<Relationship Id="rId1" Target="worksheets/sheet1.xml"/>` +
       `</Relationships>`,
     "xl/worksheets/sheet1.xml": sheetXml,
@@ -49,8 +51,12 @@ function cellAt(
 
 it("parseWorkbook: sample.xlsx — листы и типизация", async () => {
   const wb = await parseWorkbook(await sampleBytes());
-  expect(wb.sheets.map((s) => [s.title, s.index, s.rows, s.cols]))
-    .toStrictEqual([["Данные", 0, 6, 3], ["Пустой", 1, 0, 0]]);
+  expect(
+    wb.sheets.map((s) => [s.title, s.index, s.rows, s.cols]),
+  ).toStrictEqual([
+    ["Данные", 0, 6, 3],
+    ["Пустой", 1, 0, 0],
+  ]);
   const data = findSheet(wb, "Данные")!;
   const get = (col: number, row: number) => data.cells.get(cellKey(col, row));
   expect(get(1, 1)).toStrictEqual({ value: "товар" });
@@ -122,13 +128,17 @@ describe("parseWorkbookParts: пустые и нечисловые значен�
     ["bool true", `<c r="A1" t="b"><v>1</v></c>`, { value: true }],
     ["bool false", `<c r="A1" t="b"><v>0</v></c>`, { value: false }],
     ["ошибка", `<c r="A1" t="e"><v>#NAME?</v></c>`, { value: "#NAME?" }],
-    ["str-результат", `<c r="A1" t="str"><v>текст</v></c>`, {
-      value: "текст",
-    }],
+    [
+      "str-результат",
+      `<c r="A1" t="str"><v>текст</v></c>`,
+      {
+        value: "текст",
+      },
+    ],
     [
       "inline rich text",
       `<c r="A1" t="inlineStr"><is><r><t>х</t></r>` +
-      `<r><t>леб</t></r></is></c>`,
+        `<r><t>леб</t></r></is></c>`,
       { value: "хлеб" },
     ],
   ];
@@ -161,8 +171,8 @@ it("parseWorkbookParts: shared-формула только у якоря", () =>
 });
 
 it("parseWorkbookParts: фонетические rPh не входят в текст", () => {
-  const phonetic = `<si><r><t>漢字</t></r>` +
-    `<rPh sb="0" eb="2"><t>カンジ</t></rPh></si>`;
+  const phonetic =
+    `<si><r><t>漢字</t></r>` + `<rPh sb="0" eb="2"><t>カンジ</t></rPh></si>`;
   const parts = oneSheetParts(
     `<worksheet><sheetData><row r="1">` +
       `<c r="A1" t="s"><v>0</v></c>` +
@@ -170,10 +180,7 @@ it("parseWorkbookParts: фонетические rPh не входят в тек
       `<rPh sb="0" eb="2"><t>カンジ</t></rPh></is></c>` +
       `</row></sheetData></worksheet>`,
   );
-  parts.set(
-    "xl/sharedStrings.xml",
-    encoder.encode(`<sst>${phonetic}</sst>`),
-  );
+  parts.set("xl/sharedStrings.xml", encoder.encode(`<sst>${phonetic}</sst>`));
   const sheet = parseWorkbookParts(parts).sheets[0];
   expect(sheet.cells.get(cellKey(1, 1))).toStrictEqual({ value: "漢字" });
   expect(sheet.cells.get(cellKey(2, 1))).toStrictEqual({ value: "漢字" });
@@ -206,10 +213,11 @@ it("parseWorkbookParts: сущности в общих строках раскр
       ),
     ],
   ]);
-  expect(parseWorkbookParts(parts).sheets[0].cells.get(cellKey(1, 1)))
-    .toStrictEqual({
-      value: "a & b",
-    });
+  expect(
+    parseWorkbookParts(parts).sheets[0].cells.get(cellKey(1, 1)),
+  ).toStrictEqual({
+    value: "a & b",
+  });
 });
 
 describe("parseWorkbook/Parts: ошибки формата", () => {
@@ -229,11 +237,7 @@ describe("parseWorkbook/Parts: ошибки формата", () => {
   });
   it("битый XML листа", () => {
     const parts = oneSheetParts(`<worksheet><sheetData>`);
-    thrown(
-      () => parseWorkbookParts(parts),
-      WorkbookError,
-      "malformed XML:",
-    );
+    thrown(() => parseWorkbookParts(parts), WorkbookError, "malformed XML:");
   });
   it("нет части листа", () => {
     const parts = oneSheetParts(`<worksheet><sheetData/></worksheet>`);

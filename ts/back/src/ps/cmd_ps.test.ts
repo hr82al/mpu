@@ -327,13 +327,15 @@ describe("живой режим: STATUS, сортировка и фильтр", 
   it("имя выходит в исходном написании, не приведённым", () => {
     // Приводится к нижнему регистру только сравнение: нормализованное
     // имя, попавшее в таргеты, адресовало бы несуществующий контейнер.
-    const mixed: readonly PortainerContainer[] = [{
-      id: "m",
-      names: ["/Mp-WB-Loader-App"],
-      state: "running",
-      status: "Up 1 hour",
-      image: "образ",
-    }];
+    const mixed: readonly PortainerContainer[] = [
+      {
+        id: "m",
+        names: ["/Mp-WB-Loader-App"],
+        state: "running",
+        status: "Up 1 hour",
+        image: "образ",
+      },
+    ];
     return runPs(
       args({ selector: "sl-1", filter: "wb-loader" }),
       harness(db).io,

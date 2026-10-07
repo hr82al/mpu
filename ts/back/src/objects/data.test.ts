@@ -32,33 +32,57 @@ const ROWS = [
 
 describe("виды данных: сообщения, текст и JSON", () => {
   const cases: readonly (readonly [unknown, readonly string[], Outcome])[] = [
-    [ROWS, ["first"], {
-      path: [],
-      value: 'id\t1\nname\ta\ntags\t["x"]\nsize\t5\nnote\t\n',
-    }],
+    [
+      ROWS,
+      ["first"],
+      {
+        path: [],
+        value: 'id\t1\nname\ta\ntags\t["x"]\nsize\t5\nnote\t\n',
+      },
+    ],
     [ROWS, ["first", "pick:", "size"], { path: [], value: "5\n" }],
     [ROWS, ["first", "tags"], { path: [], value: "x\n" }],
-    [ROWS, ["first", "tags", END, "json"], {
-      path: [],
-      value: '[\n  "x"\n]\n',
-    }],
+    [
+      ROWS,
+      ["first", "tags", END, "json"],
+      {
+        path: [],
+        value: '[\n  "x"\n]\n',
+      },
+    ],
     [ROWS, ["pick:", "tags"], { path: [], value: '["x"]\n[]\n' }],
-    [ROWS, ["sortBy:", "note", END, "first", "id"], {
-      path: [],
-      value: "2\n",
-    }],
-    [ROWS, ["sortBy:", "size", END, "last", "id"], {
-      path: [],
-      value: "2\n",
-    }],
-    [ROWS, ["where:", "size", "less:", "9", END, "size"], {
-      path: [],
-      value: "1\n",
-    }],
-    [ROWS, ["where:", "tags", "is:", "x", END, "size"], {
-      path: [],
-      value: "0\n",
-    }],
+    [
+      ROWS,
+      ["sortBy:", "note", END, "first", "id"],
+      {
+        path: [],
+        value: "2\n",
+      },
+    ],
+    [
+      ROWS,
+      ["sortBy:", "size", END, "last", "id"],
+      {
+        path: [],
+        value: "2\n",
+      },
+    ],
+    [
+      ROWS,
+      ["where:", "size", "less:", "9", END, "size"],
+      {
+        path: [],
+        value: "1\n",
+      },
+    ],
+    [
+      ROWS,
+      ["where:", "tags", "is:", "x", END, "size"],
+      {
+        path: [],
+        value: "0\n",
+      },
+    ],
     [ROWS, ["first", "note", END, "json"], { path: [], value: "null\n" }],
     [[], ["first", END, "json"], { path: [], value: "null\n" }],
     [{ stamp: "20260923" }, ["json"], { path: [], value: '"20260923"\n' }],
@@ -66,10 +90,14 @@ describe("виды данных: сообщения, текст и JSON", () => 
     [7, ["json"], { path: [], value: "7\n" }],
     [ROWS, ["last:", "1", END, "first", "id"], { path: [], value: "2\n" }],
     [ROWS, ["last:", "0", END, "size"], { path: [], value: "0\n" }],
-    [ROWS, ["last:", "5", END, "pick:", "id"], {
-      path: [],
-      value: "1\n2\n",
-    }],
+    [
+      ROWS,
+      ["last:", "5", END, "pick:", "id"],
+      {
+        path: [],
+        value: "1\n2\n",
+      },
+    ],
   ];
   for (const [value, words, outcome] of cases) {
     it(words.join(" "), async () => {
@@ -112,8 +140,9 @@ describe("виды данных: отказы", () => {
 it("данные отвечают протоколом отражения", async () => {
   const outcome = await over(ROWS, ["first", "messages", END, "json"]);
   const lines = JSON.parse(String((outcome as { value: string }).value));
-  expect(lines.map((line: { selector: string }) => line.selector))
-    .toStrictEqual(["id", "name", "note", "pick:", "size", "tags"]);
+  expect(
+    lines.map((line: { selector: string }) => line.selector),
+  ).toStrictEqual(["id", "name", "note", "pick:", "size", "tags"]);
   expect(await over(ROWS, ["understands:", "size"])).toStrictEqual({
     path: ["understands:"],
     value: "true\n",

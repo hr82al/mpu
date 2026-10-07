@@ -62,11 +62,7 @@ export interface Change {
 
 /** Исход решения по адресу строки: каждый исполняет себя сам. */
 export interface Treatment {
-  settle<T>(
-    execution: Execution<T>,
-    channel: Channel,
-    won: string,
-  ): Promise<T>;
+  settle<T>(execution: Execution<T>, channel: Channel, won: string): Promise<T>;
   /** Исполняется ли строка по этому адресу: такую показывают в списках. */
   admits(): boolean;
 }
@@ -182,10 +178,7 @@ export const REDIRECT: Treatment = {
 
 const FORBIDDEN: Treatment = {
   settle: (execution, _channel, won) =>
-    execution.refuse(
-      DENIED,
-      `${execution.text}: ${DENIED} «${won}»`,
-    ),
+    execution.refuse(DENIED, `${execution.text}: ${DENIED} «${won}»`),
   admits: () => false,
 };
 

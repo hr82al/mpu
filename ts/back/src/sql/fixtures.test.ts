@@ -22,48 +22,50 @@ interface FixtureSet {
   readonly names: readonly string[];
 }
 
-const FIXTURES: readonly FixtureSet[] = [{
-  channel: "sql-ro",
-  copy: "",
-  names: [
-    "db-error-stderr.txt",
-    "dry-v-dev-stderr.txt",
-    "dry-v-server-stderr.txt",
-    "noresultset-stdout.txt",
-    "semi-first-stdout.txt",
-    "table-empty-md.txt",
-    "table-empty-stdout.txt",
-    "table-md-escapes.txt",
-    "table-multiline-stdout.txt",
-    "table-nulls-json.txt",
-    "table-nulls-md.txt",
-    "table-nulls-stdout.txt",
-  ],
-}, {
-  channel: "platform/readonly-default",
-  copy: "",
-  names: [
-    "dry-v-stderr.txt",
-    "select1-stdout.json",
-    "write-refused-stderr.txt",
-  ],
-}, {
-  channel: "platform/selector",
-  copy: "",
-  names: [
-    "dry-v-client-stderr.txt",
-    "dry-v-sl0-stderr.txt",
-  ],
-}, {
-  channel: "sql",
-  copy: "sql/",
-  names: [
-    "db-error-stderr.txt",
-    "dry-v-server-stderr.txt",
-    "ok-rowcount-json-stdout.txt",
-    "ok-rowcount-stdout.txt",
-  ],
-}];
+const FIXTURES: readonly FixtureSet[] = [
+  {
+    channel: "sql-ro",
+    copy: "",
+    names: [
+      "db-error-stderr.txt",
+      "dry-v-dev-stderr.txt",
+      "dry-v-server-stderr.txt",
+      "noresultset-stdout.txt",
+      "semi-first-stdout.txt",
+      "table-empty-md.txt",
+      "table-empty-stdout.txt",
+      "table-md-escapes.txt",
+      "table-multiline-stdout.txt",
+      "table-nulls-json.txt",
+      "table-nulls-md.txt",
+      "table-nulls-stdout.txt",
+    ],
+  },
+  {
+    channel: "platform/readonly-default",
+    copy: "",
+    names: [
+      "dry-v-stderr.txt",
+      "select1-stdout.json",
+      "write-refused-stderr.txt",
+    ],
+  },
+  {
+    channel: "platform/selector",
+    copy: "",
+    names: ["dry-v-client-stderr.txt", "dry-v-sl0-stderr.txt"],
+  },
+  {
+    channel: "sql",
+    copy: "sql/",
+    names: [
+      "db-error-stderr.txt",
+      "dry-v-server-stderr.txt",
+      "ok-rowcount-json-stdout.txt",
+      "ok-rowcount-stdout.txt",
+    ],
+  },
+];
 
 const copyDir = new URL("testdata/", import.meta.url);
 
@@ -71,38 +73,37 @@ describe("копии фикстур совпадают с каналом спе�
   for (const set of FIXTURES) {
     for (const name of set.names) {
       it(`${set.channel}/${name}`, async () => {
-        expect(await readFile(new URL(`${set.copy}${name}`, copyDir), "utf8"))
-          .toStrictEqual(
-            await readFile(
-              new URL(
-                `../../../docs/specs/fixtures/${set.channel}/${name}`,
-                import.meta.url,
-              ),
-              "utf8",
+        expect(
+          await readFile(new URL(`${set.copy}${name}`, copyDir), "utf8"),
+        ).toStrictEqual(
+          await readFile(
+            new URL(
+              `../../../docs/specs/fixtures/${set.channel}/${name}`,
+              import.meta.url,
             ),
-          );
+            "utf8",
+          ),
+        );
       });
     }
   }
 });
 
 it("в testdata нет копий, которых нет в канале", async () => {
-  const declared = FIXTURES
-    .flatMap((set) => set.names.map((name) => `${set.copy}${name}`))
-    .sort();
+  const declared = FIXTURES.flatMap((set) =>
+    set.names.map((name) => `${set.copy}${name}`),
+  ).sort();
   expect((await copiedNames()).sort()).toStrictEqual(declared);
 });
 
 /** Всё, что лежит в `testdata/`, путями относительно него. */
 async function copiedNames(prefix = ""): Promise<string[]> {
   const found: string[] = [];
-  for (
-    const entry of await readdir(new URL(prefix, copyDir), {
-      withFileTypes: true,
-    })
-  ) {
+  for (const entry of await readdir(new URL(prefix, copyDir), {
+    withFileTypes: true,
+  })) {
     if (entry.isDirectory()) {
-      found.push(...await copiedNames(`${prefix}${entry.name}/`));
+      found.push(...(await copiedNames(`${prefix}${entry.name}/`)));
       continue;
     }
     found.push(`${prefix}${entry.name}`);

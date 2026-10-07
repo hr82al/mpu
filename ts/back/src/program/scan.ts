@@ -50,8 +50,8 @@ function trailing(word: string): number {
 function tailOf(word: string): Piece {
   const n = trailing(word);
   return {
-    text: word.slice(0, word.length - n) +
-      GRAMMAR.quote.repeat(Math.floor(n / 2)),
+    text:
+      word.slice(0, word.length - n) + GRAMMAR.quote.repeat(Math.floor(n / 2)),
     closes: n % 2 === 1,
   };
 }
@@ -77,7 +77,9 @@ function openerOf(word: string): Piece {
  * целиком: без крайних `^`, если оно ими обрамлено.
  */
 function whole(word: string): string {
-  const framed = word.length > 1 && word.startsWith(GRAMMAR.quote) &&
+  const framed =
+    word.length > 1 &&
+    word.startsWith(GRAMMAR.quote) &&
     word.endsWith(GRAMMAR.quote);
   return framed ? word.slice(1, -1) : word;
 }

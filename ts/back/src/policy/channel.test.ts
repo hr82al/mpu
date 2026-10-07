@@ -47,7 +47,10 @@ it("канал человека: вопрос о правиле задаётся
 it("канал агента: решение ask — внутреннему, правило — некому", async () => {
   const written: string[] = [];
   const agent = new Agent(
-    new Human((text) => void written.push(text), () => Promise.resolve("y")),
+    new Human(
+      (text) => void written.push(text),
+      () => Promise.resolve("y"),
+    ),
   );
   expect(await agent.ask("выполнить? [y/N] ", REPLY)).toBe("yes");
   expect(await agent.amend("правило? [y/N] ", REPLY)).toBe("absent");

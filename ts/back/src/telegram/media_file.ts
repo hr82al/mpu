@@ -37,11 +37,15 @@ export function mediaFile(
   download: Download,
 ): MessageFile {
   if (media instanceof RawDocument) {
-    return documentFile(messageId, {
-      name: media.fileName,
-      size: media.raw.size,
-      mime: media.mimeType,
-    }, () => download(media));
+    return documentFile(
+      messageId,
+      {
+        name: media.fileName,
+        size: media.raw.size,
+        mime: media.mimeType,
+      },
+      () => download(media),
+    );
   }
   // Размер фото клиент выбирает сам — наибольший. Поле объявлено
   // необязательным у общего предка `FileLocation`, а конструктор `Photo`

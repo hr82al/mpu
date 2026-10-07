@@ -22,13 +22,15 @@ it("path-параметры перечисляются в порядке пут�
 });
 
 it("значение экранируется целиком, включая слэш", () => {
-  expect(fillPath("/admin/client/:clientId/ss/:ssId/dataset/:sheetName", {
-    clientId: "777",
-    ssId: "1BxiMVs0",
-    // Оператор вправе назвать лист как угодно; слэш в имени не должен
-    // уводить запрос на соседний эндпоинт.
-    sheetName: "Отчёт/2026 ?x=1&y=2",
-  })).toStrictEqual(
+  expect(
+    fillPath("/admin/client/:clientId/ss/:ssId/dataset/:sheetName", {
+      clientId: "777",
+      ssId: "1BxiMVs0",
+      // Оператор вправе назвать лист как угодно; слэш в имени не должен
+      // уводить запрос на соседний эндпоинт.
+      sheetName: "Отчёт/2026 ?x=1&y=2",
+    }),
+  ).toStrictEqual(
     "/admin/client/777/ss/1BxiMVs0/dataset/" +
       "%D0%9E%D1%82%D1%87%D1%91%D1%82%2F2026%20%3Fx%3D1%26y%3D2",
   );

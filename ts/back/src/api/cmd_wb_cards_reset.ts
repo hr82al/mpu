@@ -33,15 +33,18 @@ export const RESET_PATH = (sid: string) =>
 export const RESET_BODY = { state: { cursor: null } } as const;
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен СЕЛЕКТОР: клиент, кабинет или таблица" })
+  selector: z
+    .string({ error: "нужен СЕЛЕКТОР: клиент, кабинет или таблица" })
     .describe("селектор: sid, client_id, таблица, заголовок"),
   sid: z.string().optional().describe("явный WB sid: прямой режим"),
-  "client-id": z.string().optional().describe(
-    "сузить неоднозначный селектор до одного клиента",
-  ),
-  print: z.boolean().default(false).describe(
-    "напечатать эквивалентный вызов и выйти, ничего не отправляя",
-  ),
+  "client-id": z
+    .string()
+    .optional()
+    .describe("сузить неоднозначный селектор до одного клиента"),
+  print: z
+    .boolean()
+    .default(false)
+    .describe("напечатать эквивалентный вызов и выйти, ничего не отправляя"),
 });
 
 const resultSchema = z.object({
@@ -85,8 +88,9 @@ function resolveSid(
   if (sids.length === 0) {
     throw new UsageError(
       `у селектора '${args.selector}' нет WB-кабинетов` +
-        (narrowed.length === 0 ? "" : "; кандидаты:\n" +
-          formatCandidates(narrowed)),
+        (narrowed.length === 0
+          ? ""
+          : "; кандидаты:\n" + formatCandidates(narrowed)),
       { hint: "mpu search query: " + args.selector },
     );
   }
@@ -160,13 +164,15 @@ function resolveWithCache(args: ResetArgs, io: ResetIo): string {
  * (`ts/CLAUDE.md`: секреты в вывод не попадают ни в каком виде).
  */
 export function curlOf(result: ResetResult): string {
-  return [
-    "curl -X POST \\",
-    `  \"$BASE_API_URL${result.path}\" \\`,
-    '  -H "Authorization: Bearer $TOKEN" \\',
-    '  -H "Content-Type: application/json" \\',
-    `  -d '${JSON.stringify(RESET_BODY)}'`,
-  ].join("\n") + "\n";
+  return (
+    [
+      "curl -X POST \\",
+      `  \"$BASE_API_URL${result.path}\" \\`,
+      '  -H "Authorization: Bearer $TOKEN" \\',
+      '  -H "Content-Type: application/json" \\',
+      `  -d '${JSON.stringify(RESET_BODY)}'`,
+    ].join("\n") + "\n"
+  );
 }
 
 export const wbCardsResetCommand = defineCommand({

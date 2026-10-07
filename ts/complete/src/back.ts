@@ -26,7 +26,7 @@ function choicesOf(text: string): Choice[] | undefined {
   return data.flatMap((item) =>
     typeof item?.word === "string" && typeof item?.purpose === "string"
       ? [{ value: item.word, summary: item.purpose }]
-      : []
+      : [],
   );
 }
 

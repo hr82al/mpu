@@ -79,77 +79,108 @@ const fieldValue = (what: string) =>
   z.string().optional().describe(`значение поля «${what}»`);
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен id: id карточки или её URL" })
+  selector: z
+    .string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   hypothesis: fieldValue("6. Причина/гипотеза"),
   done: fieldValue("7. Что сделано"),
   result: fieldValue("8. Результат"),
   mr: fieldValue("Ссылка на Merge Request"),
   reply: z.string().optional().describe("текст ответа клиенту"),
-  "reply-file": z.string().optional().describe(
-    "файл с текстом ответа; '-' — stdin",
-  ),
-  column: z.string().optional().describe(
-    "колонка переноса: id либо название; без флага — env и «Готово»",
-  ),
-  "force-fields": z.boolean().default(false).describe(
-    "писать поля поверх заполненных",
-  ),
+  "reply-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом ответа; '-' — stdin"),
+  column: z
+    .string()
+    .optional()
+    .describe("колонка переноса: id либо название; без флага — env и «Готово»"),
+  "force-fields": z
+    .boolean()
+    .default(false)
+    .describe("писать поля поверх заполненных"),
   "no-move": z.boolean().default(false).describe("не переносить карточку"),
-  "stop-timer": z.boolean().default(false).describe(
-    "остановить идущий таймер и записать время",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "печать плана; выполняются только чтения",
-  ),
+  "stop-timer": z
+    .boolean()
+    .default(false)
+    .describe("остановить идущий таймер и записать время"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("печать плана; выполняются только чтения"),
 });
 
 const resultSchema = z.object({
   cardId: z.number().int().describe("id карточки, которую закрывали"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
   dryRun: z.boolean().describe("план без единой мутации"),
-  timer: z.object({
-    startedAt: z.string().nullable().describe(
-      "метка старта; сервер её не назвал — null",
-    ),
-    elapsedMinutes: z.number().int().describe(
-      "сколько таймер шёл на момент чтения карточки",
-    ),
-  }).nullable().describe("таймер, идущий на карточке; не запущен — null"),
-  stopped: z.object({
-    minutes: z.number().int().nullable().describe(
-      "длительность созданной записи; перечитать не удалось — null",
-    ),
-    role: z.string().nullable().describe(
-      "название роли записи; названия нет — null",
-    ),
-    logId: z.number().int().nullable().describe(
-      "id созданной записи; сервер его не назвал — null",
-    ),
-  }).nullable().describe("остановка таймера этим вызовом; не было — null"),
-  written: z.array(z.string()).describe(
-    "поля, записанные этим вызовом, в порядке обработки",
-  ),
-  skipped: z.array(z.string()).describe(
-    "переданные поля, пропущенные как заполненные",
-  ),
-  reply: z.object({
-    commentId: z.number().int().nullable().describe(
-      "id созданного комментария; при dry — null",
-    ),
-    expandedTo: z.string().nullable().describe(
-      "во что раскрыт '@all'; раскрытия не было — null",
-    ),
-  }).nullable().describe("ответ клиенту; текста ответа не было — null"),
-  move: z.object({
-    columnId: z.number().int().describe("id целевой колонки"),
-    columnTitle: z.string().describe("название целевой колонки"),
-    relog: z.boolean().describe("перенос сводится к релог-bump"),
-    from: z.string().describe("положение «до»"),
-    to: z.string().nullable().describe(
-      "положение «после» по свежему чтению; при dry — null",
-    ),
-  }).nullable().describe("перенос карточки; при no-move — null"),
+  timer: z
+    .object({
+      startedAt: z
+        .string()
+        .nullable()
+        .describe("метка старта; сервер её не назвал — null"),
+      elapsedMinutes: z
+        .number()
+        .int()
+        .describe("сколько таймер шёл на момент чтения карточки"),
+    })
+    .nullable()
+    .describe("таймер, идущий на карточке; не запущен — null"),
+  stopped: z
+    .object({
+      minutes: z
+        .number()
+        .int()
+        .nullable()
+        .describe(
+          "длительность созданной записи; перечитать не удалось — null",
+        ),
+      role: z
+        .string()
+        .nullable()
+        .describe("название роли записи; названия нет — null"),
+      logId: z
+        .number()
+        .int()
+        .nullable()
+        .describe("id созданной записи; сервер его не назвал — null"),
+    })
+    .nullable()
+    .describe("остановка таймера этим вызовом; не было — null"),
+  written: z
+    .array(z.string())
+    .describe("поля, записанные этим вызовом, в порядке обработки"),
+  skipped: z
+    .array(z.string())
+    .describe("переданные поля, пропущенные как заполненные"),
+  reply: z
+    .object({
+      commentId: z
+        .number()
+        .int()
+        .nullable()
+        .describe("id созданного комментария; при dry — null"),
+      expandedTo: z
+        .string()
+        .nullable()
+        .describe("во что раскрыт '@all'; раскрытия не было — null"),
+    })
+    .nullable()
+    .describe("ответ клиенту; текста ответа не было — null"),
+  move: z
+    .object({
+      columnId: z.number().int().describe("id целевой колонки"),
+      columnTitle: z.string().describe("название целевой колонки"),
+      relog: z.boolean().describe("перенос сводится к релог-bump"),
+      from: z.string().describe("положение «до»"),
+      to: z
+        .string()
+        .nullable()
+        .describe("положение «после» по свежему чтению; при dry — null"),
+    })
+    .nullable()
+    .describe("перенос карточки; при no-move — null"),
 });
 
 /** Разобранные аргументы вызова. */
@@ -162,12 +193,8 @@ type KitenCloseResult = z.infer<typeof resultSchema>;
  * Срез порта исполнения: доступ к Kaiten, два источника текста ответа,
  * журнал перемещений в кэш-БД и служебная строка хода.
  */
-type CloseIo =
-  & AccessIo
-  & Pick<
-    CommandIo,
-    "openCacheDb" | "progress" | "readTextFile" | "readStdin"
-  >;
+type CloseIo = AccessIo &
+  Pick<CommandIo, "openCacheDb" | "progress" | "readTextFile" | "readStdin">;
 
 /** Идущий таймер глазами вывода: метка старта и натёкшее время. */
 type RunningTimer = NonNullable<KitenCloseResult["timer"]>;
@@ -215,7 +242,7 @@ async function runKitenClose(
   return {
     ...planResult(cardId, url, plan, timer),
     dryRun: false,
-    ...await applyPlan(access, cardId, url, plan, args, io),
+    ...(await applyPlan(access, cardId, url, plan, args, io)),
   };
 }
 
@@ -245,9 +272,11 @@ async function buildPlan(
       const empty = isBlank(card.properties[propertyKey(kind)]);
       return args["force-fields"] || empty ? [{ kind, value }] : [];
     }),
-    skip: FIELD_ORDER.filter((kind) =>
-      args[kind] !== undefined && !args["force-fields"] &&
-      !isBlank(card.properties[propertyKey(kind)])
+    skip: FIELD_ORDER.filter(
+      (kind) =>
+        args[kind] !== undefined &&
+        !args["force-fields"] &&
+        !isBlank(card.properties[propertyKey(kind)]),
     ),
     move: args["no-move"]
       ? null
@@ -282,9 +311,10 @@ async function applyPlan(
   const commentId = await replyStep(access, cardId, plan.reply);
   return {
     stopped,
-    reply: plan.reply === null
-      ? null
-      : { commentId, expandedTo: plan.reply.expandedTo },
+    reply:
+      plan.reply === null
+        ? null
+        : { commentId, expandedTo: plan.reply.expandedTo },
     move: await moveStep(access, cardId, url, plan, io),
   };
 }
@@ -318,9 +348,12 @@ async function stopTimerStep(
       roleId,
     });
     const logId = stopped.cardTimeLogId;
-    const log = logId === null
-      ? undefined
-      : (await listCardTimeLogs(access, cardId)).find((it) => it.id === logId);
+    const log =
+      logId === null
+        ? undefined
+        : (await listCardTimeLogs(access, cardId)).find(
+            (it) => it.id === logId,
+          );
     return {
       minutes: log?.timeSpent ?? null,
       role: log === undefined ? null : roleNameOf(roles, log.roleId),
@@ -386,10 +419,9 @@ async function moveStep(
     cardId,
     appliedOf(plan.move),
     plan.columns,
-  )
-    .catch((err) => {
-      throw asCommandError(err);
-    });
+  ).catch((err) => {
+    throw asCommandError(err);
+  });
   using db = io.openCacheDb();
   recordMove(
     db,
@@ -418,9 +450,10 @@ function planResult(
     stopped: null,
     written: plan.write.map((field) => field.kind),
     skipped: [...plan.skip],
-    reply: plan.reply === null
-      ? null
-      : { commentId: null, expandedTo: plan.reply.expandedTo },
+    reply:
+      plan.reply === null
+        ? null
+        : { commentId: null, expandedTo: plan.reply.expandedTo },
     move: plan.move === null ? null : { ...plan.move, to: null },
   };
 }
@@ -438,10 +471,8 @@ async function readReply(
   if (args.reply !== undefined && path !== undefined) {
     throw new UsageError("--reply и --reply-file взаимоисключающи");
   }
-  const text = args.reply ?? (path === undefined ? null : await readReplyFile(
-    io,
-    path,
-  ));
+  const text =
+    args.reply ?? (path === undefined ? null : await readReplyFile(io, path));
   if (text === null) return null;
   if (text.trim() === "") throw new UsageError("пустой текст ответа");
   return text;
@@ -543,12 +574,11 @@ function reason(err: unknown): string {
  * Оно же — строка таймера в плане: план обязан сказать ровно то, что
  * скажет применение (`kiten-close.md`, «Ввод/вывод»).
  */
-function timerRunningBody(
-  cardId: number,
-  timer: RunningTimer,
-): string {
-  return `на карточке запущен таймер (${since(timer)}); он НЕ остановлен — ` +
-    `\`mpu kiten time stop id: ${cardId}\` (или stop-timer)`;
+function timerRunningBody(cardId: number, timer: RunningTimer): string {
+  return (
+    `на карточке запущен таймер (${since(timer)}); он НЕ остановлен — ` +
+    `\`mpu kiten time stop id: ${cardId}\` (или stop-timer)`
+  );
 }
 
 /** «с 14.08 19:50 МСК, 1 мин»; метки старта нет — «с ?», без длительности. */
@@ -561,9 +591,10 @@ function since(timer: RunningTimer): string {
 /** Строка полей: что записано и что пропущено как заполненное. */
 function fieldsLine(result: KitenCloseResult): string {
   const written = result.written.length === 0 ? "—" : result.written.join(", ");
-  const skipped = result.skipped.length === 0
-    ? ""
-    : `; пропущены (заполнены) [${result.skipped.join(", ")}]`;
+  const skipped =
+    result.skipped.length === 0
+      ? ""
+      : `; пропущены (заполнены) [${result.skipped.join(", ")}]`;
   return `[${written}]${skipped}`;
 }
 
@@ -584,17 +615,15 @@ function renderPlan(result: KitenCloseResult, args: KitenCloseArgs): string {
         : `запостить${expansion(result.reply)}`
     }`,
   ];
-  const move = result.move === null
-    ? "  перенос: пропущен (no-move)\n"
-    : moveDryRunLine(result.move);
+  const move =
+    result.move === null
+      ? "  перенос: пропущен (no-move)\n"
+      : moveDryRunLine(result.move);
   return `${lines.join("\n")}\n${move}`;
 }
 
 /** Строка таймера в плане: три состояния, четвёртого у таймера нет. */
-function plannedTimer(
-  result: KitenCloseResult,
-  args: KitenCloseArgs,
-): string {
+function plannedTimer(result: KitenCloseResult, args: KitenCloseArgs): string {
   const timer = result.timer;
   if (timer === null) return "не запущен";
   if (!args["stop-timer"]) return timerRunningBody(result.cardId, timer);
@@ -623,14 +652,15 @@ function renderApplied(result: KitenCloseResult): string {
   }
   if (result.reply !== null) {
     lines.push(
-      `   ответ: комментарий ${result.reply.commentId}${
-        expansion(result.reply)
-      }`,
+      `   ответ: комментарий ${result.reply.commentId}${expansion(
+        result.reply,
+      )}`,
     );
   }
-  const move = result.move === null || result.move.to === null
-    ? ""
-    : moveOkLine({ ...result.move, to: result.move.to }, result.cardUrl);
+  const move =
+    result.move === null || result.move.to === null
+      ? ""
+      : moveOkLine({ ...result.move, to: result.move.to }, result.cardUrl);
   return `${lines.join("\n")}\n${move}`;
 }
 

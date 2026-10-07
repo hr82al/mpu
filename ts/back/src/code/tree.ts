@@ -80,7 +80,7 @@ function collect(
 function readDirSorted(dir: string): readonly Dirent[] {
   try {
     return readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
-      a.name < b.name ? -1 : a.name > b.name ? 1 : 0
+      a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
     );
   } catch (err) {
     if (hasErrorCode(err, "ENOENT")) return [];

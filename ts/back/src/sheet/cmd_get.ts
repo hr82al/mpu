@@ -33,37 +33,47 @@ const USAGE_NO_RANGES =
   "Usage: mpu sheet get range: ДИАПАЗОН... [from: FILE] [sheet: TAB]";
 
 const argsSchema = z.object({
-  ranges: z.array(z.string()).default([]).describe(
-    "диапазоны A1; складываются с --from",
-  ),
+  ranges: z
+    .array(z.string())
+    .default([])
+    .describe("диапазоны A1; складываются с --from"),
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
-  sheet: z.string().optional().describe(
-    "лист по умолчанию для диапазонов без '!'",
-  ),
-  from: z.string().optional().describe(
-    "файл со списком диапазонов; '-' — весь stdin",
-  ),
-  render: z.string().default("both").describe(
-    "слои: both | values | formulas | formatted",
-  ),
+  sheet: z
+    .string()
+    .optional()
+    .describe("лист по умолчанию для диапазонов без '!'"),
+  from: z
+    .string()
+    .optional()
+    .describe("файл со списком диапазонов; '-' — весь stdin"),
+  render: z
+    .string()
+    .default("both")
+    .describe("слои: both | values | formulas | formatted"),
   raw: z.boolean().default(false).describe("один слой без JSON-обвязки"),
-  tsv: z.boolean().default(false).describe(
-    "то же, но диапазоны разделены пустой строкой",
-  ),
-  refresh: z.boolean().default(false).describe(
-    "не читать кэш, перечитать из webapp и перезаписать",
-  ),
+  tsv: z
+    .boolean()
+    .default(false)
+    .describe("то же, но диапазоны разделены пустой строкой"),
+  refresh: z
+    .boolean()
+    .default(false)
+    .describe("не читать кэш, перечитать из webapp и перезаписать"),
 });
 
 const resultSchema = z.object({
   spreadsheetId: z.string().describe("идентификатор таблицы"),
-  valueRanges: z.array(z.object({
-    range: z.string(),
-    values: z.array(z.array(z.unknown())).optional(),
-    formulas: z.array(z.array(z.unknown())).optional(),
-    formatted: z.array(z.array(z.unknown())).optional(),
-    fromCache: z.boolean(),
-  })).describe("прочитанные диапазоны в порядке ввода"),
+  valueRanges: z
+    .array(
+      z.object({
+        range: z.string(),
+        values: z.array(z.array(z.unknown())).optional(),
+        formulas: z.array(z.array(z.unknown())).optional(),
+        formatted: z.array(z.array(z.unknown())).optional(),
+        fromCache: z.boolean(),
+      }),
+    )
+    .describe("прочитанные диапазоны в порядке ввода"),
 });
 
 type GetArgs = z.infer<typeof argsSchema>;
@@ -234,8 +244,8 @@ function cellText(cell: unknown): string {
  */
 function rawText(ranges: GetResult["valueRanges"]): string {
   const lines = ranges.flatMap((range) => linesOf(range));
-  const single = ranges.length === 1 && lines.length === 1 &&
-    !lines[0].includes("\t");
+  const single =
+    ranges.length === 1 && lines.length === 1 && !lines[0].includes("\t");
   return single ? lines[0] : `${lines.join("\n")}\n`;
 }
 

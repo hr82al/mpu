@@ -247,13 +247,11 @@ function cardsQueryOf(st: Stand): URLSearchParams {
 it("ls: --json совпадает с голденом байт-в-байт (глобальный режим)", async () => {
   const st = await stand({ cards: GOLDEN_CARDS });
   try {
-    const text = await output(kitenLsCommand, [
-      "--date-from",
-      "2026-07-01",
-      "--date-to",
-      "2026-08-19",
-      "--json",
-    ], st.io);
+    const text = await output(
+      kitenLsCommand,
+      ["--date-from", "2026-07-01", "--date-to", "2026-08-19", "--json"],
+      st.io,
+    );
     expect(text).toStrictEqual(await expected("ls-global.json", st.baseUrl));
   } finally {
     await st.stop();
@@ -265,13 +263,11 @@ it("ls: --md совпадает с голденом байт-в-байт (гло
   try {
     seedColumn(st, { id: 9101, boardId: 4001, title: "Колонка 1" });
     seedColumn(st, { id: 9102, boardId: 4001, title: "Колонка 2" });
-    const text = await output(kitenLsCommand, [
-      "--date-from",
-      "2026-07-01",
-      "--date-to",
-      "2026-08-19",
-      "--md",
-    ], st.io);
+    const text = await output(
+      kitenLsCommand,
+      ["--date-from", "2026-07-01", "--date-to", "2026-08-19", "--md"],
+      st.io,
+    );
     expect(text).toStrictEqual(await expected("ls-global.md", st.baseUrl));
   } finally {
     await st.stop();
@@ -320,13 +316,11 @@ describe("ls: приоритет видов вывода — json > format > onl
   it("--json побеждает остальные флаги вида", async () => {
     const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
-      const text = await output(kitenLsCommand, [
-        "--json",
-        "--format",
-        "{id}",
-        "--only-url",
-        "--md",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--json", "--format", "{id}", "--only-url", "--md"],
+        st.io,
+      );
       expect(text.startsWith("[")).toBe(true);
     } finally {
       await st.stop();
@@ -336,12 +330,11 @@ describe("ls: приоритет видов вывода — json > format > onl
   it("--format побеждает --only-url и --md", async () => {
     const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
-      const text = await output(kitenLsCommand, [
-        "--format",
-        "F{id}",
-        "--only-url",
-        "--md",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "F{id}", "--only-url", "--md"],
+        st.io,
+      );
       expect(text).toBe("F68000001\n");
     } finally {
       await st.stop();
@@ -454,12 +447,11 @@ describe("ls: свод осей space/board/lane/column — env целым, CLI 
       // Чужая доска с той же дорожкой: без скоупа резолв стал бы
       // неоднозначным.
       seedLane(st, { id: 5099, boardId: 9999, title: "Дорожка А" });
-      await output(kitenLsCommand, [
-        "--board",
-        "Доска поддержки",
-        "--lane",
-        "Дорожка А",
-      ], st.io);
+      await output(
+        kitenLsCommand,
+        ["--board", "Доска поддержки", "--lane", "Дорожка А"],
+        st.io,
+      );
       const q = cardsQueryOf(st);
       expect(q.get("board_id")).toBe("4002");
       expect(q.get("lane_id")).toBe("5010");
@@ -509,11 +501,11 @@ it("ls: глобальный режим отключает env-оси целик
 it("ls: --archived в глобальном режиме всё равно даёт condition=2", async () => {
   const st = await stand();
   try {
-    await output(kitenLsCommand, [
-      "--date-from",
-      "2026-08-01",
-      "--archived",
-    ], st.io);
+    await output(
+      kitenLsCommand,
+      ["--date-from", "2026-08-01", "--archived"],
+      st.io,
+    );
     expect(cardsQueryOf(st).get("condition")).toBe("2");
   } finally {
     await st.stop();
@@ -555,25 +547,21 @@ describe("ls: границы дат инклюзивны — T00:00:00Z / T23:59
     }
   });
 
-  it(
-    "--date_from/--date_to — принятые написания с подчёркиванием",
-    async () => {
-      const st = await stand();
-      try {
-        await output(kitenLsCommand, [
-          "--date_from",
-          "2026-07-01",
-          "--date_to",
-          "2026-07-15",
-        ], st.io);
-        const q = cardsQueryOf(st);
-        expect(q.get("updated_after")).toBe("2026-07-01T00:00:00Z");
-        expect(q.get("updated_before")).toBe("2026-07-15T23:59:59Z");
-      } finally {
-        await st.stop();
-      }
-    },
-  );
+  it("--date_from/--date_to — принятые написания с подчёркиванием", async () => {
+    const st = await stand();
+    try {
+      await output(
+        kitenLsCommand,
+        ["--date_from", "2026-07-01", "--date_to", "2026-07-15"],
+        st.io,
+      );
+      const q = cardsQueryOf(st);
+      expect(q.get("updated_after")).toBe("2026-07-01T00:00:00Z");
+      expect(q.get("updated_before")).toBe("2026-07-15T23:59:59Z");
+    } finally {
+      await st.stop();
+    }
+  });
 });
 
 it("ls: --format — нумерация с 1, неизвестный плейсхолдер остаётся, скобки в данных не интерпретируются", async () => {
@@ -598,10 +586,11 @@ it("ls: --format — нумерация с 1, неизвестный плейс�
     ],
   });
   try {
-    const text = await output(kitenLsCommand, [
-      "--format",
-      "{n}. {id} {unknown} {title} due={due}",
-    ], st.io);
+    const text = await output(
+      kitenLsCommand,
+      ["--format", "{n}. {id} {unknown} {title} due={due}"],
+      st.io,
+    );
     expect(text).toStrictEqual(
       "1. 1 {unknown} Карточка {n} с фигурными { скобками due=\n" +
         "2. 2 {unknown} Вторая due=2026-07-23\n",
@@ -614,22 +603,25 @@ it("ls: --format — нумерация с 1, неизвестный плейс�
 describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_COLUMN_MAP по id и по названию", () => {
   it("название по кэшу, метка карты по названию", async () => {
     const st = await stand({
-      cards: [{
-        id: 1,
-        title: "T",
-        state: 1,
-        due_date: null,
-        updated: null,
-        column_id: 9101,
-      }],
+      cards: [
+        {
+          id: 1,
+          title: "T",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: 9101,
+        },
+      ],
       env: { KITEN_COLUMN_MAP: JSON.stringify({ "Колонка 1": "К1" }) },
     });
     try {
       seedColumn(st, { id: 9101, boardId: 1, title: "Колонка 1" });
-      const text = await output(kitenLsCommand, [
-        "--format",
-        "{column}|{column_mapped}",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "{column}|{column_mapped}"],
+        st.io,
+      );
       expect(text).toBe("Колонка 1|К1\n");
     } finally {
       await st.stop();
@@ -638,14 +630,16 @@ describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_
 
   it("ключ-id проверяется раньше ключа-названия", async () => {
     const st = await stand({
-      cards: [{
-        id: 1,
-        title: "T",
-        state: 1,
-        due_date: null,
-        updated: null,
-        column_id: 9101,
-      }],
+      cards: [
+        {
+          id: 1,
+          title: "T",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: 9101,
+        },
+      ],
       env: {
         KITEN_COLUMN_MAP: JSON.stringify({
           "9101": "по id",
@@ -655,62 +649,63 @@ describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_
     });
     try {
       seedColumn(st, { id: 9101, boardId: 1, title: "Колонка 1" });
-      const text = await output(kitenLsCommand, [
-        "--format",
-        "{column_mapped}",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "{column_mapped}"],
+        st.io,
+      );
       expect(text).toBe("по id\n");
     } finally {
       await st.stop();
     }
   });
 
-  it(
-    "промах кэша — id числом; колонки нет — пусто; нет в карте — {column}",
-    async () => {
-      const st = await stand({
-        cards: [
-          {
-            id: 1,
-            title: "T1",
-            state: 1,
-            due_date: null,
-            updated: null,
-            column_id: 7777,
-          },
-          {
-            id: 2,
-            title: "T2",
-            state: 1,
-            due_date: null,
-            updated: null,
-            column_id: null,
-          },
-        ],
-      });
-      try {
-        const text = await output(kitenLsCommand, [
-          "--format",
-          "{id}:{column}:{column_mapped}",
-        ], st.io);
-        expect(text).toBe("1:7777:7777\n2::\n");
-      } finally {
-        await st.stop();
-      }
-    },
-  );
+  it("промах кэша — id числом; колонки нет — пусто; нет в карте — {column}", async () => {
+    const st = await stand({
+      cards: [
+        {
+          id: 1,
+          title: "T1",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: 7777,
+        },
+        {
+          id: 2,
+          title: "T2",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: null,
+        },
+      ],
+    });
+    try {
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "{id}:{column}:{column_mapped}"],
+        st.io,
+      );
+      expect(text).toBe("1:7777:7777\n2::\n");
+    } finally {
+      await st.stop();
+    }
+  });
 });
 
 it("ls: --only-url экранирует [ и ] в title", async () => {
   const st = await stand({
-    cards: [{
-      id: 1,
-      title: "Баг [важно] в [модуле]",
-      state: 1,
-      due_date: null,
-      updated: null,
-      column_id: null,
-    }],
+    cards: [
+      {
+        id: 1,
+        title: "Баг [важно] в [модуле]",
+        state: 1,
+        due_date: null,
+        updated: null,
+        column_id: null,
+      },
+    ],
   });
   try {
     const text = await output(kitenLsCommand, ["--only-url"], st.io);
@@ -722,14 +717,16 @@ it("ls: --only-url экранирует [ и ] в title", async () => {
 
 it("ls: --md экранирует | и заменяет переводы строк пробелом", async () => {
   const st = await stand({
-    cards: [{
-      id: 1,
-      title: "Заголовок | с чертой\nи переводом строки",
-      state: 1,
-      due_date: null,
-      updated: null,
-      column_id: null,
-    }],
+    cards: [
+      {
+        id: 1,
+        title: "Заголовок | с чертой\nи переводом строки",
+        state: 1,
+        due_date: null,
+        updated: null,
+        column_id: null,
+      },
+    ],
   });
   try {
     const text = await output(kitenLsCommand, ["--md"], st.io);
@@ -803,22 +800,25 @@ describe("ls: отказы ввода — точные тексты спеки",
 describe("ls: битый KITEN_COLUMN_MAP не роняет команду — предупреждение, карта пустая", () => {
   it("невалидный JSON", async () => {
     const st = await stand({
-      cards: [{
-        id: 1,
-        title: "T",
-        state: 1,
-        due_date: null,
-        updated: null,
-        column_id: 9101,
-      }],
+      cards: [
+        {
+          id: 1,
+          title: "T",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: 9101,
+        },
+      ],
       env: { KITEN_COLUMN_MAP: "{не json" },
     });
     try {
       seedColumn(st, { id: 9101, boardId: 1, title: "Колонка 1" });
-      const text = await output(kitenLsCommand, [
-        "--format",
-        "{column_mapped}",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "{column_mapped}"],
+        st.io,
+      );
       expect(text).toBe("Колонка 1\n");
       expect(st.warnings.length).toBe(1);
       expect(st.warnings[0]).toContain(
@@ -831,21 +831,24 @@ describe("ls: битый KITEN_COLUMN_MAP не роняет команду — �
 
   it("не объект", async () => {
     const st = await stand({
-      cards: [{
-        id: 1,
-        title: "T",
-        state: 1,
-        due_date: null,
-        updated: null,
-        column_id: null,
-      }],
+      cards: [
+        {
+          id: 1,
+          title: "T",
+          state: 1,
+          due_date: null,
+          updated: null,
+          column_id: null,
+        },
+      ],
       env: { KITEN_COLUMN_MAP: "[1,2,3]" },
     });
     try {
-      const text = await output(kitenLsCommand, [
-        "--format",
-        "{column_mapped}",
-      ], st.io);
+      const text = await output(
+        kitenLsCommand,
+        ["--format", "{column_mapped}"],
+        st.io,
+      );
       expect(text).toBe("\n");
       expect(st.warnings).toStrictEqual([
         "mpu kiten ls: KITEN_COLUMN_MAP должен быть JSON-объектом",
@@ -857,8 +860,8 @@ describe("ls: битый KITEN_COLUMN_MAP не роняет команду — �
 });
 
 it("ls: ошибка API — exit 1, mpu kiten ls: kaiten error: <текст>", async () => {
-  const fake = await startFakeKaiten(() =>
-    new Response("boom", { status: 500 })
+  const fake = await startFakeKaiten(
+    () => new Response("boom", { status: 500 }),
   );
   const io = ioWithoutCache({}, fake.baseUrl);
   try {

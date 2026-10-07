@@ -28,8 +28,8 @@ export interface DayWindow {
 /** Окно сегодняшнего московского дня для момента `nowMs`. */
 export function mskDayWindow(nowMs: number): DayWindow {
   const day = mskDay(nowMs);
-  const fromMs = Date.parse(`${day}T00:00:00.000Z`) -
-    MSK_OFFSET_MINUTES * 60 * 1000;
+  const fromMs =
+    Date.parse(`${day}T00:00:00.000Z`) - MSK_OFFSET_MINUTES * 60 * 1000;
   const fromSec = fromMs / 1000;
   const toSec = fromSec + DAY_SECONDS - 1;
   return {

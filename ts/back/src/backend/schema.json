@@ -6,10 +6,7 @@
     "line.client.first": {
       "description": "Первый кадр клиента: строка, каталог клиента, есть ли кого спросить и контекст вызова (platform/call-context.md): ввод, терминальность и переменные клиента. Любое из трёх полей приходит без остальных; поля нет — как до порции 11 (пустой ввод, потоки не терминалы, окружение сервера).",
       "type": "object",
-      "required": [
-        "words",
-        "cwd"
-      ],
+      "required": ["words", "cwd"],
       "properties": {
         "words": {
           "type": "array",
@@ -82,9 +79,7 @@
     "line.client.answer": {
       "description": "Ответ на кадр ask; y или yes в любом регистре — «да».",
       "type": "object",
-      "required": [
-        "answer"
-      ],
+      "required": ["answer"],
       "properties": {
         "answer": {
           "type": "string"
@@ -94,9 +89,7 @@
     "line.client.stdin": {
       "description": "Ввод строки в ответ на кадр stdinRequest: весь stdin клиента одним кадром. Без запроса или второй — игнорируется. Больше 8 МиБ — mpu-back: ввод больше 8 МиБ, код 2.",
       "type": "object",
-      "required": [
-        "stdin"
-      ],
+      "required": ["stdin"],
       "properties": {
         "stdin": {
           "type": "string"
@@ -109,9 +102,7 @@
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "out"
-          ],
+          "required": ["out"],
           "properties": {
             "out": {
               "type": "string"
@@ -121,9 +112,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "err"
-          ],
+          "required": ["err"],
           "properties": {
             "err": {
               "type": "string"
@@ -133,9 +122,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "ask"
-          ],
+          "required": ["ask"],
           "properties": {
             "ask": {
               "type": "string"
@@ -147,10 +134,7 @@
             },
             "kind": {
               "description": "Вид ответа: line — видимый (умолчание, в кадр не пишется), secret — скрытый, клиент читает без эха (platform/line-prompt.md).",
-              "enum": [
-                "line",
-                "secret"
-              ]
+              "enum": ["line", "secret"]
             }
           },
           "additionalProperties": false
@@ -158,9 +142,7 @@
         {
           "description": "Просьба положить текст в буфер обмена того, кто позвал; клиент без буфера печатает его в stderr. На двери агента не приходит.",
           "type": "object",
-          "required": [
-            "clip"
-          ],
+          "required": ["clip"],
           "properties": {
             "clip": {
               "type": "string"
@@ -171,9 +153,7 @@
         {
           "description": "Вопрос строки решён владельцем в Telegram (platform/ask-telegram.md): клиент перестаёт ждать ответа, печатает mpu: <текст> в stderr и ответа не шлёт. Только у сокета; у строки простым HTTP решение забирает POST …/settled.",
           "type": "object",
-          "required": [
-            "settled"
-          ],
+          "required": ["settled"],
           "properties": {
             "settled": {
               "type": "string"
@@ -184,9 +164,7 @@
         {
           "description": "Отказ строки объектом — непосредственно перед кадром err с тем же текстом; клиент-человек его не печатает.",
           "type": "object",
-          "required": [
-            "refusal"
-          ],
+          "required": ["refusal"],
           "properties": {
             "refusal": {
               "$ref": "#/$defs/refusal"
@@ -197,9 +175,7 @@
         {
           "description": "Картинка строки — после всего вывода, непосредственно перед exit, в порядке команд; только у строки с exit 0; клиент-человек её не показывает (platform/picture-frame.md).",
           "type": "object",
-          "required": [
-            "picture"
-          ],
+          "required": ["picture"],
           "properties": {
             "picture": {
               "$ref": "#/$defs/picture"
@@ -210,9 +186,7 @@
         {
           "description": "Строке нужен ввод клиента, объявленного stdinOnRequest; не чаще одного раза за строку, ответ — кадр stdin (platform/stdin-on-request.md).",
           "type": "object",
-          "required": [
-            "stdinRequest"
-          ],
+          "required": ["stdinRequest"],
           "properties": {
             "stdinRequest": {
               "const": true
@@ -222,9 +196,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "exit"
-          ],
+          "required": ["exit"],
           "properties": {
             "exit": {
               "type": "integer"
@@ -237,12 +209,7 @@
     "refusal": {
       "description": "Отказ строки объектом (platform/refusal-object.md): вид — постоянная строка; исправленная строка словами, как words тула, или null; ближайшие к непонятому; текст stderr отказа без перевода строки.",
       "type": "object",
-      "required": [
-        "reason",
-        "hint",
-        "candidates",
-        "text"
-      ],
+      "required": ["reason", "hint", "candidates", "text"],
       "properties": {
         "reason": {
           "type": "string"
@@ -275,18 +242,10 @@
     "picture": {
       "description": "Картинка ответа строки (platform/picture-frame.md): вид — по байтам файла, один из четырёх форматов Claude; data — base64 байтов файла без переносов строк.",
       "type": "object",
-      "required": [
-        "mime",
-        "data"
-      ],
+      "required": ["mime", "data"],
       "properties": {
         "mime": {
-          "enum": [
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp"
-          ]
+          "enum": ["image/jpeg", "image/png", "image/gif", "image/webp"]
         },
         "data": {
           "type": "string"
@@ -297,9 +256,7 @@
     "http.line.collected": {
       "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока. Дверь агента отдаёт итоговый вывод больше порога файлом: поле file вместо stdout (platform/long-output.md, §4).",
       "type": "object",
-      "required": [
-        "stderr"
-      ],
+      "required": ["stderr"],
       "properties": {
         "stdout": {
           "type": "string"
@@ -330,10 +287,7 @@
         },
         "kind": {
           "description": "Вид ответа: line — видимый (умолчание, в ответ не пишется), secret — скрытый, клиент читает без эха (platform/line-prompt.md).",
-          "enum": [
-            "line",
-            "secret"
-          ]
+          "enum": ["line", "secret"]
         },
         "ticket": {
           "type": "string",
@@ -342,47 +296,29 @@
       },
       "oneOf": [
         {
-          "required": [
-            "exit"
-          ]
+          "required": ["exit"]
         },
         {
-          "required": [
-            "ask",
-            "ticket"
-          ]
+          "required": ["ask", "ticket"]
         }
       ],
       "anyOf": [
         {
-          "required": [
-            "stdout"
-          ]
+          "required": ["stdout"]
         },
         {
-          "required": [
-            "file",
-            "exit"
-          ]
+          "required": ["file", "exit"]
         }
       ],
       "not": {
-        "required": [
-          "stdout",
-          "file"
-        ]
+        "required": ["stdout", "file"]
       },
       "additionalProperties": false
     },
     "outputFile": {
       "description": "Вывод строки файлом (platform/long-output.md, §4): путь, байты UTF-8, строки (\\n плюс хвост без перевода), результат — коллекция.",
       "type": "object",
-      "required": [
-        "path",
-        "bytes",
-        "lines",
-        "slice"
-      ],
+      "required": ["path", "bytes", "lines", "slice"],
       "properties": {
         "path": {
           "type": "string"
@@ -404,10 +340,7 @@
     "http.line.answer": {
       "description": "Тело POST /line/answer и POST /agent/line/answer: номер вопроса и ответ. Контекст вызова тут не принимается: поле stdin, tty или env — 400 с телом {\"error\": \"контекст вызова в ответе не принимается\"} (platform/call-context.md).",
       "type": "object",
-      "required": [
-        "ticket",
-        "answer"
-      ],
+      "required": ["ticket", "answer"],
       "properties": {
         "ticket": {
           "type": "string"
@@ -421,9 +354,7 @@
     "http.line.settled.request": {
       "description": "Тело POST /agent/line/settled: номер вопроса. Контекст вызова тут не принимается, как у ответа по номеру — 400.",
       "type": "object",
-      "required": [
-        "ticket"
-      ],
+      "required": ["ticket"],
       "properties": {
         "ticket": {
           "type": "string"
@@ -434,9 +365,7 @@
     "http.line.settled": {
       "description": "Ответ 200 на POST /agent/line/settled (тело — http.line.settled.request): вопрос решён владельцем в Telegram; строка ждёт ответа по номеру и продолжится с решённым ответом (platform/back-http-line.md, «Решение в другом месте»). Номер отозван или клиент ушёл раньше — 404 http.line.invalid.",
       "type": "object",
-      "required": [
-        "settled"
-      ],
+      "required": ["settled"],
       "properties": {
         "settled": {
           "type": "string"
@@ -447,9 +376,7 @@
     "http.line.invalid": {
       "description": "Ответ 404 на номер неизвестный, истёкший, использованный или чужой.",
       "type": "object",
-      "required": [
-        "error"
-      ],
+      "required": ["error"],
       "properties": {
         "error": {
           "const": "номер подтверждения недействителен"
@@ -460,12 +387,7 @@
     "rpc.tree.snapshot": {
       "description": "Результат tree.snapshot: узлы дерева команд в глубину, дети по алфавиту; сообщения отбора (selection) и протокол, который понимает любой объект (protocol), — по алфавиту.",
       "type": "object",
-      "required": [
-        "version",
-        "nodes",
-        "selection",
-        "protocol"
-      ],
+      "required": ["version", "nodes", "selection", "protocol"],
       "properties": {
         "version": {
           "type": "string"
@@ -525,10 +447,7 @@
           "type": "string"
         },
         "tail": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "messages": {
           "type": "array",
@@ -557,12 +476,7 @@
         "image": {
           "description": "Метод образа (web-image.md): кто и когда определил, исходник, строка определения — текст правки.",
           "type": "object",
-          "required": [
-            "author",
-            "time",
-            "source",
-            "definition"
-          ],
+          "required": ["author", "time", "source", "definition"],
           "properties": {
             "author": {
               "type": "string"
@@ -585,20 +499,13 @@
     "messageLine": {
       "description": "Сообщение, которое понимает объект: ключевое — первым ключом.",
       "type": "object",
-      "required": [
-        "selector",
-        "kind",
-        "purpose"
-      ],
+      "required": ["selector", "kind", "purpose"],
       "properties": {
         "selector": {
           "type": "string"
         },
         "kind": {
-          "enum": [
-            "unary",
-            "keyword"
-          ]
+          "enum": ["unary", "keyword"]
         },
         "purpose": {
           "type": "string"
@@ -609,23 +516,13 @@
     "keyLine": {
       "description": "Ключ ключевого сообщения команды.",
       "type": "object",
-      "required": [
-        "name",
-        "kind",
-        "required",
-        "purpose",
-        "reason"
-      ],
+      "required": ["name", "kind", "required", "purpose", "reason"],
       "properties": {
         "name": {
           "type": "string"
         },
         "kind": {
-          "enum": [
-            "value",
-            "flag",
-            "list"
-          ]
+          "enum": ["value", "flag", "list"]
         },
         "required": {
           "type": "boolean"
@@ -634,10 +531,7 @@
           "type": "string"
         },
         "reason": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         }
       },
       "additionalProperties": false
@@ -645,11 +539,7 @@
     "variantLine": {
       "description": "Вариант команды: слово, назначение и вход, который он задаёт.",
       "type": "object",
-      "required": [
-        "selector",
-        "purpose",
-        "input"
-      ],
+      "required": ["selector", "purpose", "input"],
       "properties": {
         "selector": {
           "type": "string"
@@ -665,20 +555,13 @@
     },
     "rule": {
       "type": "object",
-      "required": [
-        "path",
-        "verdict"
-      ],
+      "required": ["path", "verdict"],
       "properties": {
         "path": {
           "type": "string"
         },
         "verdict": {
-          "enum": [
-            "allow",
-            "ask",
-            "deny"
-          ]
+          "enum": ["allow", "ask", "deny"]
         }
       },
       "additionalProperties": false

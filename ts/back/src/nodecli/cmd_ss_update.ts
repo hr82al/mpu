@@ -17,12 +17,11 @@ import {
 
 const argsSchema = z.object({
   ...commonArgs,
-  "spreadsheet-id": z.string().optional().describe(
-    "id таблицы; без него берётся из кандидатов селектора",
-  ),
-  spreadsheet_id: z.string().optional().describe(
-    "то же, что --spreadsheet-id",
-  ),
+  "spreadsheet-id": z
+    .string()
+    .optional()
+    .describe("id таблицы; без него берётся из кандидатов селектора"),
+  spreadsheet_id: z.string().optional().describe("то же, что --spreadsheet-id"),
   "update-type": z.string().optional().describe("тип обновления"),
   update_type: z.string().optional().describe("то же, что --update-type"),
   logs: z.string().default("info").describe("уровень логов пайплайна"),
@@ -81,7 +80,9 @@ Exit: код inner-команды при выполнении; 0 при печа
         flags: (context) => [
           {
             name: "spreadsheet-id",
-            value: args["spreadsheet-id"] ?? args.spreadsheet_id ??
+            value:
+              args["spreadsheet-id"] ??
+              args.spreadsheet_id ??
               context.pick("--spreadsheet-id", (c) => c.spreadsheetId),
           },
           {

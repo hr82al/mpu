@@ -348,10 +348,10 @@ async function callTool(
 /** Чем кончился вызов тула. Ответ клиенту и запись — уже проекции. */
 type ToolOutcome =
   | {
-    readonly kind: "ok";
-    readonly text: string;
-    readonly structured: unknown;
-  }
+      readonly kind: "ok";
+      readonly text: string;
+      readonly structured: unknown;
+    }
   | { readonly kind: "domain" | "usage" | "internal"; readonly text: string };
 
 /**
@@ -469,7 +469,8 @@ function checkHeaders(
   ) {
     return { problem: `Missing required header: ${HEADER_NAME}` };
   }
-  const problem = mismatch(headers, HEADER_METHOD, message.method) ??
+  const problem =
+    mismatch(headers, HEADER_METHOD, message.method) ??
     mismatch(headers, HEADER_VERSION, messageVersion(message)) ??
     mismatch(headers, HEADER_NAME, typeof name === "string" ? name : undefined);
   return problem === undefined ? { version } : { problem };
@@ -484,8 +485,10 @@ function mismatch(
   const headerValue = header(headers, name);
   if (headerValue === undefined || bodyValue === undefined) return undefined;
   if (headerValue === bodyValue) return undefined;
-  return `Header mismatch: ${name} header value '${headerValue}' ` +
-    `does not match body value '${bodyValue}'`;
+  return (
+    `Header mismatch: ${name} header value '${headerValue}' ` +
+    `does not match body value '${bodyValue}'`
+  );
 }
 
 /** Значение заголовка без учёта регистра имени и в декодированном виде. */

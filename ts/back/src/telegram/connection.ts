@@ -55,7 +55,7 @@ export async function connectWithin(client: LimitedClient): Promise<void> {
   client.onConnectionState.add(noteState);
   try {
     await client.connect();
-    if (await Promise.race([usable.promise, limit.expired]) === "connected") {
+    if ((await Promise.race([usable.promise, limit.expired])) === "connected") {
       return;
     }
   } finally {
@@ -136,9 +136,8 @@ function limitFailure(
   ms: number,
   last: Error | undefined,
 ): VerbatimError {
-  const reason = last === undefined
-    ? "узел не ответил"
-    : firstLine(last.message);
+  const reason =
+    last === undefined ? "узел не ответил" : firstLine(last.message);
   return configError(`${what} Telegram за ${ms / 1000} с: ${reason}`, {
     cause: last,
   });

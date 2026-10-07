@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { filePicture, Gallery, NO_PICTURE, PICTURE_LIMIT } from "./mod.ts";
 
-const JPEG_HEAD = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46];
+const JPEG_HEAD = [0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46];
 
 /** Файл `size` байт, начинающийся байтами JPEG. */
 async function jpeg(dir: string, name: string, size: number): Promise<string> {
@@ -51,7 +51,10 @@ it("картинка файла — base64 его байтов (P1)", async () =
 });
 
 describe("граница предела (P11, P12)", () => {
-  for (const [size, shown] of [[3_750_000, 1], [3_750_001, 0]]) {
+  for (const [size, shown] of [
+    [3_750_000, 1],
+    [3_750_001, 0],
+  ]) {
     it(`${size} байт — картинок ${shown}`, async () => {
       await inTempDir(async (dir) => {
         const gallery = new Gallery(PICTURE_LIMIT);
@@ -105,7 +108,7 @@ it("порядок картинок — порядок результатов", 
     const png = `${dir}/b.png`;
     await writeFile(
       png,
-      new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0]),
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]),
     );
     const gallery = new Gallery(PICTURE_LIMIT);
     gallery.offer(filePicture(await jpeg(dir, "a.jpg", 10)));

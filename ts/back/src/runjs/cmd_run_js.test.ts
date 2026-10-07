@@ -79,7 +79,7 @@ function harness(db?: CacheDb, extra: Readonly<Record<string, string>> = {}) {
   // закрывает `using` самого теста.
   let closed = 0;
   const io = makeFakeIo({
-    env: (name) => name === "HOME" ? HOME : undefined,
+    env: (name) => (name === "HOME" ? HOME : undefined),
     envFile: {
       get: (name) => env[name],
       values: () => ({ ...env }),
@@ -369,128 +369,141 @@ describe("отказы ввода — эталоны канала", () => {
 });
 
 it("--all: инстансы кэша по возрастанию, abort на первом сбое", async () => {
-  await withCache([
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-0-cli", serverNumber: 0 },
-  ], async (db) => {
-    const { io, progress } = harness(db);
-    const ssh = fakeSsh({ codes: [3] });
-    const result = await runRunJs(
-      args({ all: true, selector: "console.log(1)" }),
-      io,
-      { ...options(ssh.run), httpCall: undefined },
-    );
-    expect(result.exitCode).toBe(3);
-    // sl-0 в fan-out не входит (отклонение `preserve`), sl-2 не начат.
-    expect(progress).toStrictEqual([
-      "# mpu run-js: targets = [sl-1, sl-2]",
-      "# target=sl-1",
-      "mpu run-js: sl-1 exit=3 — abort",
-    ]);
-    expect(ssh.calls.length).toBe(1);
-  });
+  await withCache(
+    [
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-0-cli", serverNumber: 0 },
+    ],
+    async (db) => {
+      const { io, progress } = harness(db);
+      const ssh = fakeSsh({ codes: [3] });
+      const result = await runRunJs(
+        args({ all: true, selector: "console.log(1)" }),
+        io,
+        { ...options(ssh.run), httpCall: undefined },
+      );
+      expect(result.exitCode).toBe(3);
+      // sl-0 в fan-out не входит (отклонение `preserve`), sl-2 не начат.
+      expect(progress).toStrictEqual([
+        "# mpu run-js: targets = [sl-1, sl-2]",
+        "# target=sl-1",
+        "mpu run-js: sl-1 exit=3 — abort",
+      ]);
+      expect(ssh.calls.length).toBe(1);
+    },
+  );
 });
 
 it("--parallel: обходятся все, сбой изолируется, exit 1", async () => {
-  await withCache([
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-  ], async (db) => {
-    const { io, progress, output } = harness(db);
-    const ssh = fakeSsh({
-      codes: [5, 0],
-      stdout: (remote) => remote.includes("mp-sl-1") ? "первый\n" : "второй\n",
-    });
-    const result = await runRunJs(
-      args({ all: true, selector: "console.log(1)", parallel: true }),
-      io,
-      options(ssh.run),
-    );
-    expect(result.exitCode).toBe(1);
-    expect(ssh.calls.length).toBe(2);
-    expect(progress.join("\n")).toContain(
-      "# mpu run-js: parallel — 2 targets, 2 workers;",
-    );
-    expect(progress.join("\n")).toContain("# ===== sl-1 (exit=5) =====");
-    expect(progress.join("\n")).toContain("# ===== sl-2 (exit=0) =====");
-    expect(progress.join("\n")).toContain("mpu run-js: failures on [sl-1]");
-    // Вывод обоих таргетов дошёл целиком.
-    expect(output.text()).toContain("первый\n");
-    expect(output.text()).toContain("второй\n");
-  });
+  await withCache(
+    [
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+    ],
+    async (db) => {
+      const { io, progress, output } = harness(db);
+      const ssh = fakeSsh({
+        codes: [5, 0],
+        stdout: (remote) =>
+          remote.includes("mp-sl-1") ? "первый\n" : "второй\n",
+      });
+      const result = await runRunJs(
+        args({ all: true, selector: "console.log(1)", parallel: true }),
+        io,
+        options(ssh.run),
+      );
+      expect(result.exitCode).toBe(1);
+      expect(ssh.calls.length).toBe(2);
+      expect(progress.join("\n")).toContain(
+        "# mpu run-js: parallel — 2 targets, 2 workers;",
+      );
+      expect(progress.join("\n")).toContain("# ===== sl-1 (exit=5) =====");
+      expect(progress.join("\n")).toContain("# ===== sl-2 (exit=0) =====");
+      expect(progress.join("\n")).toContain("mpu run-js: failures on [sl-1]");
+      // Вывод обоих таргетов дошёл целиком.
+      expect(output.text()).toContain("первый\n");
+      expect(output.text()).toContain("второй\n");
+    },
+  );
 });
 
 it("--jobs ограничивает число одновременных", async () => {
-  await withCache([
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-    { name: "mp-sl-3-cli", serverNumber: 3 },
-  ], async (db) => {
-    const { io, progress } = harness(db);
-    let inFlight = 0;
-    let peak = 0;
-    const run: RunProcess = async () => {
-      inFlight++;
-      peak = Math.max(peak, inFlight);
-      await Promise.resolve();
-      inFlight--;
-      return 0;
-    };
-    await runRunJs(
-      args({
-        all: true,
-        selector: "console.log(1)",
-        parallel: true,
-        jobs: 2,
-      }),
-      io,
-      options(run),
-    );
-    expect(peak <= 2, `одновременно шло ${peak}`).toBe(true);
-    expect(progress.join("\n")).toContain(
-      "# mpu run-js: parallel — 3 targets, 2 workers;",
-    );
-  });
+  await withCache(
+    [
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+      { name: "mp-sl-3-cli", serverNumber: 3 },
+    ],
+    async (db) => {
+      const { io, progress } = harness(db);
+      let inFlight = 0;
+      let peak = 0;
+      const run: RunProcess = async () => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await Promise.resolve();
+        inFlight--;
+        return 0;
+      };
+      await runRunJs(
+        args({
+          all: true,
+          selector: "console.log(1)",
+          parallel: true,
+          jobs: 2,
+        }),
+        io,
+        options(run),
+      );
+      expect(peak <= 2, `одновременно шло ${peak}`).toBe(true);
+      expect(progress.join("\n")).toContain(
+        "# mpu run-js: parallel — 3 targets, 2 workers;",
+      );
+    },
+  );
 });
 
 it("--detach: один id на вызов, обход не прерывается, подсказки", async () => {
-  await withCache([
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-  ], async (db) => {
-    const { io, progress } = harness(db);
-    // Первый таргет: заливка прошла, запуск отказал; второй — успех.
-    const ssh = fakeSsh({ codes: [0, 4, 0, 0] });
-    const result = await runRunJs(
-      args({ all: true, selector: "console.log(1)", detach: true }),
-      io,
-      { ...options(ssh.run), newDetachId: () => DETACH_ID },
-    );
-    const log = `/tmp/mpu-run-${DETACH_ID}.log`;
+  await withCache(
+    [
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+    ],
+    async (db) => {
+      const { io, progress } = harness(db);
+      // Первый таргет: заливка прошла, запуск отказал; второй — успех.
+      const ssh = fakeSsh({ codes: [0, 4, 0, 0] });
+      const result = await runRunJs(
+        args({ all: true, selector: "console.log(1)", detach: true }),
+        io,
+        { ...options(ssh.run), newDetachId: () => DETACH_ID },
+      );
+      const log = `/tmp/mpu-run-${DETACH_ID}.log`;
 
-    expect(result.exitCode).toBe(1);
-    expect(result.detach).toStrictEqual({ id: DETACH_ID, log });
-    expect(progress).toStrictEqual([
-      "# mpu run-js: targets = [sl-1, sl-2]",
-      `# mpu run-js: detached run_id=${DETACH_ID} — лог на каждом сервере: ${log}`,
-      "# sl-1: launch exit=4",
-      `# sl-2: started → ${log}`,
-      '# собрать логи: mpu run-js all text: \'import fs from "node:fs";' +
-      ` process.stdout.write(fs.existsSync("${log}")` +
-      ` ? fs.readFileSync("${log}","utf8") : "no log yet\\n")'`,
-      `# или вживую: mpu ssh target: sl-1 cmd: 'tail -f ${log}'`,
-      "mpu run-js: detach failures on [sl-1]",
-    ]);
-    // Один id на все таргеты: пути скрипта совпадают.
-    const uploads = ssh.calls.filter((call) => call.remote.includes("cat >"));
-    expect(uploads.length).toBe(2);
-    expect(
-      uploads.every((call) =>
-        call.remote.includes(`/tmp/mpu-run-${DETACH_ID}.mjs`)
-      ),
-    ).toBe(true);
-  });
+      expect(result.exitCode).toBe(1);
+      expect(result.detach).toStrictEqual({ id: DETACH_ID, log });
+      expect(progress).toStrictEqual([
+        "# mpu run-js: targets = [sl-1, sl-2]",
+        `# mpu run-js: detached run_id=${DETACH_ID} — лог на каждом сервере: ${log}`,
+        "# sl-1: launch exit=4",
+        `# sl-2: started → ${log}`,
+        '# собрать логи: mpu run-js all text: \'import fs from "node:fs";' +
+          ` process.stdout.write(fs.existsSync("${log}")` +
+          ` ? fs.readFileSync("${log}","utf8") : "no log yet\\n")'`,
+        `# или вживую: mpu ssh target: sl-1 cmd: 'tail -f ${log}'`,
+        "mpu run-js: detach failures on [sl-1]",
+      ]);
+      // Один id на все таргеты: пути скрипта совпадают.
+      const uploads = ssh.calls.filter((call) => call.remote.includes("cat >"));
+      expect(uploads.length).toBe(2);
+      expect(
+        uploads.every((call) =>
+          call.remote.includes(`/tmp/mpu-run-${DETACH_ID}.mjs`),
+        ),
+      ).toBe(true);
+    },
+  );
 });
 
 it("контейнер по имени идёт Portainer'ом и без подсказок логов", async () => {
@@ -533,23 +546,26 @@ describe("объявление команды: политика и предел 
 });
 
 it("несколько таргетов в --dry-run: блок с меткой на каждый", async () => {
-  await withCache([
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-  ], async (db) => {
-    const { io } = harness(db);
-    const result = await runRunJs(
-      args({ all: true, selector: "console.log(1)", "dry-run": true }),
-      io,
-      { copy: () => Promise.resolve() },
-    );
-    expect(result.preview).toStrictEqual(
-      "# target=sl-1\nmpu ssh target: sl-1 cmd: 'node --input-type=module -'" +
-        " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n" +
-        "# target=sl-2\nmpu ssh target: sl-2 cmd: 'node --input-type=module -'" +
-        " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n",
-    );
-  });
+  await withCache(
+    [
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+    ],
+    async (db) => {
+      const { io } = harness(db);
+      const result = await runRunJs(
+        args({ all: true, selector: "console.log(1)", "dry-run": true }),
+        io,
+        { copy: () => Promise.resolve() },
+      );
+      expect(result.preview).toStrictEqual(
+        "# target=sl-1\nmpu ssh target: sl-1 cmd: 'node --input-type=module -'" +
+          " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n" +
+          "# target=sl-2\nmpu ssh target: sl-2 cmd: 'node --input-type=module -'" +
+          " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n",
+      );
+    },
+  );
 });
 
 describe("код из файла и его отсутствие", () => {
@@ -617,11 +633,7 @@ describe("пустой fan-out — отказ с подсказкой про ini
       const { io } = harness(db);
       const err = await rejected(
         () =>
-          runRunJs(
-            args({ "all-containers": "zzz", selector: "1" }),
-            io,
-            {},
-          ),
+          runRunJs(args({ "all-containers": "zzz", selector: "1" }), io, {}),
         UsageError,
       );
       expect(err.message).toBe(
@@ -655,47 +667,55 @@ it("--jobs принимает только целое ≥ 0", async () => {
 });
 
 it("рендер: вне --dry-run печатается вывод, а не блок", () => {
-  expect(runJsCommand.renderResult({
-    mode: "sequential",
-    targets: [{ label: "sl-1", exitCode: 0, failure: null }],
-    detach: null,
-    preview: "",
-    output: "вывод\n",
-    exitCode: 0,
-  }, ["sl-1"])).toBe("вывод\n");
+  expect(
+    runJsCommand.renderResult(
+      {
+        mode: "sequential",
+        targets: [{ label: "sl-1", exitCode: 0, failure: null }],
+        detach: null,
+        preview: "",
+        output: "вывод\n",
+        exitCode: 0,
+      },
+      ["sl-1"],
+    ),
+  ).toBe("вывод\n");
 });
 
 it("--parallel: исключение таргета изолируется", async () => {
-  await withCache([
-    { name: "mp-sl-1-cli", serverNumber: 1 },
-    { name: "mp-sl-2-cli", serverNumber: 2 },
-  ], async (db) => {
-    const { io, progress } = harness(db);
-    const seen: string[] = [];
-    const run: RunProcess = (_bin, argv) => {
-      const remote = argv[3] ?? "";
-      seen.push(remote);
-      if (remote.includes("mp-sl-1")) {
-        return Promise.reject(new Error("сокет оборвался"));
-      }
-      return Promise.resolve(0);
-    };
-    const result = await runRunJs(
-      args({ all: true, selector: "console.log(1)", parallel: true }),
-      io,
-      options(run),
-    );
-    // Обойдены оба; сбойный учтён причиной, а не кодом.
-    expect(seen.length).toBe(2);
-    expect(result.exitCode).toBe(1);
-    expect(result.targets).toStrictEqual([
-      { label: "sl-1", exitCode: null, failure: "сокет оборвался" },
-      { label: "sl-2", exitCode: 0, failure: null },
-    ]);
-    expect(progress.join("\n")).toContain(
-      "# ===== sl-1 (FAILED — сокет оборвался) =====",
-    );
-  });
+  await withCache(
+    [
+      { name: "mp-sl-1-cli", serverNumber: 1 },
+      { name: "mp-sl-2-cli", serverNumber: 2 },
+    ],
+    async (db) => {
+      const { io, progress } = harness(db);
+      const seen: string[] = [];
+      const run: RunProcess = (_bin, argv) => {
+        const remote = argv[3] ?? "";
+        seen.push(remote);
+        if (remote.includes("mp-sl-1")) {
+          return Promise.reject(new Error("сокет оборвался"));
+        }
+        return Promise.resolve(0);
+      };
+      const result = await runRunJs(
+        args({ all: true, selector: "console.log(1)", parallel: true }),
+        io,
+        options(run),
+      );
+      // Обойдены оба; сбойный учтён причиной, а не кодом.
+      expect(seen.length).toBe(2);
+      expect(result.exitCode).toBe(1);
+      expect(result.targets).toStrictEqual([
+        { label: "sl-1", exitCode: null, failure: "сокет оборвался" },
+        { label: "sl-2", exitCode: 0, failure: null },
+      ]);
+      expect(progress.join("\n")).toContain(
+        "# ===== sl-1 (FAILED — сокет оборвался) =====",
+      );
+    },
+  );
 });
 
 it("--via ssh с таргетом-контейнером — отказ до вывода", async () => {

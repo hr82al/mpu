@@ -62,7 +62,7 @@ export class Health implements Address {
     progress(
       databaseOk(reply.body)
         ? `проверка: sl-0 — ${reply.status} при database: ok ` +
-          "(память на старте), не отказ"
+            "(память на старте), не отказ"
         : `warning: проверка: ${reply.status} ${this.url}`,
     );
   }
@@ -94,16 +94,10 @@ export async function checkAnswers(
  * врала бы. Код — последней строкой (`-w`), тело — до неё.
  */
 async function replyOf(context: AnswersContext, url: string): Promise<Reply> {
-  const probe = await context.docker.probe([
-    "curl",
-    "-sS",
-    "-L",
-    "--max-time",
-    "10",
-    "-w",
-    "\\n%{http_code}",
-    url,
-  ], context.cwd);
+  const probe = await context.docker.probe(
+    ["curl", "-sS", "-L", "--max-time", "10", "-w", "\\n%{http_code}", url],
+    context.cwd,
+  );
   const cut = probe.stdout.lastIndexOf("\n");
   const status = probe.stdout.slice(cut + 1);
   return {

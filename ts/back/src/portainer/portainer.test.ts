@@ -68,11 +68,14 @@ it("happy path: список endpoints и контейнеров, заголов
   try {
     const access = accessTo(baseUrl);
     const endpoints = await listEndpoints(access);
-    expect(endpoints).toStrictEqual([{ id: 1, name: "prod", status: 1 }, {
-      id: 2,
-      name: "stage",
-      status: 1,
-    }]);
+    expect(endpoints).toStrictEqual([
+      { id: 1, name: "prod", status: 1 },
+      {
+        id: 2,
+        name: "stage",
+        status: 1,
+      },
+    ]);
 
     const containers = await listContainers(access, 1);
     expect(containers).toStrictEqual([
@@ -92,8 +95,9 @@ it("happy path: список endpoints и контейнеров, заголов
 });
 
 it("HTTP вне 2xx: причина одной строкой, ключ не в тексте ошибки", async () => {
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response("upstream is on fire\nsecond line noise", { status: 502 })
+  const { baseUrl, stop } = await serveFetch(
+    () =>
+      new Response("upstream is on fire\nsecond line noise", { status: 502 }),
   );
   try {
     const access = accessTo(baseUrl);
@@ -111,18 +115,14 @@ it("HTTP вне 2xx: причина одной строкой, ключ не в 
 });
 
 it("API-ключ не появляется ни в сообщении, ни в cause ошибки", async () => {
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response("nope", { status: 500 })
+  const { baseUrl, stop } = await serveFetch(
+    () => new Response("nope", { status: 500 }),
   );
   try {
     const access = accessTo(baseUrl);
-    const err = await rejected(
-      () => listEndpoints(access),
-      PortainerError,
-    );
-    const causeText = err.cause instanceof Error
-      ? err.cause.message
-      : String(err.cause);
+    const err = await rejected(() => listEndpoints(access), PortainerError);
+    const causeText =
+      err.cause instanceof Error ? err.cause.message : String(err.cause);
     expect(err.message.includes(API_KEY)).toBe(false);
     expect(causeText.includes(API_KEY)).toBe(false);
     expect((err.stack ?? "").includes(API_KEY)).toBe(false);
@@ -233,7 +233,7 @@ it("мусор в полях ответа не роняет разбор", async
     Response.json([
       { Id: "a", Names: ["/mp-sl-1-cli"], State: 5, Status: null, Image: {} },
       { Id: "b", Names: null, State: "running", Status: "Up", Image: "img" },
-    ])
+    ]),
   );
   try {
     // Живой ответ фермы приходит как есть, и падать на нём команде
@@ -324,7 +324,7 @@ describe("firstLine: причина — только первая строка �
     [
       "многострочное сообщение (вторая строка — подсказка MDN)",
       "NetworkError when attempting to fetch resource.\n" +
-      "See https://developer.mozilla.org/... for more information.",
+        "See https://developer.mozilla.org/... for more information.",
       "NetworkError when attempting to fetch resource.",
     ],
   ];
@@ -339,8 +339,8 @@ describe("логи контейнера: байты как есть и отка�
   const body = new Uint8Array([1, 0, 0, 0, 0, 0, 0, 3, 200, 201, 202]);
 
   it("тело возвращается байтами, не текстом", async () => {
-    const { baseUrl, stop } = await serveFetch(() =>
-      new Response(body, { status: 200 })
+    const { baseUrl, stop } = await serveFetch(
+      () => new Response(body, { status: 200 }),
     );
     try {
       // Байты 200–202 — не UTF-8: декодирование подменило бы их
@@ -354,8 +354,8 @@ describe("логи контейнера: байты как есть и отка�
   });
 
   it("ответ вне 2xx — PortainerError с кодом", async () => {
-    const { baseUrl, stop } = await serveFetch(() =>
-      new Response("no such container", { status: 404 })
+    const { baseUrl, stop } = await serveFetch(
+      () => new Response("no such container", { status: 404 }),
     );
     try {
       const err = await rejected(
@@ -369,8 +369,8 @@ describe("логи контейнера: байты как есть и отка�
   });
 
   it("сетевой сбой — та же ошибка одной строкой", async () => {
-    const { baseUrl, stop } = await serveFetch(() =>
-      new Response("", { status: 200 })
+    const { baseUrl, stop } = await serveFetch(
+      () => new Response("", { status: 200 }),
     );
     await stop();
     const err = await rejected(

@@ -77,13 +77,15 @@ it("1: вопрос в пустом ряду — одно сообщение с 
   const { bot, memory, queue } = setup();
   queue.ask(f1());
   await queue.idle();
-  expect(bot.calls).toStrictEqual([{
-    method: "send",
-    message: 0,
-    text: F1_TEXT,
-    buttons: F1_BUTTONS,
-    data: [["r1:1:0:0", "r1:1:0:1"], ["r1:1:0:2"]],
-  }]);
+  expect(bot.calls).toStrictEqual([
+    {
+      method: "send",
+      message: 0,
+      text: F1_TEXT,
+      buttons: F1_BUTTONS,
+      data: [["r1:1:0:0", "r1:1:0:1"], ["r1:1:0:2"]],
+    },
+  ]);
   expect(memory.ids()).toStrictEqual([1546]);
 });
 
@@ -144,11 +146,12 @@ it("5: повтор нажатия и кнопка прошлого запуск
   await queue.press("cb2", "r1:1:0:0");
   await queue.idle();
   expect(bot.calls[1].text).toBe("вопрос уже решён");
-  expect(since(bot, before).map((call) => [call.method, call.text]))
-    .toStrictEqual([
-      ["ack", "вопрос уже решён"],
-      ["ack", "вопрос уже решён"],
-    ]);
+  expect(
+    since(bot, before).map((call) => [call.method, call.text]),
+  ).toStrictEqual([
+    ["ack", "вопрос уже решён"],
+    ["ack", "вопрос уже решён"],
+  ]);
   expect((await asked.outcome).read(OUTCOME)).toBe("ответ: вариант 2");
 });
 
@@ -165,12 +168,13 @@ it("6: второй вопрос — «ещё ждут: 1» правкой с к
   expect(bot.calls[1].buttons).toStrictEqual(F1_BUTTONS);
   await queue.press("cb1", "r1:1:0:0");
   await queue.idle();
-  expect(since(bot, 2).map((call) => [call.method, call.message]))
-    .toStrictEqual([
-      ["ack", 0],
-      ["edit", 1546],
-      ["send", 0],
-    ]);
+  expect(
+    since(bot, 2).map((call) => [call.method, call.message]),
+  ).toStrictEqual([
+    ["ack", 0],
+    ["edit", 1546],
+    ["send", 0],
+  ]);
   expect(bot.calls[3].text).toStrictEqual(`${F1_TEXT}\n✅ Yes — из чата`);
   expect(bot.calls[4].text).toBe("🔐 Bash — sl-back\nls");
   expect(bot.calls[4].data).toStrictEqual([["r1:2:0:0", "r1:2:0:1"]]);
@@ -228,13 +232,15 @@ it("снят показанный — правка строкой снятия; 
 function sizes(): Form {
   return new Form({
     places: ["ozon"],
-    steps: [{
-      head: "❓ Размер",
-      text: "Какой размер?",
-      options: [{ label: "S" }, { label: "M" }],
-      choice: MANY,
-      reply: TAKES_TEXT,
-    }],
+    steps: [
+      {
+        head: "❓ Размер",
+        text: "Какой размер?",
+        options: [{ label: "S" }, { label: "M" }],
+        choice: MANY,
+        reply: TAKES_TEXT,
+      },
+    ],
   });
 }
 
@@ -333,21 +339,19 @@ function closingForm(): Form {
 }
 
 describe("вид «один, последние кончают форму»: следующих шагов нет", () => {
-  for (
-    const [name, presses, outcome] of [
-      ["кончающий на первом шаге", ["r1:1:0:2"], "ответ: вариант 2"],
-      [
-        "обычный, затем кончающий",
-        ["r1:1:0:0", "r1:1:1:1"],
-        "ответ: вариант 0; вариант 1",
-      ],
-      [
-        "обычные до конца",
-        ["r1:1:0:1", "r1:1:1:0"],
-        "ответ: вариант 1; вариант 0",
-      ],
-    ] as const
-  ) {
+  for (const [name, presses, outcome] of [
+    ["кончающий на первом шаге", ["r1:1:0:2"], "ответ: вариант 2"],
+    [
+      "обычный, затем кончающий",
+      ["r1:1:0:0", "r1:1:1:1"],
+      "ответ: вариант 0; вариант 1",
+    ],
+    [
+      "обычные до конца",
+      ["r1:1:0:1", "r1:1:1:0"],
+      "ответ: вариант 1; вариант 0",
+    ],
+  ] as const) {
     it(name, async () => {
       const { bot, queue } = setup();
       const asked = queue.ask(closingForm());
@@ -368,13 +372,15 @@ it("подпись в 60 символов с отметкой — без обр�
   const asked = queue.ask(
     new Form({
       places: [],
-      steps: [{
-        head: "❓ Q",
-        text: "?",
-        options: [{ label }, { label: `${label}ы` }],
-        choice: MANY,
-        reply: TAKES_TEXT,
-      }],
+      steps: [
+        {
+          head: "❓ Q",
+          text: "?",
+          options: [{ label }, { label: `${label}ы` }],
+          choice: MANY,
+          reply: TAKES_TEXT,
+        },
+      ],
     }),
   );
   await queue.idle();
@@ -487,13 +493,15 @@ it("14: длинный текст шага усечён, строки вариа
   queue.ask(
     new Form({
       places: ["ozon"],
-      steps: [{
-        head: "❓ Q",
-        text: "x".repeat(5000),
-        options: [{ label: "A", description: "первый" }],
-        choice: ONE,
-        reply: TAKES_TEXT,
-      }],
+      steps: [
+        {
+          head: "❓ Q",
+          text: "x".repeat(5000),
+          options: [{ label: "A", description: "первый" }],
+          choice: ONE,
+          reply: TAKES_TEXT,
+        },
+      ],
     }),
   );
   queue.ask(f2());
@@ -516,8 +524,9 @@ it("текст, пока следующий вопрос не показан, �
   const written = queue.write("пояснение");
   await Promise.all([pressed, written]);
   await queue.idle();
-  expect(bot.calls.filter((call) => call.text === "сейчас вопросов нет").length)
-    .toBe(1);
+  expect(
+    bot.calls.filter((call) => call.text === "сейчас вопросов нет").length,
+  ).toBe(1);
   second.expire();
   await queue.idle();
   expect((await second.outcome).read(OUTCOME)).toBe("истёк");
@@ -558,13 +567,15 @@ function waits(name: string): Form {
   return new Form({
     places: [],
     kind: WAITS_INPUT,
-    steps: [{
-      head: `💬 ${name}`,
-      text: `${name} ждёт`,
-      options: [],
-      choice: ONE,
-      reply: BUTTONS_ONLY,
-    }],
+    steps: [
+      {
+        head: `💬 ${name}`,
+        text: `${name} ждёт`,
+        options: [],
+        choice: ONE,
+        reply: BUTTONS_ONLY,
+      },
+    ],
     actions: [LATER, SKIP],
   });
 }
@@ -658,13 +669,15 @@ it("R2a-6: «Позже» — в конец своего вида, следую�
   await queue.idle();
   await queue.press("cb1", "r1:1:0:later");
   await queue.idle();
-  expect(since(bot, 1)).toStrictEqual([{
-    method: "ack",
-    message: 0,
-    text: "больше ничего не ждёт",
-    buttons: [],
-    data: [],
-  }]);
+  expect(since(bot, 1)).toStrictEqual([
+    {
+      method: "ack",
+      message: 0,
+      text: "больше ничего не ждёт",
+      buttons: [],
+      data: [],
+    },
+  ]);
   const d = queue.ask(waits("D"));
   await queue.idle();
   const from = bot.calls.length;
@@ -761,8 +774,8 @@ it("уступил и тут же снят — последней правкой
   const b = queue.ask(f1());
   a.withdraw("решено в терминале");
   await queue.idle();
-  const edits = bot.calls.filter((call) =>
-    call.method === "edit" && call.message === 1546
+  const edits = bot.calls.filter(
+    (call) => call.method === "edit" && call.message === 1546,
   );
   expect(edits.at(-1)).toStrictEqual(
     closed(1546, "💬 A\nA ждёт", "✅ решено в терминале"),
@@ -791,10 +804,10 @@ it("кнопки-действия, которых форма не предлаг
   await queue.press("cb1", "r1:1:0:skip");
   await queue.press("cb2", "r1:1:0:later");
   await queue.idle();
-  expect(since(bot, 1).map((call) => [call.method, call.text])).toStrictEqual([[
-    "ack",
-    "вопрос уже решён",
-  ], ["ack", "вопрос уже решён"]]);
+  expect(since(bot, 1).map((call) => [call.method, call.text])).toStrictEqual([
+    ["ack", "вопрос уже решён"],
+    ["ack", "вопрос уже решён"],
+  ]);
   asked.expire();
   await queue.idle();
 });
@@ -867,23 +880,25 @@ function live(name: string) {
   };
   const form = new Form({
     places: [],
-    steps: [{
-      head: `🖥 ${name}`,
-      get text() {
-        return text;
+    steps: [
+      {
+        head: `🖥 ${name}`,
+        get text() {
+          return text;
+        },
+        options: [{ label: "1" }],
+        choice: {
+          start: () => ({
+            press: (given) => {
+              events = given;
+              return { pick: () => "", done: () => STALE };
+            },
+            buttons: () => [[{ label: "1", key: new OptionKey(0) }]],
+          }),
+        },
+        reply: BUTTONS_ONLY,
       },
-      options: [{ label: "1" }],
-      choice: {
-        start: () => ({
-          press: (given) => {
-            events = given;
-            return { pick: () => "", done: () => STALE };
-          },
-          buttons: () => [[{ label: "1", key: new OptionKey(0) }]],
-        }),
-      },
-      reply: BUTTONS_ONLY,
-    }],
+    ],
   });
   return {
     form,
@@ -899,13 +914,15 @@ function waitsWithChannel(name: string, reply: TextRule): Form {
   return new Form({
     places: [],
     kind: WAITS_INPUT,
-    steps: [{
-      head: `💬 ${name}`,
-      text: name,
-      options: [],
-      choice: ONE,
-      reply,
-    }],
+    steps: [
+      {
+        head: `💬 ${name}`,
+        text: name,
+        options: [],
+        choice: ONE,
+        reply,
+      },
+    ],
     actions: [LATER, SKIP],
   });
 }

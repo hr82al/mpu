@@ -36,24 +36,31 @@ async function run(
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const human = answers === undefined
-    ? {}
-    : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
+  const human =
+    answers === undefined
+      ? {}
+      : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
   const io = makeFakeIo({
     readStdin: () => Promise.resolve(new Uint8Array()),
     ...human,
   });
-  const code = await lineEntry(consentOf(file, answers))(words, io, {
-    stdout: (text: string) => void (stdout += text),
-    stderr: (text: string) => void (stderr += text),
-  }, journal);
+  const code = await lineEntry(consentOf(file, answers))(
+    words,
+    io,
+    {
+      stdout: (text: string) => void (stdout += text),
+      stderr: (text: string) => void (stderr += text),
+    },
+    journal,
+  );
   return { code, stdout, stderr, called };
 }
 
 const IMPORT = ["target:", "54", "path:", "/v1/product/import"];
 
 /** Строка подгруппы `perf` в сообщениях получателя `ozon` (B9). */
-const PERF_LINE = "perf\tOzon Performance API (реклама) под ключами " +
+const PERF_LINE =
+  "perf\tOzon Performance API (реклама) под ключами " +
   "кабинета клиента: call-ro | call\n";
 
 it("A7: call-ro вне реестра — отказ с готовой строкой записи", () =>
@@ -63,7 +70,7 @@ it("A7: call-ro вне реестра — отказ с готовой стро�
       2,
       "",
       "mpu ozon call-ro: ручки POST /v1/product/import нет в списке " +
-      "чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n",
+        "чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n",
     ]);
   }));
 
@@ -72,7 +79,8 @@ it("A8: call без двери — отказ двери, команда не и
     expect(await run(file, ["ozon", "call", ...IMPORT], ["y"])).toStrictEqual({
       code: 2,
       stdout: "",
-      stderr: "mpu ozon call target: 54 path: /v1/product/import: требует " +
+      stderr:
+        "mpu ozon call target: 54 path: /v1/product/import: требует " +
         "подтверждения — вызывай mpu ask ozon call target: 54 path: " +
         "/v1/product/import\n",
       called: [],
@@ -83,7 +91,8 @@ it("A9: call через дверь — вопрос человеку строк�
   withPolicyFile(async (file) => {
     const line = ["ask", "ozon", "call", ...IMPORT, "body:", '{"items":[]}'];
     const ran = await run(file, line, ["n"]);
-    const question = "выполнить mpu ozon call target: 54 path: " +
+    const question =
+      "выполнить mpu ozon call target: 54 path: " +
       '/v1/product/import body: {"items":[]}? [y/N] ';
     expect(ran.stderr.startsWith(question), ran.stderr).toBe(true);
     expect(ran.called).toStrictEqual([]);
@@ -95,9 +104,9 @@ it("A19, посев 173b: call-ro allow, call ask — у обоих получа
     const rules = JSON.parse(ran.stdout) as { path: string; verdict: string }[];
     const ozon = rules.filter((rule) => /^ozon (perf )?call/.test(rule.path));
     expect(
-      ozon.map(({ path, verdict }) => ({ path, verdict })).sort((a, b) =>
-        a.path.localeCompare(b.path)
-      ),
+      ozon
+        .map(({ path, verdict }) => ({ path, verdict }))
+        .sort((a, b) => a.path.localeCompare(b.path)),
     ).toStrictEqual([
       { path: "ozon call", verdict: "ask" },
       { path: "ozon call-ro", verdict: "allow" },
@@ -113,12 +122,14 @@ it("A20, B9: сообщения получателя ozon по взглядам 
     expect([reading.code, reading.stdout]).toStrictEqual([
       0,
       "call-ro\tчто сейчас отвечает ручка чтения Ozon Seller API под " +
-      "ключом кабинета клиента\n" + PERF_LINE,
+        "ключом кабинета клиента\n" +
+        PERF_LINE,
     ]);
     expect([writing.code, writing.stdout]).toStrictEqual([
       0,
       "call\tвызвать любую ручку Ozon Seller API под ключом кабинета " +
-      "клиента (запись)\n" + PERF_LINE,
+        "клиента (запись)\n" +
+        PERF_LINE,
     ]);
   }));
 
@@ -160,8 +171,8 @@ it("B7: perf call-ro вне реестра — отказ с готовой ст
       2,
       "",
       "mpu ozon perf call-ro: ручки GET /api/client/campaign/1/activate нет " +
-      "в списке чтения — запись: mpu ask ozon perf call target: 54 path: " +
-      "/api/client/campaign/1/activate\n",
+        "в списке чтения — запись: mpu ask ozon perf call target: 54 path: " +
+        "/api/client/campaign/1/activate\n",
     ]);
   }));
 
@@ -190,8 +201,8 @@ it("W3: wb call-ro вне реестра — отказ с хостом и ст�
       2,
       "",
       "mpu wb call-ro: ручки GET content-api.wildberries.ru/content/v2/get/" +
-      "cards/list нет в списке чтения — запись: mpu ask wb call target: 57 " +
-      "url: https://content-api.wildberries.ru/content/v2/get/cards/list\n",
+        "cards/list нет в списке чтения — запись: mpu ask wb call target: 57 " +
+        "url: https://content-api.wildberries.ru/content/v2/get/cards/list\n",
     ]);
   }));
 
@@ -221,19 +232,14 @@ it("W2, W4: wb call — только дверью ask, вопрос строко
       `mpu wb call ${CARDS.join(" ")}: требует подтверждения — вызывай ` +
         `mpu ask wb call ${CARDS.join(" ")}\n`,
     );
-    const asked = await run(file, [
-      "ask",
-      "wb",
-      "call",
-      ...CARDS,
-      "body:",
-      "{}",
-    ], [
-      "n",
-    ]);
-    const question = `выполнить mpu wb call ${
-      CARDS.join(" ")
-    } body: {}? [y/N] `;
+    const asked = await run(
+      file,
+      ["ask", "wb", "call", ...CARDS, "body:", "{}"],
+      ["n"],
+    );
+    const question = `выполнить mpu wb call ${CARDS.join(
+      " ",
+    )} body: {}? [y/N] `;
     expect(asked.stderr.startsWith(question), asked.stderr).toBe(true);
     expect(asked.called).toStrictEqual([]);
   }));
@@ -244,9 +250,9 @@ it("посев 173c: wb call-ro allow, wb call ask", () =>
     const rules = JSON.parse(ran.stdout) as { path: string; verdict: string }[];
     const wb = rules.filter((rule) => /^wb call/.test(rule.path));
     expect(
-      wb.map(({ path, verdict }) => ({ path, verdict })).sort((a, b) =>
-        a.path.localeCompare(b.path)
-      ),
+      wb
+        .map(({ path, verdict }) => ({ path, verdict }))
+        .sort((a, b) => a.path.localeCompare(b.path)),
     ).toStrictEqual([
       { path: "wb call", verdict: "ask" },
       { path: "wb call-ro", verdict: "allow" },
@@ -260,11 +266,11 @@ it("сообщения получателя wb по взглядам двери"
     expect([reading.code, reading.stdout]).toStrictEqual([
       0,
       "call-ro\tчто сейчас отвечает ручка чтения Wildberries API под токеном " +
-      "кабинета клиента\n",
+        "кабинета клиента\n",
     ]);
     expect([writing.code, writing.stdout]).toStrictEqual([
       0,
       "call\tвызвать любую ручку Wildberries API под токеном кабинета " +
-      "клиента (запись)\n",
+        "клиента (запись)\n",
     ]);
   }));

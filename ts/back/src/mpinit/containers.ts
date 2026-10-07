@@ -34,15 +34,18 @@ export async function reportContainers(
   progress: (line: string) => void,
   configDir: string,
 ): Promise<void> {
-  const listing = await docker.probe([
-    "docker",
-    "ps",
-    "-a",
-    "--filter",
-    `label=com.docker.compose.project.working_dir=${configDir}`,
-    "--format",
-    "{{.Names}}\t{{.Status}}",
-  ], configDir);
+  const listing = await docker.probe(
+    [
+      "docker",
+      "ps",
+      "-a",
+      "--filter",
+      `label=com.docker.compose.project.working_dir=${configDir}`,
+      "--format",
+      "{{.Names}}\t{{.Status}}",
+    ],
+    configDir,
+  );
   if (listing.code !== 0) {
     progress(`warning: сводка контейнеров не снята (rc=${listing.code})`);
     return;

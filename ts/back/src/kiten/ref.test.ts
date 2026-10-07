@@ -70,10 +70,14 @@ describe("вид справочника стоит в отказе", () => {
   });
   it("доска неоднозначна", () => {
     const err = thrown(() => {
-      resolveRef("board", [
-        { id: 1, title: "Поддержка" },
-        { id: 2, title: "Поддержка клиентов" },
-      ], "поддержк");
+      resolveRef(
+        "board",
+        [
+          { id: 1, title: "Поддержка" },
+          { id: 2, title: "Поддержка клиентов" },
+        ],
+        "поддержк",
+      );
     }, UsageError);
     expect(err.message).toBe("board 'поддержк' неоднозначен (2 совпадений):");
     expect(err.details).toBe("1 (Поддержка)\n2 (Поддержка клиентов)");

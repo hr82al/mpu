@@ -128,10 +128,14 @@ describe("сценарии cases.json: stdout, stderr, код 0", () => {
         await withPolicyFile(async (file) => {
           laid(file, one.rules);
           const ran = await hook(file, stand, stdinOf(one, live));
-          expect({ exit: ran.exit, stdout: ran.stdout, stderr: ran.stderr })
-            .toStrictEqual({ exit: 0, stdout: one.stdout, stderr: one.stderr });
+          expect({
+            exit: ran.exit,
+            stdout: ran.stdout,
+            stderr: ran.stderr,
+          }).toStrictEqual({ exit: 0, stdout: one.stdout, stderr: one.stderr });
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -230,11 +234,8 @@ describe("правило изменено другим процессом меж
   it("правило, записанное после решения пути хука, видно пробе", () =>
     withStand(async (stand) => {
       await withPolicyFile(async (file) => {
-        const ran = await hook(
-          file,
-          stand,
-          stdin,
-          () => ruleFromAside(file, DENY),
+        const ran = await hook(file, stand, stdin, () =>
+          ruleFromAside(file, DENY),
         );
         expect(ran.stdout).toStrictEqual(
           '{"hookSpecificOutput":{"hookEventName":"PreToolUse",' +
@@ -314,14 +315,16 @@ it("методы корня двери и it в пробе не исполняю
       });
       const exit = await lineEntry({
         ...consentOf(file, [], memory),
-        rootMethods: [{
-          selector: "web",
-          doc: { purpose: "вход в браузере", help: "Справка web." },
-          produce: () => {
-            produced++;
-            return Promise.resolve({ url: "http://127.0.0.1/" });
+        rootMethods: [
+          {
+            selector: "web",
+            doc: { purpose: "вход в браузере", help: "Справка web." },
+            produce: () => {
+              produced++;
+              return Promise.resolve({ url: "http://127.0.0.1/" });
+            },
           },
-        }],
+        ],
       })(
         PRE_TOOL_USE.words,
         makeFakeIo(hookIo(stdin)),
@@ -357,8 +360,9 @@ it("справка: однострока, фрагмент настроек — 
 it("S23: посев на пустом файле — путь хука allow", () =>
   withPolicyFile((file) => {
     assert(
-      rulesOf(file).some((rule) =>
-        rule.path === "claude-hook pre-tool-use" && rule.verdict === "allow"
+      rulesOf(file).some(
+        (rule) =>
+          rule.path === "claude-hook pre-tool-use" && rule.verdict === "allow",
       ),
     );
     return Promise.resolve();
@@ -384,7 +388,7 @@ it("сбой книги при решении пробы — правила не
         ran.stderr,
       );
       expect(ran.stderr.split("\n").length, ran.stderr).toBe(2);
-    })
+    }),
   );
 });
 
@@ -397,25 +401,23 @@ describe("--json: источник строки — как у ядра", () => {
     [["--json"], "правила строку не решают"],
   ] as const;
   for (const [words, reason] of cases) {
-    it(
-      words.join(" "),
-      () =>
-        withStand((stand) =>
-          withPolicyFile(async (file) => {
-            const ran = await hook(
-              file,
-              stand,
-              JSON.stringify({
-                ...live,
-                tool_name: "mcp__mpu__mpu",
-                tool_input: { words },
-              }),
-            );
-            expect(ran.stderr).toStrictEqual(
-              `mpu claude-hook pre-tool-use: без решения — ${reason}\n`,
-            );
-          })
-        ),
+    it(words.join(" "), () =>
+      withStand((stand) =>
+        withPolicyFile(async (file) => {
+          const ran = await hook(
+            file,
+            stand,
+            JSON.stringify({
+              ...live,
+              tool_name: "mcp__mpu__mpu",
+              tool_input: { words },
+            }),
+          );
+          expect(ran.stderr).toStrictEqual(
+            `mpu claude-hook pre-tool-use: без решения — ${reason}\n`,
+          );
+        }),
+      ),
     );
   }
 });
@@ -450,6 +452,6 @@ it("строка хука в вызове — маршрут строки хук
             "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n",
         });
       }
-    })
+    }),
   );
 });

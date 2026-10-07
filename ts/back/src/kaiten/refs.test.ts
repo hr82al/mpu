@@ -50,7 +50,7 @@ describe("вызов 1: владелец токена", () => {
         full_name: "Иванов Иван",
         username: "ivanov",
         email: "ivanov@proba.test",
-      })
+      }),
     );
     try {
       const user = await getCurrentUser(accessTo(baseUrl));
@@ -72,7 +72,7 @@ describe("вызов 1: владелец токена", () => {
 
   it("отсутствующее поле — пустая строка, не `null`", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json({ id: 77 })
+      Response.json({ id: 77 }),
     );
     try {
       expect(await getCurrentUser(accessTo(baseUrl))).toStrictEqual({
@@ -92,7 +92,7 @@ describe("вызов 1: владелец токена", () => {
     for (const body of [{ full_name: "Иванов Иван" }, [], "нет"]) {
       it(JSON.stringify(body), async () => {
         const { baseUrl, stop } = await startFakeKaiten(() =>
-          Response.json(body)
+          Response.json(body),
         );
         try {
           const failure = getCurrentUser(accessTo(baseUrl));
@@ -167,7 +167,7 @@ it("вызов 2: лента действий — запрос и разбор",
         action: "user_login",
         card_id: null,
       },
-    ])
+    ]),
   );
   try {
     const feed = await listUserActivities(accessTo(baseUrl), {
@@ -206,7 +206,7 @@ it("вызов 2: лента действий — запрос и разбор",
 
 it("вызов 2: нижняя граница даты не уходит в запрос", async () => {
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json([])
+    Response.json([]),
   );
   try {
     await listUserActivities(accessTo(baseUrl), {
@@ -231,7 +231,7 @@ it("вызов 2: элементы без строкового `id` в выда�
       // Числовой `id` строковым курсором не является.
       { id: 7, action: "card_move" },
       { id: "a-1", action: "card_move" },
-    ])
+    ]),
   );
   try {
     const feed = await listUserActivities(accessTo(baseUrl), {
@@ -239,21 +239,23 @@ it("вызов 2: элементы без строкового `id` в выда�
       maxPages: 1,
     });
 
-    expect(feed).toStrictEqual([{
-      id: "a-1",
-      created: null,
-      action: "card_move",
-      cardId: null,
-      card: null,
-    }]);
+    expect(feed).toStrictEqual([
+      {
+        id: "a-1",
+        created: null,
+        action: "card_move",
+        cardId: null,
+        card: null,
+      },
+    ]);
   } finally {
     await stop();
   }
 });
 
 it("вызов 2: не-2xx — ошибка общего формата без query", async () => {
-  const { baseUrl, stop } = await startFakeKaiten(() =>
-    new Response("limit is too large", { status: 400 })
+  const { baseUrl, stop } = await startFakeKaiten(
+    () => new Response("limit is too large", { status: 400 }),
   );
   try {
     const failure = listUserActivities(accessTo(baseUrl), {
@@ -272,8 +274,8 @@ it("вызов 2: не-2xx — ошибка общего формата без q
 // --- 3. пространства --------------------------------------------------------
 
 it("вызов 3: пространства с вложенными досками (golden)", async () => {
-  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
-    new Response(await readFixture("spaces-ok.json"))
+  const { baseUrl, seen, stop } = await startFakeKaiten(
+    async () => new Response(await readFixture("spaces-ok.json")),
   );
   try {
     const spaces = await listSpaces(accessTo(baseUrl));
@@ -318,15 +320,17 @@ it("вызов 3: доска без `space_id` принадлежит родит
       // Ни строка, ни объект без числового id пространством не являются.
       "мусор",
       { title: "без id" },
-    ])
+    ]),
   );
   try {
-    expect(await listSpaces(accessTo(baseUrl))).toStrictEqual([{
-      id: 101,
-      title: "Разработка",
-      archived: false,
-      boards: [{ id: 501, spaceId: 101, title: "Без принадлежности" }],
-    }]);
+    expect(await listSpaces(accessTo(baseUrl))).toStrictEqual([
+      {
+        id: 101,
+        title: "Разработка",
+        archived: false,
+        boards: [{ id: 501, spaceId: 101, title: "Без принадлежности" }],
+      },
+    ]);
   } finally {
     await stop();
   }
@@ -335,8 +339,8 @@ it("вызов 3: доска без `space_id` принадлежит родит
 // --- 4. дорожки -------------------------------------------------------------
 
 it("вызов 4: дорожки одной доски (golden)", async () => {
-  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
-    new Response(await readFixture("lanes-ok.json"))
+  const { baseUrl, seen, stop } = await startFakeKaiten(
+    async () => new Response(await readFixture("lanes-ok.json")),
   );
   try {
     const lanes = await listBoardLanes(accessTo(baseUrl), BOARD_ID);
@@ -362,7 +366,7 @@ it("вызов 4: элементы без числовых `id` и `board_id` о
       { id: 9001, title: "Без доски" },
       { board_id: BOARD_ID, title: "Без id" },
       { id: 9002, board_id: BOARD_ID },
-    ])
+    ]),
   );
   try {
     expect(await listBoardLanes(accessTo(baseUrl), BOARD_ID)).toStrictEqual([
@@ -375,8 +379,8 @@ it("вызов 4: элементы без числовых `id` и `board_id` о
 });
 
 it("вызов 4: несуществующая доска — ошибка не-2xx", async () => {
-  const { baseUrl, stop } = await startFakeKaiten(() =>
-    new Response("board not found", { status: 404 })
+  const { baseUrl, stop } = await startFakeKaiten(
+    () => new Response("board not found", { status: 404 }),
   );
   try {
     const failure = listBoardLanes(accessTo(baseUrl), 999);
@@ -392,8 +396,8 @@ it("вызов 4: несуществующая доска — ошибка не-
 // --- 5. колонки -------------------------------------------------------------
 
 it("вызов 5: колонки одной доски (golden)", async () => {
-  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
-    new Response(await readFixture("columns-ok.json"))
+  const { baseUrl, seen, stop } = await startFakeKaiten(
+    async () => new Response(await readFixture("columns-ok.json")),
   );
   try {
     const columns = await listBoardColumns(accessTo(baseUrl), BOARD_ID);
@@ -420,7 +424,7 @@ it("вызов 5: дробный вес и его отсутствие", async (
       // Ни строка, ни объект без числового `board_id` колонкой не являются.
       "мусор",
       { id: 7003, title: "Ничья" },
-    ])
+    ]),
   );
   try {
     expect(await listBoardColumns(accessTo(baseUrl), BOARD_ID)).toStrictEqual([
@@ -441,7 +445,7 @@ it("вызов 6: определения кастомных полей", async (
       { id: 610304, name: "Гипотеза", type: null },
       "мусор",
       { name: "без id" },
-    ])
+    ]),
   );
   try {
     const properties = await listCustomProperties(accessTo(baseUrl));

@@ -74,11 +74,13 @@ async function press(name: string, answer?: "Да" | "Нет") {
 function report(): string[] {
   const list = screen.queryByRole("list", { name: "отчёт" });
   if (list === null) return [];
-  return within(list).queryAllByRole("listitem").map((one) =>
-    one.querySelector(".path") === null
-      ? one.textContent ?? ""
-      : `конфликт ${one.querySelector(".path")?.textContent}`
-  );
+  return within(list)
+    .queryAllByRole("listitem")
+    .map((one) =>
+      one.querySelector(".path") === null
+        ? (one.textContent ?? "")
+        : `конфликт ${one.querySelector(".path")?.textContent}`,
+    );
 }
 
 function said(): string | null {
@@ -91,8 +93,9 @@ describe("экран «Образ»", () => {
     await shown(back);
     expect(screen.getByText("Отчёта ещё нет")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Проверить" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Синхронизировать" }))
-      .toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Синхронизировать" }),
+    ).toBeTruthy();
     expect(sentLines(back.seen)).toEqual([]);
   });
 
@@ -116,7 +119,7 @@ describe("экран «Образ»", () => {
     expect(asked).toContain("выполнить mpu image sync? [y/N]");
     expect(sentLines(back.seen)).toEqual([SYNC]);
     await waitFor(() =>
-      expect(report()).toEqual(["совпало 3, изменено 0, конфликтов 0"])
+      expect(report()).toEqual(["совпало 3, изменено 0, конфликтов 0"]),
     );
   });
 
@@ -138,7 +141,7 @@ describe("экран «Образ»", () => {
       expect(report()).toEqual([
         "база из файла\tkiten cardsIn:",
         "совпало 2, изменено 1, конфликтов 0",
-      ])
+      ]),
     );
   });
 
@@ -150,17 +153,20 @@ describe("экран «Образ»", () => {
       expect(report()).toEqual([
         "конфликт kiten cardsIn:",
         "совпало 2, изменено 0, конфликтов 1",
-      ])
+      ]),
     );
-    const row = screen.getByText("kiten cardsIn:", { selector: ".path" })
+    const row = screen
+      .getByText("kiten cardsIn:", { selector: ".path" })
       .closest("li") as HTMLElement;
     expect(row.querySelector(".definition")?.textContent).toBe(
       "kiten define: cardsIn: purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done",
     );
-    expect(within(row).getByRole("button", { name: "взять базу" }))
-      .toBeTruthy();
-    expect(within(row).getByRole("button", { name: "взять файлы" }))
-      .toBeTruthy();
+    expect(
+      within(row).getByRole("button", { name: "взять базу" }),
+    ).toBeTruthy();
+    expect(
+      within(row).getByRole("button", { name: "взять файлы" }),
+    ).toBeTruthy();
     expect(said()).toBeNull();
     expect(screen.queryByRole("button", { name: /^Выполнить/ })).toBeNull();
   });
@@ -204,14 +210,18 @@ describe("экран «Образ»", () => {
   });
 
   test("16: конфликт метода, которого нет в снимке, — «определения нет»", async () => {
-    const back = scripted([question("?"), {
-      ...CONFLICT,
-      stdout: "конфликт\tkiten gone\tkiten.gone\n",
-    }]);
+    const back = scripted([
+      question("?"),
+      {
+        ...CONFLICT,
+        stdout: "конфликт\tkiten gone\tkiten.gone\n",
+      },
+    ]);
     await shown(back);
     await press("Проверить", "Да");
-    const row = (await screen.findByText("kiten gone", { selector: ".path" }))
-      .closest("li") as HTMLElement;
+    const row = (
+      await screen.findByText("kiten gone", { selector: ".path" })
+    ).closest("li") as HTMLElement;
     expect(row.querySelector(".definition")?.textContent).toBe(
       "определения нет",
     );
@@ -225,7 +235,7 @@ describe("экран «Образ»", () => {
     const before = reads(back.seen, "tree.snapshot");
     await press("Проверить", "Да");
     await waitFor(() =>
-      expect(reads(back.seen, "tree.snapshot")).toBeGreaterThan(before)
+      expect(reads(back.seen, "tree.snapshot")).toBeGreaterThan(before),
     );
   });
 
@@ -269,12 +279,14 @@ describe("экран «Образ»", () => {
   test("21: отказ без hint — текст под кнопкой, «Выполнить» нет, окна нет", async () => {
     const text =
       "mpu image sync: нет права записи в /tmp/x — каталог образа только под /h/mr/mp/mpu/image";
-    const back = scripted([{
-      stdout: "",
-      stderr: `${text}\n`,
-      refusal: { reason: "отказ", hint: null, candidates: [], text },
-      exit: 2,
-    }]);
+    const back = scripted([
+      {
+        stdout: "",
+        stderr: `${text}\n`,
+        refusal: { reason: "отказ", hint: null, candidates: [], text },
+        exit: 2,
+      },
+    ]);
     await shown(back);
     fireEvent.click(screen.getByRole("button", { name: "Синхронизировать" }));
     await waitFor(() => expect(said()).toBe(text));
@@ -309,15 +321,16 @@ describe("экран «Образ»", () => {
 describe("строки отчёта", () => {
   test("конфликт — адрес третьим полем; прочее — текст; пустой stdout — строк нет", () => {
     expect(reportLines("")).toEqual([]);
-    expect(reportLines("конфликт\tkiten cardsIn:\tkiten.cardsIn\nсовпало 2\n"))
-      .toEqual([
-        {
-          kind: "conflict",
-          text: "конфликт\tkiten cardsIn:\tkiten.cardsIn",
-          method: "kiten cardsIn:",
-          address: "kiten.cardsIn",
-        },
-        { kind: "text", text: "совпало 2" },
-      ]);
+    expect(
+      reportLines("конфликт\tkiten cardsIn:\tkiten.cardsIn\nсовпало 2\n"),
+    ).toEqual([
+      {
+        kind: "conflict",
+        text: "конфликт\tkiten cardsIn:\tkiten.cardsIn",
+        method: "kiten cardsIn:",
+        address: "kiten.cardsIn",
+      },
+      { kind: "text", text: "совпало 2" },
+    ]);
   });
 });

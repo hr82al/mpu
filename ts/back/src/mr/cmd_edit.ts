@@ -20,18 +20,22 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  note: z.number({ error: "нужен id: номер заметки" }).int(
-    "id: — целое число",
-  ).positive("id: — положительное число").describe(
-    "номер заметки (id из mpu mr comments end json)",
-  ),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  note: z
+    .number({ error: "нужен id: номер заметки" })
+    .int("id: — целое число")
+    .positive("id: — положительное число")
+    .describe("номер заметки (id из mpu mr comments end json)"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
   message: z.string().optional().describe("новый текст заметки"),
-  "body-file": z.string().optional().describe(
-    "файл с текстом; '-' — весь stdin, только в CLI",
-  ),
+  "body-file": z
+    .string()
+    .optional()
+    .describe("файл с текстом; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({

@@ -57,12 +57,16 @@ export type WrapIo = Pick<
 export const targetArgs = {
   selector: z.string().describe("клиент: client_id, spreadsheet, title"),
   server: z.string().optional().describe("override сервера: sl-N"),
-  print: z.boolean().default(false).describe(
-    "напечатать команду и скопировать её в буфер обмена, не выполняя",
-  ),
-  local: z.boolean().default(false).describe(
-    "печатать форму локального стенда; только вместе с print",
-  ),
+  print: z
+    .boolean()
+    .default(false)
+    .describe(
+      "напечатать команду и скопировать её в буфер обмена, не выполняя",
+    ),
+  local: z
+    .boolean()
+    .default(false)
+    .describe("печатать форму локального стенда; только вместе с print"),
 };
 
 /**
@@ -73,15 +77,16 @@ export const targetArgs = {
  */
 export const commonArgs = {
   ...targetArgs,
-  "client-id": z.number().optional().describe(
-    "client_id; без него берётся из кандидатов селектора",
-  ),
+  "client-id": z
+    .number()
+    .optional()
+    .describe("client_id; без него берётся из кандидатов селектора"),
 };
 
 export const resultSchema = z.object({
-  server: z.string().describe(
-    "`sl-<N>` либо `dev:<N>` — где исполняется команда",
-  ),
+  server: z
+    .string()
+    .describe("`sl-<N>` либо `dev:<N>` — где исполняется команда"),
   inner: z.string().describe("собранная inner-команда одной строкой"),
   /** Напечатанная строка команды; у режима выполнения — null. */
   printed: z.string().nullable(),
@@ -227,13 +232,14 @@ export async function runWrap(
   };
   try {
     const dev = args.devServerNumber;
-    const resolved = dev === undefined
-      ? resolveSelector({ cache, env: io.envFile }, args.selector, {
-        server: args.server,
-      })
-      // На dev-ноде прод-кэша клиентов нет, поэтому кандидатов нет тоже:
-      // client_id там называет человек.
-      : { selector: args.selector, serverNumber: dev, candidates: [] };
+    const resolved =
+      dev === undefined
+        ? resolveSelector({ cache, env: io.envFile }, args.selector, {
+            server: args.server,
+          })
+        : // На dev-ноде прод-кэша клиентов нет, поэтому кандидатов нет тоже:
+          // client_id там называет человек.
+          { selector: args.selector, serverNumber: dev, candidates: [] };
     // Кандидаты ради `--client-id` спрашиваются только там, где флаг
     // есть: у обёрток уровня сервера отказ auto-pick означал бы отказ
     // вызова, которому client_id не нужен вовсе.
@@ -243,15 +249,19 @@ export async function runWrap(
       throw new UsageError("--server не имеет смысла с селектором dev:N");
     }
     if (
-      dev !== undefined && spec.clientId !== "none" &&
+      dev !== undefined &&
+      spec.clientId !== "none" &&
       args.clientId === undefined
     ) {
       throw new UsageError(
         "dev-селектор требует --client-id: кандидатов на dev-ноде нет",
       );
     }
-    const clientId = spec.clientId === "none" ? undefined : args.clientId ??
-      Number(pickOf(resolved.candidates, "--client-id", clientIdOf));
+    const clientId =
+      spec.clientId === "none"
+        ? undefined
+        : (args.clientId ??
+          Number(pickOf(resolved.candidates, "--client-id", clientIdOf)));
     const inner: InnerCommand = {
       service: spec.service,
       method: spec.method,
@@ -272,35 +282,40 @@ export async function runWrap(
     // Сборка идёт до всякой доставки: SafeToken обязан отказать раньше
     // печати и раньше сети (инвариант спеки).
     const text = innerText(inner);
-    const server = dev === undefined
-      ? `sl-${resolved.serverNumber}`
-      : `dev:${dev}`;
+    const server =
+      dev === undefined ? `sl-${resolved.serverNumber}` : `dev:${dev}`;
     // `# inner: …` идёт служебным каналом (в CLI это stderr) во всех трёх
     // режимах и обычный вывод не подменяет: в print-режимах строка команды
     // всё равно уходит в stdout (спека семейства, «Особенности»).
     if (args.verbose === true) io.progress(`# inner: ${text}`);
 
     if (!args.print) {
-      return await execute(inner, { io, options, cache }, {
-        place: dev === undefined
-          ? { kind: "server", serverNumber: resolved.serverNumber }
-          : { kind: "dev", serverNumber: dev },
-        server,
-        text,
-      });
+      return await execute(
+        inner,
+        { io, options, cache },
+        {
+          place:
+            dev === undefined
+              ? { kind: "server", serverNumber: resolved.serverNumber }
+              : { kind: "dev", serverNumber: dev },
+          server,
+          text,
+        },
+      );
     }
-    const container = dev === undefined
-      ? serverCliContainer(cache, resolved.serverNumber)
-      : devCliContainer(dev);
+    const container =
+      dev === undefined
+        ? serverCliContainer(cache, resolved.serverNumber)
+        : devCliContainer(dev);
     const printed = args.local
       ? localForm(container, text)
-      // Форма dev-ветки — не ssh-обёртка, а вызов соседней команды: до
-      // dev-ноды ходит `mpu ssh`, и вставлять её ключ и хост здесь
-      // значило бы держать вторую копию его настройки. Команда — ключом
-      // cmd: одним словом: напечатанное вставляется и исполняется.
-      : dev === undefined
-      ? sshForm(io, resolved.serverNumber, container, text)
-      : `mpu ssh target: dev:${dev} cmd: ${quoteArg(text)}`;
+      : // Форма dev-ветки — не ssh-обёртка, а вызов соседней команды: до
+        // dev-ноды ходит `mpu ssh`, и вставлять её ключ и хост здесь
+        // значило бы держать вторую копию его настройки. Команда — ключом
+        // cmd: одним словом: напечатанное вставляется и исполняется.
+        dev === undefined
+        ? sshForm(io, resolved.serverNumber, container, text)
+        : `mpu ssh target: dev:${dev} cmd: ${quoteArg(text)}`;
     // Недоступность буфера молчалива: строка уже напечатана, копирование
     // — довесок (`platform/clipboard.md`).
     await (options.copy ?? ((text: string) => io.prompt.copy(text)))(printed);
@@ -342,26 +357,27 @@ async function execute(
     env: io.envFile,
     cache: deps.cache,
   });
-  const exitCode = target.kind === "ssh"
-    ? await runOverSsh({
-      target,
-      command,
-      stdin: new Uint8Array(),
-      keyPath: keyPath(io),
-      output,
-      cwd: io.cwd(),
-      signal: io.signal,
-      run: options.runProcess,
-    })
-    : await runOverPortainer({
-      target,
-      command,
-      stdin: new Uint8Array(),
-      output,
-      warn: io.progress,
-      http: options.httpCall,
-      open: options.openChannel,
-    });
+  const exitCode =
+    target.kind === "ssh"
+      ? await runOverSsh({
+          target,
+          command,
+          stdin: new Uint8Array(),
+          keyPath: keyPath(io),
+          output,
+          cwd: io.cwd(),
+          signal: io.signal,
+          run: options.runProcess,
+        })
+      : await runOverPortainer({
+          target,
+          command,
+          stdin: new Uint8Array(),
+          output,
+          warn: io.progress,
+          http: options.httpCall,
+          open: options.openChannel,
+        });
   return {
     server: shown.server,
     inner: shown.text,
@@ -386,8 +402,10 @@ function sshForm(
   if (user === undefined) {
     throw new UsageError("PG_MY_USER_NAME not set in ~/.config/mpu/.env");
   }
-  return `ssh -i ${keyPath(io)} -t ${user}@${host} ` +
-    `'docker exec -it ${container} sh -c "${inner}"'`;
+  return (
+    `ssh -i ${keyPath(io)} -t ${user}@${host} ` +
+    `'docker exec -it ${container} sh -c "${inner}"'`
+  );
 }
 
 /** Форма локального стенда: env-файл здесь не читается вовсе. */

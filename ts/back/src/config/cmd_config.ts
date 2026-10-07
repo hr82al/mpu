@@ -38,29 +38,28 @@ import {
 const argsSchema = z.object({
   key: z.string().optional().describe("имя ключа реестра"),
   value: z.string().optional().describe("новое значение ключа"),
-  unset: z.boolean().default(false).describe(
-    "удалить запись ключа: значение вернётся к умолчанию",
-  ),
+  unset: z
+    .boolean()
+    .default(false)
+    .describe("удалить запись ключа: значение вернётся к умолчанию"),
   json: z.boolean().default(false).describe("машиночитаемый вывод"),
 });
 
 const entrySchema = z.object({
   key: z.string(),
-  value: z.union([z.string(), z.null()]).describe(
-    "действующее значение: из хранилища либо умолчание",
-  ),
+  value: z
+    .union([z.string(), z.null()])
+    .describe("действующее значение: из хранилища либо умолчание"),
   source: z.enum(["config", "default"]).describe("откуда взято значение"),
   default: z.union([z.string(), z.null()]).describe("умолчание потребителя"),
   description: z.string(),
 });
 
 const resultSchema = z.object({
-  entries: z.array(entrySchema).describe(
-    "ключи реестра по порядку объявления",
-  ),
-  action: z.enum(["list", "get", "set", "unset"]).describe(
-    "что сделал вызов: чтение, запись или сброс",
-  ),
+  entries: z.array(entrySchema).describe("ключи реестра по порядку объявления"),
+  action: z
+    .enum(["list", "get", "set", "unset"])
+    .describe("что сделал вызов: чтение, запись или сброс"),
 });
 
 type ConfigArgs = z.infer<typeof argsSchema>;
@@ -192,11 +191,9 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
     };
   }
   if (args.value === undefined && !args.unset) {
-    const [only] = readPreferences(
-      io,
-      (db) => [readWith(db, home)(entry)],
-      [entryOf(entry, undefined, home)],
-    );
+    const [only] = readPreferences(io, (db) => [readWith(db, home)(entry)], [
+      entryOf(entry, undefined, home),
+    ]);
     return { entries: [only], action: "get" };
   }
 
@@ -241,10 +238,7 @@ function listLine(entry: ConfigEntry, width: number): string {
 }
 
 /** Четыре формы вывода: список, одно значение, запись, сброс. */
-export function renderConfig(
-  result: ConfigResult,
-  json: boolean,
-): string {
+export function renderConfig(result: ConfigResult, json: boolean): string {
   if (json) return `${JSON.stringify(result.entries, null, 2)}\n`;
   const entry = result.entries[0];
   if (result.action === "list") {

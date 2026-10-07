@@ -36,11 +36,7 @@ describe("конфигурация PG: чего не хватает, то и н�
     Readonly<Record<string, string>>,
     string,
   ])[] = [
-    [
-      "нет адреса сервера",
-      { ...FULL, pg_3: "" },
-      "pg_3 не задан в env-файле",
-    ],
+    ["нет адреса сервера", { ...FULL, pg_3: "" }, "pg_3 не задан в env-файле"],
     [
       "нет ни личного, ни общего имени",
       { ...FULL, PG_MAIN_USER_NAME: "" },
@@ -223,12 +219,12 @@ function withCapturedOutput(fn: () => void): string {
     console[level] = (...args: unknown[]) => void chunks.push(args.join(" "));
   }
   const writes = [process.stdout, process.stderr].map((stream) =>
-    vi.spyOn(stream, "write").mockImplementation(
-      (chunk: string | Uint8Array) => {
+    vi
+      .spyOn(stream, "write")
+      .mockImplementation((chunk: string | Uint8Array) => {
         chunks.push(typeof chunk === "string" ? chunk : decoder.decode(chunk));
         return true;
-      },
-    )
+      }),
   );
   try {
     fn();

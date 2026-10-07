@@ -32,7 +32,7 @@ function fixed(value: string): Fallback {
 
 /** Путь под `HOME`; `HOME` нет — умолчания нет (`platform/config.md`). */
 function underHome(path: string): Fallback {
-  return (home) => home === undefined ? undefined : `${home}/${path}`;
+  return (home) => (home === undefined ? undefined : `${home}/${path}`);
 }
 
 /** Объявление одного ключа реестра. */

@@ -59,9 +59,7 @@ interface Stand {
   readonly calls: readonly string[];
 }
 
-function fakeStand(
-  servers: Readonly<Record<number, FakeServer>>,
-): Stand {
+function fakeStand(servers: Readonly<Record<number, FakeServer>>): Stand {
   const opened: number[] = [];
   const closed: number[] = [];
   const calls: string[] = [];
@@ -192,12 +190,11 @@ it("happy path: два инстанса, счётчики и строки сна
       plainRows(
         rowsOf(db, "SELECT client_id, server, synced_at FROM sl_clients"),
       ),
-    )
-      .toStrictEqual([
-        { client_id: 101, server: "sl-1", synced_at: SYNCED_AT },
-        { client_id: 102, server: "sl-2", synced_at: SYNCED_AT },
-        { client_id: 103, server: "sl-1", synced_at: SYNCED_AT },
-      ]);
+    ).toStrictEqual([
+      { client_id: 101, server: "sl-1", synced_at: SYNCED_AT },
+      { client_id: 102, server: "sl-2", synced_at: SYNCED_AT },
+      { client_id: 103, server: "sl-1", synced_at: SYNCED_AT },
+    ]);
     expect(
       plainRows(
         rowsOf(db, "SELECT ss_id, server FROM sl_spreadsheets ORDER BY ss_id"),
@@ -275,8 +272,9 @@ it("сбой всех инстансов: клиенты записаны, та�
     expect(outcome.servers).toBe(0);
     expect(outcome.spreadsheets).toBe(0);
     expect(outcome.clients).toBe(3);
-    expect(plainRows(rowsOf(db, "SELECT ss_id FROM sl_spreadsheets")))
-      .toStrictEqual([]);
+    expect(
+      plainRows(rowsOf(db, "SELECT ss_id FROM sl_spreadsheets")),
+    ).toStrictEqual([]);
   });
 });
 
@@ -321,8 +319,7 @@ describe("недоступный main: отказ, кэш не изменён", 
         expect(err.message).toStrictEqual(message);
         expect(
           plainRows(rowsOf(db, "SELECT client_id, server FROM sl_clients")),
-        )
-          .toStrictEqual([{ client_id: 7, server: "sl-9" }]);
+        ).toStrictEqual([{ client_id: 7, server: "sl-9" }]);
       });
     });
   }
@@ -359,17 +356,25 @@ it("повторный прогон: снапшот замещается цел�
     });
 
     // Ни одной строки прошлого прогона (инвариант спеки).
-    expect(plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")))
-      .toStrictEqual([{
+    expect(
+      plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")),
+    ).toStrictEqual([
+      {
         client_id: 202,
-      }]);
-    expect(plainRows(rowsOf(db, "SELECT ss_id FROM sl_spreadsheets")))
-      .toStrictEqual([{
+      },
+    ]);
+    expect(
+      plainRows(rowsOf(db, "SELECT ss_id FROM sl_spreadsheets")),
+    ).toStrictEqual([
+      {
         ss_id: "ss9",
-      }]);
-    expect(plainRows(rowsOf(db, "SELECT sid FROM sl_wb_sids"))).toStrictEqual([{
-      sid: "sid-z",
-    }]);
+      },
+    ]);
+    expect(plainRows(rowsOf(db, "SELECT sid FROM sl_wb_sids"))).toStrictEqual([
+      {
+        sid: "sid-z",
+      },
+    ]);
   });
 });
 
@@ -492,17 +497,15 @@ it("точечный синк: клиент найден, соседи не тр
       plainRows(
         rowsOf(db, "SELECT client_id, is_locked, synced_at FROM sl_clients"),
       ),
-    )
-      .toStrictEqual([
-        { client_id: 101, is_locked: 1, synced_at: SYNCED_AT + 60 },
-        // Соседний клиент не тронут — ни значениями, ни временем синка.
-        { client_id: 102, is_locked: 0, synced_at: SYNCED_AT },
-      ]);
+    ).toStrictEqual([
+      { client_id: 101, is_locked: 1, synced_at: SYNCED_AT + 60 },
+      // Соседний клиент не тронут — ни значениями, ни временем синка.
+      { client_id: 102, is_locked: 0, synced_at: SYNCED_AT },
+    ]);
     // Строки соседа на месте, исчезнувших строк клиента не удаляли.
-    expect(plainRows(rowsOf(db, "SELECT sid FROM sl_wb_sids ORDER BY sid")))
-      .toStrictEqual(
-        [{ sid: "sid-a" }, { sid: "sid-b" }, { sid: "sid-new" }],
-      );
+    expect(
+      plainRows(rowsOf(db, "SELECT sid FROM sl_wb_sids ORDER BY sid")),
+    ).toStrictEqual([{ sid: "sid-a" }, { sid: "sid-b" }, { sid: "sid-new" }]);
   });
 });
 
@@ -522,16 +525,22 @@ it("точечный синк: клиент не найден — отказ б�
       "клиент 404 не найден",
     );
     db.bootstrap();
-    expect(plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")))
-      .toStrictEqual([]);
+    expect(
+      plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")),
+    ).toStrictEqual([]);
   });
 });
 
 describe("точечный синк: сбой части не мешает записать остальное", () => {
-  const cases: readonly (readonly [string, FakeServer, FakeServer, {
-    spreadsheets: number | null;
-    wbSids: number | null;
-  }])[] = [
+  const cases: readonly (readonly [
+    string,
+    FakeServer,
+    FakeServer,
+    {
+      spreadsheets: number | null;
+      wbSids: number | null;
+    },
+  ])[] = [
     [
       "сбой части 2 (таблицы клиента)",
       {
@@ -562,10 +571,13 @@ describe("точечный синк: сбой части не мешает за�
         expect(outcome.spreadsheets).toStrictEqual(expected.spreadsheets);
         expect(outcome.wbSids).toStrictEqual(expected.wbSids);
         // Клиент записан в любом случае — упала только его часть.
-        expect(plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")))
-          .toStrictEqual([{
+        expect(
+          plainRows(rowsOf(db, "SELECT client_id FROM sl_clients")),
+        ).toStrictEqual([
+          {
             client_id: 101,
-          }]);
+          },
+        ]);
       });
     });
   }
@@ -595,7 +607,8 @@ it("точечный синк: клиент на sl-0 — таблицы не з
     // Ни одной выборки таблиц: main на spreadsheets не опрашивается.
     expect(stand.calls.includes("sl-0.spreadsheets")).toBe(false);
     // Имя сервера в записях — исходная строка `server` (спека).
-    expect(plainRows(rowsOf(db, "SELECT client_id, server FROM sl_wb_sids")))
-      .toStrictEqual([{ client_id: 101, server: "sl-0" }]);
+    expect(
+      plainRows(rowsOf(db, "SELECT client_id, server FROM sl_wb_sids")),
+    ).toStrictEqual([{ client_id: 101, server: "sl-0" }]);
   });
 });

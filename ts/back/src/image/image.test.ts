@@ -120,10 +120,7 @@ it("файл появился после открытия — виден сле�
 it("мусор вместо файла — отказ «образ: …»", () =>
   withDir(async (file) => {
     await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
-    await writeFile(
-      file,
-      "это не база данных, а просто текст ".repeat(40),
-    );
+    await writeFile(file, "это не база данных, а просто текст ".repeat(40));
     using image = Image.at(file);
     const err = thrown(() => image.methods(), ImageError);
     expect(err.message.startsWith("образ: ")).toBe(true);

@@ -85,9 +85,8 @@ export function errorBody(
   message: string,
   data?: unknown,
 ): RpcBody {
-  const error = data === undefined
-    ? { code, message }
-    : { code, message, data };
+  const error =
+    data === undefined ? { code, message } : { code, message, data };
   return { jsonrpc: "2.0", id, error };
 }
 

@@ -157,7 +157,7 @@ export class Machine implements Stack {
   /** Метка самого внутреннего кадра блока; блоков нет — пусто. */
   #innermost(): string {
     return this.#frames.reduce(
-      (label, frame) => frame.label === "" ? label : frame.label,
+      (label, frame) => (frame.label === "" ? label : frame.label),
       "",
     );
   }

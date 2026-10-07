@@ -159,61 +159,81 @@ describe("границы, не покрытые фикстурами", () => {
     handle({ method: "POST", path, headers, body });
 
   it("путь не /ro и не /rw — 404 без тела", async () => {
-    const actual = await post("/tools", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-    }, { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" });
+    const actual = await post(
+      "/tools",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+      },
+      { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" },
+    );
     expect(actual.status).toBe(404);
     expect(actual.body).toStrictEqual(null);
   });
 
   it("нотификация принята без тела ответа", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      method: "notifications/initialized",
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "notifications/initialized",
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "notifications/initialized",
+      },
+    );
     expect(actual.status).toBe(202);
     expect(actual.body).toStrictEqual(null);
   });
 
   it("нет обязательного заголовка — 400 и код -32020", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-      params: { _meta: meta },
-    }, { "MCP-Protocol-Version": "2026-07-28" });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: meta },
+      },
+      { "MCP-Protocol-Version": "2026-07-28" },
+    );
     expect(actual.status).toBe(400);
     expect(errorOf(actual.body).code).toBe(-32020);
   });
 
   it("заголовок в форме =?base64?…?= декодируется", async () => {
     const encoded = `=?base64?${btoa("tools/list")}?=`;
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-      params: { _meta: meta },
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": encoded,
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: meta },
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": encoded,
+      },
+    );
     expect(actual.status).toBe(200);
   });
 
   it("версия протокола не поддержана — 400 и код -32022", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-      params: {
-        _meta: { "io.modelcontextprotocol/protocolVersion": "2030-01-01" },
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {
+          _meta: { "io.modelcontextprotocol/protocolVersion": "2030-01-01" },
+        },
       },
-    }, { "MCP-Protocol-Version": "2030-01-01", "Mcp-Method": "tools/list" });
+      { "MCP-Protocol-Version": "2030-01-01", "Mcp-Method": "tools/list" },
+    );
     expect(actual.status).toBe(400);
     const error = errorOf(actual.body);
     expect(error.code).toBe(-32022);
@@ -233,61 +253,77 @@ describe("границы, не покрытые фикстурами", () => {
   });
 
   it("имя тула вне профиля — JSON-RPC-ошибка при 200", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "xlsx_open", arguments: {}, _meta: meta },
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "tools/call",
-      "Mcp-Name": "xlsx_open",
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "xlsx_open", arguments: {}, _meta: meta },
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "xlsx_open",
+      },
+    );
     expect(actual.status).toBe(200);
     expect(errorOf(actual.body).message).toContain("xlsx_open");
   });
 
   it("неизвестное имя аргумента — ошибка ввода", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "xlsx_ls", arguments: { nope: 1 }, _meta: meta },
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "tools/call",
-      "Mcp-Name": "xlsx_ls",
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "xlsx_ls", arguments: { nope: 1 }, _meta: meta },
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "xlsx_ls",
+      },
+    );
     expect(actual.status).toBe(200);
     expect(errorOf(actual.body).code).toBe(-32602);
     expect(errorOf(actual.body).message).toContain(`unknown argument`);
   });
 
   it("tools/call без Mcp-Name — 400 и код -32020", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "xlsx_ls", arguments: {}, _meta: meta },
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "tools/call",
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "xlsx_ls", arguments: {}, _meta: meta },
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+      },
+    );
     expect(actual.status).toBe(400);
     expect(errorOf(actual.body).code).toBe(-32020);
   });
 
   it("tools/call без имени тула в теле — ошибка ввода", async () => {
-    const actual = await post("/ro", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { arguments: {}, _meta: meta },
-    }, {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "tools/call",
-      "Mcp-Name": "xlsx_ls",
-    });
+    const actual = await post(
+      "/ro",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { arguments: {}, _meta: meta },
+      },
+      {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "xlsx_ls",
+      },
+    );
     expect(actual.status).toBe(200);
     expect(errorOf(actual.body).code).toBe(-32602);
   });
@@ -298,21 +334,24 @@ describe("границы, не покрытые фикстурами", () => {
         throw new Error("хранилище недоступно");
       },
     });
-    const actual = await handle({
-      method: "POST",
-      path: "/ro",
-      headers: {
-        "MCP-Protocol-Version": "2026-07-28",
-        "Mcp-Method": "tools/call",
-        "Mcp-Name": "xlsx_ls",
+    const actual = await handle(
+      {
+        method: "POST",
+        path: "/ro",
+        headers: {
+          "MCP-Protocol-Version": "2026-07-28",
+          "Mcp-Method": "tools/call",
+          "Mcp-Name": "xlsx_ls",
+        },
+        body: {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "xlsx_ls", arguments: {}, _meta: meta },
+        },
       },
-      body: {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/call",
-        params: { name: "xlsx_ls", arguments: {}, _meta: meta },
-      },
-    }, broken);
+      broken,
+    );
     expect(actual.status).toBe(200);
     expect(errorOf(actual.body).code).toBe(-32603);
     expect(errorOf(actual.body).message).toContain("хранилище недоступно");
@@ -340,12 +379,16 @@ describe("границы, не покрытые фикстурами", () => {
   });
 
   it("профиль rw публикует мутирующие тулы", async () => {
-    const actual = await post("/rw", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/list",
-      params: { _meta: meta },
-    }, { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" });
+    const actual = await post(
+      "/rw",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: meta },
+      },
+      { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" },
+    );
     expect(actual.status).toBe(200);
     expect(toolNames(actual.body).includes("xlsx_open")).toBe(true);
   });
@@ -379,19 +422,16 @@ describe("классическое рукопожатие: клиент стар
     });
   });
 
-  it(
-    "initialize с незнакомой версией — ответ версией по умолчанию",
-    async () => {
-      const actual = await post({
-        jsonrpc: "2.0",
-        id: 0,
-        method: "initialize",
-        params: { protocolVersion: "2023-01-01" },
-      });
-      const result = bodyRecord(bodyRecord(actual.body)["result"]);
-      expect(result["protocolVersion"]).toBe("2025-06-18");
-    },
-  );
+  it("initialize с незнакомой версией — ответ версией по умолчанию", async () => {
+    const actual = await post({
+      jsonrpc: "2.0",
+      id: 0,
+      method: "initialize",
+      params: { protocolVersion: "2023-01-01" },
+    });
+    const result = bodyRecord(bodyRecord(actual.body)["result"]);
+    expect(result["protocolVersion"]).toBe("2025-06-18");
+  });
 
   it("tools/list со старой версией в заголовке, без Mcp-Method", async () => {
     const actual = await post(
@@ -478,17 +518,20 @@ describe("конверт результата", () => {
   it("tools/call классического рукопожатия — полнота без срока", async () => {
     await withSampleDir(async (dir) => {
       const real = makeDenoIo(dir);
-      const actual = await handle({
-        method: "POST",
-        path: "/ro",
-        headers: {},
-        body: {
-          jsonrpc: "2.0",
-          id: 2,
-          method: "tools/call",
-          params: { name: "xlsx_ls", arguments: { file: "sample.xlsx" } },
+      const actual = await handle(
+        {
+          method: "POST",
+          path: "/ro",
+          headers: {},
+          body: {
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: { name: "xlsx_ls", arguments: { file: "sample.xlsx" } },
+          },
         },
-      }, makeFakeIo({ readFile: real.readFile, cwd: () => dir }));
+        makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
+      );
       const result = resultOf(actual.body);
       expect(result["resultType"]).toBe("complete");
       // Срок годности и область кэша принадлежат перечню: у вызова тула
@@ -536,9 +579,11 @@ function bodyRecord(body: unknown): Readonly<Record<string, unknown>> {
   return { ...body };
 }
 
-function errorOf(
-  body: unknown,
-): { code: number; message: string; data?: unknown } {
+function errorOf(body: unknown): {
+  code: number;
+  message: string;
+  data?: unknown;
+} {
   const error = bodyRecord(body)["error"];
   const record = bodyRecord(error);
   return {

@@ -14,7 +14,10 @@ export function alignedRows(rows: readonly (readonly string[])[]): string {
   const widths = columnWidths(rows);
   return rows
     .map((row) =>
-      row.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd()
+      row
+        .map((cell, index) => cell.padEnd(widths[index]))
+        .join("  ")
+        .trimEnd(),
     )
     .join("\n");
 }

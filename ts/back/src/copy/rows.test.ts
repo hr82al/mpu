@@ -59,8 +59,7 @@ describe("форма входа: чем именно драйвер отдаёт
 
   it("json и jsonb приходят разобранными значениями JS", () => {
     expect(parsers?.getTypeParser(JSON_OID, "text")("[1,2]")).toStrictEqual([
-      1,
-      2,
+      1, 2,
     ]);
     expect(parsers?.getTypeParser(JSONB_OID, "text")('{"a":1}')).toStrictEqual({
       a: 1,
@@ -70,11 +69,9 @@ describe("форма входа: чем именно драйвер отдаёт
   it("text[] приходит массивом — тем же, чем и json-массив", () => {
     // В этом вся суть: по значению их не различить, различает только
     // тип колонки.
-    expect(parsers?.getTypeParser(TEXT_ARRAY_OID, "text")("{a,b}"))
-      .toStrictEqual([
-        "a",
-        "b",
-      ]);
+    expect(
+      parsers?.getTypeParser(TEXT_ARRAY_OID, "text")("{a,b}"),
+    ).toStrictEqual(["a", "b"]);
   });
 
   it("дата приходит текстом — она в списке текстовых", () => {
@@ -137,17 +134,15 @@ it("круг json: что пришло из колонки, то и уходит
     { host: "h", port: 1, database: "d", username: "u", password: "p" },
     "write",
   ).types?.getTypeParser(JSONB_OID, "text");
-  for (
-    const raw of [
-      '"привет"',
-      "123",
-      "true",
-      '{"a":1}',
-      '["a","b"]',
-      '"{\\"вложенный\\":1}"',
-      '[",,,Настройки отчета",null,3]',
-    ]
-  ) {
+  for (const raw of [
+    '"привет"',
+    "123",
+    "true",
+    '{"a":1}',
+    '["a","b"]',
+    '"{\\"вложенный\\":1}"',
+    '[",,,Настройки отчета",null,3]',
+  ]) {
     expect(paramOf(parse?.(raw), JSONB_OID), raw).toStrictEqual(raw);
   }
 });
@@ -157,7 +152,10 @@ describe("вставка: значения уходят параметрами, 
     const [statement] = insertsOf(
       "wb_tokens",
       ["client_id", "name"],
-      [[5175, "первый"], [5175, null]],
+      [
+        [5175, "первый"],
+        [5175, null],
+      ],
       [23, TEXT_OID],
     );
     expect(statement.sql).toStrictEqual(
@@ -180,7 +178,12 @@ describe("вставка: значения уходят параметрами, 
     const [statement] = insertsOf(
       "spreadsheets_sheets_values",
       ["values", "tags"],
-      [[[",,,Настройки", "for_graph"], ["a", "b"]]],
+      [
+        [
+          [",,,Настройки", "for_graph"],
+          ["a", "b"],
+        ],
+      ],
       [JSONB_OID, TEXT_ARRAY_OID],
     );
     expect(statement.params).toStrictEqual([
@@ -243,7 +246,10 @@ describe("операторы таблицы: DELETE, затем вставка �
     kind: "rows",
     columns: ["client_id", "name"],
     oids: [23, TEXT_OID],
-    rows: [[5175, "первый"], [5175, null]],
+    rows: [
+      [5175, "первый"],
+      [5175, null],
+    ],
   };
 
   it("оба оператора, счётчик и метка таблицы", async () => {
@@ -271,11 +277,10 @@ describe("операторы таблицы: DELETE, затем вставка �
 
   it("пустая таблица — только DELETE", async () => {
     const empty: SqlOutcome = { kind: "rows", columns: ["a"], rows: [] };
-    const prepared = await tableStatements(
-      reader(empty),
-      "clients",
-      { text: "id = $1", params: [1] },
-    );
+    const prepared = await tableStatements(reader(empty), "clients", {
+      text: "id = $1",
+      params: [1],
+    });
     expect(prepared.statements.length).toBe(1);
     expect(prepared.count.rows).toBe(0);
   });

@@ -22,9 +22,10 @@ import {
 const argsSchema = z.object({
   ...commonArgs,
   "nm-id": z.string().describe("товар WB: nmId, обязателен"),
-  date: z.string().optional().describe(
-    "дата расчёта; по умолчанию сегодняшняя, эмитится всегда",
-  ),
+  date: z
+    .string()
+    .optional()
+    .describe("дата расчёта; по умолчанию сегодняшняя, эмитится всегда"),
 });
 
 export const wbUnitCalcCommand = defineCommand({

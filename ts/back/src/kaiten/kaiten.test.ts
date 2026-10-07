@@ -267,10 +267,12 @@ describe("тело успешного ответа не той формы — о
     });
     try {
       const warmup = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS);
-      expect(warmup.skips).toStrictEqual([{
-        boardId: 502,
-        reason: "kaiten GET /boards/502/lanes: ответ не JSON-массив",
-      }]);
+      expect(warmup.skips).toStrictEqual([
+        {
+          boardId: 502,
+          reason: "kaiten GET /boards/502/lanes: ответ не JSON-массив",
+        },
+      ]);
       // Обход не оборван: здоровая доска собрана.
       expect(warmup.lanes?.boardIds).toStrictEqual([501]);
     } finally {
@@ -397,8 +399,9 @@ it("ошибка всех досок в части 2: lanes: null", async () => 
     const warmup = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS);
     expect(warmup.lanes).toStrictEqual(null);
     expect(warmup.skips.length).toBe(2);
-    expect(warmup.skips.map((s) => s.boardId).sort((a, b) => a - b))
-      .toStrictEqual([501, 502]);
+    expect(
+      warmup.skips.map((s) => s.boardId).sort((a, b) => a - b),
+    ).toStrictEqual([501, 502]);
     expect(warmup.columns !== null).toBe(true);
   } finally {
     await stop();
@@ -573,8 +576,8 @@ it("бюджет шага исчерпан: доски пропущены, ча�
 
 describe("API-ключ не появляется в текстах ошибок", () => {
   it("ошибка части 1 (не-2xx)", async () => {
-    const { baseUrl, stop } = await serveFetch(() =>
-      new Response("nope", { status: 500 })
+    const { baseUrl, stop } = await serveFetch(
+      () => new Response("nope", { status: 500 }),
     );
     try {
       const err = await rejected(
@@ -582,9 +585,8 @@ describe("API-ключ не появляется в текстах ошибок"
         KaitenError,
       );
       expect(err.message.includes(API_KEY)).toBe(false);
-      const causeText = err.cause instanceof Error
-        ? err.cause.message
-        : String(err.cause);
+      const causeText =
+        err.cause instanceof Error ? err.cause.message : String(err.cause);
       expect(causeText.includes(API_KEY)).toBe(false);
       expect((err.stack ?? "").includes(API_KEY)).toBe(false);
     } finally {
@@ -629,11 +631,14 @@ describe("API-ключ не появляется в текстах ошибок"
       return new Response("[]");
     });
     try {
-      const err = await rejected(() =>
-        collectKaitenWarmup(accessTo(baseUrl), {
-          timeouts: { headersTimeoutMs: 20, totalTimeoutMs: 200 },
-          budgetMs: AMPLE_LIMITS.budgetMs,
-        }), KaitenError);
+      const err = await rejected(
+        () =>
+          collectKaitenWarmup(accessTo(baseUrl), {
+            timeouts: { headersTimeoutMs: 20, totalTimeoutMs: 200 },
+            budgetMs: AMPLE_LIMITS.budgetMs,
+          }),
+        KaitenError,
+      );
       expect(err.message.includes(API_KEY)).toBe(false);
     } finally {
       gate.resolve();
@@ -710,12 +715,16 @@ it("writeKaitenWarmup: полная замена spaces/boards/roles", async () 
   await withBootstrappedDb((dbPath) => {
     using db = openCacheDb(dbPath);
 
-    writeKaitenWarmup(db, {
-      ...EMPTY_WARMUP,
-      spaces: [{ id: 101, title: "Разработка", archived: false }],
-      boards: [{ id: 501, spaceId: 101, title: "Основная доска" }],
-      roles: [{ id: 11, name: "Разработка" }],
-    }, 1_000);
+    writeKaitenWarmup(
+      db,
+      {
+        ...EMPTY_WARMUP,
+        spaces: [{ id: 101, title: "Разработка", archived: false }],
+        boards: [{ id: 501, spaceId: 101, title: "Основная доска" }],
+        roles: [{ id: 11, name: "Разработка" }],
+      },
+      1_000,
+    );
 
     expect(
       plainRows(
@@ -723,37 +732,44 @@ it("writeKaitenWarmup: полная замена spaces/boards/roles", async () 
           "SELECT id, title, archived, discovered_at FROM kaiten_spaces",
         ),
       ),
-    ).toStrictEqual([{
-      id: 101,
-      title: "Разработка",
-      archived: 0,
-      discovered_at: 1_000,
-    }]);
+    ).toStrictEqual([
+      {
+        id: 101,
+        title: "Разработка",
+        archived: 0,
+        discovered_at: 1_000,
+      },
+    ]);
     expect(
       plainRows(
         db.query(
           "SELECT id, space_id, title, discovered_at FROM kaiten_boards",
         ),
       ),
-    ).toStrictEqual([{
-      id: 501,
-      space_id: 101,
-      title: "Основная доска",
-      discovered_at: 1_000,
-    }]);
+    ).toStrictEqual([
+      {
+        id: 501,
+        space_id: 101,
+        title: "Основная доска",
+        discovered_at: 1_000,
+      },
+    ]);
     expect(
       plainRows(db.query("SELECT id, name, discovered_at FROM kaiten_roles")),
-    )
-      .toStrictEqual([{ id: 11, name: "Разработка", discovered_at: 1_000 }]);
+    ).toStrictEqual([{ id: 11, name: "Разработка", discovered_at: 1_000 }]);
 
     // Второй вызов с другим набором — старые строки не остаются
     // (полная замена, kaiten-http.md, «Побочные эффекты»).
-    writeKaitenWarmup(db, {
-      ...EMPTY_WARMUP,
-      spaces: [{ id: 102, title: "Архив", archived: true }],
-      boards: [],
-      roles: [],
-    }, 2_000);
+    writeKaitenWarmup(
+      db,
+      {
+        ...EMPTY_WARMUP,
+        spaces: [{ id: 102, title: "Архив", archived: true }],
+        boards: [],
+        roles: [],
+      },
+      2_000,
+    );
 
     expect(
       plainRows(
@@ -761,12 +777,14 @@ it("writeKaitenWarmup: полная замена spaces/boards/roles", async () 
           "SELECT id, title, archived, discovered_at FROM kaiten_spaces",
         ),
       ),
-    ).toStrictEqual([{
-      id: 102,
-      title: "Архив",
-      archived: 1,
-      discovered_at: 2_000,
-    }]);
+    ).toStrictEqual([
+      {
+        id: 102,
+        title: "Архив",
+        archived: 1,
+        discovered_at: 2_000,
+      },
+    ]);
     expect(db.query("SELECT id FROM kaiten_boards")).toStrictEqual([]);
     expect(db.query("SELECT id FROM kaiten_roles")).toStrictEqual([]);
   });
@@ -793,17 +811,25 @@ it("writeKaitenWarmup: scoped-замена дорожек — обойдённа
       500,
     );
 
-    writeKaitenWarmup(db, {
-      ...EMPTY_WARMUP,
-      lanes: {
-        boardIds: [501],
-        rows: [{ id: 9002, boardId: 501, title: "новая дорожка 501" }],
+    writeKaitenWarmup(
+      db,
+      {
+        ...EMPTY_WARMUP,
+        lanes: {
+          boardIds: [501],
+          rows: [{ id: 9002, boardId: 501, title: "новая дорожка 501" }],
+        },
       },
-    }, 2_000);
+      2_000,
+    );
 
-    expect(plainRows(db.query(
-      "SELECT id, board_id, title, discovered_at FROM kaiten_lanes ORDER BY board_id, id",
-    ))).toStrictEqual([
+    expect(
+      plainRows(
+        db.query(
+          "SELECT id, board_id, title, discovered_at FROM kaiten_lanes ORDER BY board_id, id",
+        ),
+      ),
+    ).toStrictEqual([
       {
         id: 9002,
         board_id: 501,
@@ -838,11 +864,13 @@ it("writeKaitenWarmup: lanes: null не трогает таблицу вовсе
       plainRows(
         db.query("SELECT id, board_id, title, discovered_at FROM kaiten_lanes"),
       ),
-    ).toStrictEqual([{
-      id: 9001,
-      board_id: 501,
-      title: "дорожка до прогрева",
-      discovered_at: 500,
-    }]);
+    ).toStrictEqual([
+      {
+        id: 9001,
+        board_id: 501,
+        title: "дорожка до прогрева",
+        discovered_at: 500,
+      },
+    ]);
   });
 });

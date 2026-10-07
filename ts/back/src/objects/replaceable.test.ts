@@ -48,10 +48,7 @@ async function writeModule(
   answer: string,
 ): Promise<URL> {
   const path = `${dir}/${name}`;
-  await writeFile(
-    path,
-    `export default () => ${JSON.stringify(answer)};\n`,
-  );
+  await writeFile(path, `export default () => ${JSON.stringify(answer)};\n`);
   return new URL(`file://${path}`);
 }
 

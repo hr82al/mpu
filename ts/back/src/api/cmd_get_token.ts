@@ -12,12 +12,14 @@ import { NoAccessTokenError, openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";
 
 const argsSchema = z.object({
-  email: z.string().optional().describe(
-    "login email; по умолчанию TOKEN_EMAIL из env-файла",
-  ),
-  password: z.string().optional().describe(
-    "пароль; по умолчанию TOKEN_PASSWORD из env-файла",
-  ),
+  email: z
+    .string()
+    .optional()
+    .describe("login email; по умолчанию TOKEN_EMAIL из env-файла"),
+  password: z
+    .string()
+    .optional()
+    .describe("пароль; по умолчанию TOKEN_PASSWORD из env-файла"),
 });
 
 const resultSchema = z.object({

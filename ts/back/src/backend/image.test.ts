@@ -27,8 +27,8 @@ const DEFINE = [
 /** Узел метода `kiten every` в снимке на диске; нет — `undefined`. */
 async function snapshotNode(back: TestBack): Promise<unknown> {
   const snapshot = JSON.parse(await readFile(back.snapshotFile, "utf8"));
-  return snapshot.nodes.find((node: { path: string[] }) =>
-    node.path.join(" ") === "kiten every"
+  return snapshot.nodes.find(
+    (node: { path: string[] }) => node.path.join(" ") === "kiten every",
   )?.image;
 }
 
@@ -37,7 +37,7 @@ it("define: и forget: переписывают снимок дерева", () =
     expect(await snapshotNode(back)).toStrictEqual(undefined);
     const defined = await line(back, "/line", DEFINE, ["y"]);
     expect(defined.at(-1)).toStrictEqual({ exit: 0 });
-    const node = await snapshotNode(back) as Record<string, unknown>;
+    const node = (await snapshotNode(back)) as Record<string, unknown>;
     expect([node.author, node.source]).toStrictEqual([
       "human",
       "do version done",
@@ -61,6 +61,6 @@ it("автор метода — канал двери: агент", () =>
   withBack(async (back) => {
     const defined = await line(back, "/agent/line", DEFINE, ["y"]);
     expect(defined.at(-1)).toStrictEqual({ exit: 0 });
-    const node = await snapshotNode(back) as Record<string, unknown>;
+    const node = (await snapshotNode(back)) as Record<string, unknown>;
     expect(node.author).toBe("agent");
   }));

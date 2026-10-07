@@ -44,7 +44,7 @@ export function buildTree(
   for (const ruling of rulings) {
     if (ruling.path.length === 0) continue;
     const parent = keyOf(ruling.path.slice(0, -1));
-    byParent.set(parent, [...byParent.get(parent) ?? [], ruling]);
+    byParent.set(parent, [...(byParent.get(parent) ?? []), ruling]);
   }
   const build = (ruling: NodeRuling): RuleNode => {
     const key = keyOf(ruling.path);

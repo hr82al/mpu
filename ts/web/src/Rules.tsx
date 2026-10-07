@@ -40,14 +40,20 @@ export function NoSession() {
   );
 }
 
-export function Unreachable(
-  { base, retry }: { base: string; retry: () => void },
-) {
+export function Unreachable({
+  base,
+  retry,
+}: {
+  base: string;
+  retry: () => void;
+}) {
   return (
     <main>
       <h1>mpu</h1>
       <p role="alert">mpu-back недоступен на {base}</p>
-      <button type="button" onClick={retry}>Повторить</button>
+      <button type="button" onClick={retry}>
+        Повторить
+      </button>
     </main>
   );
 }
@@ -206,9 +212,8 @@ export function Rules() {
   };
   const shown = filterTree(tree, search);
   const said = told(change.last);
-  const protocol = snapshot.data?.kind === "loaded"
-    ? snapshot.data.value.protocol
-    : [];
+  const protocol =
+    snapshot.data?.kind === "loaded" ? snapshot.data.value.protocol : [];
   return (
     <main>
       <h1>Правила подтверждения</h1>

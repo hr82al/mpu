@@ -17,29 +17,35 @@ import { sendMessage } from "./send.ts";
 import { renderSent } from "./send_view.ts";
 
 const argsSchema = z.object({
-  message: z.string({ error: "нужен text: текст сообщения либо '-'" })
+  message: z
+    .string({ error: "нужен text: текст сообщения либо '-'" })
     .describe("текст сообщения; '-' — весь stdin"),
-  chat: z.string().optional().describe(
-    "адресат: me, id, @username, ссылка t.me, телефон или название чата",
-  ),
-  md: z.boolean().default(false).describe(
-    "текст и подпись размечены Markdown",
-  ),
-  file: z.array(z.string()).default([]).describe(
-    "вложение: путь к файлу; флаг повторяется",
-  ),
+  chat: z
+    .string()
+    .optional()
+    .describe(
+      "адресат: me, id, @username, ссылка t.me, телефон или название чата",
+    ),
+  md: z.boolean().default(false).describe("текст и подпись размечены Markdown"),
+  file: z
+    .array(z.string())
+    .default([])
+    .describe("вложение: путь к файлу; флаг повторяется"),
 });
 
 const resultSchema = z.object({
-  id: z.number().describe(
-    "номер отправленного сообщения; при альбоме — последнего из них",
-  ),
-  chat_id: z.number().describe(
-    "маркированный id чата, в который легло сообщение",
-  ),
-  date: z.string().nullable().describe(
-    "время отправки по данным Telegram, ISO-8601; не сообщено — null",
-  ),
+  id: z
+    .number()
+    .describe("номер отправленного сообщения; при альбоме — последнего из них"),
+  chat_id: z
+    .number()
+    .describe("маркированный id чата, в который легло сообщение"),
+  date: z
+    .string()
+    .nullable()
+    .describe(
+      "время отправки по данным Telegram, ISO-8601; не сообщено — null",
+    ),
 });
 
 /** Результат вызова: ключи и их порядок — контракт вывода. */

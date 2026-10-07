@@ -18,10 +18,12 @@ import { filePicture } from "../picture/mod.ts";
 import { type PeerResolver, resolveTarget } from "./resolve.ts";
 
 const argsSchema = z.object({
-  chat: z.string().describe(
-    "чат сообщения: chat_id из выдачи telegram search, @username, ссылка " +
-      "t.me, название или me",
-  ),
+  chat: z
+    .string()
+    .describe(
+      "чат сообщения: chat_id из выдачи telegram search, @username, ссылка " +
+        "t.me, название или me",
+    ),
   // Строкой, а не числом: отказ — текстом спеки, с исходным значением.
   id: z.string().describe("id сообщения внутри чата, целое > 0"),
 });
@@ -61,11 +63,13 @@ export async function runTelegramFile(
 ): Promise<SavedFile> {
   const id = messageId(args.id);
   const peer = parsePeer(args.chat);
-  const open = options.openSession ?? (async () => {
-    const config = telegramConfig(io.envFile);
-    const { openSession } = await import("./session.ts");
-    return await openSession(config);
-  });
+  const open =
+    options.openSession ??
+    (async () => {
+      const config = telegramConfig(io.envFile);
+      const { openSession } = await import("./session.ts");
+      return await openSession(config);
+    });
   const session = await open();
   try {
     const chat = await resolveTarget(session, args.chat, peer, "чат");
@@ -93,8 +97,8 @@ function messageId(raw: string): number {
  * схемы результата: рендер получает результат, разобранный ею.
  */
 function renderSaved(saved: SavedFile): string {
-  const pairs = Object.entries(saved).map(([key, value]) =>
-    `${JSON.stringify(key)}: ${JSON.stringify(value)}`
+  const pairs = Object.entries(saved).map(
+    ([key, value]) => `${JSON.stringify(key)}: ${JSON.stringify(value)}`,
   );
   return `{${pairs.join(", ")}}\n`;
 }

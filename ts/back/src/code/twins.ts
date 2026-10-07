@@ -116,8 +116,8 @@ export async function collectTwins(
   const exact = rest.filter((body) => body.text === query.text);
   // Тело из «побайтово» в «похоже» не повторяется: нормализация их тоже
   // сближает, и без этого вычитания одно совпадение читалось бы как два.
-  const similar = rest.filter((body) =>
-    body.text !== query.text && body.normalized === query.normalized
+  const similar = rest.filter(
+    (body) => body.text !== query.text && body.normalized === query.normalized,
   );
   return {
     section: {
@@ -135,7 +135,10 @@ export async function collectTwins(
       // который держится на счётчике, а не на самом разделе, — не
       // инвариант, и при малом пределе запрошенное выпадало из
       // собственного ответа.
-      exact: withQuery(query, section(exact, limit - 1, () => null)),
+      exact: withQuery(
+        query,
+        section(exact, limit - 1, () => null),
+      ),
       similar: section(similar, limit, (body) => difference(query, body)),
       unresolved: unresolvedOf(analyzer, limit),
     },

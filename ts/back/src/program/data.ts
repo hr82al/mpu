@@ -63,7 +63,10 @@ function named(selector: string, args: readonly Value[]): Named {
 
 /** Селектор данных 162 для ключей по порядку строки. */
 function dataSelector(keys: readonly string[]): string {
-  return [...keys].sort().map((key) => `${key}:`).join("");
+  return [...keys]
+    .sort()
+    .map((key) => `${key}:`)
+    .join("");
 }
 
 /** Сколько первых ключей понимают данные 162 одним сообщением. */
@@ -90,7 +93,10 @@ export function fromData(data: Data): Value {
   const json = data.data();
   if (json === null || json === undefined) return NIL;
   if (Array.isArray(json)) {
-    return new Items(data, json.map((item) => fromData(dataOf(item))));
+    return new Items(
+      data,
+      json.map((item) => fromData(dataOf(item))),
+    );
   }
   if (typeof json === "object") {
     return new Fields(data, Object.values(json));

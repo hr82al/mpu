@@ -92,17 +92,24 @@ it("код ядра не 0 — «сервер mpu не отвечает» с п�
 
 it("S26: stdin [] — вход не разобран, код 0, в чат ничего", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    expect(
-      await viaClient(WORDS, { base: back.url, main: back.token, stdin: "[]" }),
-    ).toStrictEqual({
-      code: 0,
-      stdout: "",
-      stderr: PERMISSION_REQUEST.undecided(
-        "вход не разобран: stdin — не JSON-объект",
-      ),
-    });
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      expect(
+        await viaClient(WORDS, {
+          base: back.url,
+          main: back.token,
+          stdin: "[]",
+        }),
+      ).toStrictEqual({
+        code: 0,
+        stdout: "",
+        stderr: PERMISSION_REQUEST.undecided(
+          "вход не разобран: stdin — не JSON-объект",
+        ),
+      });
+    },
+    { questions: fakeQuestions(bot) },
+  );
   expect(bot.calls).toStrictEqual([]);
 });
 
@@ -123,21 +130,24 @@ it("S16: бот не настроен — без решения, код 0", () =
 
 it("S2 через клиент: «Yes» из чата — решение в stdout, код 0", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const seen = viaClient(WORDS, {
-      base: back.url,
-      main: back.token,
-      stdin: await bashPayload(),
-    });
-    await bot.called(1);
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
-    expect(await seen).toStrictEqual({
-      code: 0,
-      stdout:
-        '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}\n',
-      stderr: "",
-    });
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const seen = viaClient(WORDS, {
+        base: back.url,
+        main: back.token,
+        stdin: await bashPayload(),
+      });
+      await bot.called(1);
+      bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+      expect(await seen).toStrictEqual({
+        code: 0,
+        stdout:
+          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}\n',
+        stderr: "",
+      });
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("S23: справка — однострока, код 0", () =>

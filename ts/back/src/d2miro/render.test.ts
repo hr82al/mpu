@@ -46,9 +46,10 @@ function stand(
     {
       fetch: (url, init) => {
         const path = url.replace(/^.*\/boards\/[^/]+/, "");
-        const body = init.body === undefined
-          ? undefined
-          : JSON.parse(init.body) as Record<string, unknown>;
+        const body =
+          init.body === undefined
+            ? undefined
+            : (JSON.parse(init.body) as Record<string, unknown>);
         calls.push({ method: init.method, path, body });
         if (init.method === "GET" && path.includes("parent_item_id")) {
           return json({ data: opts.children ?? [], cursor: "" });
@@ -57,9 +58,7 @@ function stand(
           return json({ data: opts.frames ?? [], cursor: "" });
         }
         if (init.method === "DELETE") {
-          return Promise.resolve(
-            new Response(null, { status: 204 }),
-          );
+          return Promise.resolve(new Response(null, { status: 204 }));
         }
         if (opts.failText === true && path === "/texts") {
           return Promise.resolve(
@@ -69,7 +68,8 @@ function stand(
         const content = (body?.data as { content?: string } | undefined)
           ?.content;
         if (
-          opts.failShape !== undefined && content !== undefined &&
+          opts.failShape !== undefined &&
+          content !== undefined &&
           content.includes(opts.failShape)
         ) {
           return Promise.resolve(
@@ -92,9 +92,7 @@ function stand(
 }
 
 function json(value: unknown, status = 200): Promise<Response> {
-  return Promise.resolve(
-    new Response(JSON.stringify(value), { status }),
-  );
+  return Promise.resolve(new Response(JSON.stringify(value), { status }));
 }
 
 it("на пустой доске: фрейм, шейпы в порядке имён, коннекторы", async () => {
@@ -115,11 +113,15 @@ it("на пустой доске: фрейм, шейпы в порядке им�
   expect(shapeNames[3]).toContain("Сверка со стендом");
   // Числа — из ответов службы: пять шейпов, один текст, четыре
   // коннектора (пятое ребро ведёт в markdown-блок, шейпа у него нет).
-  expect([counts.shapes, counts.texts, counts.connectors, counts.skipped])
-    .toStrictEqual([5, 1, 4, 1]);
+  expect([
+    counts.shapes,
+    counts.texts,
+    counts.connectors,
+    counts.skipped,
+  ]).toStrictEqual([5, 1, 4, 1]);
   expect(
     progress.some((line) =>
-      line.startsWith("[skip] edge recalc.report -> card (no shape:")
+      line.startsWith("[skip] edge recalc.report -> card (no shape:"),
     ),
     progress.join("\n"),
   ).toBe(true);
@@ -134,13 +136,15 @@ it("повторный рендер: дети удаляются раньше ф
   // свойство: сперва каждый ребёнок, потом фрейм.
   const plan = await samplePlan("прежний");
   const board = stand({
-    frames: [{
-      id: "f1",
-      type: "frame",
-      data: { title: "прежний" },
-      position: { x: 10, y: 20 },
-      geometry: { width: 100, height: 100 },
-    }],
+    frames: [
+      {
+        id: "f1",
+        type: "frame",
+        data: { title: "прежний" },
+        position: { x: 10, y: 20 },
+        geometry: { width: 100, height: 100 },
+      },
+    ],
     children: [
       { id: "c1", type: "shape" },
       { id: "c2", type: "shape" },

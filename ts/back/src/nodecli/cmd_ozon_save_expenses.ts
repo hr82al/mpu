@@ -68,9 +68,7 @@ Exit: код inner-команды при выполнении; 0 при печа
       {
         service: "ozonUnitCalculatedData",
         method: "saveExpenses",
-        flags: () => [
-          ...periodFlags(args),
-        ],
+        flags: () => [...periodFlags(args)],
       },
       commonArgsOf(args),
       io,

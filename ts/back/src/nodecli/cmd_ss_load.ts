@@ -18,13 +18,15 @@ import {
 const argsSchema = z.object({
   ...commonArgs,
   dataset: z.string().describe("датасет: обязателен"),
-  "spreadsheet-id": z.string().optional().describe(
-    "id таблицы; без него берётся из кандидатов селектора",
-  ),
+  "spreadsheet-id": z
+    .string()
+    .optional()
+    .describe("id таблицы; без него берётся из кандидатов селектора"),
   "sheet-name": z.string().optional().describe("лист таблицы"),
-  forced: z.boolean().default(false).describe(
-    "грузить принудительно; голый флаг без значения",
-  ),
+  forced: z
+    .boolean()
+    .default(false)
+    .describe("грузить принудительно; голый флаг без значения"),
   logs: z.string().default("info").describe("уровень логов загрузки"),
 });
 
@@ -81,7 +83,8 @@ Exit: код inner-команды при выполнении; 0 при печа
           { name: "client-id", value: context.clientId },
           {
             name: "spreadsheet-id",
-            value: args["spreadsheet-id"] ??
+            value:
+              args["spreadsheet-id"] ??
               context.pick("--spreadsheet-id", (c) => c.spreadsheetId),
           },
           { name: "sheet-name", value: args["sheet-name"] },

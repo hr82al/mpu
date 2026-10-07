@@ -223,37 +223,35 @@ it("R4-1: ожидание права с окном — через 3 с сним
 });
 
 describe("R4-2, R4-3: AskUserQuestion — пункты с описанием; форма MCP — кнопки только клавиши", () => {
-  it(
-    "AskUserQuestion",
-    () =>
-      withNotify(async ({ bot, clock, tmux, notify }) => {
-        tmux.screen = await screen("screen-ask-user-question.txt");
-        await notify("permission_prompt");
-        await placed(clock, bot);
-        expect(bot.calls[0].text.split("\n").slice(1)).toStrictEqual([
-          "☐ Цвет",
-          "Какой цвет?",
-          "1. Красный — Красный цвет",
-          "2. Синий — Синий цвет",
-          "3. Type something.",
-          "4. Chat about this",
-        ]);
-        expect(bot.calls[0].buttons.slice(0, 4)).toStrictEqual([
-          ["1. Красный"],
-          ["2. Синий"],
-          ["3. Type something."],
-          ["4. Chat about this"],
-        ]);
-      }),
-  );
+  it("AskUserQuestion", () =>
+    withNotify(async ({ bot, clock, tmux, notify }) => {
+      tmux.screen = await screen("screen-ask-user-question.txt");
+      await notify("permission_prompt");
+      await placed(clock, bot);
+      expect(bot.calls[0].text.split("\n").slice(1)).toStrictEqual([
+        "☐ Цвет",
+        "Какой цвет?",
+        "1. Красный — Красный цвет",
+        "2. Синий — Синий цвет",
+        "3. Type something.",
+        "4. Chat about this",
+      ]);
+      expect(bot.calls[0].buttons.slice(0, 4)).toStrictEqual([
+        ["1. Красный"],
+        ["2. Синий"],
+        ["3. Type something."],
+        ["4. Chat about this"],
+      ]);
+    }));
   it("форма MCP", () =>
     withNotify(async ({ bot, clock, tmux, notify }) => {
       tmux.screen = await screen("screen-elicitation-fields.txt");
       await notify("permission_prompt");
       await placed(clock, bot);
-      expect(bot.calls[0].buttons).toStrictEqual([["⏎", "⎋", "↑", "↓"], [
-        "весь экран",
-      ]]);
+      expect(bot.calls[0].buttons).toStrictEqual([
+        ["⏎", "⎋", "↑", "↓"],
+        ["весь экран"],
+      ]);
     }));
 });
 
@@ -264,14 +262,9 @@ it("R4-4: нажатие «2» — send-keys 2, через 1 с диалога �
     await placed(clock, bot);
     bot.deliver([pressUpdate(1, 111, "r1:1:0:1")]);
     await clock.paused(SETTLE_MS);
-    expect(tmux.sent).toStrictEqual([[
-      "-S",
-      "/tmp/tmux-1000/default",
-      "send-keys",
-      "-t",
-      "%9",
-      "2",
-    ]]);
+    expect(tmux.sent).toStrictEqual([
+      ["-S", "/tmp/tmux-1000/default", "send-keys", "-t", "%9", "2"],
+    ]);
     tmux.screen = "● Файл создан.\n";
     clock.fire(SETTLE_MS);
     await bot.called(3);
@@ -316,45 +309,42 @@ it("R4-6: tmux не отвечает — «⌛ окно недоступно»",
 });
 
 describe("R4-7, R4-8: у сессии есть вопрос в ряду — снимка нет", () => {
-  for (
-    const [name, type, seat] of [
-      [
-        "право (R1)",
-        "permission_prompt",
-        (
-          sessions: Sessions,
-          ask: () => ReturnType<ReturnType<typeof fakeQuestions>["ask"]>,
-        ) => sessions.of(SOCKET).urgent(ask),
-      ],
-      [
-        "«ждёт ввода» (R2)",
-        "trust_prompt",
-        (
-          sessions: Sessions,
-          ask: () => ReturnType<ReturnType<typeof fakeQuestions>["ask"]>,
-        ) => sessions.of(SOCKET).replace(ask),
-      ],
-    ] as const
-  ) {
+  for (const [name, type, seat] of [
+    [
+      "право (R1)",
+      "permission_prompt",
+      (
+        sessions: Sessions,
+        ask: () => ReturnType<ReturnType<typeof fakeQuestions>["ask"]>,
+      ) => sessions.of(SOCKET).urgent(ask),
+    ],
+    [
+      "«ждёт ввода» (R2)",
+      "trust_prompt",
+      (
+        sessions: Sessions,
+        ask: () => ReturnType<ReturnType<typeof fakeQuestions>["ask"]>,
+      ) => sessions.of(SOCKET).replace(ask),
+    ],
+  ] as const) {
     it(name, () =>
-      withNotify(
-        async ({ bot, clock, tmux, notify, sessions, questions }) => {
-          tmux.screen = await screen("screen-permission-bash.txt");
-          expect(await notify(type)).toStrictEqual(SILENT);
-          seat(sessions, () => questions.ask(f1()));
-          await bot.called(1);
-          await clock.paused(SETTLE_QUESTION_MS);
-          clock.fire(SETTLE_QUESTION_MS);
-          // Снимок, вставший в ряд за вопросом сессии, проявился бы
-          // правкой «ещё ждут» у её вопроса: подпись окна — и сразу
-          // решение; правки ряда дописаны остановкой службы вопросов.
-          await tmux.captioned(1);
-          await questions.stop();
-          expect(bot.calls.some((call) => call.text.includes("ещё ждут"))).toBe(
-            false,
-          );
-        },
-      ));
+      withNotify(async ({ bot, clock, tmux, notify, sessions, questions }) => {
+        tmux.screen = await screen("screen-permission-bash.txt");
+        expect(await notify(type)).toStrictEqual(SILENT);
+        seat(sessions, () => questions.ask(f1()));
+        await bot.called(1);
+        await clock.paused(SETTLE_QUESTION_MS);
+        clock.fire(SETTLE_QUESTION_MS);
+        // Снимок, вставший в ряд за вопросом сессии, проявился бы
+        // правкой «ещё ждут» у её вопроса: подпись окна — и сразу
+        // решение; правки ряда дописаны остановкой службы вопросов.
+        await tmux.captioned(1);
+        await questions.stop();
+        expect(bot.calls.some((call) => call.text.includes("ещё ждут"))).toBe(
+          false,
+        );
+      }),
+    );
   }
 });
 
@@ -368,14 +358,16 @@ it("R4-9: trust_prompt без вопроса, окно известно — сн
 });
 
 describe("R4-10, R4-11: без окна и не ожидание — строка-уведомление сразу, stdout — номер", () => {
-  for (
-    const [name, type, env] of [
-      ["ожидание без TMUX_PANE", "trust_prompt", {
+  for (const [name, type, env] of [
+    [
+      "ожидание без TMUX_PANE",
+      "trust_prompt",
+      {
         CLAUDE_CODE_MESSAGING_SOCKET: SOCKET,
-      }],
-      ["auth_success", "auth_success", ENV],
-    ] as const
-  ) {
+      },
+    ],
+    ["auth_success", "auth_success", ENV],
+  ] as const) {
     it(name, () =>
       withNotify(async ({ bot, notify }) => {
         expect(await notify(type, env)).toStrictEqual({
@@ -387,7 +379,8 @@ describe("R4-10, R4-11: без окна и не ожидание — строк�
           `Claude · ozon · ${type}\nClaude is waiting for your input`,
         );
         expect(bot.calls[0].buttons).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -425,11 +418,13 @@ it("R4-13: «весь экран» — отдельное сообщение м�
     expect(whole.method).toBe("send");
     expect(whole.buttons).toStrictEqual([]);
     expect(whole.text).toStrictEqual(tmux.screen.trimEnd());
-    expect(whole.entities).toStrictEqual([{
-      type: "pre",
-      offset: 0,
-      length: whole.text.length,
-    }]);
+    expect(whole.entities).toStrictEqual([
+      {
+        type: "pre",
+        offset: 0,
+        length: whole.text.length,
+      },
+    ]);
   });
 });
 
@@ -553,17 +548,16 @@ it("на экране нет диалога — строка-уведомлен�
 });
 
 describe("незнакомый тип и тип не задан — строка-уведомление, как прежде", () => {
-  for (
-    const [name, type, head] of [
-      ["незнакомый", "brand_new_event", "Claude · ozon · brand_new_event"],
-      ["не задан", "", "Claude · ozon · notification"],
-    ] as const
-  ) {
+  for (const [name, type, head] of [
+    ["незнакомый", "brand_new_event", "Claude · ozon · brand_new_event"],
+    ["не задан", "", "Claude · ozon · notification"],
+  ] as const) {
     it(name, () =>
       withNotify(async ({ bot, notify }) => {
         expect((await notify(type)).code).toBe(0);
         expect(bot.calls[0].text.split("\n")[0]).toStrictEqual(head);
-      }));
+      }),
+    );
   }
 });
 
@@ -611,15 +605,16 @@ it("R3d-1: elicitation_dialog (живой payload) — ни снимка, ни �
 });
 
 describe("idle_prompt (живой payload) и elicitation_response — в чат ничего, код 0", () => {
-  for (
-    const [name, over] of [
-      ["idle_prompt", {}],
-      ["elicitation_response", {
+  for (const [name, over] of [
+    ["idle_prompt", {}],
+    [
+      "elicitation_response",
+      {
         message: 'Elicitation response for server "elicitprobe": cancel',
         notification_type: "elicitation_response",
-      }],
-    ] as const
-  ) {
+      },
+    ],
+  ] as const) {
     it(name, () =>
       withNotify(async ({ bot, clock, tmux, desk }) => {
         tmux.screen = await screen("screen-permission-bash.txt");
@@ -643,7 +638,8 @@ describe("idle_prompt (живой payload) и elicitation_response — в чат
         expect(clock.asked).toStrictEqual([]);
         expect(tmux.captures).toBe(0);
         expect(bot.calls).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });
 
@@ -659,10 +655,12 @@ it("охрана окна 1: в окне bash — текст владельца 
     await bot.called(3);
     expect(tmux.sent).toStrictEqual([]);
     const said = bot.calls.slice(1).map((call) => call.text.split("\n").at(-1));
-    expect(said.toSorted()).toStrictEqual([
-      CLAUDE_LEFT,
-      "окно уже не Claude Code — ничего не отправлено",
-    ].toSorted());
+    expect(said.toSorted()).toStrictEqual(
+      [
+        CLAUDE_LEFT,
+        "окно уже не Claude Code — ничего не отправлено",
+      ].toSorted(),
+    );
   });
 });
 
@@ -708,12 +706,10 @@ it("охрана окна 4: перед показом в окне bash — сн
 });
 
 describe("охрана окна 6: transcript_path пуст или нет — снимок без названия сессии, код 0", () => {
-  for (
-    const [name, over] of [
-      ["пуст", { transcript_path: "" }],
-      ["нет", { transcript_path: undefined }],
-    ] as const
-  ) {
+  for (const [name, over] of [
+    ["пуст", { transcript_path: "" }],
+    ["нет", { transcript_path: undefined }],
+  ] as const) {
     it(name, () =>
       withNotify(async ({ bot, clock, tmux, notify }) => {
         tmux.screen = await screen("screen-permission-bash.txt");
@@ -722,7 +718,8 @@ describe("охрана окна 6: transcript_path пуст или нет — с
         );
         await placed(clock, bot);
         expect(bot.calls[0].text.split("\n")[0]).toBe("🖥 ozon — w:9 probe");
-      }));
+      }),
+    );
   }
 });
 

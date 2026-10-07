@@ -82,9 +82,7 @@ function unmarked(value: unknown): unknown {
 }
 
 const receivers = new Map<string, ReceiverDescription>(
-  Object.entries(golden.receivers).map((
-    [name, raw],
-  ) => [name, described(raw)]),
+  Object.entries(golden.receivers).map(([name, raw]) => [name, described(raw)]),
 );
 
 function receiverFor(
@@ -121,9 +119,10 @@ async function readChain(
   do {
     const step = readMessage(rest, receiverFor(names, messages.length));
     // Неявное закрытие ставит слово в начало остатка — его не считаем.
-    const left = step.rest[0] === GRAMMAR.close && rest[0] !== GRAMMAR.close
-      ? step.rest.length - 1
-      : step.rest.length;
+    const left =
+      step.rest[0] === GRAMMAR.close && rest[0] !== GRAMMAR.close
+        ? step.rest.length - 1
+        : step.rest.length;
     assert(
       rest.length === 0 || left < rest.length,
       `шаг ${messages.length} не забрал ни одного слова`,

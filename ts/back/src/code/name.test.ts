@@ -167,8 +167,10 @@ it("тёзки с разными типами возврата помечают�
       mark: () => Promise.resolve({ repo: "r", state: { kind: "out-of-git" } }),
     };
     const text = await name(repo, "span", "r");
-    expect(text.includes("типы возврата: number, string — различаются"), text)
-      .toBe(true);
+    expect(
+      text.includes("типы возврата: number, string — различаются"),
+      text,
+    ).toBe(true);
   } finally {
     await rm(temp, { recursive: true });
   }
@@ -284,7 +286,10 @@ it("два репозитория — два раздела, разделённ�
     const result = await runName(
       { name: "shared", in: undefined, limit: 200 },
       { cwd: () => first.root },
-      [{ ...first, name: "one" }, { ...second, name: "two" }],
+      [
+        { ...first, name: "one" },
+        { ...second, name: "two" },
+      ],
     );
     const text = renderName(result);
     // Разделы не смешиваются и не слипаются: между ними ровно одна
@@ -324,63 +329,66 @@ describe("отказ одного репозитория не отменяет �
   let working: Repo;
   let result: {
     name: string;
-    sections: ({
-      kind: "answer";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      guarantee: "types" | "text";
-      declarations: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          name: string;
-          signature: string;
-          scope:
-            | "entry"
-            | "module-only"
-            | "no-entry"
-            | "entry-unparsed"
-            | "entry-not-object"
-            | "private";
-        }[];
-      };
-      returnTypes: string[];
-      neighbours: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          name: string;
-          signature: string;
-          scope:
-            | "entry"
-            | "module-only"
-            | "no-entry"
-            | "entry-unparsed"
-            | "entry-not-object"
-            | "private";
-        }[];
-      } | null;
-      unresolved: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          specifier: string;
-          reason: string;
-        }[];
-      };
-    } | {
-      kind: "refused";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      refusal: string;
-    })[];
+    sections: (
+      | {
+          kind: "answer";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          guarantee: "types" | "text";
+          declarations: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              name: string;
+              signature: string;
+              scope:
+                | "entry"
+                | "module-only"
+                | "no-entry"
+                | "entry-unparsed"
+                | "entry-not-object"
+                | "private";
+            }[];
+          };
+          returnTypes: string[];
+          neighbours: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              name: string;
+              signature: string;
+              scope:
+                | "entry"
+                | "module-only"
+                | "no-entry"
+                | "entry-unparsed"
+                | "entry-not-object"
+                | "private";
+            }[];
+          } | null;
+          unresolved: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              specifier: string;
+              reason: string;
+            }[];
+          };
+        }
+      | {
+          kind: "refused";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          refusal: string;
+        }
+    )[];
   };
   let text: string;
   beforeAll(async () => {
@@ -405,8 +413,10 @@ describe("отказ одного репозитория не отменяет �
     // У отказавшего раздела ни гарантии, ни перечней нет по типу:
     // состояния «отказ и при этом перечень» не существует.
     expect(result.sections[0].kind, text).toBe("refused");
-    expect(text.includes("  отказ: конфигурация проекта tsconfig.json"), text)
-      .toBe(true);
+    expect(
+      text.includes("  отказ: конфигурация проекта tsconfig.json"),
+      text,
+    ).toBe(true);
   });
 
   it("соседний раздел ответил", () => {
@@ -447,63 +457,66 @@ describe("репозиторий на чистом JS не обнуляет от
   let working: Repo;
   let result: {
     name: string;
-    sections: ({
-      kind: "answer";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      guarantee: "types" | "text";
-      declarations: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          name: string;
-          signature: string;
-          scope:
-            | "entry"
-            | "module-only"
-            | "no-entry"
-            | "entry-unparsed"
-            | "entry-not-object"
-            | "private";
-        }[];
-      };
-      returnTypes: string[];
-      neighbours: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          name: string;
-          signature: string;
-          scope:
-            | "entry"
-            | "module-only"
-            | "no-entry"
-            | "entry-unparsed"
-            | "entry-not-object"
-            | "private";
-        }[];
-      } | null;
-      unresolved: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          specifier: string;
-          reason: string;
-        }[];
-      };
-    } | {
-      kind: "refused";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      refusal: string;
-    })[];
+    sections: (
+      | {
+          kind: "answer";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          guarantee: "types" | "text";
+          declarations: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              name: string;
+              signature: string;
+              scope:
+                | "entry"
+                | "module-only"
+                | "no-entry"
+                | "entry-unparsed"
+                | "entry-not-object"
+                | "private";
+            }[];
+          };
+          returnTypes: string[];
+          neighbours: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              name: string;
+              signature: string;
+              scope:
+                | "entry"
+                | "module-only"
+                | "no-entry"
+                | "entry-unparsed"
+                | "entry-not-object"
+                | "private";
+            }[];
+          } | null;
+          unresolved: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              specifier: string;
+              reason: string;
+            }[];
+          };
+        }
+      | {
+          kind: "refused";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          refusal: string;
+        }
+    )[];
   };
   let text: string;
   beforeAll(async () => {
@@ -575,12 +588,15 @@ it("ошибка ввода в окне решается раньше отказ
       mark: () =>
         Promise.resolve({ repo: "plain", state: { kind: "out-of-git" } }),
     };
-    const err = await rejected(() =>
-      runName(
-        { name: "alpha", in: "plain:нет-такого", limit: 200 },
-        { cwd: () => root },
-        [repo],
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runName(
+          { name: "alpha", in: "plain:нет-такого", limit: 200 },
+          { cwd: () => root },
+          [repo],
+        ),
+      UsageError,
+    );
     expect(err.message).toBe("каталога 'нет-такого' нет в plain на вне git");
   } finally {
     await rm(temp, { recursive: true });
@@ -595,12 +611,15 @@ it("окно проверяется и там, где программа не с
     // проверка каталога внутри сборки раздела, этот вход давал бы exit
     // 1 — «спроси в другом месте» вместо «такого каталога нет».
     const repo = await openBrokenFixture(temp);
-    const err = await rejected(() =>
-      runName(
-        { name: "alpha", in: "broken-fixture:нет-такого", limit: 200 },
-        { cwd: () => repo.root },
-        [repo],
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runName(
+          { name: "alpha", in: "broken-fixture:нет-такого", limit: 200 },
+          { cwd: () => repo.root },
+          [repo],
+        ),
+      UsageError,
+    );
     expect(err.message).toBe(
       "каталога 'нет-такого' нет в broken-fixture на вне git",
     );

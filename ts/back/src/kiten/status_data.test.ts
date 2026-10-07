@@ -132,13 +132,15 @@ describe("фильтры сужают выдачу независимо друг
   ]);
 
   it("по этапу", () => {
-    expect(applyFilters(rows, { stage: "Тест" }).map((row) => row.id))
-      .toStrictEqual([1]);
+    expect(
+      applyFilters(rows, { stage: "Тест" }).map((row) => row.id),
+    ).toStrictEqual([1]);
   });
 
   it("по источнику — вхождение, не единственность", () => {
-    expect(applyFilters(rows, { source: "time" }).map((row) => row.id))
-      .toStrictEqual([2, 3]);
+    expect(
+      applyFilters(rows, { source: "time" }).map((row) => row.id),
+    ).toStrictEqual([2, 3]);
   });
 
   it("touch — только из ленты и больше ниоткуда", () => {
@@ -146,15 +148,18 @@ describe("фильтры сужают выдачу независимо друг
     // touch: `touch` значит «не назначена и время не списывал».
     expect(applyFilters(rows, { source: "touch" })).toStrictEqual([]);
     const onlyFeed = rowsOf([input({ id: 9, source: "activity" })]);
-    expect(applyFilters(onlyFeed, { source: "touch" }).map((row) => row.id))
-      .toStrictEqual([9]);
+    expect(
+      applyFilters(onlyFeed, { source: "touch" }).map((row) => row.id),
+    ).toStrictEqual([9]);
   });
 
   it("по завершённости", () => {
-    expect(applyFilters(rows, { only: "done" }).map((row) => row.id))
-      .toStrictEqual([3]);
-    expect(applyFilters(rows, { only: "open" }).map((row) => row.id))
-      .toStrictEqual([1, 2]);
+    expect(
+      applyFilters(rows, { only: "done" }).map((row) => row.id),
+    ).toStrictEqual([3]);
+    expect(
+      applyFilters(rows, { only: "open" }).map((row) => row.id),
+    ).toStrictEqual([1, 2]);
   });
 
   it("по доске", () => {
@@ -162,7 +167,8 @@ describe("фильтры сужают выдачу независимо друг
       input({ id: 1, board: "Доска 1" }),
       input({ id: 2, board: "Доска 2" }),
     ]);
-    expect(applyFilters(mixed, { board: "Доска 2" }).map((row) => row.id))
-      .toStrictEqual([2]);
+    expect(
+      applyFilters(mixed, { board: "Доска 2" }).map((row) => row.id),
+    ).toStrictEqual([2]);
   });
 });

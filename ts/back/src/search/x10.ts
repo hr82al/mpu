@@ -76,9 +76,8 @@ export async function staffSearch(
   query: string,
   scope?: string,
 ): Promise<readonly StaffUser[]> {
-  const suffix = scope === undefined
-    ? ""
-    : `&scope=${encodeURIComponent(scope)}`;
+  const suffix =
+    scope === undefined ? "" : `&scope=${encodeURIComponent(scope)}`;
   const data = await call(deps, {
     method: "GET",
     path: `/users/staff/search?query=${encodeURIComponent(query)}${suffix}`,
@@ -86,9 +85,10 @@ export async function staffSearch(
   });
   // Метка ветки нужна только текстам отказа: в селекторной ветке спека
   // требует `(scope=<eff>)`, в email-ветке — без него.
-  const where = scope === undefined
-    ? "10X staff search"
-    : `10X staff search (scope=${scope})`;
+  const where =
+    scope === undefined
+      ? "10X staff search"
+      : `10X staff search (scope=${scope})`;
   return Array.isArray(data)
     ? data.map((raw) => staffUserOf(raw, where)).filter(isUser)
     : [];
@@ -167,8 +167,9 @@ export async function listWorkspaces(
     token,
   });
   if (!Array.isArray(data)) return [];
-  return data.filter((item): item is Readonly<Record<string, unknown>> =>
-    typeof item === "object" && item !== null && !Array.isArray(item)
+  return data.filter(
+    (item): item is Readonly<Record<string, unknown>> =>
+      typeof item === "object" && item !== null && !Array.isArray(item),
   );
 }
 
@@ -202,10 +203,11 @@ export function sessionsOf(
     "SELECT kind, subject, token, reason, created_at, expires_at" +
       " FROM x10_sessions ORDER BY kind",
   );
-  const wanted = rows.filter((row) =>
-    (textOf(row.kind) === "staff" && textOf(row.subject) === (login ?? "")) ||
-    (textOf(row.kind) === "impersonation" &&
-      textOf(row.subject) === (userId === null ? "" : String(userId)))
+  const wanted = rows.filter(
+    (row) =>
+      (textOf(row.kind) === "staff" && textOf(row.subject) === (login ?? "")) ||
+      (textOf(row.kind) === "impersonation" &&
+        textOf(row.subject) === (userId === null ? "" : String(userId))),
   );
   return wanted.map((row) => ({
     kind: textOf(row.kind) as SessionKind,
@@ -301,7 +303,7 @@ function isUser(user: StaffUser | null): user is StaffUser {
 
 function record(raw: unknown): Readonly<Record<string, unknown>> | null {
   return typeof raw === "object" && raw !== null && !Array.isArray(raw)
-    ? raw as Readonly<Record<string, unknown>>
+    ? (raw as Readonly<Record<string, unknown>>)
     : null;
 }
 

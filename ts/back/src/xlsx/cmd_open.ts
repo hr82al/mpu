@@ -9,13 +9,17 @@ import { pathNotSetError } from "./resolve.ts";
 const OPENERS = ["xdg-open", "open"] as const;
 
 const argsSchema = z.object({
-  file: z.string().optional().describe(
-    "путь или алиас .xlsx; без флага источники по порядку: " +
-      "MPU_XLSX (env-файл), config xlsx.default",
-  ),
-  print: z.boolean().default(false).describe(
-    "напечатать резолвленный путь и не открывать",
-  ),
+  file: z
+    .string()
+    .optional()
+    .describe(
+      "путь или алиас .xlsx; без флага источники по порядку: " +
+        "MPU_XLSX (env-файл), config xlsx.default",
+    ),
+  print: z
+    .boolean()
+    .default(false)
+    .describe("напечатать резолвленный путь и не открывать"),
 });
 
 const resultSchema = z.object({
@@ -38,9 +42,7 @@ export const openCommand = defineCommand({
 нет — exit 1 с подсказкой print.
 
 Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.`,
-  examples: [
-    "mpu xlsx open print file: report.xlsx",
-  ],
+  examples: ["mpu xlsx open print file: report.xlsx"],
   // Мутирующая при любом значении --print: параметр класс команды не
   // меняет (`platform/command-contract.md`, отклонение-fix про --print).
   policy: "rw",
@@ -61,5 +63,5 @@ Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 
   },
   // Печатать нечего, когда открыватель уже запущен: путь показывает
   // только режим --print, в котором запуска не было.
-  render: (result) => result.launched ? "" : `${result.path}\n`,
+  render: (result) => (result.launched ? "" : `${result.path}\n`),
 });

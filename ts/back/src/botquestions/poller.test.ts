@@ -130,7 +130,7 @@ it("остановка во время паузы — опрос кончает�
         return new Promise((_, reject) =>
           signal.addEventListener("abort", () => reject(signal.reason), {
             once: true,
-          })
+          }),
         );
       },
     },

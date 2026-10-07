@@ -29,20 +29,24 @@ function asInThree(body: (stack: Stack, dir: string) => Promise<void>) {
     const dir = `${home}/mr/mp/mpu/image`;
     await withStack(
       (stack) =>
-        withClient(stack, async (client) => {
-          for (const words of [...THREE, SYNC]) {
-            const done = await call(stack, client, "mpu", { words });
-            expect(done.isError, JSON.stringify(done)).toBe(false);
-          }
-          const path = `${dir}/kiten/cardsIn:.mpu`;
-          const text = await readFile(path, "utf8");
-          await writeFile(
-            path,
-            text.replace("^мои в колонке^", "^мои карточки^"),
-          );
-          await body(stack, dir);
-        }, () => ({ action: "accept", content: {} })),
-      { io: { env: (name) => name === "HOME" ? home : undefined } },
+        withClient(
+          stack,
+          async (client) => {
+            for (const words of [...THREE, SYNC]) {
+              const done = await call(stack, client, "mpu", { words });
+              expect(done.isError, JSON.stringify(done)).toBe(false);
+            }
+            const path = `${dir}/kiten/cardsIn:.mpu`;
+            const text = await readFile(path, "utf8");
+            await writeFile(
+              path,
+              text.replace("^мои в колонке^", "^мои карточки^"),
+            );
+            await body(stack, dir);
+          },
+          () => ({ action: "accept", content: {} }),
+        ),
+      { io: { env: (name) => (name === "HOME" ? home : undefined) } },
     );
   });
 }
@@ -63,27 +67,36 @@ function section(content: unknown, index: number): string {
 }
 
 it("28: MCP, Accept — ответ как в 3", () =>
-  asInThree(async (stack) =>
-    await withClient(stack, async (client) => {
-      const result = await call(stack, client, "mpu", { words: SYNC });
-      expect(result.isError).toBe(false);
-      expect(section(result.content, 0)).toBe(
-        "база из файла\tkiten cardsIn:\nсовпало 2, изменено 1, конфликтов 0\n",
-      );
-    }, () => ({ action: "accept", content: {} }))
+  asInThree(
+    async (stack) =>
+      await withClient(
+        stack,
+        async (client) => {
+          const result = await call(stack, client, "mpu", { words: SYNC });
+          expect(result.isError).toBe(false);
+          expect(section(result.content, 0)).toBe(
+            "база из файла\tkiten cardsIn:\nсовпало 2, изменено 1, конфликтов 0\n",
+          );
+        },
+        () => ({ action: "accept", content: {} }),
+      ),
   ));
 
 it("29: MCP, Decline — не подтверждено, ничего не изменено", () =>
   asInThree(async (stack, dir) => {
     const path = `${dir}/kiten/cardsIn:.mpu`;
     const before = await readFile(path, "utf8");
-    await withClient(stack, async (client) => {
-      const result = await call(stack, client, "mpu", { words: SYNC });
-      expect(result.isError).toBe(true);
-      expect(section(result.content, 1)).toBe(
-        "stderr:\nmpu image sync: не подтверждено\n",
-      );
-    }, () => ({ action: "decline", content: {} }));
+    await withClient(
+      stack,
+      async (client) => {
+        const result = await call(stack, client, "mpu", { words: SYNC });
+        expect(result.isError).toBe(true);
+        expect(section(result.content, 1)).toBe(
+          "stderr:\nmpu image sync: не подтверждено\n",
+        );
+      },
+      () => ({ action: "decline", content: {} }),
+    );
     expect(await readFile(path, "utf8")).toStrictEqual(before);
   }));
 
@@ -91,11 +104,16 @@ it("30: агентский вызов — спросить некого", () =>
   asInThree(async (stack) => {
     const reply = await collected(
       stack.back,
-      await post(stack.back, "/agent/line", {
-        words: SYNC,
-        cwd: process.cwd(),
-        human: false,
-      }, { accept: "application/json", agent: true }),
+      await post(
+        stack.back,
+        "/agent/line",
+        {
+          words: SYNC,
+          cwd: process.cwd(),
+          human: false,
+        },
+        { accept: "application/json", agent: true },
+      ),
     );
     expect([reply.exit, reply.stderr]).toStrictEqual([
       1,

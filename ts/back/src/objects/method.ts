@@ -214,7 +214,10 @@ export function keyword<S, T>(
   kind: Yields<T>,
   run: (self: S, args: Args) => T | Promise<T>,
 ): Method<S> {
-  const selector = Object.keys(keys).sort().map((key) => `${key}:`).join("");
+  const selector = Object.keys(keys)
+    .sort()
+    .map((key) => `${key}:`)
+    .join("");
   const signature = {
     describe: (into: Description) => into.keyword({ keys, required }),
   };
@@ -249,12 +252,8 @@ class LinkMethod<S, T> implements Fallback<S> {
   understand(sent: Sent, self: S, refuse: () => Call): Call {
     return sent.viaLink({
       word: (word) =>
-        new BoundCall(
-          this.#name,
-          word,
-          this.#doc,
-          this.#kind,
-          () => this.#run(self, word),
+        new BoundCall(this.#name, word, this.#doc, this.#kind, () =>
+          this.#run(self, word),
         ),
       words: refuse,
       refuse,

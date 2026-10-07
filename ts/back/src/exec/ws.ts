@@ -27,10 +27,7 @@ export interface ByteChannel {
 }
 
 /** Открыватель канала; подменяется в тестах транспорта. */
-export type OpenChannel = (
-  url: URL,
-  insecure: boolean,
-) => Promise<ByteChannel>;
+export type OpenChannel = (url: URL, insecure: boolean) => Promise<ByteChannel>;
 
 /** Один прогон стрима. */
 export interface WsStream {
@@ -166,9 +163,9 @@ async function handshake(
     buffer = concat(buffer, next.value);
     const end = indexOfHeaderEnd(buffer);
     if (end < 0) continue;
-    const status = new TextDecoder().decode(buffer.subarray(0, end)).split(
-      "\r\n",
-    )[0];
+    const status = new TextDecoder()
+      .decode(buffer.subarray(0, end))
+      .split("\r\n")[0];
     if (status.split(" ")[1] !== "101") {
       throw new DomainError(`WebSocket отклонён: ${status}`);
     }
@@ -180,9 +177,12 @@ async function handshake(
 function indexOfHeaderEnd(buffer: Uint8Array): number {
   for (let i = 0; i + 3 < buffer.length; i++) {
     if (
-      buffer[i] === 13 && buffer[i + 1] === 10 && buffer[i + 2] === 13 &&
+      buffer[i] === 13 &&
+      buffer[i + 1] === 10 &&
+      buffer[i + 2] === 13 &&
       buffer[i + 3] === 10
-    ) return i;
+    )
+      return i;
   }
   return -1;
 }
@@ -211,19 +211,19 @@ function concat(
 /** Опции соединения: TLS или чистый TCP, в форме `node:tls`/`node:net`. */
 export type SocketOptions =
   | {
-    readonly kind: "tls";
-    readonly tls: {
-      readonly host: string;
-      readonly port: number;
-      readonly rejectUnauthorized: boolean;
-      /** SNI; у литерального адреса его нет вовсе (спека). */
-      readonly servername?: string;
-    };
-  }
+      readonly kind: "tls";
+      readonly tls: {
+        readonly host: string;
+        readonly port: number;
+        readonly rejectUnauthorized: boolean;
+        /** SNI; у литерального адреса его нет вовсе (спека). */
+        readonly servername?: string;
+      };
+    }
   | {
-    readonly kind: "tcp";
-    readonly tcp: { readonly host: string; readonly port: number };
-  };
+      readonly kind: "tcp";
+      readonly tcp: { readonly host: string; readonly port: number };
+    };
 
 /**
  * Опции сокета для URL стрима (`platform/exec-transport.md`, п. 5).
@@ -259,9 +259,8 @@ export function socketOptions(url: URL, insecure: boolean): SocketOptions {
  */
 function openSocket(url: URL, insecure: boolean): Promise<ByteChannel> {
   const options = socketOptions(url, insecure);
-  const socket = options.kind === "tls"
-    ? tlsConnect(options.tls)
-    : netConnect(options.tcp);
+  const socket =
+    options.kind === "tls" ? tlsConnect(options.tls) : netConnect(options.tcp);
   socket.setKeepAlive(true);
   return new Promise((resolve, reject) => {
     const fail = (err: Error) =>

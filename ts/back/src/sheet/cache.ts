@@ -194,16 +194,16 @@ export function writeInfo(
 
 /** Сжатие payload'а: у листа на тысячу строк оно кратно экономит место. */
 async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([text]).stream().pipeThrough(
-    new CompressionStream("gzip"),
-  );
+  const stream = new Blob([text])
+    .stream()
+    .pipeThrough(new CompressionStream("gzip"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 async function gunzip(bytes: Uint8Array): Promise<string> {
-  const stream = new Blob([new Uint8Array(bytes)]).stream().pipeThrough(
-    new DecompressionStream("gzip"),
-  );
+  const stream = new Blob([new Uint8Array(bytes)])
+    .stream()
+    .pipeThrough(new DecompressionStream("gzip"));
   return await new Response(stream).text();
 }
 
@@ -281,16 +281,18 @@ export interface CacheEntry {
  */
 export function cacheState(db: CacheDb): readonly CacheEntry[] {
   try {
-    return db.query(
-      "SELECT ss_id, COUNT(*) AS tabs, SUM(size_bytes) AS bytes," +
-        " MAX(fetched_at) AS latest FROM sheet_tabs" +
-        " GROUP BY ss_id ORDER BY bytes DESC, ss_id",
-    ).map((row) => ({
-      ss_id: String(row.ss_id),
-      tabs: Number(row.tabs),
-      bytes: Number(row.bytes),
-      latest: Number(row.latest),
-    }));
+    return db
+      .query(
+        "SELECT ss_id, COUNT(*) AS tabs, SUM(size_bytes) AS bytes," +
+          " MAX(fetched_at) AS latest FROM sheet_tabs" +
+          " GROUP BY ss_id ORDER BY bytes DESC, ss_id",
+      )
+      .map((row) => ({
+        ss_id: String(row.ss_id),
+        tabs: Number(row.tabs),
+        bytes: Number(row.bytes),
+        latest: Number(row.latest),
+      }));
   } catch (err) {
     if (isMissingTable(err)) return [];
     throw err;

@@ -88,9 +88,10 @@ const LINE = /^\d+$/;
  */
 export function parseAddress(raw: string): Address {
   const parts = raw.split(":");
-  const line = parts.length > 1 && LINE.test(parts[parts.length - 1])
-    ? Number(parts.pop())
-    : undefined;
+  const line =
+    parts.length > 1 && LINE.test(parts[parts.length - 1])
+      ? Number(parts.pop())
+      : undefined;
   if (line !== undefined && line < 1) {
     throw new UsageError(`строка адреса не может быть нулевой: '${raw}'`);
   }

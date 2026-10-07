@@ -78,8 +78,9 @@ export async function jobsOf<J extends Job>(
   make: (repo: RepoData) => J,
 ): Promise<J[]> {
   return await inOrder(
-    repos.map((repo) => async () =>
-      make({ name: repo.name, root: repo.root, mark: await repo.mark() })
+    repos.map(
+      (repo) => async () =>
+        make({ name: repo.name, root: repo.root, mark: await repo.mark() }),
     ),
   );
 }
@@ -260,9 +261,8 @@ function inWorker<S>(job: Job, schema: z.ZodType<S>): Promise<S> {
     // Ответ, не поддавшийся десериализации, поднимает СВОЁ событие:
     // без этой ветки промис не разрешался бы никогда, а воркер остался
     // бы жив — зависание без диагностики.
-    worker.once(
-      "messageerror",
-      () => fail(new DomainError(`ответ по ${job.repo.name} не разобран`)),
+    worker.once("messageerror", () =>
+      fail(new DomainError(`ответ по ${job.repo.name} не разобран`)),
     );
     worker.once("error", (err: Error) => {
       // Отказ самого воркера — доменная ошибка, а не отказ раздела: он
@@ -335,8 +335,7 @@ function named(repos: readonly Repo[], name: string): Repo {
 function currentRepo(repos: readonly Repo[], cwd: string): Repo {
   const found = repoOf(repos, cwd);
   if (found !== undefined) return found;
-  throw new UsageError(
-    `каталог ${cwd} вне репозиториев рабочей области`,
-    { hint: "mpu code refs РЕПОЗИТОРИЙ:ПУТЬ" },
-  );
+  throw new UsageError(`каталог ${cwd} вне репозиториев рабочей области`, {
+    hint: "mpu code refs РЕПОЗИТОРИЙ:ПУТЬ",
+  });
 }

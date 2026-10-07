@@ -81,7 +81,8 @@ const COMPOSE_SERVICES = [
 ];
 
 /** Тело здоровья sl-0 со здоровой базой — форма снята 2026-09-26. */
-const HEALTHY = '{"status":"healthy","checks":{"database":{"status":"ok",' +
+const HEALTHY =
+  '{"status":"healthy","checks":{"database":{"status":"ok",' +
   '"message":"Database connected"}}}';
 
 /** Проба курсов валют: счёт `shared.currency_rates` на sl-0. */
@@ -119,18 +120,18 @@ class FakeDocker implements Docker {
 
   async probe(argv: readonly string[], _cwd: string, signal?: AbortSignal) {
     this.probes.push([...argv]);
-    return await this.answer(argv, signal) ?? standAnswer(argv);
+    return (await this.answer(argv, signal)) ?? standAnswer(argv);
   }
 
   async run(argv: readonly string[], _cwd: string, input?: RunInput) {
     this.runs.push([...argv]);
     this.inputs.push(input);
-    return (await this.answer(argv) ?? standAnswer(argv)).code;
+    return ((await this.answer(argv)) ?? standAnswer(argv)).code;
   }
 
   async watch(argv: readonly string[]) {
     this.watches.push([...argv]);
-    return await this.answer(argv) ?? standAnswer(argv);
+    return (await this.answer(argv)) ?? standAnswer(argv);
   }
 }
 
@@ -138,7 +139,7 @@ class FakeDocker implements Docker {
 const neverClock: Clock = {
   delay: (_ms, signal) =>
     new Promise((resolve) =>
-      signal.addEventListener("abort", () => resolve(), { once: true })
+      signal.addEventListener("abort", () => resolve(), { once: true }),
     ),
 };
 
@@ -188,10 +189,14 @@ function standReader(edits: FileEdits = {}) {
     readText,
     readBytes: (path: string) => new TextEncoder().encode(readText(path)),
     listDir: (dir: string) =>
-      Object.keys(files).filter((path) =>
-        files[path] !== null && path.startsWith(`${dir}/`) &&
-        !path.slice(dir.length + 1).includes("/")
-      ).map((path) => path.slice(dir.length + 1)),
+      Object.keys(files)
+        .filter(
+          (path) =>
+            files[path] !== null &&
+            path.startsWith(`${dir}/`) &&
+            !path.slice(dir.length + 1).includes("/"),
+        )
+        .map((path) => path.slice(dir.length + 1)),
   };
 }
 
@@ -240,10 +245,12 @@ const noInfra: Answer = (argv) =>
     : undefined;
 
 /** Ответ «образа нет» на inspect одного тега. */
-const noImage = (tag: string): Answer => (argv) =>
-  argv[1] === "image" && argv[3] === tag
-    ? { code: 1, stdout: "", stderr: "" }
-    : undefined;
+const noImage =
+  (tag: string): Answer =>
+  (argv) =>
+    argv[1] === "image" && argv[3] === tag
+      ? { code: 1, stdout: "", stderr: "" }
+      : undefined;
 
 it("сухой прогон печатает последовательность — эталон канала", async () => {
   const lines: string[] = [];
@@ -258,9 +265,11 @@ it("сухой прогон печатает последовательност�
   // Проба курсов — исключение спеки (M2-3): она идёт и в dry.
   // Пробы стенда ozon (`npm view`) — тоже исключение: они в ozon-dev.
   expect(
-    docker.probes.filter((argv) =>
-      ["wait", "exec", "ps"].includes(argv[1]) && !isRatesProbe(argv) &&
-      argv[2] !== "ozon-dev"
+    docker.probes.filter(
+      (argv) =>
+        ["wait", "exec", "ps"].includes(argv[1]) &&
+        !isRatesProbe(argv) &&
+        argv[2] !== "ozon-dev",
     ),
   ).toStrictEqual([]);
   // Проверки ответом в dry нет (M4-8).
@@ -273,23 +282,26 @@ it("порядок шагов: web после core, стенд ozon после w
   await mpInit(true, lines, new FakeDocker(noInfra), {
     files: { [DOCKER_CONFIG]: null, [DOT_ENV]: `NPM_AUTH=${NPM_AUTH}\n` },
   });
-  const names = lines.filter((line) => line.startsWith("$ ")).map((line) => {
-    if (line.includes("compose.mp-nats")) return "nats";
-    if (line.includes("compose.sl-main")) return "sl-0";
-    if (line.includes("compose.sl-instance")) return "sl-1";
-    if (line.includes("compose.mp-nginx")) return "nginx";
-    if (line.includes("compose.sl-dt-host")) return "dt-host";
-    if (line.startsWith("$ docker stop")) return "stop";
-    if (line.includes("compose.sw-infra")) return "sw-infra";
-    if (line.includes("docker login")) return "login";
-    if (line.includes("local-stack/docker-compose.yml")) return "web";
-    if (line.includes("ozon/docker-compose.yml up -d pg")) return "ozon-infra";
-    if (line.includes("migrate run")) return "ozon-migrate";
-    if (line.includes("ozon/docker-compose.yml up -d datacore")) {
-      return "ozon-services";
-    }
-    return "прочее";
-  });
+  const names = lines
+    .filter((line) => line.startsWith("$ "))
+    .map((line) => {
+      if (line.includes("compose.mp-nats")) return "nats";
+      if (line.includes("compose.sl-main")) return "sl-0";
+      if (line.includes("compose.sl-instance")) return "sl-1";
+      if (line.includes("compose.mp-nginx")) return "nginx";
+      if (line.includes("compose.sl-dt-host")) return "dt-host";
+      if (line.startsWith("$ docker stop")) return "stop";
+      if (line.includes("compose.sw-infra")) return "sw-infra";
+      if (line.includes("docker login")) return "login";
+      if (line.includes("local-stack/docker-compose.yml")) return "web";
+      if (line.includes("ozon/docker-compose.yml up -d pg"))
+        return "ozon-infra";
+      if (line.includes("migrate run")) return "ozon-migrate";
+      if (line.includes("ozon/docker-compose.yml up -d datacore")) {
+        return "ozon-services";
+      }
+      return "прочее";
+    });
   // Compose-зависимостей между стеками нет: корректность стенда
   // держится ровно на этом порядке (`mp-init.md`, «Инварианты»).
   expect(names).toStrictEqual([
@@ -354,7 +366,7 @@ describe("образы: недостающий core собирается, web п
     expect(lines.slice(0, 3)).toStrictEqual([
       "собираю mp-pg:local",
       `$ docker build --load -t mp-pg:local -f ${CONFIG}/pg/Dockerfile ` +
-      `${CONFIG}/pg`,
+        `${CONFIG}/pg`,
       "mpu mp-init: сборка mp-pg:local упала (rc=17)",
     ]);
     expect(docker.runs.some((argv) => argv.includes("up"))).toBe(false);
@@ -386,7 +398,7 @@ describe("образы: недостающий core собирается, web п
         `-f ${CONFIG}/Dockerfile.front ${ROOT}/sl-front`,
     );
     const web = lines.findIndex((line) =>
-      line.includes("local-stack/docker-compose.yml")
+      line.includes("local-stack/docker-compose.yml"),
     );
     expect(0 <= at && at < web, lines.join("\n")).toBe(true);
     expect(lines.some((line) => line.startsWith("warning:"))).toBe(false);
@@ -400,8 +412,9 @@ describe("образы: недостающий core собирается, web п
       exists: (path) => !path.includes("local-stack"),
     });
     expect(lines.some((line) => line.includes("sl-front-dev"))).toBe(false);
-    expect(docker.probes.some((argv) => argv.includes("sl-front-dev:local")))
-      .toBe(false);
+    expect(
+      docker.probes.some((argv) => argv.includes("sl-front-dev:local")),
+    ).toBe(false);
   });
 });
 
@@ -432,9 +445,9 @@ describe("overrides сверяются с compose до up", () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
       argv.includes("--services") &&
-        argv.includes(`${CONFIG}/compose.sl-main.yaml`)
+      argv.includes(`${CONFIG}/compose.sl-main.yaml`)
         ? { code: 15, stdout: "", stderr: "" }
-        : undefined
+        : undefined,
     );
     const result = await mpInit(true, lines, docker);
     expect(result.exitCode).toBe(15);
@@ -503,7 +516,7 @@ describe("миграции sl-N проверяются по коду конте�
       "sh",
       "-c",
       'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
-      '"select count(*) from public.migrations"',
+        '"select count(*) from public.migrations"',
     ]);
   });
 
@@ -512,7 +525,7 @@ describe("миграции sl-N проверяются по коду конте�
     const docker = new FakeDocker((argv) =>
       argv[1] === "exec" && argv[2].endsWith("-pg")
         ? { code: 2, stdout: "", stderr: "x" }
-        : undefined
+        : undefined,
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(0);
@@ -528,10 +541,14 @@ describe("миграции sl-N проверяются по коду конте�
       if (argv[1] !== "wait") return undefined;
       // `docker wait` не отвечает сам: только снятие сигналом.
       return new Promise((resolve) =>
-        signal?.addEventListener("abort", () => {
-          waitAborted = true;
-          resolve({ code: 137, stdout: "", stderr: "" });
-        }, { once: true })
+        signal?.addEventListener(
+          "abort",
+          () => {
+            waitAborted = true;
+            resolve({ code: 137, stdout: "", stderr: "" });
+          },
+          { once: true },
+        ),
       );
     });
     const delays: number[] = [];
@@ -556,7 +573,7 @@ describe("миграции sl-N проверяются по коду конте�
   it("docker wait сам упал — отказ, проверки не было", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
-      argv[1] === "wait" ? { code: 1, stdout: "", stderr: "" } : undefined
+      argv[1] === "wait" ? { code: 1, stdout: "", stderr: "" } : undefined,
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(1);
@@ -594,9 +611,9 @@ describe("сводка контейнеров после core", () => {
     expect(result.exitCode).toBe(0);
     expect(lines.filter((line) => line.startsWith("warning:"))).toStrictEqual([
       "warning: sl-0-currencies-rates-parser: Restarting — " +
-      "ERR_MODULE_NOT_FOUND sl-0-currencies-rates-parser",
+        "ERR_MODULE_NOT_FOUND sl-0-currencies-rates-parser",
       "warning: sl-1-ss-loader: Exited (137) — " +
-      "ERR_MODULE_NOT_FOUND sl-1-ss-loader",
+        "ERR_MODULE_NOT_FOUND sl-1-ss-loader",
     ]);
     expect(docker.probes.find((argv) => argv[1] === "ps")).toStrictEqual([
       "docker",
@@ -613,11 +630,11 @@ describe("сводка контейнеров после core", () => {
     const lines: string[] = [];
     await mpInit(false, lines, new FakeDocker(troubled));
     const dtHost = lines.findIndex((line) =>
-      line.includes("compose.sl-dt-host")
+      line.includes("compose.sl-dt-host"),
     );
     const warning = lines.findIndex((line) => line.startsWith("warning: sl-0"));
     const web = lines.findIndex((line) =>
-      line.includes("local-stack/docker-compose.yml")
+      line.includes("local-stack/docker-compose.yml"),
     );
     expect(dtHost < warning && warning < web, lines.join("\n")).toBe(true);
   });
@@ -628,7 +645,7 @@ describe("сводка контейнеров после core", () => {
       false,
       lines,
       new FakeDocker((argv) =>
-        argv[1] === "ps" ? { code: 1, stdout: "", stderr: "" } : undefined
+        argv[1] === "ps" ? { code: 1, stdout: "", stderr: "" } : undefined,
       ),
     );
     expect(result.exitCode).toBe(0);
@@ -639,10 +656,12 @@ describe("сводка контейнеров после core", () => {
 });
 
 describe("сеть и том создаются только при отсутствии", () => {
-  const missingProbe = (what: string): Answer => (argv) =>
-    argv[1] === what && argv[2] === "inspect"
-      ? { code: 1, stdout: "", stderr: "" }
-      : undefined;
+  const missingProbe =
+    (what: string): Answer =>
+    (argv) =>
+      argv[1] === what && argv[2] === "inspect"
+        ? { code: 1, stdout: "", stderr: "" }
+        : undefined;
 
   it("есть — команда создания не печатается", async () => {
     const lines: string[] = [];
@@ -675,15 +694,16 @@ describe("стоп конфликтующих: в прогоне только з
     const docker = new FakeDocker((argv) =>
       argv.includes("{{.State.Running}}")
         ? {
-          code: 0,
-          stdout: argv.at(-1) === "nextjs-dev" ? "true\n" : "false\n",
-          stderr: "",
-        }
-        : undefined
+            code: 0,
+            stdout: argv.at(-1) === "nextjs-dev" ? "true\n" : "false\n",
+            stderr: "",
+          }
+        : undefined,
     );
     await mpInit(false, lines, docker);
-    expect(lines.filter((line) => line.startsWith("$ docker stop")))
-      .toStrictEqual(["$ docker stop nextjs-dev  # только запущенные"]);
+    expect(
+      lines.filter((line) => line.startsWith("$ docker stop")),
+    ).toStrictEqual(["$ docker stop nextjs-dev  # только запущенные"]);
   });
 
   it("не запущен никто — шага нет вовсе", async () => {
@@ -691,7 +711,7 @@ describe("стоп конфликтующих: в прогоне только з
     const docker = new FakeDocker((argv) =>
       argv.includes("{{.State.Running}}")
         ? { code: 0, stdout: "false\n", stderr: "" }
-        : undefined
+        : undefined,
     );
     await mpInit(false, lines, docker);
     expect(lines.some((line) => line.startsWith("$ docker stop"))).toBe(false);
@@ -700,10 +720,11 @@ describe("стоп конфликтующих: в прогоне только з
   it("в сухом прогоне печатается весь список", async () => {
     const lines: string[] = [];
     await mpInit(true, lines);
-    expect(lines.filter((line) => line.startsWith("$ docker stop")))
-      .toStrictEqual([
-        `$ docker stop ${CONFLICTING.join(" ")}  # только запущенные`,
-      ]);
+    expect(
+      lines.filter((line) => line.startsWith("$ docker stop")),
+    ).toStrictEqual([
+      `$ docker stop ${CONFLICTING.join(" ")}  # только запущенные`,
+    ]);
   });
 });
 
@@ -712,7 +733,7 @@ it("упавший стек: fail-fast и код docker наружу", async () 
   const docker = new FakeDocker((argv) =>
     argv.includes("up") && argv.some((a) => a.includes("compose.sl-main"))
       ? { code: 17, stdout: "", stderr: "" }
-      : undefined
+      : undefined,
   );
   const result = await mpInit(false, lines, docker);
   expect(result.exitCode).toBe(17);
@@ -747,8 +768,9 @@ it("web-часть: нет каталога — пропуск, а не ошиб
   expect(lines[0].includes("compose.mp-nats"), lines[0]).toBe(true);
   expect(lines.some((line) => line.includes("docker-compose.yml"))).toBe(false);
   // БД-зависимости sw-back тоже не поднимаются: их шаг — часть web.
-  expect(lines.some((line) => line.includes("local-stack/docker-compose.yml")))
-    .toBe(false);
+  expect(
+    lines.some((line) => line.includes("local-stack/docker-compose.yml")),
+  ).toBe(false);
   expect(lines.at(-1)).toBe(
     "mp-init: core поднят — nats, sl-0, sl-1, nginx, dt-host",
   );
@@ -787,7 +809,9 @@ describe("каталог стенда: env старше HOME, отсутстви
 
 /** Строки всех core-стеков — по фактам диска. */
 function coreLines(facts: PlanFacts): string {
-  return coreStacks(facts).map((stack) => stepLine(stack.step)).join("\n");
+  return coreStacks(facts)
+    .map((stack) => stepLine(stack.step))
+    .join("\n");
 }
 
 it("опциональные env-файлы включаются только существующие", () => {
@@ -839,7 +863,7 @@ it("падение создания сети: rc наружу, стеки не �
   expect(lines.some((line) => line.includes("up -d"))).toBe(false);
   expect(result.steps).toStrictEqual([
     "$ docker network create --driver=bridge " +
-    "mp-shared-net --subnet=178.20.0.0/16",
+      "mp-shared-net --subnet=178.20.0.0/16",
   ]);
 });
 
@@ -849,8 +873,10 @@ describe("курсы валют на свежем стенде", () => {
   const SYNC =
     "$ docker exec sl-1-cli node cli service:currencyRatesSync syncFullHistory";
   const FILLING = "курсы валют пусты — заполняю (~10 мин)";
-  const count = (stdout: string): Answer => (argv) =>
-    isRatesProbe(argv) ? { code: 0, stdout, stderr: "" } : undefined;
+  const count =
+    (stdout: string): Answer =>
+    (argv) =>
+      isRatesProbe(argv) ? { code: 0, stdout, stderr: "" } : undefined;
   const isFill = (argv: readonly string[]) =>
     argv.includes("backfill") || argv.includes("syncFullHistory");
 
@@ -866,7 +892,7 @@ describe("курсы валют на свежем стенде", () => {
     const probe = docker.probes.findIndex(isRatesProbe);
     expect(summary < probe, "проба — после сводки").toBe(true);
     const web = lines.findIndex((line) =>
-      line.includes("local-stack/docker-compose.yml")
+      line.includes("local-stack/docker-compose.yml"),
     );
     expect(at + 2 < web, "курсы — до web").toBe(true);
   });
@@ -931,12 +957,13 @@ describe("курсы валют на свежем стенде", () => {
     });
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(0);
-    expect(lines.filter((line) => line.startsWith("warning: курсы")))
-      .toStrictEqual([
-        "warning: курсы валют — пропущены дни 2024-03-05, 2024-03-06: " +
+    expect(
+      lines.filter((line) => line.startsWith("warning: курсы")),
+    ).toStrictEqual([
+      "warning: курсы валют — пропущены дни 2024-03-05, 2024-03-06: " +
         "догнать docker exec sl-0-cli node cli " +
         "service:currenciesRatesParser loadData --date-from D --date-to D",
-      ]);
+    ]);
   });
 
   it("backfill без ошибок — предупреждения нет", async () => {
@@ -946,22 +973,23 @@ describe("курсы валют на свежем стенде", () => {
   });
 
   it("M2-6: проба не удалась — предупреждение, web идёт", async () => {
-    for (
-      const answer of [{ code: 1, stdout: "", stderr: "" }, {
+    for (const answer of [
+      { code: 1, stdout: "", stderr: "" },
+      {
         code: 0,
         stdout: "psql: error\n",
         stderr: "",
-      }]
-    ) {
+      },
+    ]) {
       const lines: string[] = [];
       const docker = new FakeDocker((argv) =>
-        isRatesProbe(argv) ? answer : undefined
+        isRatesProbe(argv) ? answer : undefined,
       );
       const result = await mpInit(false, lines, docker);
       expect(result.exitCode).toBe(0);
-      expect(lines.includes(
-        "warning: курсы валют — проба не удалась, шаг пропущен",
-      )).toBe(true);
+      expect(
+        lines.includes("warning: курсы валют — проба не удалась, шаг пропущен"),
+      ).toBe(true);
       expect(docker.watches.filter(isFill)).toStrictEqual([]);
       expect(result.web).toBe(true);
     }
@@ -971,14 +999,14 @@ describe("курсы валют на свежем стенде", () => {
     const docker = new FakeDocker(count("0\n"));
     await mpInit(false, [], docker);
     expect(
-      docker.watches.filter((argv) => argv.includes("syncFullHistory")).map((
-        argv,
-      ) => argv[2]),
+      docker.watches
+        .filter((argv) => argv.includes("syncFullHistory"))
+        .map((argv) => argv[2]),
     ).toStrictEqual(["sl-1-cli"]);
     expect(
-      docker.watches.filter((argv) => argv.includes("backfill")).map((argv) =>
-        argv[2]
-      ),
+      docker.watches
+        .filter((argv) => argv.includes("backfill"))
+        .map((argv) => argv[2]),
     ).toStrictEqual(["sl-0-cli"]);
   });
 
@@ -1002,11 +1030,13 @@ describe("курсы валют на свежем стенде", () => {
 
 /** Строка web формы M3-7: окружение процесса и услуги по порядку. */
 function webLine(services: string, api = "http://internal-api:5100"): string {
-  return `$ SW_BACK_SRC=${ROOT}/sw-back SW_FRONT_SRC=${ROOT}/sw-front ` +
+  return (
+    `$ SW_BACK_SRC=${ROOT}/sw-back SW_FRONT_SRC=${ROOT}/sw-front ` +
     `SL_FRONT_SRC=${ROOT}/sl-front SW_BACK_DEPS_TAG=${DEPS_TAG} ` +
     `SW_BACK_INTERNAL_API_URL=${api} docker compose ` +
     `-f ${LOCAL_STACK}/docker-compose.yml up -d --no-deps --force-recreate ` +
-    services;
+    services
+  );
 }
 
 const INFRA_LINE =
@@ -1038,9 +1068,9 @@ describe("web поверх core: инфра SW из local-stack (M3)", () => {
     expect(lines.some((line) => line.includes("sw-infra"))).toBe(false);
     expect(lines.some((line) => line.includes("rm -f"))).toBe(false);
     expect(
-      docker.probes.filter((argv) =>
-        argv.includes("{{json .NetworkSettings.Networks}}")
-      ).map((argv) => argv.at(-1)),
+      docker.probes
+        .filter((argv) => argv.includes("{{json .NetworkSettings.Networks}}"))
+        .map((argv) => argv.at(-1)),
     ).toStrictEqual(["mp-sw-pg", "redis-dev"]);
   });
 
@@ -1048,9 +1078,9 @@ describe("web поверх core: инфра SW из local-stack (M3)", () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
       argv.includes("{{json .NetworkSettings.Networks}}") &&
-        argv.at(-1) === "mp-sw-pg"
+      argv.at(-1) === "mp-sw-pg"
         ? { code: 0, stdout: '{"mp-config-local_ws_default":{}}\n', stderr: "" }
-        : undefined
+        : undefined,
     );
     await mpInit(true, lines, docker);
     const at = lines.indexOf("$ docker rm -f mp-sw-pg redis-dev");
@@ -1073,7 +1103,7 @@ describe("web поверх core: инфра SW из local-stack (M3)", () => {
     const docker = new FakeDocker((argv) =>
       argv.some((arg) => arg.endsWith("compose.sw-infra.yaml"))
         ? { code: 4, stdout: "", stderr: "" }
-        : noInfra(argv)
+        : noInfra(argv),
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(4);
@@ -1141,7 +1171,7 @@ describe("web поверх core: вход в Nexus (M3)", () => {
   it("M3-13: вход упал — его rc, web стоит", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
-      argv[1] === "login" ? { code: 5, stdout: "", stderr: "" } : undefined
+      argv[1] === "login" ? { code: 5, stdout: "", stderr: "" } : undefined,
     );
     const result = await mpInit(false, lines, docker, {
       files: WITH_NPM_AUTH,
@@ -1200,11 +1230,14 @@ describe("web поверх core: тег зависимостей и web (M3)", (
     expect(lines.find((line) => line.includes("--no-deps"))).toStrictEqual(
       webLine("sw-back sw-front sl-front"),
     );
-    expect(docker.probes.some((argv) =>
-      argv.join(" ") ===
-        "docker manifest inspect " +
-          `nexus.btlz-api.ru/base-images/sw-back-deps:${DEPS_TAG}`
-    )).toBe(true);
+    expect(
+      docker.probes.some(
+        (argv) =>
+          argv.join(" ") ===
+          "docker manifest inspect " +
+            `nexus.btlz-api.ru/base-images/sw-back-deps:${DEPS_TAG}`,
+      ),
+    ).toBe(true);
   });
 
   it("M3-7: прогон — окружение уходит процессу", async () => {
@@ -1229,7 +1262,7 @@ describe("web поверх core: тег зависимостей и web (M3)", (
   it("M3-8: образа зависимостей нет — web без sw-back", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
-      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined
+      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined,
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(0);
@@ -1260,7 +1293,7 @@ describe("web поверх core: тег зависимостей и web (M3)", (
     const docker = new FakeDocker((argv) =>
       argv.includes("--no-deps")
         ? { code: 3, stdout: "", stderr: "" }
-        : undefined
+        : undefined,
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(3);
@@ -1309,36 +1342,40 @@ const inDev = (argv: readonly string[], word: string) =>
  * Пакета версии lock в Verdaccio нет; `git log -S` отдаёт оба коммита
  * (новый первым), версия есть только в `ADDED`; `dist` — `distList`.
  */
-const unpublished = (distList = "index.js\n"): Answer => (argv) => {
-  const out = (stdout: string, code = 0) => ({ code, stdout, stderr: "" });
-  if (inDev(argv, "view")) return out("", 1);
-  if (inDev(argv, "log")) return out(`${BUMPED}\n${ADDED}\n`);
-  if (inDev(argv, "show")) {
-    return out(
-      `{"version": "${argv.at(-1)?.startsWith(ADDED) ? "0.4.0" : "0.5.0"}"}`,
-    );
-  }
-  if (argv[1] === "exec" && argv.includes("ls")) return out(distList);
-  if (argv.includes("tsc")) return out("", 2);
-  return undefined;
-};
+const unpublished =
+  (distList = "index.js\n"): Answer =>
+  (argv) => {
+    const out = (stdout: string, code = 0) => ({ code, stdout, stderr: "" });
+    if (inDev(argv, "view")) return out("", 1);
+    if (inDev(argv, "log")) return out(`${BUMPED}\n${ADDED}\n`);
+    if (inDev(argv, "show")) {
+      return out(
+        `{"version": "${argv.at(-1)?.startsWith(ADDED) ? "0.4.0" : "0.5.0"}"}`,
+      );
+    }
+    if (argv[1] === "exec" && argv.includes("ls")) return out(distList);
+    if (argv.includes("tsc")) return out("", 2);
+    return undefined;
+  };
 
 /** Строки публикации пакета 0.4.0 из коммита `ADDED` (M4-2). */
 const PUBLISH_LINES = [
   "стенд ozon: публикую @sw-back/workspace-access@0.4.0 в Verdaccio",
   "$ docker exec ozon-dev sh -c 'rm -rf /tmp/wa && mkdir /tmp/wa && " +
-  `git -C /work/sw-back archive ${ADDED} packages/workspace-access | ` +
-  "tar -x -C /tmp/wa'",
+    `git -C /work/sw-back archive ${ADDED} packages/workspace-access | ` +
+    "tar -x -C /tmp/wa'",
   `$ docker exec -w ${WA} ozon-dev npx -y -p typescript@5 tsc -p tsconfig.json`,
   `$ docker exec -w ${WA} ozon-dev npm publish --registry ` +
-  "http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand",
+    "http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand",
 ];
 
 /** Ответ curl по адресу: `status` и тело; прочие — как у стенда. */
-const answering = (url: string, status: string, body = ""): Answer => (argv) =>
-  argv[0] === "curl" && argv.at(-1) === url
-    ? { code: 0, stdout: `${body}\n${status}`, stderr: "" }
-    : undefined;
+const answering =
+  (url: string, status: string, body = ""): Answer =>
+  (argv) =>
+    argv[0] === "curl" && argv.at(-1) === url
+      ? { code: 0, stdout: `${body}\n${status}`, stderr: "" }
+      : undefined;
 
 describe("стенд ozon (M4)", () => {
   it("M4-1: всё на месте — три строки compose", async () => {
@@ -1348,11 +1385,14 @@ describe("стенд ozon (M4)", () => {
     expect(result.exitCode).toBe(0);
     expect(lines.slice(-4, -1)).toStrictEqual(OZON_LINES);
     // Версия из lock сверена с Verdaccio — публикации нет.
-    expect(docker.probes.some((argv) =>
-      argv.join(" ") ===
-        "docker exec ozon-dev npm view @sw-back/workspace-access@0.4.0 " +
-          "--registry http://verdaccio:4873"
-    )).toBe(true);
+    expect(
+      docker.probes.some(
+        (argv) =>
+          argv.join(" ") ===
+          "docker exec ozon-dev npm view @sw-back/workspace-access@0.4.0 " +
+            "--registry http://verdaccio:4873",
+      ),
+    ).toBe(true);
     expect(lines.some((line) => line.includes("публикую"))).toBe(false);
     expect(lines.some((line) => line.includes("pnpm"))).toBe(false);
   });
@@ -1420,7 +1460,7 @@ describe("стенд ozon (M4)", () => {
     const docker = new FakeDocker((argv) =>
       inDev(argv, "show")
         ? { code: 0, stdout: '{"version": "0.5.0"}', stderr: "" }
-        : unpublished()(argv)
+        : unpublished()(argv),
     );
     const result = await mpInit(true, lines, docker);
     expect(result.exitCode).toBe(1);
@@ -1458,10 +1498,12 @@ describe("стенд ozon (M4)", () => {
       files: { [OZON_LOCK]: null },
     });
     expect(result.exitCode).toBe(0);
-    expect(lines.includes(
-      "warning: стенд ozon: в pnpm-lock нет @sw-back/workspace-access — " +
-        "публикацию пропускаю",
-    )).toBe(true);
+    expect(
+      lines.includes(
+        "warning: стенд ozon: в pnpm-lock нет @sw-back/workspace-access — " +
+          "публикацию пропускаю",
+      ),
+    ).toBe(true);
     expect(lines.slice(-3, -1)).toStrictEqual(OZON_LINES.slice(1));
     expect(docker.probes.some((argv) => inDev(argv, "view"))).toBe(false);
   });
@@ -1493,13 +1535,14 @@ describe("стенд ozon (M4)", () => {
         existsExceptDtEnv(path) && !path.startsWith(`${ROOT}/ozon`),
     });
     expect(result.exitCode).toBe(0);
-    expect(lines.includes(`стенд ozon: чекаута ${ROOT}/ozon нет — пропуск`))
-      .toBe(true);
+    expect(
+      lines.includes(`стенд ozon: чекаута ${ROOT}/ozon нет — пропуск`),
+    ).toBe(true);
     expect(docker.runs.some((argv) => argv.includes(OZON_COMPOSE))).toBe(false);
     // Адреса стенда ozon не проверяются.
     expect(
-      docker.probes.some((argv) =>
-        argv[0] === "curl" && argv.at(-1)!.includes(":5200")
+      docker.probes.some(
+        (argv) => argv[0] === "curl" && argv.at(-1)!.includes(":5200"),
       ),
     ).toBe(false);
   });
@@ -1509,7 +1552,7 @@ describe("стенд ozon (M4)", () => {
     const docker = new FakeDocker((argv) =>
       argv.includes(OZON_COMPOSE) && argv.includes("pg")
         ? { code: 4, stdout: "", stderr: "" }
-        : undefined
+        : undefined,
     );
     const result = await mpInit(false, lines, docker);
     expect(result.exitCode).toBe(4);
@@ -1563,7 +1606,7 @@ describe("финал: проверка ответом (M4)", () => {
     const docker = new FakeDocker((argv) =>
       argv.at(-1) === "http://sl-dev.localhost"
         ? { code: 7, stdout: "", stderr: "curl: (7) Failed to connect" }
-        : undefined
+        : undefined,
     );
     await mpInit(false, lines, docker);
     expect(checks(lines)[2]).toBe(
@@ -1573,7 +1616,8 @@ describe("финал: проверка ответом (M4)", () => {
 
   it("M4-7: sl-0 503 при database: ok — не отказ", async () => {
     const lines: string[] = [];
-    const body = '{"status":"unhealthy","checks":{"database":{"status":"ok",' +
+    const body =
+      '{"status":"unhealthy","checks":{"database":{"status":"ok",' +
       '"message":"Database connected"},"memory":{"status":"warning",' +
       '"usagePercent":"96%"}}}';
     const docker = new FakeDocker(
@@ -1620,7 +1664,7 @@ describe("финал: проверка ответом (M4)", () => {
   it("без sw-back — его адрес не проверяется", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
-      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined
+      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined,
     );
     await mpInit(false, lines, docker);
     expect(checks(lines).some((line) => line.includes("/api/metrics"))).toBe(

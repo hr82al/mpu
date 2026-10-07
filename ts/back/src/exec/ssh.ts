@@ -73,16 +73,12 @@ export interface SshRun {
 /** Код выхода удалённой команды. */
 export function runOverSsh(options: SshRun): Promise<number> {
   const run = options.run ?? spawnProcess;
-  return run(
-    "ssh",
-    sshArgs(options.target, options.command, options.keyPath),
-    {
-      stdin: options.stdin,
-      output: options.output,
-      cwd: options.cwd,
-      signal: options.signal,
-    },
-  );
+  return run("ssh", sshArgs(options.target, options.command, options.keyPath), {
+    stdin: options.stdin,
+    output: options.output,
+    cwd: options.cwd,
+    signal: options.signal,
+  });
 }
 
 /**

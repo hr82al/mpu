@@ -61,17 +61,19 @@ describe("репозиторий без проектов: цель-модуль 
   });
 
   it("читатели модуля — ответ с пониженной гарантией", async () => {
-    expect(await refs(repo, "plain:src/days.ts")).toStrictEqual([
-      "plain · вне git · текстовый разбор — ответ неполон",
-      "",
-      "модуль src/days.ts",
-      "",
-      "читатели: 1 файл",
-      "  src/window.ts:1",
-      "",
-      "не разрешено: 0",
-      "",
-    ].join("\n"));
+    expect(await refs(repo, "plain:src/days.ts")).toStrictEqual(
+      [
+        "plain · вне git · текстовый разбор — ответ неполон",
+        "",
+        "модуль src/days.ts",
+        "",
+        "читатели: 1 файл",
+        "  src/window.ts:1",
+        "",
+        "не разрешено: 0",
+        "",
+      ].join("\n"),
+    );
   });
 
   it("цель-символ — отказ РАЗДЕЛОМ, с отметкой", async () => {

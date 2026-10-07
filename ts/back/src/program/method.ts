@@ -27,9 +27,10 @@ export interface MethodSource {
  */
 export function nameParts(name: string): string[] {
   if (!name.includes(":")) return [];
-  return name.split(":").filter((part) => part !== "").map((part) =>
-    `${part}:`
-  );
+  return name
+    .split(":")
+    .filter((part) => part !== "")
+    .map((part) => `${part}:`);
 }
 
 /** Слово, которым вызов метода начинается: первая часть или унарное имя. */
@@ -106,10 +107,10 @@ export class MethodCall implements Expression {
     if (parts.length === 0) return [...this.#path, this.#name];
     return [
       ...this.#path,
-      ...parts.flatMap((
+      ...parts.flatMap((part, i) => [
         part,
-        i,
-      ) => [part, ...literalWords(textOf(args[i], part))]),
+        ...literalWords(textOf(args[i], part)),
+      ]),
     ];
   }
 }

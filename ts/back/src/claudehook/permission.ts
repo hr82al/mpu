@@ -132,13 +132,15 @@ class ToolPermission implements Asking {
     };
     return new Form({
       places,
-      steps: [{
-        head: `🔐 ${this.#head}`,
-        text: this.#text,
-        options: choices.map((choice) => ({ label: choice.label })),
-        choice: ONE,
-        reply: TAKES_TEXT,
-      }],
+      steps: [
+        {
+          head: `🔐 ${this.#head}`,
+          text: this.#text,
+          options: choices.map((choice) => ({ label: choice.label })),
+          choice: ONE,
+          reply: TAKES_TEXT,
+        },
+      ],
       answerLine: line,
     });
   }
@@ -174,13 +176,15 @@ class UserQuestions implements Asking {
   form(places: readonly string[]): Form {
     return new Form({
       places,
-      steps: this.#questions.map((one): Step => ({
-        head: `❓ ${one.header}`,
-        text: one.question,
-        options: one.options,
-        choice: one.many ? MANY : ONE,
-        reply: TAKES_TEXT,
-      })),
+      steps: this.#questions.map(
+        (one): Step => ({
+          head: `❓ ${one.header}`,
+          text: one.question,
+          options: one.options,
+          choice: one.many ? MANY : ONE,
+          reply: TAKES_TEXT,
+        }),
+      ),
       answerLine: CHECKED,
     });
   }
@@ -226,9 +230,8 @@ function inputLine(input: Fields): string {
 
 /** Текст шага права: описание, затем команда, иначе вход одной строкой. */
 function permissionText(input: Fields): string {
-  const lines = typeof input.description === "string"
-    ? [input.description]
-    : [];
+  const lines =
+    typeof input.description === "string" ? [input.description] : [];
   lines.push(
     typeof input.command === "string" ? input.command : inputLine(input),
   );
@@ -239,11 +242,11 @@ function toolPermission(name: string, payload: Fields, input: Fields) {
   const always = suggestionsOf(payload.permission_suggestions).map(
     (suggestion) => new Always(suggestion),
   );
-  return new ToolPermission(
-    toolHead(name),
-    permissionText(input),
-    [YES, ...always, NO],
-  );
+  return new ToolPermission(toolHead(name), permissionText(input), [
+    YES,
+    ...always,
+    NO,
+  ]);
 }
 
 /** Вариант AskUserQuestion; без строкового `label` — негоден. */

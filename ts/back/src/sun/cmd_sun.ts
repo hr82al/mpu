@@ -33,15 +33,18 @@ const DEFAULT_LATITUDE = 55.693516;
 const DEFAULT_LONGITUDE = 37.967941;
 
 const argsSchema = z.object({
-  lat: z.number().default(DEFAULT_LATITUDE).describe(
-    "широта в градусах; север положителен",
-  ),
-  lon: z.number().default(DEFAULT_LONGITUDE).describe(
-    "долгота в градусах; восток положителен",
-  ),
-  date: z.string().optional().describe(
-    "дата YYYY-MM-DD; по умолчанию сегодняшняя по Москве",
-  ),
+  lat: z
+    .number()
+    .default(DEFAULT_LATITUDE)
+    .describe("широта в градусах; север положителен"),
+  lon: z
+    .number()
+    .default(DEFAULT_LONGITUDE)
+    .describe("долгота в градусах; восток положителен"),
+  date: z
+    .string()
+    .optional()
+    .describe("дата YYYY-MM-DD; по умолчанию сегодняшняя по Москве"),
 });
 
 const resultSchema = z.object({
@@ -59,7 +62,10 @@ type SunArgs = z.infer<typeof argsSchema>;
 type SunResult = z.infer<typeof resultSchema>;
 
 /** Разбор даты ответа: своя форма, а не сообщение схемы. */
-function parseDate(raw: string | undefined, nowMs: number): {
+function parseDate(
+  raw: string | undefined,
+  nowMs: number,
+): {
   readonly text: string;
   readonly year: number;
   readonly month: number;
@@ -77,7 +83,8 @@ function parseDate(raw: string | undefined, nowMs: number): {
   // таких дат григорианская формула юлианского дня всё равно неверна.
   const probe = new Date(Date.UTC(year, month - 1, day));
   if (
-    probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
     probe.getUTCDate() !== day
   ) {
     throw new UsageError(`bad --date '${text}', expected YYYY-MM-DD`);
@@ -141,10 +148,12 @@ function momentsOf(
   date: { readonly year: number; readonly month: number; readonly day: number },
   timezoneHours: number,
 ): (minutes: number) => string {
-  const midnightUtcMs = Date.UTC(date.year, date.month - 1, date.day) -
-    timezoneHours * 3_600_000;
+  const midnightUtcMs =
+    Date.UTC(date.year, date.month - 1, date.day) - timezoneHours * 3_600_000;
   return (minutes) => {
-    const localMs = midnightUtcMs + Math.round(minutes * 60) * 1000 +
+    const localMs =
+      midnightUtcMs +
+      Math.round(minutes * 60) * 1000 +
       timezoneHours * 3_600_000;
     return new Date(localMs).toISOString().replace("T", " ").slice(0, 19);
   };

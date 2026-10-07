@@ -22,12 +22,16 @@ export const lsRowSchema = z.object({
   updated: z.string().nullable().describe("момент последней активности"),
   title: z.string().describe("название карточки"),
   url: z.string().describe("web-адрес карточки"),
-  column: z.string().describe(
-    "название колонки по локальному кэшу; промах кэша — id числом; колонки нет — пусто",
-  ),
-  columnMapped: z.string().describe(
-    "метка из KITEN_COLUMN_MAP по id либо названию колонки; нет в карте — column",
-  ),
+  column: z
+    .string()
+    .describe(
+      "название колонки по локальному кэшу; промах кэша — id числом; колонки нет — пусто",
+    ),
+  columnMapped: z
+    .string()
+    .describe(
+      "метка из KITEN_COLUMN_MAP по id либо названию колонки; нет в карте — column",
+    ),
 });
 
 export type LsRow = z.infer<typeof lsRowSchema>;
@@ -51,7 +55,7 @@ const PLACEHOLDER = /\{(n|id|title|url|state|due|column|column_mapped)\}/g;
 /** `--json`: отступ 2, юникод как есть, пусто — `[]`. */
 export function renderLsJson(rows: readonly LsRow[]): string {
   const view = rows.map((row) =>
-    Object.fromEntries(JSON_KEYS.map((key) => [key, row[key]]))
+    Object.fromEntries(JSON_KEYS.map((key) => [key, row[key]])),
   );
   return `${JSON.stringify(view, null, 2)}\n`;
 }
@@ -95,8 +99,10 @@ export function renderLsTable(rows: readonly LsRow[]): string {
   const widths = columnWidths(cells);
   const table = cells
     .map((row) =>
-      row.map((cell, index) => cell.padEnd(widths[index])).join("  ")
-        .trimEnd()
+      row
+        .map((cell, index) => cell.padEnd(widths[index]))
+        .join("  ")
+        .trimEnd(),
     )
     .join("\n");
   return `${table}\n(${rows.length} cards)\n`;

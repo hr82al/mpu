@@ -27,12 +27,12 @@ it("S22: тул mpu со словами хука — вход не разобр�
         { type: "text", text: "" },
         {
           type: "text",
-          text: `stderr:\n${
-            PRE_TOOL_USE.undecided("вход не разобран: stdin — не JSON-объект")
-          }`,
+          text: `stderr:\n${PRE_TOOL_USE.undecided(
+            "вход не разобран: stdin — не JSON-объект",
+          )}`,
         },
       ]);
-    })
+    }),
   ));
 
 it("S24: тул mpu со словами permission-request — вход не разобран, код 0", () =>
@@ -46,14 +46,12 @@ it("S24: тул mpu со словами permission-request — вход не р�
         { type: "text", text: "" },
         {
           type: "text",
-          text: `stderr:\n${
-            PERMISSION_REQUEST.undecided(
-              "вход не разобран: stdin — не JSON-объект",
-            )
-          }`,
+          text: `stderr:\n${PERMISSION_REQUEST.undecided(
+            "вход не разобран: stdin — не JSON-объект",
+          )}`,
         },
       ]);
-    })
+    }),
   ));
 
 it("R2a-12: тул mpu со словами stop — вход не разобран, код 0", () =>
@@ -65,12 +63,12 @@ it("R2a-12: тул mpu со словами stop — вход не разобра
         { type: "text", text: "" },
         {
           type: "text",
-          text: `stderr:\n${
-            STOP.undecided("вход не разобран: stdin — не JSON-объект")
-          }`,
+          text: `stderr:\n${STOP.undecided(
+            "вход не разобран: stdin — не JSON-объект",
+          )}`,
         },
       ]);
-    })
+    }),
   ));
 
 it("R3: тул mpu со словами elicitation — вход не разобран, код 0", () =>
@@ -84,10 +82,10 @@ it("R3: тул mpu со словами elicitation — вход не разоб�
         { type: "text", text: "" },
         {
           type: "text",
-          text: `stderr:\n${
-            ELICITATION.undecided("вход не разобран: stdin — не JSON-объект")
-          }`,
+          text: `stderr:\n${ELICITATION.undecided(
+            "вход не разобран: stdin — не JSON-объект",
+          )}`,
         },
       ]);
-    })
+    }),
   ));

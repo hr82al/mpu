@@ -220,7 +220,7 @@ it("без --dry запрос уходит сессии, и она закрыв�
     });
     expect(session.sent).toStrictEqual([
       "CREATE TABLE backups.wb_unit_proto_777_20260827 AS\n" +
-      "SELECT * FROM schema_777.wb_unit_proto;",
+        "SELECT * FROM schema_777.wb_unit_proto;",
     ]);
     expect(session.wasClosed()).toBe(true);
     expect(result.dry).toBe(false);
@@ -236,7 +236,7 @@ describe("три команды различаются таблицей и пл�
   for (const [name, marketplace, table] of cases) {
     it(name, async () => {
       await withCache(1, async (db) => {
-        const result = await command(name).invokeInput(args(), io(db)) as {
+        const result = (await command(name).invokeInput(args(), io(db))) as {
           marketplace: string;
           source_table: string;
           sql: string;
@@ -320,8 +320,9 @@ describe("schema_id: флаг, кандидаты, сам селектор", () 
   });
 
   it("единственный client_id кандидатов", () => {
-    expect(schemaIdOf(undefined, "Таблица", [candidate(777), candidate(777)]))
-      .toBe(777);
+    expect(
+      schemaIdOf(undefined, "Таблица", [candidate(777), candidate(777)]),
+    ).toBe(777);
   });
 
   it("кандидатов нет, селектор — число", () => {
@@ -330,10 +331,11 @@ describe("schema_id: флаг, кандидаты, сам селектор", () 
 
   it("разные client_id — отказ с кандидатами", async () => {
     const err = assertThrowsUsage(() =>
-      schemaIdOf(undefined, "Таблица", [candidate(777), candidate(778)])
+      schemaIdOf(undefined, "Таблица", [candidate(777), candidate(778)]),
     );
-    expect(`${formatCommandError("backup-wb-unit-proto", err)}\n`)
-      .toStrictEqual(await golden("err-ambiguous-client-stderr.txt"));
+    expect(
+      `${formatCommandError("backup-wb-unit-proto", err)}\n`,
+    ).toStrictEqual(await golden("err-ambiguous-client-stderr.txt"));
   });
 
   it("кандидатов нет, селектор не число — отказ", () => {

@@ -40,15 +40,13 @@ it("запись тела переживает разбор; битая — со
   const card = new Card("T", "шаг", ["• a — b"]);
   const parsed = Card.parse(JSON.stringify(card));
   expect(parsed.text(["⌛"])).toStrictEqual(card.text(["⌛"]));
-  for (
-    const junk of [
-      "",
-      "{",
-      "null",
-      '{"title":1}',
-      '{"title":"T","text":"x","lines":[1]}',
-    ]
-  ) {
+  for (const junk of [
+    "",
+    "{",
+    "null",
+    '{"title":1}',
+    '{"title":"T","text":"x","lines":[1]}',
+  ]) {
     expect(Card.parse(junk).text(["⌛ истёк"]), junk).toBe("⌛ истёк");
   }
 });
@@ -101,11 +99,13 @@ it("R4: первая строка шага — жирным; смещение �
     BOLD_FIRST_LINE,
   );
   const shown = card.render(["ещё ждут: 1"]);
-  expect(shown.entities).toStrictEqual([{
-    type: "bold",
-    offset: 16,
-    length: 12,
-  }]);
+  expect(shown.entities).toStrictEqual([
+    {
+      type: "bold",
+      offset: 16,
+      length: 12,
+    },
+  ]);
   expect(shown.text.slice(16, 28)).toBe("Bash command");
   // Хвост исхода — тоже с выделением: правка без него его сняла бы.
   expect(card.render(["✅ готово"]).entities.length).toBe(1);

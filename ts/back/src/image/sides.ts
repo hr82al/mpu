@@ -225,14 +225,15 @@ function parsed(
   }
   // Назначение не сказано или не закрыто: хэш — слова как есть; запись в
   // базу откажет проверкой `define:`.
-  const line = said.purpose === undefined || said.unclosed !== undefined
-    ? words.join(" ")
-    : canonicalLine({
-      receiver,
-      name,
-      purpose: said.purpose,
-      keys: said.keys,
-      body,
-    });
+  const line =
+    said.purpose === undefined || said.unclosed !== undefined
+      ? words.join(" ")
+      : canonicalLine({
+          receiver,
+          name,
+          purpose: said.purpose,
+          keys: said.keys,
+          body,
+        });
   return new MethodFile({ path, receiver, name, words, body, line });
 }

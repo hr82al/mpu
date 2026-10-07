@@ -15,20 +15,23 @@ import { looksLikeSpreadsheetId, spreadsheetIdOf } from "./target.ts";
 /** Допустимые имена алиасов (`sheet-registry.md`, «CLI-контракт»). */
 const NAME_RE = /^[A-Za-z0-9_.-]+$/;
 
-const nameSchema = z.string({
-  error: "alias ожидает name:",
-}).refine((name) => NAME_RE.test(name), {
-  error: (issue) =>
-    `недопустимое имя алиаса '${String(issue.input)}': допустимы буквы, ` +
-    "цифры, _, . и -",
-});
+const nameSchema = z
+  .string({
+    error: "alias ожидает name:",
+  })
+  .refine((name) => NAME_RE.test(name), {
+    error: (issue) =>
+      `недопустимое имя алиаса '${String(issue.input)}': допустимы буквы, ` +
+      "цифры, _, . и -",
+  });
 
 const addResult = z.object({
   name: z.string(),
   ss_id: z.string().describe("идентификатор, закреплённый за именем"),
-  previous: z.string().nullable().describe(
-    "что было за именем до вызова; null — имени не было",
-  ),
+  previous: z
+    .string()
+    .nullable()
+    .describe("что было за именем до вызова; null — имени не было"),
 });
 
 const rmResult = z.object({
@@ -85,7 +88,8 @@ Exit: 0 — успех; 2 — недопустимое имя или spreadsheet
   policy: "rw",
   argsSchema: z.object({
     name: nameSchema.describe("имя алиаса по [A-Za-z0-9_.-]+"),
-    spreadsheet: z.string({ error: "alias add ожидает name: и spreadsheet:" })
+    spreadsheet: z
+      .string({ error: "alias add ожидает name: и spreadsheet:" })
       .describe("идентификатор таблицы или ссылка на неё"),
   }),
   forms: {
@@ -122,9 +126,7 @@ export const sheetAliasLsCommand = defineCommand({
 вывод и код 0: свежая БД, а не поломка.
 
 Exit: 0 — успех; 1 — хранилище недоступно.`,
-  examples: [
-    "mpu sheet alias ls",
-  ],
+  examples: ["mpu sheet alias ls"],
   policy: "ro",
   argsSchema: z.object({}),
   resultSchema: z.object({
@@ -153,12 +155,11 @@ export const sheetAliasRmCommand = defineCommand({
 
 Exit: 0 — успех; 1 — имени нет либо хранилище недоступно; 2 — name: не
 передан.`,
-  examples: [
-    "mpu sheet alias rm name: otchet",
-  ],
+  examples: ["mpu sheet alias rm name: otchet"],
   policy: "rw",
   argsSchema: z.object({
-    name: z.string({ error: "alias rm ожидает name:" })
+    name: z
+      .string({ error: "alias rm ожидает name:" })
       .describe("снимаемое имя"),
   }),
   forms: { name: { positional: "one" } },

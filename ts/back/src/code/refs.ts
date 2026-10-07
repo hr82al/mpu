@@ -53,18 +53,20 @@ const sectionSchema = z.discriminatedUnion("kind", [
       line: z.number().int().positive().nullable(),
     }),
     /** Объявление цели-символа; у цели-модуля пусто. */
-    symbol: z.object({
-      name: z.string(),
-      signature: z.string(),
-      scope: z.enum([
-        "entry",
-        "module-only",
-        "no-entry",
-        "entry-unparsed",
-        "entry-not-object",
-        "private",
-      ]),
-    }).nullable(),
+    symbol: z
+      .object({
+        name: z.string(),
+        signature: z.string(),
+        scope: z.enum([
+          "entry",
+          "module-only",
+          "no-entry",
+          "entry-unparsed",
+          "entry-not-object",
+          "private",
+        ]),
+      })
+      .nullable(),
     consumers: countedSchema,
     unresolved: unresolvedSchema,
   }),
@@ -120,12 +122,14 @@ export async function collectRefs(
   if (address.line !== undefined && refusal !== null) {
     return refusedRefs(mark, refusal);
   }
-  const declaration = address.line === undefined
-    ? undefined
-    : declarationAt(analyzer, address.path, address.line);
-  const target: Target = address.line === undefined
-    ? { kind: "module", path: address.path }
-    : { kind: "symbol", path: address.path, line: address.line };
+  const declaration =
+    address.line === undefined
+      ? undefined
+      : declarationAt(analyzer, address.path, address.line);
+  const target: Target =
+    address.line === undefined
+      ? { kind: "module", path: address.path }
+      : { kind: "symbol", path: address.path, line: address.line };
   const places = analyzer.consumersOf(target);
   return {
     section: {
@@ -137,11 +141,14 @@ export async function collectRefs(
         path: address.path,
         line: address.line ?? null,
       },
-      symbol: declaration === undefined ? null : {
-        name: declaration.name,
-        signature: declaration.signature,
-        scope: declaration.scope,
-      },
+      symbol:
+        declaration === undefined
+          ? null
+          : {
+              name: declaration.name,
+              signature: declaration.signature,
+              scope: declaration.scope,
+            },
       consumers: { total: places.length, places: places.slice(0, limit) },
       unresolved: unresolvedOf(analyzer, limit),
     },

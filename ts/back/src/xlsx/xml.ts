@@ -253,11 +253,12 @@ function decodeEntity(body: string, offset: number): string {
   if (body.startsWith("#")) {
     const digits = body.slice(1);
     const hex = /^[xX]([0-9a-fA-F]+)$/.exec(digits);
-    const code = hex !== null
-      ? Number.parseInt(hex[1], 16)
-      : /^\d+$/.test(digits)
-      ? Number.parseInt(digits, 10)
-      : Number.NaN;
+    const code =
+      hex !== null
+        ? Number.parseInt(hex[1], 16)
+        : /^\d+$/.test(digits)
+          ? Number.parseInt(digits, 10)
+          : Number.NaN;
     if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) {
       throw new XmlError(
         `invalid character entity "&${body};" near offset ${offset}`,

@@ -81,11 +81,13 @@ export function resolveXlsxPath(sources: ResolveSources): ResolveReport {
  * `~`, не кончается на `.xlsx`, матчит `[A-Za-z0-9_.-]+`.
  */
 export function isAliasLike(value: string): boolean {
-  return !value.includes("/") &&
+  return (
+    !value.includes("/") &&
     !value.includes("\\") &&
     !value.startsWith("~") &&
     !value.endsWith(".xlsx") &&
-    /^[A-Za-z0-9_.-]+$/.test(value);
+    /^[A-Za-z0-9_.-]+$/.test(value)
+  );
 }
 
 /** Ошибка «путь не задан» с текстом из спеки (exit 2). */
@@ -94,7 +96,8 @@ export function pathNotSetError(): UsageError {
     "путь к .xlsx не задан. Проверены (по порядку): --file/-f, " +
       "MPU_XLSX (env-файл), config xlsx.default",
     {
-      hint: "--file <путь>, MPU_XLSX=<путь> в ~/.config/mpu/.env " +
+      hint:
+        "--file <путь>, MPU_XLSX=<путь> в ~/.config/mpu/.env " +
         "или задай config xlsx.default",
     },
   );

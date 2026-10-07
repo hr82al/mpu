@@ -46,7 +46,7 @@ const NOTE = {
 
 it("создание треда: form-urlencoded и скобочные ключи позиции", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json({ id: THREAD_ID, notes: [NOTE] })
+    Response.json({ id: THREAD_ID, notes: [NOTE] }),
   );
   try {
     const created = await createDiscussion(access(stand.baseUrl), ADDRESS, {
@@ -135,7 +135,7 @@ describe("резолв: признак идёт query-параметром, те
 
 it("правка ноты идёт на тот номер, который набрал оператор", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json({ ...NOTE, body: "новое" })
+    Response.json({ ...NOTE, body: "новое" }),
   );
   try {
     const note = await updateNote(access(stand.baseUrl), ADDRESS, 42, "новое");
@@ -150,8 +150,8 @@ it("правка ноты идёт на тот номер, который наб
 });
 
 it("чужая нота: 403 GitLab — отказ, а не успех", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(`{"message":"403 Forbidden"}`, { status: 403 })
+  const stand = await startFakeGitlab(
+    () => new Response(`{"message":"403 Forbidden"}`, { status: 403 }),
   );
   try {
     const err = await rejected(
@@ -165,8 +165,8 @@ it("чужая нота: 403 GitLab — отказ, а не успех", async (
 });
 
 it("удаление: пустое тело ответа — успех, а не отказ разбора", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(null, { status: 204 })
+  const stand = await startFakeGitlab(
+    () => new Response(null, { status: 204 }),
   );
   try {
     await deleteNote(access(stand.baseUrl), ADDRESS, 6);
@@ -181,7 +181,7 @@ it("удаление: пустое тело ответа — успех, а не
 
 it("описание заменяется целиком; ответ — сам MR", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json({ iid: 456, web_url: "https://gitlab.example.test/x" })
+    Response.json({ iid: 456, web_url: "https://gitlab.example.test/x" }),
   );
   try {
     const mr = await updateDescription(access(stand.baseUrl), ADDRESS, "текст");
@@ -236,7 +236,7 @@ describe("создание MR: пустое описание не отправл
 
 it("ответ POST без нот — отказ: пустой успех неотличим от промаха", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json({ id: THREAD_ID, notes: [] })
+    Response.json({ id: THREAD_ID, notes: [] }),
   );
   try {
     await rejected(

@@ -60,13 +60,14 @@ export function parseProxy(raw: string): ProxySettings {
 
 /** Собирает URL для транспорта: учётные данные кодируются обратно. */
 export function proxyUrl(proxy: ProxySettings): string {
-  const user = proxy.username === undefined
-    ? ""
-    : `${encodeURIComponent(proxy.username)}${
-      proxy.password === undefined
-        ? ""
-        : `:${encodeURIComponent(proxy.password)}`
-    }@`;
+  const user =
+    proxy.username === undefined
+      ? ""
+      : `${encodeURIComponent(proxy.username)}${
+          proxy.password === undefined
+            ? ""
+            : `:${encodeURIComponent(proxy.password)}`
+        }@`;
   return `${proxy.tunnel}://${user}${proxy.host}:${proxy.port}`;
 }
 

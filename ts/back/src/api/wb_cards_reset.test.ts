@@ -186,12 +186,16 @@ it("несколько кабинетов — отказ с перечнем, а
 
 it("--client-id сужает неоднозначный селектор", async () => {
   await withCache(
-    [[777, "Общий заголовок", [SID]], [778, "Общий заголовок", [OTHER_SID]]],
+    [
+      [777, "Общий заголовок", [SID]],
+      [778, "Общий заголовок", [OTHER_SID]],
+    ],
     async (io) => {
       const { session, sent } = sessionOf();
       // Без сужения заголовок даёт два кабинета — отказ.
-      await expect(runCardsReset(args({ selector: "Общий" }), io, { session }))
-        .rejects.toThrow(UsageError);
+      await expect(
+        runCardsReset(args({ selector: "Общий" }), io, { session }),
+      ).rejects.toThrow(UsageError);
       const result = await runCardsReset(
         args({ selector: "Общий", "client-id": "778" }),
         io,

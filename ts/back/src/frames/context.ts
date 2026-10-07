@@ -108,7 +108,7 @@ export const SERVER_RULE: EnvRule = {
 function clientRule(given: ReadonlyMap<string, string>): EnvRule {
   return {
     over: (server) => ({
-      value: (name) => given.has(name) ? given.get(name) : server(name),
+      value: (name) => (given.has(name) ? given.get(name) : server(name)),
     }),
   };
 }

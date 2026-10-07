@@ -130,7 +130,7 @@ describe("полярные день и ночь — отказ, а не NaN", ()
         year: 2026,
         month: 12,
         day: 21,
-      })
+      }),
     ).toThrow(NoSunriseError);
   });
 });
@@ -139,10 +139,7 @@ describe("плохая --date — ошибка ввода", () => {
   const bad = ["27.08.2026", "2026-8-27", "2026-08-27T00:00", "вчера", ""];
   for (const value of bad) {
     it(`отбивается '${value}'`, () => {
-      const err = thrown(
-        () => sunOf(args({ date: value }), NOW),
-        UsageError,
-      );
+      const err = thrown(() => sunOf(args({ date: value }), NOW), UsageError);
       expect(err.message).toStrictEqual(
         `bad --date '${value}', expected YYYY-MM-DD`,
       );

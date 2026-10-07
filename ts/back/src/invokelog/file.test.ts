@@ -128,10 +128,12 @@ describe("сбой ротации не теряет запись", () => {
       try {
         // Читать размер для ротации нечем, писать тоже некуда: наружу
         // уходит отказ, а fail-open — этажом выше, в самом журнале.
-        await expect(appendRecord(`${closed}/mpu.log`, "новое\n", {
-          maxBytes: 1,
-          keep: 5,
-        })).rejects.toThrow();
+        await expect(
+          appendRecord(`${closed}/mpu.log`, "новое\n", {
+            maxBytes: 1,
+            keep: 5,
+          }),
+        ).rejects.toThrow();
       } finally {
         await chmod(closed, 0o755);
       }
@@ -193,11 +195,11 @@ it("два процесса ротируют разом: каждая запис
       ["a", "b"].map((label) =>
         promisify(execFile)(
           ...runTs(rotator, [path, label, String(count), String(maxBytes)]),
-        )
+        ),
       ),
     );
     const files = (await readdir(dir)).filter((name) =>
-      name.startsWith("mpu.log")
+      name.startsWith("mpu.log"),
     );
     const records: string[] = [];
     for (const name of files) {
@@ -210,7 +212,7 @@ it("два процесса ротируют разом: каждая запис
       }
     }
     const expected = ["a", "b"].flatMap((label) =>
-      Array.from({ length: count }, (_, index) => `${label} ${index}`)
+      Array.from({ length: count }, (_, index) => `${label} ${index}`),
     );
     expect(records.sort()).toStrictEqual(expected.sort());
   });

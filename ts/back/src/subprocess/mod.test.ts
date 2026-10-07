@@ -88,7 +88,10 @@ describe("отказ запуска", () => {
   it("программы нет — отказ с кодом ENOENT до потоков", async () => {
     const err = await startProgram("/bin/net-takogo-binarya", {
       stdout: "piped",
-    }).then(() => undefined, (err: unknown) => err);
+    }).then(
+      () => undefined,
+      (err: unknown) => err,
+    );
     expect(hasErrorCode(err, "ENOENT"), String(err)).toBe(true);
   });
 
@@ -111,10 +114,7 @@ describe("запущенный процесс", () => {
     await writer.write(new TextEncoder().encode("строка"));
     await writer.close();
     const out = await child.output();
-    expect([out.code, decoder.decode(out.stdout)]).toStrictEqual([
-      0,
-      "строка",
-    ]);
+    expect([out.code, decoder.decode(out.stdout)]).toStrictEqual([0, "строка"]);
   });
 
   it("stdin null — конец ввода сразу", async () => {

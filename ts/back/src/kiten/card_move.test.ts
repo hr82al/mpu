@@ -95,8 +95,7 @@ it("orderedColumns: слева направо по весу, без веса —
 it("orderedColumns: равные веса — по возрастанию id", () => {
   const columns = [column(20, "Б", 1), column(10, "А", 1)];
   expect(orderedColumns(columns).map((item) => item.id)).toStrictEqual([
-    10,
-    20,
+    10, 20,
   ]);
 });
 
@@ -126,19 +125,23 @@ describe("relogNeighbour: сосед слева, у крайней левой �
 
 describe("positionLabel: непустые части через разделитель", () => {
   it("все три части", () => {
-    expect(positionLabel({
-      boardTitle: "Проекты",
-      columnTitle: "Бэклог",
-      laneTitle: "Разработка",
-    })).toBe("Проекты · Бэклог · Разработка");
+    expect(
+      positionLabel({
+        boardTitle: "Проекты",
+        columnTitle: "Бэклог",
+        laneTitle: "Разработка",
+      }),
+    ).toBe("Проекты · Бэклог · Разработка");
   });
 
   it("пустые части выпадают", () => {
-    expect(positionLabel({
-      boardTitle: "Проекты",
-      columnTitle: "",
-      laneTitle: null,
-    })).toBe("Проекты");
+    expect(
+      positionLabel({
+        boardTitle: "Проекты",
+        columnTitle: "",
+        laneTitle: null,
+      }),
+    ).toBe("Проекты");
   });
 
   it("все пусты — прочерк", () => {
@@ -197,7 +200,7 @@ describe("applyMove: положение «после» — по свежему G
         seen[seen.length - 1].method === "PATCH"
           ? rawPatched()
           : rawCardAfter(),
-      )
+      ),
     );
     try {
       const outcome = await applyMove(
@@ -212,11 +215,12 @@ describe("applyMove: положение «после» — по свежему G
       expect(outcome.card.columnTitle).toBe("Готово");
       expect(outcome.card.boardTitle).toBe("Проекты");
       expect(outcome.card.laneTitle).toBe("Разработка");
-      expect(fake.seen.map((req) => `${req.method} ${req.pathname}`))
-        .toStrictEqual([
-          `PATCH /api/latest/cards/${CARD_ID}`,
-          `GET /api/latest/cards/${CARD_ID}`,
-        ]);
+      expect(
+        fake.seen.map((req) => `${req.method} ${req.pathname}`),
+      ).toStrictEqual([
+        `PATCH /api/latest/cards/${CARD_ID}`,
+        `GET /api/latest/cards/${CARD_ID}`,
+      ]);
     } finally {
       await fake.stop();
     }
@@ -228,7 +232,7 @@ describe("applyMove: положение «после» — по свежему G
         seen[seen.length - 1].method === "PATCH"
           ? rawPatched()
           : rawCardAfter(),
-      )
+      ),
     );
     try {
       const outcome = await applyMove(
@@ -256,12 +260,13 @@ describe("журнал за окно: включительно по обеим �
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "mpu-"));
     db = openCacheDb(`${dir}/cache.db`);
-    for (
-      const [cardId, movedAt] of [[1, 99], [2, 100], [3, 150], [4, 200], [
-        5,
-        201,
-      ]] as const
-    ) {
+    for (const [cardId, movedAt] of [
+      [1, 99],
+      [2, 100],
+      [3, 150],
+      [4, 200],
+      [5, 201],
+    ] as const) {
       recordMove(db, {
         cardId,
         title: `карточка ${cardId}`,
@@ -283,8 +288,9 @@ describe("журнал за окно: включительно по обеим �
     }
   });
   it("границы окна попадают в выдачу", () => {
-    expect(movesInWindow(db, 100, 200).map((move) => move.cardId))
-      .toStrictEqual([2, 3, 4]);
+    expect(
+      movesInWindow(db, 100, 200).map((move) => move.cardId),
+    ).toStrictEqual([2, 3, 4]);
   });
   it("нужные поля строки и ничего сверх", () => {
     expect(movesInWindow(db, 150, 150)).toStrictEqual([
@@ -369,8 +375,9 @@ describe("planAxisMove: релог решается сравнением зна�
     ).toBe(5000001);
   });
   it("текущая колонка и те же доска с дорожкой — тоже релог", () => {
-    expect(planAxisMove(card, { board, lane, column: current }).relogTarget)
-      .toBe(5000001);
+    expect(
+      planAxisMove(card, { board, lane, column: current }).relogTarget,
+    ).toBe(5000001);
   });
   it("другая доска при той же колонке — обычный PATCH", () => {
     expect(
@@ -404,11 +411,16 @@ describe("planAxisMove: релог решается сравнением зна�
 describe("строки успеха совпадают с голденами канала", () => {
   const url = "https://kaiten.example/70000001";
   it("перемещение", async () => {
-    expect(moveOkLine({
-      from: "Разработка · Бэклог · Веб",
-      to: "Разработка · Готово · Веб",
-      relog: false,
-    }, url)).toStrictEqual(
+    expect(
+      moveOkLine(
+        {
+          from: "Разработка · Бэклог · Веб",
+          to: "Разработка · Готово · Веб",
+          relog: false,
+        },
+        url,
+      ),
+    ).toStrictEqual(
       await readFile(
         new URL("./testdata/kiten-move/ok-move-stdout.txt", import.meta.url),
         "utf8",
@@ -416,11 +428,16 @@ describe("строки успеха совпадают с голденами к�
     );
   });
   it("релог", async () => {
-    expect(moveOkLine({
-      from: "Разработка · Готово · Веб",
-      to: "Разработка · Готово · Веб",
-      relog: true,
-    }, url)).toStrictEqual(
+    expect(
+      moveOkLine(
+        {
+          from: "Разработка · Готово · Веб",
+          to: "Разработка · Готово · Веб",
+          relog: true,
+        },
+        url,
+      ),
+    ).toStrictEqual(
       await readFile(
         new URL("./testdata/kiten-move/ok-relog-stdout.txt", import.meta.url),
         "utf8",
@@ -437,10 +454,12 @@ describe("релог невозможен: два отказа с разными
     );
   });
   it("на доске одна колонка", () => {
-    expect(() => relogNeighbour([column(5000001, "Готово", 1)], 5000001))
-      .toThrow(UsageError);
-    expect(() => relogNeighbour([column(5000001, "Готово", 1)], 5000001))
-      .toThrow("на доске одна колонка — релог невозможен");
+    expect(() =>
+      relogNeighbour([column(5000001, "Готово", 1)], 5000001),
+    ).toThrow(UsageError);
+    expect(() =>
+      relogNeighbour([column(5000001, "Готово", 1)], 5000001),
+    ).toThrow("на доске одна колонка — релог невозможен");
   });
   it("целевой колонки нет в списке", () => {
     expect(() => relogNeighbour(COLUMNS, 999)).toThrow(UsageError);

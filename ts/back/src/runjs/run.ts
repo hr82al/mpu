@@ -58,33 +58,47 @@ export type RunJsIo = Pick<
 >;
 
 export const argsSchema = z.object({
-  selector: z.string().optional().describe(
-    "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
-      " с all и all-containers: селектора нет",
-  ),
+  selector: z
+    .string()
+    .optional()
+    .describe(
+      "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
+        " с all и all-containers: селектора нет",
+    ),
   code: z.string().optional().describe("ESM-код; иначе --file или stdin"),
   file: z.string().optional().describe("файл с ESM-кодом"),
-  all: z.boolean().default(false).describe(
-    "все инстанс-серверы кэша (sl-N, N>0)",
-  ),
-  "all-containers": z.string().optional().describe(
-    "контейнеры кэша, чьё имя содержит подстроку",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать команду и скопировать её в буфер обмена, не выполняя",
-  ),
-  via: z.string().optional().describe(
-    "транспорт серверного таргета: ssh|portainer",
-  ),
-  parallel: z.boolean().default(false).describe(
-    "все таргеты одновременно; вывод по каждому — по его завершении",
-  ),
-  jobs: z.number().default(0).describe(
-    "предел одновременных таргетов при parallel; 0 — все",
-  ),
-  detach: z.boolean().default(false).describe(
-    "фоновый запуск: скрипт заливается в контейнер, лог остаётся в /tmp",
-  ),
+  all: z
+    .boolean()
+    .default(false)
+    .describe("все инстанс-серверы кэша (sl-N, N>0)"),
+  "all-containers": z
+    .string()
+    .optional()
+    .describe("контейнеры кэша, чьё имя содержит подстроку"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe(
+      "напечатать команду и скопировать её в буфер обмена, не выполняя",
+    ),
+  via: z
+    .string()
+    .optional()
+    .describe("транспорт серверного таргета: ssh|portainer"),
+  parallel: z
+    .boolean()
+    .default(false)
+    .describe("все таргеты одновременно; вывод по каждому — по его завершении"),
+  jobs: z
+    .number()
+    .default(0)
+    .describe("предел одновременных таргетов при parallel; 0 — все"),
+  detach: z
+    .boolean()
+    .default(false)
+    .describe(
+      "фоновый запуск: скрипт заливается в контейнер, лог остаётся в /tmp",
+    ),
 });
 
 /** Итог по одному таргету. */
@@ -200,7 +214,10 @@ async function preview(
   io: RunJsIo,
   options: RunJsOptions,
 ): Promise<RunJsResult> {
-  const text = previewOf(targets.map((target) => target.label), code);
+  const text = previewOf(
+    targets.map((target) => target.label),
+    code,
+  );
   const copy = options.copy ?? ((text: string) => io.prompt.copy(text));
   await copy(text);
   return {
@@ -224,9 +241,7 @@ async function sequential(
     const exitCode = await execute(target.transport, call, call.output);
     done.push({ label: target.label, exitCode, failure: null });
     if (exitCode !== 0) {
-      call.io.progress(
-        `mpu run-js: ${target.label} exit=${exitCode} — abort`,
-      );
+      call.io.progress(`mpu run-js: ${target.label} exit=${exitCode} — abort`);
       return finish("sequential", done, targets, call, exitCode);
     }
   }
@@ -243,9 +258,8 @@ async function parallel(
   call: Call,
 ): Promise<RunJsResult> {
   const limit = jobsOf(call.args.jobs);
-  const workers = limit === 0
-    ? targets.length
-    : Math.min(limit, targets.length);
+  const workers =
+    limit === 0 ? targets.length : Math.min(limit, targets.length);
   call.io.progress(
     `# mpu run-js: parallel — ${targets.length} targets, ${workers} workers;` +
       " вывод по каждому таргету печатается по его завершении",
@@ -295,9 +309,9 @@ async function detachAll(
   const failed = done.filter((result) => result.exitCode !== 0);
   if (failed.length > 0) {
     call.io.progress(
-      `mpu run-js: detach failures on [${
-        failed.map((r) => r.label).join(", ")
-      }]`,
+      `mpu run-js: detach failures on [${failed
+        .map((r) => r.label)
+        .join(", ")}]`,
     );
   }
   return {
@@ -330,11 +344,7 @@ async function detachOne(
 }
 
 /** Подсказки, как забрать логи; только когда среди таргетов есть серверные. */
-function hints(
-  targets: readonly Ready[],
-  call: Call,
-  log: string,
-): void {
+function hints(targets: readonly Ready[], call: Call, log: string): void {
   const servers = targets.filter((target) => target.place.kind !== "container");
   if (servers.length === 0) return;
   // Строки — в записи ключами: их вставляют и исполняют как есть.
@@ -353,9 +363,11 @@ function hints(
  * запятой в `readFileSync` нет, `\n` — два символа исходника.
  */
 function reader(log: string): string {
-  return `import fs from "node:fs"; process.stdout.write(` +
+  return (
+    `import fs from "node:fs"; process.stdout.write(` +
     `fs.existsSync("${log}") ? fs.readFileSync("${log}","utf8")` +
-    ` : "no log yet\\n")`;
+    ` : "no log yet\\n")`
+  );
 }
 
 /**
@@ -387,24 +399,24 @@ function execute(
   const stdin = new TextEncoder().encode(call.code);
   return target.kind === "ssh"
     ? runOverSsh({
-      target,
-      command: NODE_COMMAND,
-      stdin,
-      keyPath: keyPath(call.io),
-      output,
-      cwd: call.io.cwd(),
-      signal: call.io.signal,
-      run: call.options.runProcess,
-    })
+        target,
+        command: NODE_COMMAND,
+        stdin,
+        keyPath: keyPath(call.io),
+        output,
+        cwd: call.io.cwd(),
+        signal: call.io.signal,
+        run: call.options.runProcess,
+      })
     : runOverPortainer({
-      target,
-      command: NODE_COMMAND,
-      stdin,
-      output,
-      warn: call.io.progress,
-      http: call.options.httpCall,
-      open: call.options.openChannel,
-    });
+        target,
+        command: NODE_COMMAND,
+        stdin,
+        output,
+        warn: call.io.progress,
+        http: call.options.httpCall,
+        open: call.options.openChannel,
+      });
 }
 
 /** Фоновый запуск одного таргета. */
@@ -416,26 +428,26 @@ function launch(
 ): Promise<number> {
   return target.kind === "ssh"
     ? detachOverSsh({
-      target,
-      script: call.code,
-      scriptPath: script,
-      logPath: log,
-      keyPath: keyPath(call.io),
-      output: call.output,
-      cwd: call.io.cwd(),
-      signal: call.io.signal,
-      run: call.options.runProcess,
-    })
+        target,
+        script: call.code,
+        scriptPath: script,
+        logPath: log,
+        keyPath: keyPath(call.io),
+        output: call.output,
+        cwd: call.io.cwd(),
+        signal: call.io.signal,
+        run: call.options.runProcess,
+      })
     : detachOverPortainer({
-      target,
-      script: call.code,
-      scriptPath: script,
-      logPath: log,
-      output: call.output,
-      warn: call.io.progress,
-      http: call.options.httpCall,
-      open: call.options.openChannel,
-    });
+        target,
+        script: call.code,
+        scriptPath: script,
+        logPath: log,
+        output: call.output,
+        warn: call.io.progress,
+        http: call.options.httpCall,
+        open: call.options.openChannel,
+      });
 }
 
 /** Итог вызова: таргеты, до которых не дошли, остаются без кода. */
@@ -541,21 +553,19 @@ function scopeOf(args: RunJsArgs): Scope {
  * отвергается до всякого обращения к кэшу и сети.
  */
 async function codeOf(args: RunJsArgs, io: RunJsIo): Promise<string> {
-  const positional = args.all || args["all-containers"] !== undefined
-    ? args.selector
-    : args.code;
+  const positional =
+    args.all || args["all-containers"] !== undefined
+      ? args.selector
+      : args.code;
   if (positional !== undefined && args.file !== undefined) {
     throw new UsageError("позиционный JS и --file взаимоисключающи");
   }
-  const code = positional ?? await fromFileOrStdin(args, io);
+  const code = positional ?? (await fromFileOrStdin(args, io));
   if (code.trim() === "") throw new UsageError("пустой JS");
   return code;
 }
 
-async function fromFileOrStdin(
-  args: RunJsArgs,
-  io: RunJsIo,
-): Promise<string> {
+async function fromFileOrStdin(args: RunJsArgs, io: RunJsIo): Promise<string> {
   if (args.file !== undefined) {
     try {
       return await io.readTextFile(args.file);
@@ -582,8 +592,7 @@ function keyPath(io: RunJsIo): string {
 
 /** Идентификатор фонового запуска: 8 шестнадцатеричных символов. */
 function randomDetachId(): string {
-  return Array.from(
-    crypto.getRandomValues(new Uint8Array(4)),
-    (byte) => byte.toString(16).padStart(2, "0"),
+  return Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
   ).join("");
 }

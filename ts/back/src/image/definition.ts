@@ -19,8 +19,9 @@ const GRAMMAR_WORDS: ReadonlySet<string> = new Set(Object.values(GRAMMAR));
 
 /** Голое слово: начало строки до сообщения образа. */
 export function isPlain(word: string): boolean {
-  return !word.endsWith(":") && !/^[-^@:]/.test(word) &&
-    !GRAMMAR_WORDS.has(word);
+  return (
+    !word.endsWith(":") && !/^[-^@:]/.test(word) && !GRAMMAR_WORDS.has(word)
+  );
 }
 
 /** Значение ключа определения: `^текст^` или одно слово; позиция за ним. */
@@ -31,8 +32,9 @@ function valueAt(
   const word = words[at];
   if (word === undefined) return undefined;
   if (!word.startsWith(GRAMMAR.quote)) return { text: word, next: at + 1 };
-  const end = words.findIndex((one, i) =>
-    i >= at && (i > at || one.length > 1) && one.endsWith(GRAMMAR.quote)
+  const end = words.findIndex(
+    (one, i) =>
+      i >= at && (i > at || one.length > 1) && one.endsWith(GRAMMAR.quote),
   );
   if (end < 0) return undefined;
   const text = words.slice(at, end + 1).join(" ");
@@ -83,8 +85,11 @@ export function blockParams(body: readonly string[]): number {
 }
 
 function isParameter(word: string | undefined): boolean {
-  return word !== undefined && word.length > GRAMMAR.parameter.length &&
-    word.startsWith(GRAMMAR.parameter);
+  return (
+    word !== undefined &&
+    word.length > GRAMMAR.parameter.length &&
+    word.startsWith(GRAMMAR.parameter)
+  );
 }
 
 /**
@@ -94,8 +99,11 @@ function isParameter(word: string | undefined): boolean {
  */
 export function storedName(written: string, params: number): string {
   if (!written.includes(":") && params === 0) return written;
-  return written.split(":").filter((part) => part !== "")
-    .map((part) => `${part}:`).join("");
+  return written
+    .split(":")
+    .filter((part) => part !== "")
+    .map((part) => `${part}:`)
+    .join("");
 }
 
 /**

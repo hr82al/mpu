@@ -56,9 +56,10 @@ async function withCache(body: (path: string) => Promise<void>) {
     const path = `${dir}/mpu.db`;
     using db = openCacheDb(path);
     db.bootstrap();
-    for (
-      const [id, title, server] of [[54, "Ромашка", "sl-2"], [7, "Лес", "sl-1"]]
-    ) {
+    for (const [id, title, server] of [
+      [54, "Ромашка", "sl-2"],
+      [7, "Лес", "sl-1"],
+    ]) {
       db.execute(
         "INSERT INTO sl_clients (client_id, server, is_active, is_locked," +
           " is_deleted, synced_at) VALUES (?, ?, 1, 0, 0, 0)",
@@ -94,9 +95,9 @@ describe("протокол отражения: граничные случаи �
     [
       ["kiten", "card", "variants"],
       "no-comments\tкомментарии карточки; не читать их — вариантом " +
-      "no-comments\n" +
-      "no-images\tвложения-картинки в наглядном виде; выключить — " +
-      "вариантом no-images\n",
+        "no-comments\n" +
+        "no-images\tвложения-картинки в наглядном виде; выключить — " +
+        "вариантом no-images\n",
     ],
     [["kiten", "variants"], ""],
   ];
@@ -109,7 +110,8 @@ describe("протокол отражения: граничные случаи �
           stderr: "",
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -117,37 +119,40 @@ it("keys end json — массив ключей с причинами", () =>
   withPolicyFile(async (file) => {
     const { stdout } = await run(file, ["sql-ro", "keys", END, "json"]);
     expect(
-      JSON.parse(stdout).map((
-        key: { name: string; reason: string | null },
-      ) => [key.name, key.reason]),
-    ).toStrictEqual([["target", null], ["sql", "прежнее имя входа"]]);
+      JSON.parse(stdout).map((key: { name: string; reason: string | null }) => [
+        key.name,
+        key.reason,
+      ]),
+    ).toStrictEqual([
+      ["target", null],
+      ["sql", "прежнее имя входа"],
+    ]);
   }));
 
 it("messages kiten — по алфавиту, от boards до whoami", () =>
   withPolicyFile(async (file) => {
     const { stdout } = await run(file, ["kiten", "messages"]);
-    const selectors = stdout.trimEnd().split("\n").map((row) =>
-      row.split("\t")[0]
-    );
+    const selectors = stdout
+      .trimEnd()
+      .split("\n")
+      .map((row) => row.split("\t")[0]);
     expect(selectors[0]).toBe("boards");
     expect(selectors.at(-1)).toBe("whoami");
     expect(selectors).toStrictEqual([...selectors].sort());
   }));
 
 describe("прежние имена протокола — отказ с готовой строкой", () => {
-  for (
-    const [argv, stderr] of [
-      [
-        ["kiten", "selectors"],
-        "mpu kiten: selectors — теперь messages: mpu kiten messages",
-      ],
-      [
-        ["kiten", "respondsTo:", "ls"],
-        "mpu kiten: respondsTo — теперь understands: " +
+  for (const [argv, stderr] of [
+    [
+      ["kiten", "selectors"],
+      "mpu kiten: selectors — теперь messages: mpu kiten messages",
+    ],
+    [
+      ["kiten", "respondsTo:", "ls"],
+      "mpu kiten: respondsTo — теперь understands: " +
         "mpu kiten understands: ls",
-      ],
-    ] as const
-  ) {
+    ],
+  ] as const) {
     it(argv.join(" "), () =>
       withPolicyFile(async (file) => {
         expect(await run(file, argv)).toStrictEqual({
@@ -156,7 +161,8 @@ describe("прежние имена протокола — отказ с гот�
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -184,7 +190,7 @@ it("candidates: target — клиенты кэша по имени, с серв�
         io,
       );
       expect(other.stdout).toBe("");
-    })
+    }),
   ));
 
 describe("complete: — слова следующего шага", () => {
@@ -193,19 +199,22 @@ describe("complete: — слова следующего шага", () => {
     ["sql-ro target: 54 ", ["sql:"]],
     ["sql-ro ", ["dry", "target:", "verbose"]],
     ["sql-ro target: ром", ["54"]],
-    [`kiten card id: 1 ${END} `, [
-      "first",
-      "first:",
-      "isEmpty",
-      "json",
-      "last",
-      "last:",
-      "md",
-      "pick:",
-      "size",
-      "sortBy:",
-      "where:",
-    ]],
+    [
+      `kiten card id: 1 ${END} `,
+      [
+        "first",
+        "first:",
+        "isEmpty",
+        "json",
+        "last",
+        "last:",
+        "md",
+        "pick:",
+        "size",
+        "sortBy:",
+        "where:",
+      ],
+    ],
     ["kiten card ", ["id:", "no-comments", "no-images"]],
     ["kiten card no-images ", ["id:", "no-comments"]],
     [`kiten card id: 1 ${GRAMMAR.literal} `, []],
@@ -223,13 +232,15 @@ describe("complete: — слова следующего шага", () => {
           );
           expect(code).toBe(0);
           expect(
-            stdout.split("\n").filter((row) => row !== "").map((row) =>
-              row.split("\t")[0]
-            ),
+            stdout
+              .split("\n")
+              .filter((row) => row !== "")
+              .map((row) => row.split("\t")[0]),
           ).toStrictEqual([...words]);
           expect(called).toStrictEqual([]);
-        })
-      ));
+        }),
+      ),
+    );
   }
 });
 
@@ -241,9 +252,10 @@ it("complete: через дверь — ключи; ни вопроса, ни и
     ]);
     expect(code).toBe(0);
     expect(
-      stdout.split("\n").filter((row) => row !== "").map((row) =>
-        row.split("\t")[0]
-      ),
+      stdout
+        .split("\n")
+        .filter((row) => row !== "")
+        .map((row) => row.split("\t")[0]),
     ).toStrictEqual(["target:", "verbose"]);
     expect(stderr.includes("выполнить"), stderr).toBeFalsy();
     expect(called).toStrictEqual([]);

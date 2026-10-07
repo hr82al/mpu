@@ -69,7 +69,7 @@ it("исполнитель: run с контекстом порта, резуль
     cwd: () => "/work",
     stdoutIsTerminal: () => true,
     consoleColumns: () => 80,
-    env: (name) => name === "NO_COLOR" ? "1" : undefined,
+    env: (name) => (name === "NO_COLOR" ? "1" : undefined),
   });
   const running = worker.run(COMMAND, ["x"], io, journal(pids));
   expect(await script.next()).toStrictEqual({
@@ -212,7 +212,8 @@ describe("исполнитель: смерть без итога — по отм
       mark: "900\n",
       startedAt: 0,
       status: { code: 137, signal: "SIGKILL" as const },
-      text: "mpu-back: строка остановлена: машине не хватает памяти, " +
+      text:
+        "mpu-back: строка остановлена: машине не хватает памяти, " +
         "строка заняла 900 МиБ",
     },
     {
@@ -253,9 +254,12 @@ describe("исполнитель: смерть без итога — по отм
       expect(err.message).toStrictEqual(one.text);
       await worker.exited();
       // Отметка прочитана и убрана: чужой строке она не достанется.
-      expect(await stat(`${dir}/${at}`).then(() => true, () => false)).toBe(
-        false,
-      );
+      expect(
+        await stat(`${dir}/${at}`).then(
+          () => true,
+          () => false,
+        ),
+      ).toBe(false);
     });
   }
 });
@@ -420,11 +424,12 @@ it("исполнитель программы: отмена строки — к�
   stop.abort();
   expect(await script.next()).toStrictEqual({ stop: true });
   await script.send({ result: { exit: 130, refusal: null } });
-  expect(await within(running, 5_000, "итог отменённой программы"))
-    .toStrictEqual({
-      exit: 130,
-      refusal: null,
-    });
+  expect(
+    await within(running, 5_000, "итог отменённой программы"),
+  ).toStrictEqual({
+    exit: 130,
+    refusal: null,
+  });
   await script.end({ code: 0, signal: null });
   await worker.exited();
 });

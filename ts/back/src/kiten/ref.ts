@@ -47,9 +47,10 @@ export function resolveRef<T extends RefItem>(
   const exact = items.filter((item) => item.title.toLowerCase() === needle);
   // Точное совпадение старше подстроки: «Готово» не должно стать
   // неоднозначным из-за соседнего «Готово к релизу».
-  const found = exact.length > 0
-    ? exact
-    : items.filter((item) => item.title.toLowerCase().includes(needle));
+  const found =
+    exact.length > 0
+      ? exact
+      : items.filter((item) => item.title.toLowerCase().includes(needle));
   if (found.length === 0) throw notFound(kind, ref);
   if (found.length > 1) {
     throw new UsageError(

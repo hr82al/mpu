@@ -129,8 +129,9 @@ class ImageEntry implements Method<Line> {
       help: this.#method.help(),
     };
     const link = this.#method.record().name;
-    const asked = Object.values(sent.args())
-      .some((value) => String(value) === HELP_SELECTOR);
+    const asked = Object.values(sent.args()).some(
+      (value) => String(value) === HELP_SELECTOR,
+    );
     const kind = asked ? this.#helpKind(doc) : this.#kind;
     return new ImageCall(link, sent.text(), doc, kind, line);
   }
@@ -187,9 +188,10 @@ export function callsImage(
   if (words.includes(HELP_SELECTOR)) return false;
   return methods.some((method) => {
     const call = [...method.record().receiver, callWord(method.record().name)];
-    return words.some((_, at) =>
-      words[at - 1] !== GRAMMAR.literal &&
-      call.every((word, i) => words[at + i] === word)
+    return words.some(
+      (_, at) =>
+        words[at - 1] !== GRAMMAR.literal &&
+        call.every((word, i) => words[at + i] === word),
     );
   });
 }

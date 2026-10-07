@@ -38,21 +38,19 @@ export async function startFakeGitlab(
   reply: (seen: readonly CapturedRequest[]) => Response | Promise<Response>,
 ): Promise<FakeGitlab> {
   const seen: CapturedRequest[] = [];
-  const server = await serveFetch(
-    async (req) => {
-      const url = new URL(req.url);
-      seen.push({
-        method: req.method,
-        pathname: url.pathname,
-        search: url.search,
-        accept: req.headers.get("accept"),
-        contentType: req.headers.get("content-type"),
-        privateToken: req.headers.get("private-token"),
-        body: await req.text(),
-      });
-      return reply(seen);
-    },
-  );
+  const server = await serveFetch(async (req) => {
+    const url = new URL(req.url);
+    seen.push({
+      method: req.method,
+      pathname: url.pathname,
+      search: url.search,
+      accept: req.headers.get("accept"),
+      contentType: req.headers.get("content-type"),
+      privateToken: req.headers.get("private-token"),
+      body: await req.text(),
+    });
+    return reply(seen);
+  });
   return {
     baseUrl: server.baseUrl,
     seen,

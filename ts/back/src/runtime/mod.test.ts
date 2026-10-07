@@ -163,12 +163,12 @@ it("токен-кэш sl-back ложится в каталог конфигур�
     // Кэш несёт живой токен доступа — права те же, что у прочих
     // секретов на диске (`platform/slback-http.md`, «Запись кэша»).
     const mode = (await stat(`${creds}/.api-token.json`)).mode;
-    expect(mode & 0o777, "не те права у токен-кэша")
-      .toBe(0o600);
+    expect(mode & 0o777, "не те права у токен-кэша").toBe(0o600);
     // Файл состояния при этом остался в своём каталоге: каталоги разные.
     expect(await readFile(`${state}/token`, "utf8")).toBe("токен-доступа\n");
-    expect(await readFile(`${creds}/token`, "utf8").catch(() => "нет файла"))
-      .toBe("нет файла");
+    expect(
+      await readFile(`${creds}/token`, "utf8").catch(() => "нет файла"),
+    ).toBe("нет файла");
   } finally {
     await rm(state, { recursive: true });
     await rm(creds, { recursive: true });
@@ -190,9 +190,9 @@ it("вывод пишется целиком, даже когда поток б�
   const text = "строка с «кавычками»\n";
   // `as`: у `writeSync` перегрузки, подмена реализует ровно ту, которой
   // пишет приёмник (дескриптор и байты).
-  const spy = vi.spyOn(fs, "writeSync").mockImplementation(
-    stingy as typeof fs.writeSync,
-  );
+  const spy = vi
+    .spyOn(fs, "writeSync")
+    .mockImplementation(stingy as typeof fs.writeSync);
   try {
     makeDenoOutput().stdout(text);
   } finally {
@@ -293,15 +293,13 @@ it("env-файл: атомарная запись создаёт каталог 
     await store.write("A=2\n");
     expect(store.readSync()).toBe("A=2\n");
     const modeAfterSecond = (await stat(path)).mode;
-    expect(modeAfterSecond & 0o777).toBe(
-      0o600,
-    );
+    expect(modeAfterSecond & 0o777).toBe(0o600);
 
     // Временных файлов не осталось: в каталоге только сам .env.
     const entries: string[] = [];
-    for (
-      const entry of await readdir(`${dir}/cfg/mpu`, { withFileTypes: true })
-    ) {
+    for (const entry of await readdir(`${dir}/cfg/mpu`, {
+      withFileTypes: true,
+    })) {
       entries.push(entry.name);
     }
     expect(entries).toStrictEqual([".env"]);
@@ -346,10 +344,7 @@ it("makeDenoIo: envFile собран из настоящего пути, окр�
     process.env.XDG_CONFIG_HOME = dir;
     delete process.env.MPU_TEST_ENV_KEY;
     await mkdir(`${dir}/mpu`, { recursive: true });
-    await writeFile(
-      `${dir}/mpu/.env`,
-      "MPU_TEST_ENV_KEY=from-file\n",
-    );
+    await writeFile(`${dir}/mpu/.env`, "MPU_TEST_ENV_KEY=from-file\n");
 
     // Без переменной окружения значение приходит из файла по временному
     // XDG_CONFIG_HOME — только так, если стык действительно собран.
@@ -426,9 +421,9 @@ it("progress пишет строку с переводом строки в stder
   };
   // `as`: подмена реализует ту перегрузку `writeSync`, которой пишет
   // рантайм (дескриптор и байты).
-  const spy = vi.spyOn(fs, "writeSync").mockImplementation(
-    stub as typeof fs.writeSync,
-  );
+  const spy = vi
+    .spyOn(fs, "writeSync")
+    .mockImplementation(stub as typeof fs.writeSync);
   try {
     makeDenoIo(undefined).progress("шаг 1: bootstrap готов");
   } finally {

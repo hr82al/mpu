@@ -24,7 +24,10 @@ const DEFAULT_LIMIT = 200;
 
 const argsSchema = z.object({
   address: z.string().min(1, "адрес обязателен: [РЕПОЗИТОРИЙ:]ПУТЬ[:СТРОКА]"),
-  limit: z.number().int().positive("--limit ожидает положительное целое")
+  limit: z
+    .number()
+    .int()
+    .positive("--limit ожидает положительное целое")
     .default(DEFAULT_LIMIT),
 });
 
@@ -75,7 +78,7 @@ Exit: 0 — ответ, включая пустой перечень и усеч
   render: renderRefs,
   // Отказ раздела — не ответ: у команды с одним разделом он и есть
   // отказ команды (`platform/code-analyzer.md`).
-  textExitCode: (result) => result.section.kind === "refused" ? 1 : 0,
+  textExitCode: (result) => (result.section.kind === "refused" ? 1 : 0),
 });
 
 /**
@@ -115,17 +118,17 @@ export async function runRefs(
 export function renderRefs(result: RefsResult): string {
   const section = result.section;
   if (section.kind === "refused") {
-    return `${
-      renderMarkOnly(treeMarkOf(section.mark))
-    }\n  отказ: ${section.refusal}\n`;
+    return `${renderMarkOnly(
+      treeMarkOf(section.mark),
+    )}\n  отказ: ${section.refusal}\n`;
   }
   const blocks = [
     renderMark(treeMarkOf(section.mark), section.guarantee),
     section.symbol === null
       ? `модуль ${section.target.path}`
-      : `${declarationLine(section.symbol)}\n  ${
-        scopeText(section.symbol.scope)
-      }`,
+      : `${declarationLine(section.symbol)}\n  ${scopeText(
+          section.symbol.scope,
+        )}`,
     renderSection(section),
     renderUnresolved(section.unresolved),
   ];
@@ -165,8 +168,9 @@ export function renderUnresolved(
   unresolved: AnsweredRefs["unresolved"],
 ): string {
   const { total, items } = unresolved;
-  const lines = items.map((item) =>
-    `  ${item.path}:${item.line} → ${item.specifier} — ${item.reason}`
+  const lines = items.map(
+    (item) =>
+      `  ${item.path}:${item.line} → ${item.specifier} — ${item.reason}`,
   );
   if (items.length < total) {
     lines.push(`  усечено: показано ${items.length} из ${total}`);

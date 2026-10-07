@@ -28,7 +28,10 @@ const DEFAULT_LIMIT = 200;
 
 const argsSchema = z.object({
   address: z.string().min(1, "адрес обязателен: [РЕПОЗИТОРИЙ:]ПУТЬ:СТРОКА"),
-  limit: z.number().int().positive("--limit ожидает положительное целое")
+  limit: z
+    .number()
+    .int()
+    .positive("--limit ожидает положительное целое")
     .default(DEFAULT_LIMIT),
 });
 
@@ -79,7 +82,7 @@ Exit: 0 — ответ, включая усечение; 2 — ошибка вв
   resultSchema: twinsResultSchema,
   run: (args, io) => runTwins(args, io),
   render: renderTwins,
-  textExitCode: (result) => result.section.kind === "refused" ? 1 : 0,
+  textExitCode: (result) => (result.section.kind === "refused" ? 1 : 0),
 });
 
 /**
@@ -116,9 +119,9 @@ export async function runTwins(
 export function renderTwins(result: TwinsResult): string {
   const section = result.section;
   if (section.kind === "refused") {
-    return `${
-      renderMarkOnly(treeMarkOf(section.mark))
-    }\n  отказ: ${section.refusal}\n`;
+    return `${renderMarkOnly(
+      treeMarkOf(section.mark),
+    )}\n  отказ: ${section.refusal}\n`;
   }
   const blocks = [
     renderMark(treeMarkOf(section.mark), section.guarantee),

@@ -15,17 +15,17 @@
 /** Часть тела: текстовое поле либо файл с именем и содержимым. */
 export type MultipartPart =
   | {
-    readonly kind: "field";
-    readonly name: string;
-    readonly value: string;
-  }
+      readonly kind: "field";
+      readonly name: string;
+      readonly value: string;
+    }
   | {
-    readonly kind: "file";
-    /** Имя поля формы: его задаёт каталог (`files[]` у вызова 5, `file` у 13). */
-    readonly name: string;
-    readonly filename: string;
-    readonly bytes: Uint8Array;
-  };
+      readonly kind: "file";
+      /** Имя поля формы: его задаёт каталог (`files[]` у вызова 5, `file` у 13). */
+      readonly name: string;
+      readonly filename: string;
+      readonly bytes: Uint8Array;
+    };
 
 /** Собранное тело и заголовок его типа с объявленной границей. */
 export interface MultipartBody {
@@ -98,9 +98,9 @@ function partHeaders(part: MultipartPart): string {
       return `Content-Disposition: form-data; name="${part.name}"`;
     case "file":
       return [
-        `Content-Disposition: form-data; name="${part.name}"; filename="${
-          escapeFilename(part.filename)
-        }"`,
+        `Content-Disposition: form-data; name="${part.name}"; filename="${escapeFilename(
+          part.filename,
+        )}"`,
         `Content-Type: ${fileContentType(part.filename)}`,
       ].join(CRLF);
     default: {
@@ -123,8 +123,9 @@ function escapeFilename(filename: string): string {
 function fileContentType(filename: string): string {
   const dot = filename.lastIndexOf(".");
   if (dot === -1) return DEFAULT_FILE_TYPE;
-  return FILE_TYPES.get(filename.slice(dot + 1).toLowerCase()) ??
-    DEFAULT_FILE_TYPE;
+  return (
+    FILE_TYPES.get(filename.slice(dot + 1).toLowerCase()) ?? DEFAULT_FILE_TYPE
+  );
 }
 
 /** Склейка частей одним буфером: суммарный размер известен заранее. */

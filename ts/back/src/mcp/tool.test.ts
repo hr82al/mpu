@@ -14,8 +14,7 @@ function longText(lines: number): string {
   return Array.from(
     { length: lines },
     (_, i) => `строка ${i} ${"я".repeat(30)}`,
-  )
-    .join("\n");
+  ).join("\n");
 }
 
 it("уложившееся описание не трогается вовсе", () => {
@@ -35,8 +34,8 @@ it("описание на самом пределе не усекается", ()
 
 it("описание на байт длиннее предела уже усекается", () => {
   const head = longText(20);
-  const text = head +
-    "x".repeat(DESCRIPTION_LIMIT - utf8.encode(head).length + 1);
+  const text =
+    head + "x".repeat(DESCRIPTION_LIMIT - utf8.encode(head).length + 1);
   expect(utf8.encode(text).length).toStrictEqual(DESCRIPTION_LIMIT + 1);
   expect(fitDescription(text, PATH)).not.toStrictEqual(text);
 });
@@ -64,8 +63,10 @@ it("маркер называет ровно то, чего не достало�
   // коде: иначе проверка повторяла бы проверяемое и промах в единицу
   // была бы ей невидима.
   const dropped = full.slice(kept.length + 1);
-  expect(`${kept}\n${dropped}`, "уцелевшее и отброшенное не сходятся")
-    .toStrictEqual(full);
+  expect(
+    `${kept}\n${dropped}`,
+    "уцелевшее и отброшенное не сходятся",
+  ).toStrictEqual(full);
   expect(cut.split("\n").at(-1) ?? "").toContain(
     `отброшено ${utf8.encode(dropped).length} байт`,
   );

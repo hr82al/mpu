@@ -21,9 +21,11 @@ import {
 const argsSchema = z.object({});
 
 const resultSchema = z.object({
-  status: z.enum(["already", "skipped", "logged-in"]).describe(
-    "already — сессия уже была; skipped — вход не состоялся; logged-in — сессия записана",
-  ),
+  status: z
+    .enum(["already", "skipped", "logged-in"])
+    .describe(
+      "already — сессия уже была; skipped — вход не состоялся; logged-in — сессия записана",
+    ),
   reason: z.string().optional().describe("причина пропуска, если он был"),
 });
 
@@ -31,10 +33,7 @@ type LoginArgs = z.infer<typeof argsSchema>;
 type LoginCommandResult = z.infer<typeof resultSchema>;
 
 /** Срез порта: env-файл, терминал и строка хода. */
-type LoginCommandIo = Pick<
-  CommandIo,
-  "envFile" | "progress" | "prompt"
->;
+type LoginCommandIo = Pick<CommandIo, "envFile" | "progress" | "prompt">;
 
 /** Прокси только для Telegram — те же источники, что у сеанса. */
 const PROXY_KEYS = ["TELEGRAM_PROXY", "HTTPS_PROXY", "https_proxy"] as const;

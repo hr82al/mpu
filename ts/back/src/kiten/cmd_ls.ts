@@ -52,52 +52,65 @@ import {
 const STATE_VALUES = ["queued", "in-progress", "done"] as const;
 
 /** `--state` → `states` сервера (спека, CLI-контракт). */
-const STATE_CODES: Readonly<Record<typeof STATE_VALUES[number], CardState>> = {
-  "queued": 1,
-  "in-progress": 2,
-  "done": 3,
-};
+const STATE_CODES: Readonly<Record<(typeof STATE_VALUES)[number], CardState>> =
+  {
+    queued: 1,
+    "in-progress": 2,
+    done: 3,
+  };
 
 /** Только целое, со знаком — форма env-осей `KITEN_LS_*`. */
 const INTEGER = /^-?\d+$/;
 
 const argsSchema = z.object({
-  archived: z.boolean().default(false).describe(
-    "архивные карточки (condition=2) вместо активных",
-  ),
-  state: z.enum(STATE_VALUES, {
-    error: `state: — одно из: ${STATE_VALUES.join(", ")}`,
-  }).optional().describe("этап карточки: queued, in-progress, done"),
-  space: z.string().optional().describe(
-    "пространство: id или подстрока названия",
-  ),
+  archived: z
+    .boolean()
+    .default(false)
+    .describe("архивные карточки (condition=2) вместо активных"),
+  state: z
+    .enum(STATE_VALUES, {
+      error: `state: — одно из: ${STATE_VALUES.join(", ")}`,
+    })
+    .optional()
+    .describe("этап карточки: queued, in-progress, done"),
+  space: z
+    .string()
+    .optional()
+    .describe("пространство: id или подстрока названия"),
   board: z.string().optional().describe("доска: id или подстрока названия"),
   lane: z.string().optional().describe("дорожка: id или подстрока названия"),
   column: z.string().optional().describe("колонка: id или подстрока названия"),
-  "date-from": z.string().optional().describe(
-    "нижняя граница активности YYYY-MM-DD, включительно",
-  ),
-  "date_from": z.string().optional().describe("синоним --date-from"),
-  "date-to": z.string().optional().describe(
-    "верхняя граница активности YYYY-MM-DD, включительно",
-  ),
-  "date_to": z.string().optional().describe("синоним --date-to"),
-  json: z.boolean().default(false).describe(
-    "массив объектов id/state/due_date/updated/title/url, отступ 2",
-  ),
-  format: z.string().optional().describe(
-    "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
-  ),
-  "only-url": z.boolean().default(false).describe(
-    "[title](url) по строке на карточку",
-  ),
+  "date-from": z
+    .string()
+    .optional()
+    .describe("нижняя граница активности YYYY-MM-DD, включительно"),
+  date_from: z.string().optional().describe("синоним --date-from"),
+  "date-to": z
+    .string()
+    .optional()
+    .describe("верхняя граница активности YYYY-MM-DD, включительно"),
+  date_to: z.string().optional().describe("синоним --date-to"),
+  json: z
+    .boolean()
+    .default(false)
+    .describe("массив объектов id/state/due_date/updated/title/url, отступ 2"),
+  format: z
+    .string()
+    .optional()
+    .describe(
+      "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
+    ),
+  "only-url": z
+    .boolean()
+    .default(false)
+    .describe("[title](url) по строке на карточку"),
   md: z.boolean().default(false).describe("GFM-таблица"),
 });
 
 const resultSchema = z.object({
-  view: z.enum(["json", "format", "only-url", "md", "table"]).describe(
-    "вид вывода, выбранный флагами по приоритету спеки",
-  ),
+  view: z
+    .enum(["json", "format", "only-url", "md", "table"])
+    .describe("вид вывода, выбранный флагами по приоритету спеки"),
   rows: z.array(lsRowSchema).describe("карточки в порядке ответа сервера"),
 });
 
@@ -140,14 +153,14 @@ export async function runKitenLs(
     const access = kaitenAccess(io);
     const me = await read(() => getCurrentUser(access));
     const cards = await read(() =>
-      listCards(access, { memberIds: [me.id], ...axes })
+      listCards(access, { memberIds: [me.id], ...axes }),
     );
     const columnTitles = needsColumns(view)
       ? cache.columnTitles()
       : EMPTY_TITLES;
     const columnMap = needsColumns(view) ? columnMapOf(io) : EMPTY_MAP;
     const rows = cards.map((card) =>
-      toRow(card, access, columnTitles, columnMap)
+      toRow(card, access, columnTitles, columnMap),
     );
     return { view, rows };
   } finally {
@@ -434,10 +447,10 @@ function scopedRefItems(
   return boardId === undefined
     ? refItemsOf(db, `SELECT id, title FROM ${table}`)
     : refItemsOf(
-      db,
-      `SELECT id, title FROM ${table} WHERE board_id = ?`,
-      boardId,
-    );
+        db,
+        `SELECT id, title FROM ${table} WHERE board_id = ?`,
+        boardId,
+      );
 }
 
 function columnTitlesOf(db: CacheDb): ReadonlyMap<number, string> {
@@ -483,9 +496,7 @@ KITEN_COLUMN_MAP; битая карта не роняет команду.
 
 Exit: 0 — успех, в т.ч. пустая выдача; 1 — ошибка API; 2 — ошибки
 ввода: дата, env-ось, state:, REF.`,
-  examples: [
-    "mpu kiten ls date-from: 2026-07-01 end json",
-  ],
+  examples: ["mpu kiten ls date-from: 2026-07-01 end json"],
   policy: "ro",
   argsSchema,
   resultSchema,

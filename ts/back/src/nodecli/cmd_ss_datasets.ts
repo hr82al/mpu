@@ -23,13 +23,17 @@ import {
 const argsSchema = z.object({
   ...targetArgs,
   dataset: z.string().describe("датасет: обязателен"),
-  "spreadsheet-id": z.string().optional().describe(
-    "id таблицы; без него берётся из кандидатов селектора",
-  ),
+  "spreadsheet-id": z
+    .string()
+    .optional()
+    .describe("id таблицы; без него берётся из кандидатов селектора"),
   "sheet-name": z.string().optional().describe("лист таблицы"),
-  "is-active": z.boolean().optional().describe(
-    "признак активности; --no-is-active в inner-команду не идёт (см. спеку)",
-  ),
+  "is-active": z
+    .boolean()
+    .optional()
+    .describe(
+      "признак активности; --no-is-active в inner-команду не идёт (см. спеку)",
+    ),
 });
 
 export const ssDatasetsCommand = defineCommand({
@@ -86,7 +90,8 @@ Exit: код inner-команды при выполнении; 0 при печа
         flags: (context) => [
           {
             name: "spreadsheet-id",
-            value: args["spreadsheet-id"] ??
+            value:
+              args["spreadsheet-id"] ??
               context.pick("--spreadsheet-id", (c) => c.spreadsheetId),
           },
           { name: "dataset", value: args.dataset },

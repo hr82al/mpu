@@ -67,12 +67,12 @@ export function classify(
     .filter((row) => row.name !== "")
     // Сравнение кодовых точек: `localeCompare` зависит от локали ICU и
     // ослабляет пунктуацию, а таблица обязана быть одинаковой везде.
-    .toSorted((left, right) => left.name < right.name ? -1 : 1);
+    .toSorted((left, right) => (left.name < right.name ? -1 : 1));
   const mp = named.filter((row) => MP_NAME.test(row.name));
 
   const oneShot = mp.filter(isOneShot);
-  const notRunning = mp.filter((row) =>
-    row.state !== "running" && !isOneShot(row)
+  const notRunning = mp.filter(
+    (row) => row.state !== "running" && !isOneShot(row),
   );
   const daemons = mp.filter((row) => !hasOneShotName(row.name));
   return {
@@ -93,8 +93,11 @@ export function classify(
  * подходит — он идёт в блок предупреждений и даёт exit 1 (спека).
  */
 function isOneShot(row: Row): boolean {
-  return hasOneShotName(row.name) && row.state === "exited" &&
-    row.status.startsWith(COMPLETED);
+  return (
+    hasOneShotName(row.name) &&
+    row.state === "exited" &&
+    row.status.startsWith(COMPLETED)
+  );
 }
 
 function hasOneShotName(name: string): boolean {

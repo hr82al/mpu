@@ -111,11 +111,16 @@ export function rpc<T>(
   transport: Transport,
   method: string,
 ): Promise<Reply<T>> {
-  return reach(transport, "/rpc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method }),
-  }, async (response) => (await response.json()).result as T);
+  return reach(
+    transport,
+    "/rpc",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method }),
+    },
+    async (response) => (await response.json()).result as T,
+  );
 }
 
 /** Ключ из ссылки `mpu web` → сессия; `true` — cookie выдана. */
@@ -157,11 +162,16 @@ export function sendLine(
   transport: Transport,
   words: readonly string[],
 ): Promise<Reply<LineReply>> {
-  return reach(transport, "/line", {
-    method: "POST",
-    headers: JSON_ACCEPT,
-    body: JSON.stringify({ words, cwd: "/", human: true }),
-  }, async (response) => lineReply(await response.json()));
+  return reach(
+    transport,
+    "/line",
+    {
+      method: "POST",
+      headers: JSON_ACCEPT,
+      body: JSON.stringify({ words, cwd: "/", human: true }),
+    },
+    async (response) => lineReply(await response.json()),
+  );
 }
 
 /** Ответ на вопрос строки по номеру. */
@@ -170,9 +180,14 @@ export function answer(
   ticket: string,
   yes: boolean,
 ): Promise<Reply<LineReply>> {
-  return reach(transport, "/line/answer", {
-    method: "POST",
-    headers: JSON_ACCEPT,
-    body: JSON.stringify({ ticket, answer: yes ? "y" : "n" }),
-  }, async (response) => lineReply(await response.json()));
+  return reach(
+    transport,
+    "/line/answer",
+    {
+      method: "POST",
+      headers: JSON_ACCEPT,
+      body: JSON.stringify({ ticket, answer: yes ? "y" : "n" }),
+    },
+    async (response) => lineReply(await response.json()),
+  );
 }

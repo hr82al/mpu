@@ -25,10 +25,14 @@ export class TestClock implements Clock {
       }
       const entry = { ms, resolve };
       this.#pending.push(entry);
-      signal.addEventListener("abort", () => {
-        this.#pending.splice(this.#pending.indexOf(entry), 1);
-        reject(signal.reason);
-      }, { once: true });
+      signal.addEventListener(
+        "abort",
+        () => {
+          this.#pending.splice(this.#pending.indexOf(entry), 1);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
       for (const waiter of this.#waiters.filter((w) => w.ms === ms)) {
         waiter.resolve();
       }

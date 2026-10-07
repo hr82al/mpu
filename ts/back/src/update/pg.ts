@@ -59,9 +59,10 @@ interface EnvKeys {
 /** Клиент драйвера: класс `Client` и есть одно физическое соединение. */
 export interface PgClient {
   readonly connect: () => Promise<void>;
-  readonly query: (
-    config: { readonly text: string; readonly values: readonly unknown[] },
-  ) => Promise<{ readonly rows: readonly unknown[] }>;
+  readonly query: (config: {
+    readonly text: string;
+    readonly values: readonly unknown[];
+  }) => Promise<{ readonly rows: readonly unknown[] }>;
   readonly end: () => Promise<void>;
   /** Ошибка соединения приходит и сюда: без слушателя она роняет процесс. */
   readonly on: (event: "error", handler: (err: Error) => void) => void;
@@ -109,21 +110,27 @@ export interface PgQuery {
  */
 const SELECTS: Readonly<Record<SelectName, { all: string; one: string }>> = {
   clients: {
-    all: "SELECT id, server, is_active, is_locked, is_deleted" +
+    all:
+      "SELECT id, server, is_active, is_locked, is_deleted" +
       " FROM public.clients",
-    one: "SELECT id, server, is_active, is_locked, is_deleted" +
+    one:
+      "SELECT id, server, is_active, is_locked, is_deleted" +
       " FROM public.clients WHERE id = $1",
   },
   spreadsheets: {
-    all: "SELECT client_id, spreadsheet_id, title, template_name, is_active" +
+    all:
+      "SELECT client_id, spreadsheet_id, title, template_name, is_active" +
       " FROM public.spreadsheets",
-    one: "SELECT client_id, spreadsheet_id, title, template_name, is_active" +
+    one:
+      "SELECT client_id, spreadsheet_id, title, template_name, is_active" +
       " FROM public.spreadsheets WHERE client_id = $1",
   },
   wbSids: {
-    all: "SELECT DISTINCT client_id, sid FROM public.wb_tokens" +
+    all:
+      "SELECT DISTINCT client_id, sid FROM public.wb_tokens" +
       " WHERE sid IS NOT NULL",
-    one: "SELECT DISTINCT client_id, sid FROM public.wb_tokens" +
+    one:
+      "SELECT DISTINCT client_id, sid FROM public.wb_tokens" +
       " WHERE sid IS NOT NULL AND client_id = $1",
   },
 };
@@ -212,7 +219,8 @@ export function clientOptions(
     // текста запроса (`platform/readonly-default.md`), а предел запроса
     // — тот же GUC, что стоял раньше: отказ приходит от сервера, а не
     // вторым клиентским таймером поверх сигнала отмены.
-    options: `-c default_transaction_read_only=on` +
+    options:
+      `-c default_transaction_read_only=on` +
       ` -c statement_timeout=${limits.queryMs}`,
     ssl: false,
     sslnegotiation: "postgres",
@@ -244,9 +252,13 @@ async function assertReadOnly(
   client: PgClient,
   signal: AbortSignal,
 ): Promise<void> {
-  const rows = await queryRows(client, { text: READ_ONLY_CHECK, values: [] }, {
-    signal,
-  });
+  const rows = await queryRows(
+    client,
+    { text: READ_ONLY_CHECK, values: [] },
+    {
+      signal,
+    },
+  );
   if (rows[0]?.ro === "on") return;
   throw new PgNotReadOnlyError(
     `сессия не read-only: transaction_read_only=${rows[0]?.ro ?? "?"}`,

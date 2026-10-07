@@ -9,9 +9,8 @@ const KEY = "mpu-web:expanded";
 export function loadExpanded(storage: Storage | undefined): Set<string> {
   try {
     const text = storage?.getItem(KEY);
-    const keys: unknown = text === null || text === undefined
-      ? []
-      : JSON.parse(text);
+    const keys: unknown =
+      text === null || text === undefined ? [] : JSON.parse(text);
     return new Set(
       Array.isArray(keys) ? keys.filter((one) => typeof one === "string") : [],
     );

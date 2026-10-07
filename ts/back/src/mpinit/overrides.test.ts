@@ -18,24 +18,25 @@ function fixture(name: string): string {
 describe("servicesOf: сервисы живых override-файлов", () => {
   const cases: readonly (readonly [string, readonly string[]])[] = [
     ["sl-base.observability-off.yaml", ["cli", "migrations", "backups"]],
-    ["sl-main.observability-off.yaml", [
-      "internal-api",
-      "api",
-      "ss-jobs",
-      "currencies-rates-parser",
-    ]],
-    ["sl-instance.observability-off.yaml", [
-      "i-clients-migrations",
-      "i-internal-api",
-      "currency-rates-sync",
-      "support-jobs",
-      "data-processor",
-      "ss-loader",
-      "ss-updater",
-      "wb-loader",
-      "ozon-loader",
-      "i-wb-unit-calc-worker",
-    ]],
+    [
+      "sl-main.observability-off.yaml",
+      ["internal-api", "api", "ss-jobs", "currencies-rates-parser"],
+    ],
+    [
+      "sl-instance.observability-off.yaml",
+      [
+        "i-clients-migrations",
+        "i-internal-api",
+        "currency-rates-sync",
+        "support-jobs",
+        "data-processor",
+        "ss-loader",
+        "ss-updater",
+        "wb-loader",
+        "ozon-loader",
+        "i-wb-unit-calc-worker",
+      ],
+    ],
   ];
   for (const [name, services] of cases) {
     it(name, () => expect(servicesOf(fixture(name))).toStrictEqual(services));

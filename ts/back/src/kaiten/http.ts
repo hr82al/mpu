@@ -93,9 +93,9 @@ export class KaitenError extends Error {
  * (`../loki/mod.ts`): путь строится конкатенацией
  * `baseUrl + "/api/latest" + path`, лишний `/` сложил бы двойной слэш.
  */
-export function kaitenBaseUrl(
-  envFile: { readonly get: (name: string) => string | undefined },
-): string {
+export function kaitenBaseUrl(envFile: {
+  readonly get: (name: string) => string | undefined;
+}): string {
   return (envFile.get("KITEN_BASE_URL") ?? DEFAULT_BASE_URL).replace(
     /\/+$/,
     "",
@@ -103,9 +103,9 @@ export function kaitenBaseUrl(
 }
 
 /** Подключение из env-файла; нет KITEN_API_KEY — KaitenError («KITEN_API_KEY не задан»). */
-export function requireKaitenAccess(
-  envFile: { readonly get: (name: string) => string | undefined },
-): KaitenAccess {
+export function requireKaitenAccess(envFile: {
+  readonly get: (name: string) => string | undefined;
+}): KaitenAccess {
   const apiKey = envFile.get("KITEN_API_KEY");
   if (apiKey === undefined || apiKey === "") {
     throw new KaitenError("KITEN_API_KEY не задан");
@@ -244,9 +244,9 @@ export async function kaitenCall(
     }
 
     throw new KaitenError(
-      `kaiten ${request.method} ${request.path} -> ${response.status}: ${
-        truncateBody(response.text)
-      }`,
+      `kaiten ${request.method} ${request.path} -> ${response.status}: ${truncateBody(
+        response.text,
+      )}`,
       { status: response.status, body: response.text },
     );
   }
@@ -292,15 +292,19 @@ export async function kaitenCallPaged(
   options: KaitenCallOptions = {},
 ): Promise<readonly unknown[]> {
   const items: unknown[] = [];
-  for (let offset = 0;; offset += PAGE_LIMIT) {
-    const page = await kaitenCallArray(access, {
-      ...request,
-      query: {
-        ...request.query,
-        limit: String(PAGE_LIMIT),
-        offset: String(offset),
+  for (let offset = 0; ; offset += PAGE_LIMIT) {
+    const page = await kaitenCallArray(
+      access,
+      {
+        ...request,
+        query: {
+          ...request.query,
+          limit: String(PAGE_LIMIT),
+          offset: String(offset),
+        },
       },
-    }, options);
+      options,
+    );
     items.push(...page);
     if (page.length < PAGE_LIMIT) return items;
   }
@@ -348,16 +352,20 @@ export async function kaitenCallCursorPaged(
   const items: unknown[] = [];
   let cursor = EMPTY_CURSOR;
   for (let page = 0; page < limits.maxPages; page++) {
-    const chunk = await kaitenCallArray(access, {
-      ...request,
-      query: {
-        ...request.query,
-        offset: "0",
-        limit: String(PAGE_LIMIT),
-        cursor_created: cursor.created,
-        cursor_id: cursor.id,
+    const chunk = await kaitenCallArray(
+      access,
+      {
+        ...request,
+        query: {
+          ...request.query,
+          offset: "0",
+          limit: String(PAGE_LIMIT),
+          cursor_created: cursor.created,
+          cursor_id: cursor.id,
+        },
       },
-    }, options);
+      options,
+    );
     items.push(...chunk);
     if (chunk.length < PAGE_LIMIT) return items;
 

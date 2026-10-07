@@ -84,7 +84,7 @@ export async function gitlabGet(
         // Значение токена не попадает ни в одно сообщение этого модуля:
         // тексты собираются из метода, пути и тела ответа.
         "PRIVATE-TOKEN": access.token,
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       timeouts: TIMEOUTS,
     });
@@ -128,7 +128,7 @@ export async function gitlabSend(
       method,
       headers: {
         "PRIVATE-TOKEN": access.token,
-        "Accept": "application/json",
+        Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams(form).toString(),
@@ -159,7 +159,7 @@ export async function gitlabGetAll(
   query: Readonly<Record<string, string>> = {},
 ): Promise<readonly RawObject[]> {
   const items: RawObject[] = [];
-  for (let page = 1;; page += 1) {
+  for (let page = 1; ; page += 1) {
     const body = await gitlabGet(access, path, {
       ...query,
       per_page: String(PAGE_SIZE),
@@ -179,8 +179,9 @@ export function asObjects(body: unknown, path: string): readonly RawObject[] {
   if (!Array.isArray(body)) {
     throw new GitlabError(`gitlab GET ${path}: ожидался массив в ответе`, 0);
   }
-  return body.filter((item): item is RawObject =>
-    typeof item === "object" && item !== null && !Array.isArray(item)
+  return body.filter(
+    (item): item is RawObject =>
+      typeof item === "object" && item !== null && !Array.isArray(item),
   );
 }
 
@@ -206,9 +207,10 @@ function failure(
 ): GitlabError {
   const params = new URLSearchParams(query).toString();
   const target = params === "" ? path : `${path}?${params}`;
-  const body = detail.length > ERROR_BODY_LIMIT
-    ? detail.slice(0, ERROR_BODY_LIMIT)
-    : detail;
+  const body =
+    detail.length > ERROR_BODY_LIMIT
+      ? detail.slice(0, ERROR_BODY_LIMIT)
+      : detail;
   return new GitlabError(
     `gitlab ${method} ${target} -> ${status}: ${body}`,
     status,

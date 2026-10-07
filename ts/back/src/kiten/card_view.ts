@@ -67,9 +67,11 @@ export const cardViewSchema = z.object({
   url: z.string(),
   owner: personSchema.nullable(),
   members: z.array(personSchema).readonly(),
-  properties: z.record(z.string(), propertyValueSchema).describe(
-    "кастомные поля: ключи сырые (id_NNN), имена полей — отдельным полем результата",
-  ),
+  properties: z
+    .record(z.string(), propertyValueSchema)
+    .describe(
+      "кастомные поля: ключи сырые (id_NNN), имена полей — отдельным полем результата",
+    ),
   description: z.string().nullable(),
   files: z.array(fileSchema).readonly(),
   comments: z.array(commentSchema).readonly(),

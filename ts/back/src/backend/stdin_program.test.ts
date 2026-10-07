@@ -55,10 +55,13 @@ it("сокет /agent/line: программа с ask-командой — сп�
     "kiten comment id: 11 text: a",
   );
   expect(frames.at(-1)).toStrictEqual({ exit: 1 });
-  expect(frames.filter((frame) => "err" in frame)).toStrictEqual([{
-    err: "mpu kiten comment id: 11 text: a: нужно подтверждение, а " +
-      "спросить некого\n",
-  }]);
+  expect(frames.filter((frame) => "err" in frame)).toStrictEqual([
+    {
+      err:
+        "mpu kiten comment id: 11 text: a: нужно подтверждение, а " +
+        "спросить некого\n",
+    },
+  ]);
 });
 
 it("сокет /line со словами: ввода не просит", () =>

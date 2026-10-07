@@ -63,10 +63,10 @@ export function recordEntries(records: readonly LogRecord[]): LogEntry[] {
 export function snapshotRecords(snapshot: SnapshotParts): LogRecord[] {
   return [
     ...linesOf(snapshot.stdout).map((text) =>
-      snapshotRecord(text, "stdout", snapshot.timestamps)
+      snapshotRecord(text, "stdout", snapshot.timestamps),
     ),
     ...linesOf(snapshot.stderr).map((text) =>
-      snapshotRecord(text, "stderr", snapshot.timestamps)
+      snapshotRecord(text, "stderr", snapshot.timestamps),
     ),
   ];
 }

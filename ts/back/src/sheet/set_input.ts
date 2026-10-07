@@ -42,7 +42,8 @@ export interface SetArgs {
 /** Срез порта: файл, stdin и признак терминала — выбор режима по нему. */
 export type SetIo = SheetIo & Pick<CommandIo, "stdinIsTerminal">;
 
-const USAGE_SAMPLE = "нечего писать; позови одним из трёх способов:\n" +
+const USAGE_SAMPLE =
+  "нечего писать; позови одним из трёх способов:\n" +
   "  mpu sheet set 'Лист!A1' '=SUM(B:B)' -s ЦЕЛЬ\n" +
   "  mpu sheet set --from пакет.tsv -s ЦЕЛЬ\n" +
   '  echo \'[{"range":"Лист!A1","value":"текст"}]\' | mpu sheet set ЦЕЛЬ';
@@ -52,14 +53,12 @@ const USAGE_SAMPLE = "нечего писать; позови одним из т
  * `--from` — пакет, отсутствие второго позиционного при непустом
  * stdin — JSON, оба позиционных — одна ячейка.
  */
-export async function setInput(
-  io: SetIo,
-  args: SetArgs,
-): Promise<SetInput> {
+export async function setInput(io: SetIo, args: SetArgs): Promise<SetInput> {
   if (args.from !== undefined) {
-    const text = args.from === "-"
-      ? await readTextStdin(io)
-      : await fileText(io, args.from);
+    const text =
+      args.from === "-"
+        ? await readTextStdin(io)
+        : await fileText(io, args.from);
     return { mode: "batch", items: batchItems(text, kindOf(args.literal)) };
   }
   if (args.value === undefined && !io.stdinIsTerminal()) {
@@ -76,11 +75,13 @@ export async function setInput(
   if (args.range !== undefined && args.value !== undefined) {
     return {
       mode: "single",
-      items: [{
-        range: args.range,
-        kind: kindOf(args.literal),
-        value: args.value,
-      }],
+      items: [
+        {
+          range: args.range,
+          kind: kindOf(args.literal),
+          value: args.value,
+        },
+      ],
     };
   }
   throw new UsageError(USAGE_SAMPLE);
@@ -105,9 +106,7 @@ function batchItems(text: string, kind: SetKind): readonly SetItem[] {
     if (trimmed === "" || trimmed.startsWith("#")) continue;
     const tab = line.indexOf("\t");
     if (tab === -1) {
-      throw new UsageError(
-        `строка ${index + 1} без табуляции: '${line}'`,
-      );
+      throw new UsageError(`строка ${index + 1} без табуляции: '${line}'`);
     }
     items.push({
       range: line.slice(0, tab).trim(),
@@ -146,7 +145,9 @@ function jsonItems(text: string): readonly SetItem[] {
 function item(element: unknown, index: number): SetItem {
   const at = `элемент ${index}`;
   if (
-    typeof element !== "object" || element === null || Array.isArray(element)
+    typeof element !== "object" ||
+    element === null ||
+    Array.isArray(element)
   ) {
     throw new UsageError(`${at}: не объект`);
   }

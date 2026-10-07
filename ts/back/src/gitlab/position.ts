@@ -31,8 +31,9 @@ export function findLine(
   side: DiffSide,
   line: number,
 ): DiffLine | undefined {
-  return parseDiffLines(file.diff)
-    .find((candidate) => lineOn(candidate, side) === line);
+  return parseDiffLines(file.diff).find(
+    (candidate) => lineOn(candidate, side) === line,
+  );
 }
 
 /** Номера, которые сторона вообще позволяет прокомментировать. */

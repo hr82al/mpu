@@ -23,7 +23,7 @@ describe("текст уведомления: проект, тип и сообщ�
         notification_message: "Claude needs your permission to use Bash",
       }),
       "Claude · mpu · permission_prompt\n" +
-      "Claude needs your permission to use Bash",
+        "Claude needs your permission to use Bash",
     ],
     [
       "без cwd — часть опускается вместе с разделителем",

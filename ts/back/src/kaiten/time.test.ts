@@ -97,7 +97,7 @@ it("вызов 1: записи времени карточки", async () => {
     comment: "",
   };
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    Response.json([TIME_LOG, minimal, "мусор", { card_id: 65634936 }])
+    Response.json([TIME_LOG, minimal, "мусор", { card_id: 65634936 }]),
   );
   try {
     const logs = await listCardTimeLogs(accessTo(baseUrl), 65634936);
@@ -187,14 +187,16 @@ describe("вызов 1: имя пользователя — только из о
   let stand: FakeKaiten;
   beforeAll(async () => {
     stand = await startFakeKaiten((seen) =>
-      Response.json([{
-        id: 9001,
-        card_id: 65634936,
-        time_spent: 90,
-        for_date: "2026-07-20",
-        comment: "",
-        ...USER_NAME_CASES[seen.length - 1].nested,
-      }])
+      Response.json([
+        {
+          id: 9001,
+          card_id: 65634936,
+          time_spent: 90,
+          for_date: "2026-07-20",
+          comment: "",
+          ...USER_NAME_CASES[seen.length - 1].nested,
+        },
+      ]),
     );
   });
   afterAll(() => stand.stop());
@@ -210,9 +212,12 @@ it("вызов 2: создание записи — все четыре поля
   const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     // На POST сервер отдаёт `for_date` полной ISO-меткой, а не датой;
     // значим только календарный день.
-    Response.json({ ...TIME_LOG, for_date: "2026-07-20T00:00:00.000Z" }, {
-      status: 201,
-    })
+    Response.json(
+      { ...TIME_LOG, for_date: "2026-07-20T00:00:00.000Z" },
+      {
+        status: 201,
+      },
+    ),
   );
   try {
     const log = await createCardTimeLog(accessTo(baseUrl), 65634936, {
@@ -239,15 +244,12 @@ it("вызов 2: создание записи — все четыре поля
 describe("вызов 3: обновление — только заданные поля", () => {
   it("подмножество полей", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json({ ...TIME_LOG, time_spent: 120 })
+      Response.json({ ...TIME_LOG, time_spent: 120 }),
     );
     try {
-      const log = await updateCardTimeLog(
-        accessTo(baseUrl),
-        65634936,
-        9001,
-        { timeSpent: 120 },
-      );
+      const log = await updateCardTimeLog(accessTo(baseUrl), 65634936, 9001, {
+        timeSpent: 120,
+      });
 
       expect(seen[0].method).toBe("PATCH");
       expect(seen[0].pathname).toBe(
@@ -263,7 +265,7 @@ describe("вызов 3: обновление — только заданные �
 
   it("все четыре поля разом", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(TIME_LOG)
+      Response.json(TIME_LOG),
     );
     try {
       await updateCardTimeLog(accessTo(baseUrl), 65634936, 9001, {
@@ -286,7 +288,7 @@ describe("вызов 3: обновление — только заданные �
 
   it("ответ не той формы — ошибка запроса", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json({ message: "nope" })
+      Response.json({ message: "nope" }),
     );
     try {
       const failure = updateCardTimeLog(accessTo(baseUrl), 65634936, 9001, {
@@ -305,15 +307,12 @@ describe("вызов 3: обновление — только заданные �
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       // Сервер нормализует пустую строку в `null`, а читателю снова
       // отдаёт `""`.
-      Response.json({ ...TIME_LOG, comment: "" })
+      Response.json({ ...TIME_LOG, comment: "" }),
     );
     try {
-      const log = await updateCardTimeLog(
-        accessTo(baseUrl),
-        65634936,
-        9001,
-        { comment: "" },
-      );
+      const log = await updateCardTimeLog(accessTo(baseUrl), 65634936, 9001, {
+        comment: "",
+      });
 
       expect(JSON.parse(seen[0].body)).toStrictEqual({ comment: "" });
       expect(log.comment).toBe("");
@@ -324,8 +323,8 @@ describe("вызов 3: обновление — только заданные �
 });
 
 it("вызов 4: удаление записи — успех с пустым телом", async () => {
-  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    new Response(null, { status: 204 })
+  const { baseUrl, seen, stop } = await startFakeKaiten(
+    () => new Response(null, { status: 204 }),
   );
   try {
     await deleteCardTimeLog(accessTo(baseUrl), 65634936, 9001);
@@ -380,7 +379,7 @@ describe("вызов 5: записи пользователя за окно", ()
 
   it("обе границы окна уходят всегда", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json([{ ...TIME_LOG, card }])
+      Response.json([{ ...TIME_LOG, card }]),
     );
     try {
       const logs = await listUserTimeLogs(accessTo(baseUrl), 77, {
@@ -400,7 +399,7 @@ describe("вызов 5: записи пользователя за окно", ()
 
   it("карточки нет — card: null", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json([{ ...TIME_LOG, card: null }])
+      Response.json([{ ...TIME_LOG, card: null }]),
     );
     try {
       const logs = await listUserTimeLogs(accessTo(baseUrl), 77, {
@@ -418,7 +417,7 @@ describe("вызов 5: записи пользователя за окно", ()
 describe("вызов 6: запуск таймера", () => {
   it("успех: тело с id — таймер запущен", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(RUNNING_TIMER)
+      Response.json(RUNNING_TIMER),
     );
     try {
       const outcome = await startUserTimer(accessTo(baseUrl), {
@@ -453,7 +452,7 @@ describe("вызов 6: запуск таймера", () => {
 
   it("успех: форму решает только id, прочие поля пусты", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json({ id: 555, card_id: null, started_at: null })
+      Response.json({ id: 555, card_id: null, started_at: null }),
     );
     try {
       const outcome = await startUserTimer(accessTo(baseUrl), {
@@ -479,7 +478,7 @@ describe("вызов 6: запуск таймера", () => {
 
   it("без комментария ключа comment в теле нет", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(RUNNING_TIMER)
+      Response.json(RUNNING_TIMER),
     );
     try {
       await startUserTimer(accessTo(baseUrl), { cardId: 65634936 });
@@ -493,7 +492,7 @@ describe("вызов 6: запуск таймера", () => {
   it("конфликт: тело без id при статусе 2xx", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
       // Статус успеха: формы различаются составом тела, а не кодом.
-      Response.json({ message: "User timer already created" }, { status: 200 })
+      Response.json({ message: "User timer already created" }, { status: 200 }),
     );
     try {
       const outcome = await startUserTimer(accessTo(baseUrl), {
@@ -523,7 +522,7 @@ describe("вызов 6: запуск таймера", () => {
   for (const { title, body } of NOT_CONFLICT_2XX) {
     it(`2xx ${title} — разбор формы, а не конфликт`, async () => {
       const { baseUrl, stop } = await startFakeKaiten(() =>
-        Response.json(body, { status: 200 })
+        Response.json(body, { status: 200 }),
       );
       try {
         const failure = startUserTimer(accessTo(baseUrl), { cardId: 65634936 });
@@ -539,7 +538,7 @@ describe("вызов 6: запуск таймера", () => {
 
   it("конфликт: статус 400 и тело без id", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json({ message: "User timer already created" }, { status: 400 })
+      Response.json({ message: "User timer already created" }, { status: 400 }),
     );
     try {
       const outcome = await startUserTimer(accessTo(baseUrl), {
@@ -564,9 +563,12 @@ describe("вызов 6: запуск таймера", () => {
     {
       title: "та же форма тела, но не 400",
       response: () =>
-        Response.json({ message: "User timer already created" }, {
-          status: 503,
-        }),
+        Response.json(
+          { message: "User timer already created" },
+          {
+            status: 503,
+          },
+        ),
     },
     {
       title: "400 с id в теле",
@@ -592,8 +594,9 @@ describe("вызов 6: запуск таймера", () => {
     it(`${testCase.title} — отказ, а не конфликт`, async () => {
       const { baseUrl, stop } = await startFakeKaiten(testCase.response);
       try {
-        await expect(startUserTimer(accessTo(baseUrl), { cardId: 65634936 }))
-          .rejects.toThrow(KaitenError);
+        await expect(
+          startUserTimer(accessTo(baseUrl), { cardId: 65634936 }),
+        ).rejects.toThrow(KaitenError);
       } finally {
         await stop();
       }
@@ -610,7 +613,7 @@ describe("вызов 7: остановка таймера", () => {
 
   it("метки времени, роль и комментарий в теле", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(stopped)
+      Response.json(stopped),
     );
     try {
       const timer = await stopUserTimer(accessTo(baseUrl), 555, {
@@ -647,7 +650,7 @@ describe("вызов 7: остановка таймера", () => {
 
   it("без необязательных полей — только метка конца", async () => {
     const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-      Response.json(stopped)
+      Response.json(stopped),
     );
     try {
       await stopUserTimer(accessTo(baseUrl), 555, {
@@ -664,7 +667,7 @@ describe("вызов 7: остановка таймера", () => {
 
   it("ответ не таймер — ошибка запроса", async () => {
     const { baseUrl, stop } = await startFakeKaiten(() =>
-      Response.json({ message: "no timer" })
+      Response.json({ message: "no timer" }),
     );
     try {
       const failure = stopUserTimer(accessTo(baseUrl), 555, {
@@ -681,8 +684,8 @@ describe("вызов 7: остановка таймера", () => {
 });
 
 it("вызов 8: сброс таймера без записи времени", async () => {
-  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
-    new Response(null, { status: 204 })
+  const { baseUrl, seen, stop } = await startFakeKaiten(
+    () => new Response(null, { status: 204 }),
   );
   try {
     await resetUserTimer(accessTo(baseUrl), 555);
@@ -702,7 +705,7 @@ it("вызов 9: справочник ролей", async () => {
       { id: 4, name: "Аналитика" },
       // Не роль: без числового id — пропускается, а не ломает список.
       "мусор",
-    ])
+    ]),
   );
   try {
     const roles = await listUserRoles(accessTo(baseUrl));
@@ -720,7 +723,7 @@ it("вызов 9: справочник ролей", async () => {
 
 it("ответ на создание записи не той формы — ошибка запроса", async () => {
   const { baseUrl, stop } = await startFakeKaiten(() =>
-    Response.json({ message: "nope" }, { status: 201 })
+    Response.json({ message: "nope" }, { status: 201 }),
   );
   try {
     const failure = createCardTimeLog(accessTo(baseUrl), 65634936, {

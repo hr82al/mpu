@@ -67,9 +67,10 @@ type BoardRow = BoardRows["rows"][number];
 /** Срез порта: доступ к Kaiten плюс кэш-БД под запись справочников. */
 type RefsIo = AccessIo & Pick<CommandIo, "openCacheDb">;
 
-const jsonFlag = z.boolean().default(false).describe(
-  "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
-);
+const jsonFlag = z
+  .boolean()
+  .default(false)
+  .describe("машиночитаемый JSON: отступ 2, порядок строк — как в ответе API");
 
 const whoamiArgsSchema = z.object({ json: jsonFlag });
 
@@ -79,24 +80,27 @@ const spacesArgsSchema = z.object({
 });
 
 const boardsArgsSchema = z.object({
-  space: z.string().optional().describe(
-    "пространство: id или подстрока названия",
-  ),
+  space: z
+    .string()
+    .optional()
+    .describe("пространство: id или подстрока названия"),
   json: jsonFlag,
 });
 
 const boardRowsArgsSchema = z.object({
-  space: z.string().optional().describe(
-    "пространство: id или подстрока названия",
-  ),
+  space: z
+    .string()
+    .optional()
+    .describe("пространство: id или подстрока названия"),
   board: z.string().optional().describe("доска: id или подстрока названия"),
   json: jsonFlag,
 });
 
 const rolesArgsSchema = z.object({
-  all: z.boolean().default(false).describe(
-    "показать и системные роли с неположительным id",
-  ),
+  all: z
+    .boolean()
+    .default(false)
+    .describe("показать и системные роли с неположительным id"),
   json: jsonFlag,
 });
 
@@ -105,33 +109,37 @@ const whoamiResultSchema = z.object({
 });
 
 const spacesResultSchema = z.object({
-  spaces: z.array(spaceViewSchema).describe(
-    "пространства в порядке ответа API; без all архивные отфильтрованы",
-  ),
+  spaces: z
+    .array(spaceViewSchema)
+    .describe(
+      "пространства в порядке ответа API; без all архивные отфильтрованы",
+    ),
 });
 
 const boardsResultSchema = z.object({
-  boards: z.array(boardViewSchema).describe(
-    "доски всех пространств плоско, в порядке ответа API",
-  ),
+  boards: z
+    .array(boardViewSchema)
+    .describe("доски всех пространств плоско, в порядке ответа API"),
 });
 
 const lanesResultSchema = z.object({
-  lanes: z.array(boardRowViewSchema).describe(
-    "дорожки досок скоупа в порядке обхода досок",
-  ),
+  lanes: z
+    .array(boardRowViewSchema)
+    .describe("дорожки досок скоупа в порядке обхода досок"),
 });
 
 const columnsResultSchema = z.object({
-  columns: z.array(boardRowViewSchema).describe(
-    "колонки досок скоупа в порядке обхода досок",
-  ),
+  columns: z
+    .array(boardRowViewSchema)
+    .describe("колонки досок скоупа в порядке обхода досок"),
 });
 
 const rolesResultSchema = z.object({
-  roles: z.array(roleViewSchema).describe(
-    "роли компании в порядке ответа API; без all системные отфильтрованы",
-  ),
+  roles: z
+    .array(roleViewSchema)
+    .describe(
+      "роли компании в порядке ответа API; без all системные отфильтрованы",
+    ),
 });
 
 type WhoamiArgs = z.infer<typeof whoamiArgsSchema>;
@@ -177,9 +185,10 @@ async function runBoards(
 ): Promise<{ readonly boards: readonly BoardView[] }> {
   const spaces = await warmSpaces(kaitenAccess(io), io);
   const boards = spaces.flatMap((space) => space.boards);
-  const shown = args.space === undefined
-    ? boards
-    : boardsOfSpace(spaces, boards, args.space);
+  const shown =
+    args.space === undefined
+      ? boards
+      : boardsOfSpace(spaces, boards, args.space);
   return { boards: shown.map(boardView) };
 }
 
@@ -191,9 +200,8 @@ async function runLanes(
   const access = kaitenAccess(io);
   // Пространства нужны только скоупу: их запись в кэш сделал `scope`.
   const { boards } = await scope(access, io, args);
-  const lanes = await visitBoards(
-    boards,
-    (boardId) => listBoardLanes(access, boardId),
+  const lanes = await visitBoards(boards, (boardId) =>
+    listBoardLanes(access, boardId),
   );
   // Пространства и доски записаны до резолва `REF` (`scope` → `warmSpaces`),
   // поэтому здесь пишется только своя таблица — второй полной перезаписи
@@ -209,16 +217,14 @@ async function runColumns(
 ): Promise<{ readonly columns: readonly BoardRowView[] }> {
   const access = kaitenAccess(io);
   const { boards } = await scope(access, io, args);
-  const columns = await visitBoards(
-    boards,
-    async (boardId) =>
-      (await listBoardColumns(access, boardId)).map(
-        ({ id, boardId: board, title }): BoardRow => ({
-          id,
-          boardId: board,
-          title,
-        }),
-      ),
+  const columns = await visitBoards(boards, async (boardId) =>
+    (await listBoardColumns(access, boardId)).map(
+      ({ id, boardId: board, title }): BoardRow => ({
+        id,
+        boardId: board,
+        title,
+      }),
+    ),
   );
   writeCache(io, (db, at) => writeBoardRows(db, "kaiten_columns", columns, at));
   return { columns: columns.rows.map(boardRowView) };
@@ -249,9 +255,8 @@ async function warmSpaces(
   io: RefsIo,
 ): Promise<readonly Space[]> {
   const spaces = await read(() => listSpaces(access));
-  writeCache(
-    io,
-    (db, at) => writeKaitenWarmup(db, refsWarmup(spaces, NO_BOARD_ROWS), at),
+  writeCache(io, (db, at) =>
+    writeKaitenWarmup(db, refsWarmup(spaces, NO_BOARD_ROWS), at),
   );
   return spaces;
 }
@@ -439,9 +444,7 @@ export const kitenWhoamiCommand = defineCommand({
 же четырьмя ключами.
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten whoami end json",
-  ],
+  examples: ["mpu kiten whoami end json"],
   policy: "ro",
   argsSchema: whoamiArgsSchema,
   resultSchema: whoamiResultSchema,
@@ -469,9 +472,7 @@ all показывает архивные пространства. Фильтр
 (N spaces); пустой список — (нет пространств).
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten spaces all",
-  ],
+  examples: ["mpu kiten spaces all"],
   policy: "ro",
   argsSchema: spacesArgsSchema,
   resultSchema: spacesResultSchema,
@@ -501,9 +502,7 @@ space: REF оставляет доски одного пространства; 
 (нет досок).
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten boards space: Разработка",
-  ],
+  examples: ["mpu kiten boards space: Разработка"],
   policy: "ro",
   argsSchema: boardsArgsSchema,
   resultSchema: boardsResultSchema,
@@ -531,9 +530,7 @@ ${SCOPE_HELP}
 (нет дорожек).
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten lanes board: 4001",
-  ],
+  examples: ["mpu kiten lanes board: 4001"],
   policy: "ro",
   argsSchema: boardRowsArgsSchema,
   resultSchema: lanesResultSchema,
@@ -561,9 +558,7 @@ ${SCOPE_HELP}
 (нет колонок).
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten columns space: Разработка",
-  ],
+  examples: ["mpu kiten columns space: Разработка"],
   policy: "ro",
   argsSchema: boardRowsArgsSchema,
   resultSchema: columnsResultSchema,
@@ -593,9 +588,7 @@ mpu kiten time.
 (нет ролей).
 
 ${COMMON_HELP}`,
-  examples: [
-    "mpu kiten roles end json",
-  ],
+  examples: ["mpu kiten roles end json"],
   policy: "ro",
   argsSchema: rolesArgsSchema,
   resultSchema: rolesResultSchema,

@@ -220,27 +220,28 @@ describe("SQL очистки: наборы таблиц и порядок опе
 it("удаление: три подключения по порядку и счётчики", async () => {
   const sent: Sent[] = [];
   const result = await runCleanLocal({ keep: "54", yes: true }, ioWith(), {
-    openSession: fakeSessions([
-      ["pg_namespace", rows(SCHEMAS)],
-      ["FROM public.users WHERE email", rows(["u-1498"])],
-      ["FROM public.workspaces WHERE id", rows([1498])],
-    ], sent),
+    openSession: fakeSessions(
+      [
+        ["pg_namespace", rows(SCHEMAS)],
+        ["FROM public.users WHERE email", rows(["u-1498"])],
+        ["FROM public.workspaces WHERE id", rows([1498])],
+      ],
+      sent,
+    ),
   });
 
   expect(result.targets).toStrictEqual([1498]);
   expect([result.deleted, result.workspaces]).toStrictEqual([1, 1]);
   // Порядок портов: sl-1 (5441) → sl-0 (5440) → воркспейсы (5451).
   expect([...new Set(sent.map((item) => item.port))]).toStrictEqual([
-    5441,
-    5440,
-    5451,
+    5441, 5440, 5451,
   ]);
   expect(renderCleanLocal(result)).toContain(
     "удалено клиентов: 1; снято workspace-проводок: 1\n",
   );
-  const workspaceSql = sent.filter((item) => item.port === 5451).map((i) =>
-    i.sql
-  );
+  const workspaceSql = sent
+    .filter((item) => item.port === 5451)
+    .map((i) => i.sql);
   // Порядок удаления явный и FK-безопасный: подписки → связки →
   // кабинеты → сам workspace, и только потом user.
   const removal = workspaceSql.find((sql) => sql.includes("subscriptions"))!;
@@ -255,12 +256,15 @@ it("удаление: три подключения по порядку и сч�
 it("вход под чужим email не снимается — closed preserve", async () => {
   const sent: Sent[] = [];
   const result = await runCleanLocal({ keep: "54", yes: true }, ioWith(), {
-    openSession: fakeSessions([
-      ["pg_namespace", rows(SCHEMAS)],
-      // Пользователя с сигнатурой `client_1498@local.host` нет: вход
-      // заводили вручную под другим адресом.
-      ["FROM public.users WHERE email", rows([])],
-    ], sent),
+    openSession: fakeSessions(
+      [
+        ["pg_namespace", rows(SCHEMAS)],
+        // Пользователя с сигнатурой `client_1498@local.host` нет: вход
+        // заводили вручную под другим адресом.
+        ["FROM public.users WHERE email", rows([])],
+      ],
+      sent,
+    ),
   });
 
   expect(result.workspaces).toBe(0);

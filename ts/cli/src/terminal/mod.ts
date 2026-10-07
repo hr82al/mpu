@@ -160,7 +160,7 @@ function readInto(fd: number, chunk: Uint8Array): Promise<number | null> {
     read(fd, chunk, 0, 1, null, (err, count) => {
       if (err !== null) return reject(err);
       resolve(count === 0 ? null : count);
-    })
+    }),
   );
 }
 
@@ -174,9 +174,7 @@ function readInto(fd: number, chunk: Uint8Array): Promise<number | null> {
  * Имя устройства не сообщается: `ttyname` в `node:*` нет, и выдумывать его
  * по номеру fd — значит печатать в диагностике догадку.
  */
-export function openControllingTerminal(): Promise<
-  TerminalIo | undefined
-> {
+export function openControllingTerminal(): Promise<TerminalIo | undefined> {
   let fd: number;
   try {
     // Только на чтение — и это не экономия права, а единственная
@@ -213,9 +211,9 @@ export function openControllingTerminal(): Promise<
  * нажатию Enter, а забрать из него лишнее нельзя — следующий читатель
  * этого же устройства недосчитался бы своего.
  */
-async function readLineFrom(
-  file: { read(p: Uint8Array): Promise<number | null> },
-): Promise<string | undefined> {
+async function readLineFrom(file: {
+  read(p: Uint8Array): Promise<number | null>;
+}): Promise<string | undefined> {
   const bytes: number[] = [];
   const chunk = new Uint8Array(1);
   while (true) {

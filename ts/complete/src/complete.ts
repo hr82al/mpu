@@ -16,7 +16,7 @@ function oneLine(text: string): string {
  */
 export function printed(choices: readonly Choice[]): string {
   return [...choices]
-    .sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0)
+    .sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0))
     .map((choice) => `${choice.value}\t${oneLine(choice.summary)}\n`)
     .join("");
 }

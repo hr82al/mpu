@@ -31,11 +31,12 @@ it("rpc без токена — 401, с чужим Origin без токена �
       status: 401,
       body: "",
     });
-    expect(await request(back, "/rpc", { ...rpc, headers: EVIL }))
-      .toStrictEqual({
-        status: 403,
-        body: "",
-      });
+    expect(
+      await request(back, "/rpc", { ...rpc, headers: EVIL }),
+    ).toStrictEqual({
+      status: 403,
+      body: "",
+    });
     expect(
       await request(back, "/rpc", {
         ...rpc,
@@ -61,8 +62,9 @@ it("путь неизвестен — 404, метод не тот — 405", () =
       status: 405,
       body: "",
     });
-    expect(await request(back, "/health", { method: "POST", body: "" }))
-      .toStrictEqual({ status: 405, body: "" });
+    expect(
+      await request(back, "/health", { method: "POST", body: "" }),
+    ).toStrictEqual({ status: 405, body: "" });
   }));
 
 it("WebSocket: Origin фронта и токен в подпротоколе — подключение", () =>

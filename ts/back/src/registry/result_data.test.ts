@@ -125,13 +125,15 @@ const CASES: readonly (readonly [string, unknown, string, string])[] = [
     "mr comments",
     {
       headline: "MR",
-      threads: [{
-        id: "t1",
-        resolvable: true,
-        resolved: false,
-        location: null,
-        notes: [],
-      }],
+      threads: [
+        {
+          id: "t1",
+          resolvable: true,
+          resolved: false,
+          location: null,
+          notes: [],
+        },
+      ],
     },
     "first id",
     "t1\n",
@@ -167,8 +169,9 @@ const CASES: readonly (readonly [string, unknown, string, string])[] = [
 describe("отбор видит то, что печатает end json", () => {
   for (const [path, result, words, value] of CASES) {
     it(`${path}: ${words}`, async () => {
-      expect(await selected(path.split(" "), result, words.split(" ")))
-        .toStrictEqual({ path: [], value });
+      expect(
+        await selected(path.split(" "), result, words.split(" ")),
+      ).toStrictEqual({ path: [], value });
     });
   }
 });
@@ -203,11 +206,10 @@ describe("отобранная коллекция печатается видо�
       if (command === undefined) throw new Error(`нет команды ${path}`);
       const argv = ARGV[path] ?? [];
       expect(
-        await selected(
-          path.split(" "),
-          { ...sample, [key]: [one, one] },
-          ["first:", "1"],
-        ),
+        await selected(path.split(" "), { ...sample, [key]: [one, one] }, [
+          "first:",
+          "1",
+        ]),
       ).toStrictEqual({
         path: [],
         value: command.renderResult({ ...sample, [key]: [one] }, argv),

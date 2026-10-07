@@ -49,11 +49,9 @@ interface Home {
 /** Канал (FIFO) по пути; ненулевой код `mkfifo` — отказ. */
 function mkfifo(path: string): Promise<void> {
   return new Promise((resolve, reject) =>
-    execFile(
-      "mkfifo",
-      [path],
-      (err) => err === null ? resolve() : reject(err),
-    )
+    execFile("mkfifo", [path], (err) =>
+      err === null ? resolve() : reject(err),
+    ),
   );
 }
 
@@ -192,12 +190,15 @@ function run(
         book.set(RulePath.parse("sql"), DENY);
       }
       let reads = 0;
-      const log = given.log === undefined ? undefined : makeInvokeLog({
-        env: { get: () => undefined },
-        defaultFile: given.log,
-        pid: 777,
-        now: () => new Date(),
-      });
+      const log =
+        given.log === undefined
+          ? undefined
+          : makeInvokeLog({
+              env: { get: () => undefined },
+              defaultFile: given.log,
+              pid: 777,
+              now: () => new Date(),
+            });
       const ran = await runOnStand(file, words, stand, {
         io: {
           ...inputOf(given, () => reads++),
@@ -206,7 +207,10 @@ function run(
           ...(given.botless ? BOTLESS : {}),
         },
         channel: given.nobody ? () => NOBODY : humanAt(given.answers ?? []),
-        files: refusingRead(programFiles((name) => env[name]), given.readFails),
+        files: refusingRead(
+          programFiles((name) => env[name]),
+          given.readFails,
+        ),
         log,
       });
       result = {
@@ -220,7 +224,7 @@ function run(
         posted: stand.posted(),
         asked: stand.asked(),
       };
-    })
+    }),
   ).then(() => {
     if (result === undefined) throw new Error("стенд не прогнал строку");
     return result;
@@ -255,7 +259,8 @@ describe("run: файл и параметры — значение ключа в
         await home.write("/home/u/w/x.mpu", "@col print");
         const got = await run(home, ["run:", "x.mpu", ...keys], given);
         expect(seen(got)).toStrictEqual([out, "", 0]);
-      }));
+      }),
+    );
   }
 });
 
@@ -284,7 +289,7 @@ describe("run: параметры — отказы источника и гол�
       [
         "",
         "mpu run: x.mpu col: review: параметр col: совпадает с переменной " +
-        "col := — переименуй одно из них\n",
+          "col := — переименуй одно из них\n",
         2,
       ],
     ],
@@ -295,20 +300,22 @@ describe("run: параметры — отказы источника и гол�
       [
         "",
         "mpu run: x.mpu col: review: параметр col: совпадает с параметром " +
-        "блока :col — переименуй одно из них\n",
+          "блока :col — переименуй одно из них\n",
         2,
       ],
     ],
-    ["голое имя — команда", "kiten ls end size", ["kiten:", "5"], [
-      "3\n",
-      "",
-      0,
-    ]],
-    ["параметр — текст", "@n plus: 1", ["n:", "5"], [
-      "",
-      "mpu run: x.mpu n: 5: выражение 1: текст не понимает plus:\n",
-      1,
-    ]],
+    [
+      "голое имя — команда",
+      "kiten ls end size",
+      ["kiten:", "5"],
+      ["3\n", "", 0],
+    ],
+    [
+      "параметр — текст",
+      "@n plus: 1",
+      ["n:", "5"],
+      ["", "mpu run: x.mpu n: 5: выражение 1: текст не понимает plus:\n", 1],
+    ],
     [
       "@имя в ключе-тексте",
       "telegram send chat: me text: @msg",
@@ -316,7 +323,7 @@ describe("run: параметры — отказы источника и гол�
       [
         "",
         "mpu run: x.mpu msg: hi: выражение 1: ключ-текст берёт слово как " +
-        "есть; переменную — группой: text: do @msg end\n",
+          "есть; переменную — группой: text: do @msg end\n",
         2,
       ],
     ],
@@ -331,7 +338,8 @@ describe("run: параметры — отказы источника и гол�
           expect(got.refusals.map((one) => one.hint)).toStrictEqual([null]);
           expect(got.asked, "команды программы не вызваны").toBe(0);
         }
-      }));
+      }),
+    );
   }
 });
 
@@ -353,7 +361,7 @@ describe("run: отказы разбора и пустой файл — преф
       "^a b print",
       ["ask", "run:", "x.mpu", "col:", "review"],
       "mpu ask run: x.mpu col: review: выражение 1: текст не закрыт: " +
-      "добавь ^ к последнему слову\n",
+        "добавь ^ к последнему слову\n",
     ],
     ["пуст", "", ["run:", "x.mpu"], "mpu run: x.mpu: программа пуста\n"],
     [
@@ -376,7 +384,8 @@ describe("run: отказы разбора и пустой файл — преф
         const got = await run(home, words);
         expect(seen(got)).toStrictEqual(["", stderr, 2]);
         expect(got.refusals.map((one) => one.hint)).toStrictEqual([null]);
-      }));
+      }),
+    );
   }
   it("run: в набранной программе", () =>
     withHome(async (home) => {
@@ -403,55 +412,56 @@ describe("run: отказы пути — до чтения, полный пут�
     await mkfifo(home.real("/home/u/w/p.mpu"));
   });
   afterAll(() => home.close());
-  const cases:
-    readonly (readonly [string, readonly string[], Call, string, string])[] = [
-      [
-        "нет файла",
-        ["run:", "нет.mpu"],
-        {},
-        "нет файла /home/u/w/нет.mpu",
-        "нет файла",
-      ],
-      [
-        "каталог",
-        ["run:", "dir.mpu"],
-        {},
-        "не файл /home/u/w/dir.mpu",
-        "не файл",
-      ],
-      [
-        "канал",
-        ["run:", "p.mpu"],
-        {},
-        "не файл /home/u/w/p.mpu",
-        "не файл",
-      ],
-      [
-        "stdin — путь, а не ввод",
-        ["run:", "stdin"],
-        { stdin: bytes("x") },
-        "программа — файл .mpu",
-        "программа — файл .mpu",
-      ],
-      [
-        "..  в пути",
-        ["run:", "../w/./нет.mpu"],
-        {},
-        "нет файла /home/u/w/нет.mpu",
-        "нет файла",
-      ],
-    ];
+  const cases: readonly (readonly [
+    string,
+    readonly string[],
+    Call,
+    string,
+    string,
+  ])[] = [
+    [
+      "нет файла",
+      ["run:", "нет.mpu"],
+      {},
+      "нет файла /home/u/w/нет.mpu",
+      "нет файла",
+    ],
+    [
+      "каталог",
+      ["run:", "dir.mpu"],
+      {},
+      "не файл /home/u/w/dir.mpu",
+      "не файл",
+    ],
+    ["канал", ["run:", "p.mpu"], {}, "не файл /home/u/w/p.mpu", "не файл"],
+    [
+      "stdin — путь, а не ввод",
+      ["run:", "stdin"],
+      { stdin: bytes("x") },
+      "программа — файл .mpu",
+      "программа — файл .mpu",
+    ],
+    [
+      "..  в пути",
+      ["run:", "../w/./нет.mpu"],
+      {},
+      "нет файла /home/u/w/нет.mpu",
+      "нет файла",
+    ],
+  ];
   for (const [name, words, given, text, reason] of cases) {
     it(name, async () => {
       const got = await within(run(home, words, given), 10_000, name);
       const said = `mpu ${words.join(" ")}: ${text}`;
       expect(seen(got)).toStrictEqual(["", `${said}\n`, 2]);
-      expect(got.refusals).toStrictEqual([{
-        reason,
-        hint: null,
-        candidates: [],
-        text: said,
-      }]);
+      expect(got.refusals).toStrictEqual([
+        {
+          reason,
+          hint: null,
+          candidates: [],
+          text: said,
+        },
+      ]);
       expect(got.reads, "ввод не запрошен").toBe(0);
     });
   }
@@ -488,20 +498,8 @@ describe("run: отказы пути — до чтения, полный пут�
 
 describe("run: байты файла — BOM и \\r снимаются, NBSP — часть слова, не UTF-8 — отказ", () => {
   const cp1251 = [
-    0x5e,
-    0xc3,
-    0xee,
-    0xf2,
-    0xee,
-    0xe2,
-    0xee,
-    0x5e,
-    0x20,
-    0x70,
-    0x72,
-    0x69,
-    0x6e,
-    0x74,
+    0x5e, 0xc3, 0xee, 0xf2, 0xee, 0xe2, 0xee, 0x5e, 0x20, 0x70, 0x72, 0x69,
+    0x6e, 0x74,
   ];
   const cases: readonly (readonly [
     string,
@@ -518,11 +516,7 @@ describe("run: байты файла — BOM и \\r снимаются, NBSP —
       bytes("^готово\r\nк ревью^ print\r\n"),
       ["готово к ревью\n", "", 0],
     ],
-    [
-      "NBSP",
-      bytes("^готово к ревью^ print"),
-      ["готово к ревью\n", "", 0],
-    ],
+    ["NBSP", bytes("^готово к ревью^ print"), ["готово к ревью\n", "", 0]],
     [
       "cp1251",
       new Uint8Array(cp1251),
@@ -541,7 +535,8 @@ describe("run: байты файла — BOM и \\r снимаются, NBSP —
         expect(seen(await run(home, ["run:", "x.mpu"]))).toStrictEqual(
           expected,
         );
-      }));
+      }),
+    );
   }
   it("одни слова из файла и из stdin", () =>
     withHome(async (home) => {
@@ -669,14 +664,12 @@ describe("run: ask и правила", () => {
     expect(seen(got)).toStrictEqual([
       "",
       "mpu run: x.mpu: строка может записать (kiten comment) — начни с " +
-      "ask: mpu ask run: x.mpu\n",
+        "ask: mpu ask run: x.mpu\n",
       2,
     ]);
-    expect(got.refusals.map((one) => one.hint)).toStrictEqual([[
-      "ask",
-      "run:",
-      "x.mpu",
-    ]]);
+    expect(got.refusals.map((one) => one.hint)).toStrictEqual([
+      ["ask", "run:", "x.mpu"],
+    ]);
     expect(got.posted).toStrictEqual([]);
   });
   it("mpu ask run:, y", async () => {
@@ -705,7 +698,7 @@ describe("run: ask и правила", () => {
     expect(seen(got)).toStrictEqual([
       "",
       "mpu kiten comment id: 11 text: a: нужно подтверждение, а спросить " +
-      "некого\n",
+        "некого\n",
       1,
     ]);
     expect(got.posted).toStrictEqual([]);
@@ -750,11 +743,11 @@ describe("run: справка, дополнение и путь от катал�
     const got = await run(home, ["run:", "help"]);
     expect(seen(got)).toStrictEqual([
       "Использование: mpu run: <файл.mpu> [<ключ>: <значение>]…\n\n" +
-      `${purpose}\n\n` +
-      "Звать, когда программа длиннее строки или ломается на кавычках " +
-      "оболочки:\nфайл делится по пробелам так же, как строка, а @ключ " +
-      "внутри берёт значение\nиз ключа вызова (mpu run: x.mpu col: " +
-      "review). Без слов программа берётся\nиз stdin: mpu < x.mpu.\n",
+        `${purpose}\n\n` +
+        "Звать, когда программа длиннее строки или ломается на кавычках " +
+        "оболочки:\nфайл делится по пробелам так же, как строка, а @ключ " +
+        "внутри берёт значение\nиз ключа вызова (mpu run: x.mpu col: " +
+        "review). Без слов программа берётся\nиз stdin: mpu < x.mpu.\n",
       "",
       0,
     ]);
@@ -768,7 +761,9 @@ describe("run: справка, дополнение и путь от катал�
       expect(lines[at].trim().replace(/ +/, " ")).toStrictEqual(
         `run: ${purpose}`,
       );
-      const names = lines.slice(at - 1, at + 2).filter((one) => one !== "")
+      const names = lines
+        .slice(at - 1, at + 2)
+        .filter((one) => one !== "")
         .map((one) => one.trim().split(" ")[0]);
       expect(names, "порядок побайтный").toStrictEqual([...names].sort());
     });
@@ -820,6 +815,7 @@ describe("run: ключи вызова — отказы разбора до ис
           2,
         ]);
         expect(got.refusals.map((one) => one.hint)).toStrictEqual([null]);
-      }));
+      }),
+    );
   }
 });

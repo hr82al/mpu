@@ -303,25 +303,29 @@ it("json: совпадает с голденом за вычетом фикст�
       dueDate: "2026-09-01T12:00:00.000Z",
       updated: "2026-08-17T06:11:35.621Z",
     });
-    const text = await run(st, { out: "json" }, {
-      api: api({
-        // Карточка 3 умышленно не назначена — её единственный источник
-        // «activity», как в голдене (`sources: ["activity"]`).
-        cardsOfMember: () => Promise.resolve([card1, card2]),
-        activities: () =>
-          Promise.resolve([
-            activity({ id: "e1", cardId: 68000001, card: card1 }),
-            activity({ id: "e2", cardId: 68000002, card: card2 }),
-            activity({ id: "e3", cardId: 68000003, card: card3 }),
-          ]),
-      }),
-    });
+    const text = await run(
+      st,
+      { out: "json" },
+      {
+        api: api({
+          // Карточка 3 умышленно не назначена — её единственный источник
+          // «activity», как в голдене (`sources: ["activity"]`).
+          cardsOfMember: () => Promise.resolve([card1, card2]),
+          activities: () =>
+            Promise.resolve([
+              activity({ id: "e1", cardId: 68000001, card: card1 }),
+              activity({ id: "e2", cardId: 68000002, card: card2 }),
+              activity({ id: "e3", cardId: 68000003, card: card3 }),
+            ]),
+        }),
+      },
+    );
     const raw = await golden("status.json");
     const marker = '"column": "Колонка 1",';
     const lastAt = raw.lastIndexOf(marker);
-    const expected = `${raw.slice(0, lastAt)}"column": "Очередь",${
-      raw.slice(lastAt + marker.length)
-    }`.replaceAll("https://btlz.kaiten.ru", st.baseUrl);
+    const expected = `${raw.slice(0, lastAt)}"column": "Очередь",${raw.slice(
+      lastAt + marker.length,
+    )}`.replaceAll("https://btlz.kaiten.ru", st.baseUrl);
     expect(text).toStrictEqual(expected);
   } finally {
     await st.stop();
@@ -364,11 +368,15 @@ it("md: совпадает с голденом status.md байт-в-байт", 
       columnTitle: "Очередь",
       updated: "2026-08-19T08:00:00Z",
     });
-    const text = await run(st, { out: "md" }, {
-      api: api({
-        cardsOfMember: () => Promise.resolve([card1, card2, card3]),
-      }),
-    });
+    const text = await run(
+      st,
+      { out: "md" },
+      {
+        api: api({
+          cardsOfMember: () => Promise.resolve([card1, card2, card3]),
+        }),
+      },
+    );
     expect(text).toStrictEqual(await golden("status.md"));
   } finally {
     await st.stop();
@@ -386,9 +394,13 @@ it("url: скобки в title экранируются", async () => {
       id: 81001,
       title: "Тест [срочно] задача",
     });
-    const text = await run(st, { out: "url" }, {
-      api: api({ cardsOfMember: () => Promise.resolve([card]) }),
-    });
+    const text = await run(
+      st,
+      { out: "url" },
+      {
+        api: api({ cardsOfMember: () => Promise.resolve([card]) }),
+      },
+    );
     expect(text).toStrictEqual(
       `[Тест \\[срочно\\] задача](${st.baseUrl}/81001)\n`,
     );
@@ -406,22 +418,26 @@ it("format: нумерация с 1, {src} через запятую, неизв
       dueDate: "2026-08-20T00:00:00Z",
     });
     const card2 = cardSummary({ id: 71002, title: "Карточка два" });
-    const text = await run(st, { format: "{n}:{id}:{src}:{due}:{missing}" }, {
-      api: api({
-        cardsOfMember: () => Promise.resolve([card1]),
-        activities: () =>
-          Promise.resolve([activity({ cardId: 71002, card: card2 })]),
-        timeLogs: () =>
-          Promise.resolve([
-            timeLog({
-              cardId: 71001,
-              forDate: "2026-08-18",
-              timeSpent: 15,
-              card: timeLogCard({ id: 71001 }),
-            }),
-          ]),
-      }),
-    });
+    const text = await run(
+      st,
+      { format: "{n}:{id}:{src}:{due}:{missing}" },
+      {
+        api: api({
+          cardsOfMember: () => Promise.resolve([card1]),
+          activities: () =>
+            Promise.resolve([activity({ cardId: 71002, card: card2 })]),
+          timeLogs: () =>
+            Promise.resolve([
+              timeLog({
+                cardId: 71001,
+                forDate: "2026-08-18",
+                timeSpent: 15,
+                card: timeLogCard({ id: 71001 }),
+              }),
+            ]),
+        }),
+      },
+    );
     expect(text).toStrictEqual(
       "1:71001:assigned,time:2026-08-20:{missing}\n" +
         "2:71002:activity::{missing}\n",
@@ -717,7 +733,8 @@ describe("неполная лента: предупреждение в progress 
         }),
       ]),
   });
-  const expected = "mpu kiten status: лента действий прочитана только до " +
+  const expected =
+    "mpu kiten status: лента действий прочитана только до " +
     "2026-08-18 (предел 3 страниц); карточки, которые я лишь " +
     "комментировал раньше этой даты, могли не попасть в выдачу";
 

@@ -63,36 +63,45 @@ import {
 const EDIT_AXES = ["time", "date", "role", "comment"] as const;
 
 /** Ось, названная в вызове `edit`. */
-type EditAxis = typeof EDIT_AXES[number];
+type EditAxis = (typeof EDIT_AXES)[number];
 
 /** Только цифры: id записи приходит строкой и из argv, и из объекта тула. */
 const NUMERIC_ID = /^\d+$/;
 
-const selector = z.string({ error: "нужен id: id карточки или её URL" })
+const selector = z
+  .string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
-const logId = z.string({ error: "нужен log: id записи" })
+const logId = z
+  .string({ error: "нужен log: id записи" })
   .describe("id записи учёта времени с этой карточки");
 
-const roleRef = z.string().optional().describe(
-  "роль: id либо название; нечисловое значение резолвится справочником",
-);
+const roleRef = z
+  .string()
+  .optional()
+  .describe(
+    "роль: id либо название; нечисловое значение резолвится справочником",
+  );
 
-const force = z.boolean().default(false).describe(
-  "разрешить действие над записью другого пользователя",
-);
+const force = z
+  .boolean()
+  .default(false)
+  .describe("разрешить действие над записью другого пользователя");
 
 const lsArgsSchema = z.object({
   selector,
-  all: z.boolean().default(false).describe(
-    "записи всех пользователей, а не только владельца токена",
-  ),
-  "date-from": z.string().optional().describe(
-    "нижняя граница даты записи YYYY-MM-DD, включительно",
-  ),
-  "date-to": z.string().optional().describe(
-    "верхняя граница даты записи YYYY-MM-DD, включительно",
-  ),
+  all: z
+    .boolean()
+    .default(false)
+    .describe("записи всех пользователей, а не только владельца токена"),
+  "date-from": z
+    .string()
+    .optional()
+    .describe("нижняя граница даты записи YYYY-MM-DD, включительно"),
+  "date-to": z
+    .string()
+    .optional()
+    .describe("верхняя граница даты записи YYYY-MM-DD, включительно"),
   role: roleRef,
   json: z.boolean().default(false).describe("вывод объектом, а не таблицей"),
 });
@@ -100,22 +109,25 @@ const lsArgsSchema = z.object({
 const lsResultSchema = z.object({
   cardId: z.number().int().describe("id карточки, чьи записи прочитаны"),
   totalMinutes: z.number().int().describe("сумма минут показанных записей"),
-  logs: z.array(timeLogViewSchema).describe(
-    "записи после фильтров, в порядке ответа внешней системы",
-  ),
+  logs: z
+    .array(timeLogViewSchema)
+    .describe("записи после фильтров, в порядке ответа внешней системы"),
 });
 
 const addArgsSchema = z.object({
   selector,
-  duration: z.string({ error: "нужен duration: длительность записи" })
+  duration: z
+    .string({ error: "нужен duration: длительность записи" })
     .describe("длительность: 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h"),
-  date: z.string().optional().describe(
-    "день записи YYYY-MM-DD; без флага — сегодня по МСК",
-  ),
+  date: z
+    .string()
+    .optional()
+    .describe("день записи YYYY-MM-DD; без флага — сегодня по МСК"),
   role: roleRef,
-  comment: z.string().default("").describe(
-    "комментарий записи; пустой — записи без комментария",
-  ),
+  comment: z
+    .string()
+    .default("")
+    .describe("комментарий записи; пустой — записи без комментария"),
 });
 
 const addResultSchema = z.object({
@@ -129,17 +141,18 @@ const editArgsSchema = z.object({
   time: z.string().optional().describe("новая длительность записи"),
   date: z.string().optional().describe("новый день записи YYYY-MM-DD"),
   role: roleRef,
-  comment: z.string().optional().describe(
-    "новый комментарий; пустая строка очищает прежний",
-  ),
+  comment: z
+    .string()
+    .optional()
+    .describe("новый комментарий; пустая строка очищает прежний"),
   force,
 });
 
 const editResultSchema = z.object({
   log: timeLogViewSchema.describe("запись после обновления"),
-  changed: z.array(z.enum(EDIT_AXES)).describe(
-    "оси, заданные вызовом: только они уходили в тело обновления",
-  ),
+  changed: z
+    .array(z.enum(EDIT_AXES))
+    .describe("оси, заданные вызовом: только они уходили в тело обновления"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
@@ -195,16 +208,16 @@ async function runKitenTimeLs(
     // Роль здесь — ФИЛЬТР, а не выбор роли записи: цепочки «env →
     // дефолт» у него нет, иначе `ls` без флага молча показывал бы одну
     // роль из нескольких.
-    const roleId = args.role === undefined
-      ? null
-      : await resolveRoleId(access, args.role);
+    const roleId =
+      args.role === undefined ? null : await resolveRoleId(access, args.role);
     const logs = await listCardTimeLogs(access, cardId);
     const owner = args.all ? null : (await getCurrentUser(access)).id;
-    const kept = logs.filter((log) =>
-      (owner === null || log.userId === owner) &&
-      (roleId === null || log.roleId === roleId) &&
-      (from === undefined || log.forDate >= from) &&
-      (to === undefined || log.forDate <= to)
+    const kept = logs.filter(
+      (log) =>
+        (owner === null || log.userId === owner) &&
+        (roleId === null || log.roleId === roleId) &&
+        (from === undefined || log.forDate >= from) &&
+        (to === undefined || log.forDate <= to),
     );
     return {
       cardId,
@@ -227,9 +240,8 @@ async function runKitenTimeAdd(
   const cardId = parseCardRef(args.selector);
   const timeSpent = parseDuration(args.duration, "DURATION");
   const today = mskDay();
-  const forDate = args.date === undefined
-    ? today
-    : parseCalendarDate(args.date, "--date");
+  const forDate =
+    args.date === undefined ? today : parseCalendarDate(args.date, "--date");
   const access = kaitenAccess(io);
   if (forDate > today) io.progress(`внимание: дата ${forDate} в будущем`);
   try {
@@ -272,9 +284,8 @@ async function runKitenTimeEdit(
     );
   }
   const patch: TimeLogPatch = {
-    timeSpent: args.time === undefined
-      ? undefined
-      : parseDuration(args.time, "--time"),
+    timeSpent:
+      args.time === undefined ? undefined : parseDuration(args.time, "--time"),
     forDate: optionalDate(args.date, "--date"),
     comment: args.comment,
   };
@@ -284,9 +295,8 @@ async function runKitenTimeEdit(
     // печати: ответ правки записи название роли не несёт. Остальные оси
     // берут значения из ответа сервера и запроса не стоят.
     const roles = args.role === undefined ? [] : await listUserRoles(access);
-    const roleId = args.role === undefined
-      ? undefined
-      : pickRoleId(roles, args.role);
+    const roleId =
+      args.role === undefined ? undefined : pickRoleId(roles, args.role);
     await requireOwnLog(access, cardId, id, args.force);
     const log = await updateCardTimeLog(access, cardId, id, {
       ...patch,
@@ -359,10 +369,7 @@ async function requireOwnLog(
  * здесь; пустой справочник (ось роли не названа) оставляет `null`, и
  * тогда роль в выводе не печатается вовсе.
  */
-function withRoleName(
-  log: TimeLog,
-  roles: readonly KaitenRole[],
-): TimeLogView {
+function withRoleName(log: TimeLog, roles: readonly KaitenRole[]): TimeLogView {
   const view = timeLogView(log);
   return { ...view, role: roleNameOf(roles, view.role_id) };
 }
@@ -448,9 +455,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор, даты,
 роль, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time ls id: 10000001 date-from: 2026-08-01",
-  ],
+  examples: ["mpu kiten time ls id: 10000001 date-from: 2026-08-01"],
   policy: "ro",
   argsSchema: lsArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -460,8 +465,8 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
     args.json
       ? renderTimeLogJson(result.logs, result.totalMinutes)
       : renderTimeLogTable(result.logs, result.totalMinutes, {
-        withUser: args.all,
-      }),
+          withUser: args.all,
+        }),
 });
 
 export const kitenTimeAddCommand = defineCommand({
@@ -491,9 +496,7 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (длительность,
 дата, роль, селектор, ненастроенный KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time add id: 10000001 duration: 1h30m text: фикс",
-  ],
+  examples: ["mpu kiten time add id: 10000001 duration: 1h30m text: фикс"],
   policy: "rw",
   argsSchema: addArgsSchema,
   forms: {
@@ -504,9 +507,9 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
   resultSchema: addResultSchema,
   run: runKitenTimeAdd,
   render: ({ log, cardUrl }) =>
-    `ok: +${formatDuration(log.minutes)} · ${log.for_date} · ${
-      roleLabel(log)
-    } · запись ${log.id} · ${cardUrl}\n`,
+    `ok: +${formatDuration(log.minutes)} · ${log.for_date} · ${roleLabel(
+      log,
+    )} · запись ${log.id} · ${cardUrl}\n`,
 });
 
 export const kitenTimeEditCommand = defineCommand({
@@ -557,9 +560,9 @@ Exit: 0 — успех; 1 — записи нет на карточке, чуж�
   resultSchema: editResultSchema,
   run: runKitenTimeEdit,
   render: (result) =>
-    `ok: запись ${result.log.id} · ${
-      axisLines(result).join(" · ")
-    } · ${result.cardUrl}\n`,
+    `ok: запись ${result.log.id} · ${axisLines(result).join(
+      " · ",
+    )} · ${result.cardUrl}\n`,
 });
 
 export const kitenTimeRmCommand = defineCommand({
@@ -588,9 +591,7 @@ ${ENV_KEYS}
 Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без force,
 ошибка API Kaiten; 2 — ошибка ввода (селектор, LOG_ID, ненастроенный
 KITEN_API_KEY).`,
-  examples: [
-    "mpu kiten time rm id: 10000001 log: 7000003",
-  ],
+  examples: ["mpu kiten time rm id: 10000001 log: 7000003"],
   policy: "rw",
   argsSchema: rmArgsSchema,
   forms: {
@@ -601,8 +602,8 @@ KITEN_API_KEY).`,
   run: runKitenTimeRm,
   render: ({ log, cardUrl }) => {
     const comment = log.comment === "" ? "" : ` · «${log.comment}»`;
-    return `ok: удалена запись ${log.id} · ${log.for_date} · ${
-      formatDuration(log.minutes)
-    } · ${roleLabel(log)}${comment} · ${cardUrl}\n`;
+    return `ok: удалена запись ${log.id} · ${log.for_date} · ${formatDuration(
+      log.minutes,
+    )} · ${roleLabel(log)}${comment} · ${cardUrl}\n`;
   },
 });

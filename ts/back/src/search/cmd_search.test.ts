@@ -43,9 +43,7 @@ const SID_ALPHA_2 = "00000000-0000-4000-8000-000000000002";
 const SID_BETA = "00000000-0000-4000-8000-000000000003";
 
 /** Кэш-БД синтетического конфига голденов: клиенты 10 и 11 на sl-9. */
-async function withCache(
-  body: (db: CacheDb) => Promise<void>,
-): Promise<void> {
+async function withCache(body: (db: CacheDb) => Promise<void>): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     using db = openCacheDb(`${dir}/mpu.db`);
@@ -59,13 +57,11 @@ async function withCache(
         1_700_000_000,
       );
     }
-    for (
-      const [ssId, clientId, title] of [
-        ["SS_ALPHA_0001", 10, "Пример Альфа"],
-        ["SS_ALPHA_0002", 10, "Пример Альфа Ozon"],
-        ["SS_BETA_0001", 11, "Пример Бета"],
-      ] as const
-    ) {
+    for (const [ssId, clientId, title] of [
+      ["SS_ALPHA_0001", 10, "Пример Альфа"],
+      ["SS_ALPHA_0002", 10, "Пример Альфа Ozon"],
+      ["SS_BETA_0001", 11, "Пример Бета"],
+    ] as const) {
       db.execute(
         "INSERT INTO sl_spreadsheets (ss_id, client_id, title, is_active," +
           " server, synced_at) VALUES (?, ?, ?, 1, ?, ?)",
@@ -76,13 +72,11 @@ async function withCache(
         1_700_000_000,
       );
     }
-    for (
-      const [sid, clientId] of [
-        [SID_ALPHA_1, 10],
-        [SID_ALPHA_2, 10],
-        [SID_BETA, 11],
-      ] as const
-    ) {
+    for (const [sid, clientId] of [
+      [SID_ALPHA_1, 10],
+      [SID_ALPHA_2, 10],
+      [SID_BETA, 11],
+    ] as const) {
       db.execute(
         "INSERT INTO sl_wb_sids (sid, client_id, server, synced_at)" +
           " VALUES (?, ?, NULL, ?)",
@@ -150,22 +144,23 @@ function searchArgs(overrides: Partial<SearchArgs> = {}): SearchArgs {
 it("local: happy path — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "10", update: false },
       io,
-    ) as SearchResult;
-    expect(searchCommand.renderResult(result, ["10", "--no-update"]))
-      .toStrictEqual(await golden("local-happy.stdout.txt"));
+    )) as SearchResult;
+    expect(
+      searchCommand.renderResult(result, ["10", "--no-update"]),
+    ).toStrictEqual(await golden("local-happy.stdout.txt"));
   });
 });
 
 it("local: проекция --client-id — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "10", update: false, "client-id": true },
       io,
-    ) as SearchResult;
+    )) as SearchResult;
     expect(
       searchCommand.renderResult(result, ["10", "--no-update", "--client-id"]),
     ).toStrictEqual(await golden("local-projection-client-id.stdout.txt"));
@@ -175,36 +170,39 @@ it("local: проекция --client-id — эталон канала", async ()
 it("local: проекция --sids — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "10", update: false, sids: true },
       io,
-    ) as SearchResult;
-    expect(searchCommand.renderResult(result, ["10", "--no-update", "--sids"]))
-      .toStrictEqual(await golden("local-projection-sids.stdout.txt"));
+    )) as SearchResult;
+    expect(
+      searchCommand.renderResult(result, ["10", "--no-update", "--sids"]),
+    ).toStrictEqual(await golden("local-projection-sids.stdout.txt"));
   });
 });
 
 it("local: адрес сервера из env-файла — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "10.9.9.9", update: false },
       io,
-    ) as SearchResult;
-    expect(searchCommand.renderResult(result, ["10.9.9.9", "--no-update"]))
-      .toStrictEqual(await golden("local-ip.stdout.txt"));
+    )) as SearchResult;
+    expect(
+      searchCommand.renderResult(result, ["10.9.9.9", "--no-update"]),
+    ).toStrictEqual(await golden("local-ip.stdout.txt"));
   });
 });
 
 it("local: поиск по кабинету целиком — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: SID_BETA, update: false },
       io,
-    ) as SearchResult;
-    expect(searchCommand.renderResult(result, [SID_BETA, "--no-update"]))
-      .toStrictEqual(await golden("local-sid.stdout.txt"));
+    )) as SearchResult;
+    expect(
+      searchCommand.renderResult(result, [SID_BETA, "--no-update"]),
+    ).toStrictEqual(await golden("local-sid.stdout.txt"));
   });
 });
 
@@ -222,12 +220,13 @@ it("local: остальные проекции — голое значение �
       [{ "pg-ip": true }, "10.9.9.10\n"],
     ];
     for (const [flag, expected] of cases) {
-      const result = await searchCommand.invokeInput(
+      const result = (await searchCommand.invokeInput(
         { value: SID_BETA, update: false, ...flag },
         io,
-      ) as SearchResult;
-      expect(searchCommand.renderResult(result, [SID_BETA, "--no-update"]))
-        .toStrictEqual(expected);
+      )) as SearchResult;
+      expect(
+        searchCommand.renderResult(result, [SID_BETA, "--no-update"]),
+      ).toStrictEqual(expected);
     }
   });
 });
@@ -240,22 +239,23 @@ it("local: числовой селектор — всегда client_id, пои�
   // а не найденная таблица.
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "40008000", update: false },
       io,
-    ) as SearchResult;
-    expect(searchCommand.renderResult(result, ["40008000", "--no-update"]))
-      .toStrictEqual(await golden("local-numeric-not-sid.stdout.txt"));
+    )) as SearchResult;
+    expect(
+      searchCommand.renderResult(result, ["40008000", "--no-update"]),
+    ).toStrictEqual(await golden("local-numeric-not-sid.stdout.txt"));
   });
 });
 
 it("local: ничего не найдено — эталон канала", async () => {
   await withCache(async (db) => {
     const { io } = harness(db);
-    const result = await searchCommand.invokeInput(
+    const result = (await searchCommand.invokeInput(
       { value: "нет-такого-клиента", update: false },
       io,
-    ) as SearchResult;
+    )) as SearchResult;
     expect(
       searchCommand.renderResult(result, ["нет-такого-клиента", "--no-update"]),
     ).toStrictEqual(await golden("local-empty.stdout.txt"));
@@ -271,11 +271,14 @@ it("две проекции сразу — отказ до всякого обр
       throw new Error("кэш-БД не должна открываться");
     },
   });
-  const err = await rejected(() =>
-    searchCommand.invokeInput(
-      { value: "10", "client-id": true, sids: true },
-      io,
-    ), UsageError);
+  const err = await rejected(
+    () =>
+      searchCommand.invokeInput(
+        { value: "10", "client-id": true, sids: true },
+        io,
+      ),
+    UsageError,
+  );
   expect(`${formatCommandError("search", err)}\n`).toStrictEqual(
     await golden("err-two-projections.stderr.txt"),
   );
@@ -291,24 +294,20 @@ it("автосинк: пустой результат — синк ровно о
   await withCache(async (db) => {
     const { io } = harness(db);
     let calls = 0;
-    const result = await runSearch(
-      searchArgs({ value: "99" }),
-      io,
-      {
-        sync: (syncIo) => {
-          calls++;
-          using cacheDb = syncIo.openCacheDb();
-          cacheDb.execute(
-            "INSERT INTO sl_clients (client_id, server, is_active," +
-              " is_locked, is_deleted, synced_at) VALUES (?, ?, 1, 0, 0, ?)",
-            99,
-            "sl-9",
-            1_700_000_000,
-          );
-          return Promise.resolve();
-        },
+    const result = await runSearch(searchArgs({ value: "99" }), io, {
+      sync: (syncIo) => {
+        calls++;
+        using cacheDb = syncIo.openCacheDb();
+        cacheDb.execute(
+          "INSERT INTO sl_clients (client_id, server, is_active," +
+            " is_locked, is_deleted, synced_at) VALUES (?, ?, 1, 0, 0, ?)",
+          99,
+          "sl-9",
+          1_700_000_000,
+        );
+        return Promise.resolve();
       },
-    );
+    });
     expect(calls).toBe(1);
     expect(result.synced).toBe(true);
     expect(result.rows.length).toBe(1);
@@ -362,16 +361,12 @@ it("селектор-адрес вне env-файла: синк не вызыв�
   await withCache(async (db) => {
     const { io } = harness(db);
     let calls = 0;
-    const result = await runSearch(
-      searchArgs({ value: "10.1.2.3" }),
-      io,
-      {
-        sync: () => {
-          calls++;
-          return Promise.resolve();
-        },
+    const result = await runSearch(searchArgs({ value: "10.1.2.3" }), io, {
+      sync: () => {
+        calls++;
+        return Promise.resolve();
       },
-    );
+    });
     expect(calls).toBe(0);
     expect(result.rows).toStrictEqual([]);
     expect(result.synced).toBe(false);
@@ -381,15 +376,13 @@ it("селектор-адрес вне env-файла: синк не вызыв�
 it("сбой синка: ошибка пробрасывается, повторного поиска нет", async () => {
   await withCache(async (db) => {
     const { io, opens } = harness(db);
-    await expect(runSearch(
-      searchArgs({ value: "нет-такого-клиента" }),
-      io,
-      {
+    await expect(
+      runSearch(searchArgs({ value: "нет-такого-клиента" }), io, {
         sync: () => {
           throw new DomainError("main недоступен");
         },
-      },
-    )).rejects.toThrow(DomainError);
+      }),
+    ).rejects.toThrow(DomainError);
     // Ровно одно открытие кэш-БД — от первого поиска; сбой синка не
     // должен запускать второй проход.
     expect(opens()).toBe(1);

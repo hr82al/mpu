@@ -37,11 +37,13 @@ export function scopeText(scope: Scope): string {
 /** Отметка дерева в структурной форме: `git` пусто — дерево вне git. */
 export const markSchema = z.object({
   repo: z.string(),
-  git: z.object({
-    branch: z.string(),
-    commit: z.string(),
-    dirty: z.boolean(),
-  }).nullable(),
+  git: z
+    .object({
+      branch: z.string(),
+      commit: z.string(),
+      dirty: z.boolean(),
+    })
+    .nullable(),
 });
 
 /**
@@ -56,23 +58,30 @@ export const TRUNCATION_NOTE = "перечень усечён, если коро
 /** Раздел «не разрешено»: печатается всегда, в том числе нулевой. */
 export const unresolvedSchema = z.object({
   total: z.number().int().nonnegative(),
-  items: z.array(z.object({
-    path: z.string(),
-    line: z.number().int().positive(),
-    specifier: z.string(),
-    reason: z.string(),
-  })).describe(TRUNCATION_NOTE),
+  items: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        specifier: z.string(),
+        reason: z.string(),
+      }),
+    )
+    .describe(TRUNCATION_NOTE),
 });
 
 /** Отметка дерева в структурной форме. */
 export function asMark(mark: TreeMark): z.infer<typeof markSchema> {
   return {
     repo: mark.repo,
-    git: mark.state.kind === "out-of-git" ? null : {
-      branch: mark.state.branch,
-      commit: mark.state.commit,
-      dirty: mark.state.dirty,
-    },
+    git:
+      mark.state.kind === "out-of-git"
+        ? null
+        : {
+            branch: mark.state.branch,
+            commit: mark.state.commit,
+            dirty: mark.state.dirty,
+          },
   };
 }
 
@@ -80,12 +89,15 @@ export function asMark(mark: TreeMark): z.infer<typeof markSchema> {
 export function treeMarkOf(mark: z.infer<typeof markSchema>): TreeMark {
   return {
     repo: mark.repo,
-    state: mark.git === null ? { kind: "out-of-git" } : {
-      kind: "git",
-      branch: mark.git.branch,
-      commit: mark.git.commit,
-      dirty: mark.git.dirty,
-    },
+    state:
+      mark.git === null
+        ? { kind: "out-of-git" }
+        : {
+            kind: "git",
+            branch: mark.git.branch,
+            commit: mark.git.commit,
+            dirty: mark.git.dirty,
+          },
   };
 }
 

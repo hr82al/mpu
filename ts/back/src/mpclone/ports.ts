@@ -123,8 +123,8 @@ export const systemClock: Clock = {
   stamp() {
     const now = new Date();
     const two = (n: number) => String(n).padStart(2, "0");
-    return `${now.getFullYear()}${two(now.getMonth() + 1)}${
-      two(now.getDate())
-    }-${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
+    return `${now.getFullYear()}${two(now.getMonth() + 1)}${two(
+      now.getDate(),
+    )}-${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
   },
 };

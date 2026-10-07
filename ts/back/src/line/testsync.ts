@@ -82,7 +82,7 @@ export async function withSync(body: (sync: Sync) => Promise<void>) {
             image: imaging(image),
             answers: asked.answers ?? ["y"],
             io: {
-              env: (name) => name === "HOME" ? home : undefined,
+              env: (name) => (name === "HOME" ? home : undefined),
               cwd: () => asked.cwd ?? "/stand",
               stdinIsTerminal: () => asked.terminal ?? true,
             },
@@ -106,7 +106,7 @@ export async function withSync(body: (sync: Sync) => Promise<void>) {
             expect((await run(SYNC)).stdout).toStrictEqual(FIRST);
           },
         });
-      })
+      }),
     );
   } finally {
     await rm(home, { recursive: true });

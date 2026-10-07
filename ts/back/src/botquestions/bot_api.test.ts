@@ -53,7 +53,10 @@ async function withBot(
 it("sendMessage — кнопки в reply_markup, номер из ответа голдена", async () => {
   await withBot(golden("sendMessage.json"), async (bot, seen) => {
     const id = await bot.send({ text: "вопрос", entities: [] }, [
-      [{ text: "Yes", data: "r1:1:0" }, { text: "No", data: "r1:1:1" }],
+      [
+        { text: "Yes", data: "r1:1:0" },
+        { text: "No", data: "r1:1:1" },
+      ],
     ]);
     expect(id).toBe(1546);
     expect(seen.path).toStrictEqual(`/bot${TOKEN}/sendMessage`);
@@ -61,10 +64,12 @@ it("sendMessage — кнопки в reply_markup, номер из ответа �
       chat_id: 111,
       text: "вопрос",
       reply_markup: {
-        inline_keyboard: [[
-          { text: "Yes", callback_data: "r1:1:0" },
-          { text: "No", callback_data: "r1:1:1" },
-        ]],
+        inline_keyboard: [
+          [
+            { text: "Yes", callback_data: "r1:1:0" },
+            { text: "No", callback_data: "r1:1:1" },
+          ],
+        ],
       },
     });
   });
@@ -84,10 +89,14 @@ it("editMessageText без кнопок — поля reply_markup нет", async
 
 it("выделения — полем entities (UTF-16), нет выделений — поля нет", async () => {
   await withBot(golden("editMessageText.json"), async (bot, seen) => {
-    await bot.edit(1546, {
-      text: "🖥 probe\nBash command",
-      entities: [{ type: "bold", offset: 9, length: 12 }],
-    }, []);
+    await bot.edit(
+      1546,
+      {
+        text: "🖥 probe\nBash command",
+        entities: [{ type: "bold", offset: 9, length: 12 }],
+      },
+      [],
+    );
     expect(seen.body).toStrictEqual({
       chat_id: 111,
       message_id: 1546,
@@ -159,12 +168,7 @@ it("getUpdates — тело опроса и разбор живого голде
         allowed_updates: ["message", "callback_query"],
       });
       expect(updates.map((update) => update.id)).toStrictEqual([
-        913156012,
-        913156013,
-        913156014,
-        913156015,
-        913156016,
-        913156017,
+        913156012, 913156013, 913156014, 913156015, 913156016, 913156017,
       ]);
       const inbox = recorder();
       for (const update of updates) {

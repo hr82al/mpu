@@ -43,32 +43,42 @@ import {
 const MESSAGE_LIMIT = 4096;
 
 const argsSchema = z.object({
-  chat: z.string().optional().describe(
-    "адресат: me, id, @username, ссылка t.me, телефон или название чата",
-  ),
-  live: z.boolean().default(true).describe(
-    "дополнять журнал живым опросом Kaiten",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "напечатать отчёт в stdout, не отправляя",
-  ),
+  chat: z
+    .string()
+    .optional()
+    .describe(
+      "адресат: me, id, @username, ссылка t.me, телефон или название чата",
+    ),
+  live: z
+    .boolean()
+    .default(true)
+    .describe("дополнять журнал живым опросом Kaiten"),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe("напечатать отчёт в stdout, не отправляя"),
 });
 
 const sentSchema = z.object({
   id: z.number().describe("номер отправленного сообщения"),
   chat_id: z.number().describe("маркированный id чата, куда легло сообщение"),
-  date: z.string().nullable().describe(
-    "время отправки по данным Telegram, ISO-8601; не сообщено — null",
-  ),
+  date: z
+    .string()
+    .nullable()
+    .describe(
+      "время отправки по данным Telegram, ISO-8601; не сообщено — null",
+    ),
 });
 
 const resultSchema = z.object({
-  text: z.string().describe(
-    "текст отчёта целиком, без усечения; собран из журнала и живого опроса",
-  ),
-  sent: sentSchema.nullable().describe(
-    "результат отправки; при dry — null, отправки не было",
-  ),
+  text: z
+    .string()
+    .describe(
+      "текст отчёта целиком, без усечения; собран из журнала и живого опроса",
+    ),
+  sent: sentSchema
+    .nullable()
+    .describe("результат отправки; при dry — null, отправки не было"),
 });
 
 type TelegramStatusArgs = z.infer<typeof argsSchema>;
@@ -87,9 +97,9 @@ async function runTelegramStatus(
   io: StatusIo,
 ): Promise<TelegramStatusResult> {
   const dryRun = args["dry-run"];
-  const target = dryRun ? null : requireTarget(
-    args.chat ?? io.envFile.get("TELEGRAM_DEFAULT_CHAT"),
-  );
+  const target = dryRun
+    ? null
+    : requireTarget(args.chat ?? io.envFile.get("TELEGRAM_DEFAULT_CHAT"));
   // Момент один на вызов: окно сбора и шапка отчёта обязаны говорить об
   // одном и том же дне, даже если вызов пришёлся на полночь.
   const nowMs = Date.now();
@@ -177,11 +187,13 @@ function kaitenSource(access: KaitenAccess): LiveSource {
   return {
     currentUserId: async () => (await getCurrentUser(access)).id,
     cardsUpdated: async (memberId, window) =>
-      (await listCards(access, {
-        memberIds: [memberId],
-        updatedAfter: window.fromIso,
-        updatedBefore: window.toIso,
-      })).map((card) => ({
+      (
+        await listCards(access, {
+          memberIds: [memberId],
+          updatedAfter: window.fromIso,
+          updatedBefore: window.toIso,
+        })
+      ).map((card) => ({
         id: card.id,
         title: card.title,
         boardId: card.boardId,

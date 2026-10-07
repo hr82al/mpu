@@ -28,10 +28,10 @@ function b64url(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 async function withDb(body: (db: CacheDb) => void): Promise<void> {
@@ -85,8 +85,9 @@ it("writeSession + readSession: годная сессия читается ка�
       expiresAt: 1_700_001_000,
     };
     writeSession(db, session);
-    expect(readSession(db, "staff", "ops@example.com", 1_700_000_500))
-      .toStrictEqual(session);
+    expect(
+      readSession(db, "staff", "ops@example.com", 1_700_000_500),
+    ).toStrictEqual(session);
   });
 });
 
@@ -102,17 +103,20 @@ it("readSession: протухшая сессия равна отсутствию
       createdAt: 1_700_000_000,
       expiresAt: 1_700_000_500,
     });
-    expect(readSession(db, "staff", "ops@example.com", 1_700_000_500))
-      .toStrictEqual(null);
-    expect(readSession(db, "staff", "ops@example.com", 1_700_000_600))
-      .toStrictEqual(null);
+    expect(
+      readSession(db, "staff", "ops@example.com", 1_700_000_500),
+    ).toStrictEqual(null);
+    expect(
+      readSession(db, "staff", "ops@example.com", 1_700_000_600),
+    ).toStrictEqual(null);
   });
 });
 
 it("readSession: строки пары нет — null", async () => {
   await withDb((db) => {
-    expect(readSession(db, "impersonation", "555", 1_700_000_000))
-      .toStrictEqual(null);
+    expect(
+      readSession(db, "impersonation", "555", 1_700_000_000),
+    ).toStrictEqual(null);
   });
 });
 
@@ -136,14 +140,15 @@ it("writeSession: перезаписывает строку той же пары
     });
     const rows = db.query("SELECT COUNT(*) AS n FROM x10_sessions");
     expect(rows[0].n).toBe(1);
-    expect(readSession(db, "impersonation", "555", 1_700_002_500))
-      .toStrictEqual({
-        kind: "impersonation",
-        subject: "555",
-        token: "tok-новый",
-        reason: "ТП 2026-08-19",
-        createdAt: 1_700_002_000,
-        expiresAt: 1_700_003_000,
-      });
+    expect(
+      readSession(db, "impersonation", "555", 1_700_002_500),
+    ).toStrictEqual({
+      kind: "impersonation",
+      subject: "555",
+      token: "tok-новый",
+      reason: "ТП 2026-08-19",
+      createdAt: 1_700_002_000,
+      expiresAt: 1_700_003_000,
+    });
   });
 });

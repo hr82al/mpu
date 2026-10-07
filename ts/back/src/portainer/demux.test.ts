@@ -35,11 +35,9 @@ function text(bytes: Uint8Array): string {
 }
 
 it("кадры разводятся по потокам в порядке поступления", () => {
-  const streams = demuxDockerStream(join(
-    frame(1, "первая\n"),
-    frame(2, "ошибка\n"),
-    frame(1, "вторая\n"),
-  ));
+  const streams = demuxDockerStream(
+    join(frame(1, "первая\n"), frame(2, "ошибка\n"), frame(1, "вторая\n")),
+  );
   expect(text(streams.stdout)).toBe("первая\nвторая\n");
   expect(text(streams.stderr)).toBe("ошибка\n");
 });
@@ -54,20 +52,17 @@ it("длина кадра читается big-endian", () => {
 
 it("поток 0 и неполный хвостовой кадр отбрасываются", () => {
   const truncated = frame(1, "потерянное").subarray(0, 12);
-  const streams = demuxDockerStream(join(
-    frame(0, "ввод"),
-    frame(1, "видно\n"),
-    truncated,
-  ));
+  const streams = demuxDockerStream(
+    join(frame(0, "ввод"), frame(1, "видно\n"), truncated),
+  );
   expect(text(streams.stdout)).toBe("видно\n");
   expect(text(streams.stderr)).toBe("");
 });
 
 it("хвост короче заголовка кадра отбрасывается", () => {
-  const streams = demuxDockerStream(join(
-    frame(1, "видно\n"),
-    new Uint8Array([1, 0, 0]),
-  ));
+  const streams = demuxDockerStream(
+    join(frame(1, "видно\n"), new Uint8Array([1, 0, 0])),
+  );
   expect(text(streams.stdout)).toBe("видно\n");
 });
 

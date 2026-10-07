@@ -23,9 +23,11 @@ it("{} — ровно один сегмент пути", () => {
 });
 
 it("строка не той формы — ошибка модуля", () => {
-  for (
-    const line of ["PUT api-seller.ozon.ru/v1/x", "GET /v1/x", "GET a.ru/x y"]
-  ) {
+  for (const line of [
+    "PUT api-seller.ozon.ru/v1/x",
+    "GET /v1/x",
+    "GET a.ru/x y",
+  ]) {
     thrown(() => ReadRule.parse(line), Error, "не той формы");
   }
 });
@@ -34,7 +36,7 @@ it("посев спеки разобран целиком", () => {
   expect(READS.length).toBe(31);
   expect(
     READS.some((rule) =>
-      rule.matches("POST", "api-seller.ozon.ru", "/v1/seller/info")
+      rule.matches("POST", "api-seller.ozon.ru", "/v1/seller/info"),
     ),
   ).toBe(true);
 });

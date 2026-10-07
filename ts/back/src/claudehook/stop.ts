@@ -54,14 +54,16 @@ export function waitingForm(
   return new Form({
     places: rest,
     kind: WAITS_INPUT,
-    steps: [{
-      head: `💬 ${first}`,
-      text: [said, ...reach.tail].join("\n"),
-      options: [],
-      choice: ONE,
-      reply: reach.reply,
-      clip: KEEP_TAIL,
-    }],
+    steps: [
+      {
+        head: `💬 ${first}`,
+        text: [said, ...reach.tail].join("\n"),
+        options: [],
+        choice: ONE,
+        reply: reach.reply,
+        clip: KEEP_TAIL,
+      },
+    ],
     actions: reach.actions,
   });
 }

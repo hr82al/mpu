@@ -26,11 +26,13 @@ function fakeEnv(values: Readonly<Record<string, string>>): EnvKeys {
 }
 
 it("оба обязательных ключа заданы — конфигурация собрана", () => {
-  const config = botConfig(fakeEnv({
-    TELEGRAM_BOT_TOKEN: "8123456789:AAH-token",
-    TELEGRAM_BOT_ID: "987654321",
-    TELEGRAM_BOT_NAME: "my_notes_bot",
-  }));
+  const config = botConfig(
+    fakeEnv({
+      TELEGRAM_BOT_TOKEN: "8123456789:AAH-token",
+      TELEGRAM_BOT_ID: "987654321",
+      TELEGRAM_BOT_NAME: "my_notes_bot",
+    }),
+  );
   expect(config.token).toBe("8123456789:AAH-token");
   expect(config.chatId).toBe(987654321);
   expect(config.botName).toBe("my_notes_bot");
@@ -44,11 +46,13 @@ it("имя бота необязательно — поля нет", () => {
 });
 
 it("пустое имя бота равнозначно незаданному", () => {
-  const config = botConfig(fakeEnv({
-    TELEGRAM_BOT_TOKEN: "t",
-    TELEGRAM_BOT_ID: "1",
-    TELEGRAM_BOT_NAME: "",
-  }));
+  const config = botConfig(
+    fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "1",
+      TELEGRAM_BOT_NAME: "",
+    }),
+  );
   expect(config.botName).toStrictEqual(undefined);
 });
 
@@ -76,19 +80,23 @@ it("нечисловой id — свой текст отказа", () => {
 });
 
 it("отрицательный id принимается — так выглядят группы", () => {
-  const config = botConfig(fakeEnv({
-    TELEGRAM_BOT_TOKEN: "t",
-    TELEGRAM_BOT_ID: "-1001234567890",
-  }));
+  const config = botConfig(
+    fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "-1001234567890",
+    }),
+  );
   expect(config.chatId).toBe(-1001234567890);
 });
 
 it("прокси берётся из TELEGRAM_PROXY", () => {
-  const config = botConfig(fakeEnv({
-    TELEGRAM_BOT_TOKEN: "t",
-    TELEGRAM_BOT_ID: "1",
-    TELEGRAM_PROXY: "socks5://user:pass@host:1080",
-  }));
+  const config = botConfig(
+    fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "1",
+      TELEGRAM_PROXY: "socks5://user:pass@host:1080",
+    }),
+  );
   expect(config.proxy).toBe("socks5://user:pass@host:1080");
 });
 
@@ -100,40 +108,48 @@ it("прокси не задан — поля нет", () => {
 });
 
 it("TELEGRAM_PROXY старше HTTPS_PROXY", () => {
-  const config = botConfig(fakeEnv({
-    TELEGRAM_BOT_TOKEN: "t",
-    TELEGRAM_BOT_ID: "1",
-    TELEGRAM_PROXY: "socks5://свой:1080",
-    HTTPS_PROXY: "http://общий:8080",
-  }));
+  const config = botConfig(
+    fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "1",
+      TELEGRAM_PROXY: "socks5://свой:1080",
+      HTTPS_PROXY: "http://общий:8080",
+    }),
+  );
   expect(config.proxy).toBe("socks5://свой:1080");
 });
 
 it("без TELEGRAM_PROXY берётся HTTPS_PROXY, затем https_proxy", () => {
   expect(
-    botConfig(fakeEnv({
-      TELEGRAM_BOT_TOKEN: "t",
-      TELEGRAM_BOT_ID: "1",
-      HTTPS_PROXY: "http://верхний:8080",
-      https_proxy: "http://нижний:8080",
-    })).proxy,
+    botConfig(
+      fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        HTTPS_PROXY: "http://верхний:8080",
+        https_proxy: "http://нижний:8080",
+      }),
+    ).proxy,
   ).toBe("http://верхний:8080");
   expect(
-    botConfig(fakeEnv({
-      TELEGRAM_BOT_TOKEN: "t",
-      TELEGRAM_BOT_ID: "1",
-      https_proxy: "http://нижний:8080",
-    })).proxy,
+    botConfig(
+      fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        https_proxy: "http://нижний:8080",
+      }),
+    ).proxy,
   ).toBe("http://нижний:8080");
 });
 
 it("socks4 — отказ, названный своей причиной", () => {
   const err = thrown(() => {
-    botConfig(fakeEnv({
-      TELEGRAM_BOT_TOKEN: "t",
-      TELEGRAM_BOT_ID: "1",
-      TELEGRAM_PROXY: "socks4://host:1080",
-    }));
+    botConfig(
+      fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        TELEGRAM_PROXY: "socks4://host:1080",
+      }),
+    );
   }, DomainError);
   expect(err.message).toStrictEqual(
     "telegram: Bot API не умеет прокси socks4; поддерживаются" +
@@ -144,11 +160,13 @@ it("socks4 — отказ, названный своей причиной", () =
 
 it("прокси без host:port — отказ до сети", () => {
   const err = thrown(() => {
-    botConfig(fakeEnv({
-      TELEGRAM_BOT_TOKEN: "t",
-      TELEGRAM_BOT_ID: "1",
-      TELEGRAM_PROXY: "socks5://",
-    }));
+    botConfig(
+      fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        TELEGRAM_PROXY: "socks5://",
+      }),
+    );
   }, DomainError);
   expect(err.message).toBe(
     "telegram: в прокси-URL нужен host:port — 'socks5://'",
@@ -156,19 +174,19 @@ it("прокси без host:port — отказ до сети", () => {
 });
 
 describe("учётные данные прокси не попадают в текст отказа", () => {
-  for (
-    const [proxy, shown] of [
-      ["http://u:p'a ss@[h:1", "прокси-URL неразбираем — '[h:1'"],
-      ["http://u:p'a ss@h", "в прокси-URL нужен host:port — 'http://h/'"],
-    ]
-  ) {
+  for (const [proxy, shown] of [
+    ["http://u:p'a ss@[h:1", "прокси-URL неразбираем — '[h:1'"],
+    ["http://u:p'a ss@h", "в прокси-URL нужен host:port — 'http://h/'"],
+  ]) {
     it(proxy, () => {
       const err = thrown(() => {
-        botConfig(fakeEnv({
-          TELEGRAM_BOT_TOKEN: "t",
-          TELEGRAM_BOT_ID: "1",
-          TELEGRAM_PROXY: proxy,
-        }));
+        botConfig(
+          fakeEnv({
+            TELEGRAM_BOT_TOKEN: "t",
+            TELEGRAM_BOT_ID: "1",
+            TELEGRAM_PROXY: proxy,
+          }),
+        );
       }, DomainError);
       expect(err.message).toStrictEqual(`telegram: ${shown}`);
     });

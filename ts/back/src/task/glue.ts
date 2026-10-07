@@ -12,9 +12,9 @@ import { type Depth, KEEP_ALL, Keeping, Projects } from "./project.ts";
 import { TaskRefusal, TaskUsage } from "./refusal.ts";
 
 /** Ключ `project:` команд, которым нужен один проект. */
-export const PROJECT = z.string({ error: "нужен project: <имя>" }).describe(
-  "имя проекта канала",
-);
+export const PROJECT = z
+  .string({ error: "нужен project: <имя>" })
+  .describe("имя проекта канала");
 
 /** Порт, которым команды канала ходят наружу. */
 export type TaskIo = Pick<
@@ -74,9 +74,8 @@ export async function bodyOf(
   if (args.text !== undefined && args.file !== undefined) {
     throw new UsageError("тело — text: или file:, не оба");
   }
-  const body = args.file === undefined
-    ? args.text
-    : await fileBody(args.file, io);
+  const body =
+    args.file === undefined ? args.text : await fileBody(args.file, io);
   if (body === undefined) throw new UsageError("нет тела — text: или file:");
   if (body.trim() === "") throw new UsageError("пустое тело сообщения");
   return body;

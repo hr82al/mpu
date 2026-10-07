@@ -88,11 +88,7 @@ it("compile:back — --version и встроенные воркер и wasm", as
     });
     expect(built.code, built.stderr).toBe(0);
     // Бинарь из временного каталога запускается через `bash`.
-    const version = await output("/bin/bash", [
-      "-c",
-      '"$0" --version',
-      out,
-    ]);
+    const version = await output("/bin/bash", ["-c", '"$0" --version', out]);
     expect([version.code, version.stdout], version.stderr).toStrictEqual([
       0,
       "0.1.0\n",

@@ -126,11 +126,9 @@ async function shownStep(bot: FakeBot, count: number) {
 }
 
 function decision(fields: Readonly<Record<string, unknown>>): string {
-  return `${
-    JSON.stringify({
-      hookSpecificOutput: { hookEventName: "Elicitation", ...fields },
-    })
-  }\n`;
+  return `${JSON.stringify({
+    hookSpecificOutput: { hookEventName: "Elicitation", ...fields },
+  })}\n`;
 }
 
 const UNDECIDED = "mpu claude-hook elicitation: без решения — ";
@@ -140,7 +138,10 @@ it("9: поля — шаг на поле; ответы — content, как ег�
     const told = ask(await live("live-elicitation-fields.json"));
     expect(await shownStep(bot, 1)).toStrictEqual({
       text: "📝 elicitprobe 1/4 — ozon\nПРОБА-ФОРМА: применить?",
-      buttons: [["Разработка", "Прод"], ["Decline", "В терминале"]],
+      buttons: [
+        ["Разработка", "Прод"],
+        ["Decline", "В терминале"],
+      ],
     });
     await press(bot, "Разработка", 1);
     expect(await shownStep(bot, 3)).toStrictEqual({
@@ -219,16 +220,14 @@ it("число number — дробное через запятую, обязат
   }));
 
 describe("9–11: форма без полей — Accept · Decline / В терминале", () => {
-  for (
-    const [label, stdout, line] of [
-      [
-        "Accept",
-        decision({ action: "accept", content: {} }),
-        "✅ Accept — из чата",
-      ],
-      ["Decline", decision({ action: "decline" }), "❌ Decline — из чата"],
-    ] as const
-  ) {
+  for (const [label, stdout, line] of [
+    [
+      "Accept",
+      decision({ action: "accept", content: {} }),
+      "✅ Accept — из чата",
+    ],
+    ["Decline", decision({ action: "decline" }), "❌ Decline — из чата"],
+  ] as const) {
     it(label, () =>
       withDesk(async ({ bot, ask }) => {
         const told = ask(
@@ -245,7 +244,8 @@ describe("9–11: форма без полей — Accept · Decline / В тер
         expect(await told).toStrictEqual({ stdout, stderr: "" });
         await bot.called(3);
         expect(bot.calls[2].text.split("\n").at(-1)).toStrictEqual(line);
-      }));
+      }),
+    );
   }
 });
 
@@ -275,8 +275,9 @@ it("Decline на первом шаге — отказ, следующие шаг
       stderr: "",
     });
     await bot.called(3);
-    expect(bot.calls.filter((call) => call.text.includes("Принудительно")))
-      .toStrictEqual([]);
+    expect(
+      bot.calls.filter((call) => call.text.includes("Принудительно")),
+    ).toStrictEqual([]);
   }));
 
 it("13: форма самого mpu — без вопроса", () =>
@@ -302,29 +303,32 @@ it("14: режим url — уведомление без кнопок, без р
       stdout: "",
       stderr: `${UNDECIDED}режим url — ответ по ссылке\n`,
     });
-    expect(bot.calls).toStrictEqual([{
-      method: "send",
-      message: 0,
-      text: "📝 gitlab\nВойдите в GitLab\nhttps://gitlab.example/oauth",
-      buttons: [],
-      data: [],
-    }]);
+    expect(bot.calls).toStrictEqual([
+      {
+        method: "send",
+        message: 0,
+        text: "📝 gitlab\nВойдите в GitLab\nhttps://gitlab.example/oauth",
+        buttons: [],
+        data: [],
+      },
+    ]);
   }));
 
 describe("поле объекта или полей больше четырёх — только Decline / В терминале", () => {
   const property = { type: "string" };
-  for (
-    const [name, properties] of [
-      ["объект", { env: { type: "object" } }],
-      ["пять полей", {
+  for (const [name, properties] of [
+    ["объект", { env: { type: "object" } }],
+    [
+      "пять полей",
+      {
         a: property,
         b: property,
         c: property,
         d: property,
         e: property,
-      }],
-    ] as const
-  ) {
+      },
+    ],
+  ] as const) {
     it(name, () =>
       withDesk(async ({ bot, ask }) => {
         const told = ask(
@@ -340,7 +344,8 @@ describe("поле объекта или полей больше четырёх 
         expect((await told).stdout).toStrictEqual(
           decision({ action: "decline" }),
         );
-      }));
+      }),
+    );
   }
 });
 

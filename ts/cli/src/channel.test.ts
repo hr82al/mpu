@@ -35,7 +35,9 @@ const testdata = (name: string) =>
 /** Живой обмен: сообщения Claude Code по порядку. */
 async function liveIn(): Promise<readonly string[]> {
   const text = await readFile(testdata("live-channel-exchange.jsonl"), "utf8");
-  return text.split("\n").filter((line) => line !== "")
+  return text
+    .split("\n")
+    .filter((line) => line !== "")
     .map((line) => JSON.parse(line).in)
     .filter((message) => message !== null)
     .map((message) => JSON.stringify(message));
@@ -225,71 +227,81 @@ const HEAD = "💬 ozon\nКакой цвет?";
 
 it("R2b-3: сессия с каналом — «Позже» · «Пропустить»; «Синий» — ровно уведомление в stdout, «✅ Синий — из чата»", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const stand = await registered(back);
-    await stop(back, "Какой цвет?");
-    await bot.called(1);
-    expect(bot.calls[0].text).toStrictEqual(HEAD);
-    expect(bot.calls[0].buttons).toStrictEqual([["Позже", "Пропустить"]]);
-    bot.deliver([textUpdate(1, 111, "Синий", 1)]);
-    await bot.called(2);
-    expect(stand.out.at(-1)).toBe(
-      '{"jsonrpc":"2.0","method":"notifications/claude/channel","params":{"content":"Синий","meta":{"user":"telegram"}}}\n',
-    );
-    expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n✅ Синий — из чата`);
-    stand.input.end();
-    expect(await stand.code).toBe(0);
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const stand = await registered(back);
+      await stop(back, "Какой цвет?");
+      await bot.called(1);
+      expect(bot.calls[0].text).toStrictEqual(HEAD);
+      expect(bot.calls[0].buttons).toStrictEqual([["Позже", "Пропустить"]]);
+      bot.deliver([textUpdate(1, 111, "Синий", 1)]);
+      await bot.called(2);
+      expect(stand.out.at(-1)).toBe(
+        '{"jsonrpc":"2.0","method":"notifications/claude/channel","params":{"content":"Синий","meta":{"user":"telegram"}}}\n',
+      );
+      expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n✅ Синий — из чата`);
+      stand.input.end();
+      expect(await stand.code).toBe(0);
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("R2b-4: stdin закрыт при активном «ждёт ввода» — «⌛ сессия закрыта», канал вышел с 0", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const stand = await registered(back);
-    await stop(back, "Какой цвет?");
-    await bot.called(1);
-    stand.input.end();
-    expect(await stand.code).toBe(0);
-    await bot.called(2);
-    expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
-    expect(bot.calls[1].buttons).toStrictEqual([]);
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const stand = await registered(back);
+      await stop(back, "Какой цвет?");
+      await bot.called(1);
+      stand.input.end();
+      expect(await stand.code).toBe(0);
+      await bot.called(2);
+      expect(bot.calls[1].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
+      expect(bot.calls[1].buttons).toStrictEqual([]);
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("R2b-7: запись в stdout не удалась — «не доставлено: сессия без канала», вопрос активен", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const stand = await registered(back, {
-      write: (text) =>
-        text.includes("notifications/claude/channel")
-          ? Promise.reject(new Error("EPIPE"))
-          : Promise.resolve(),
-    });
-    await stop(back, "Какой цвет?");
-    await bot.called(1);
-    bot.deliver([textUpdate(1, 111, "Синий", 1)]);
-    await bot.called(2);
-    expect(bot.calls[1].text).toBe("не доставлено: сессия без канала");
-    assert(stand.err.some((line) => line.includes("запись не удалась")));
-    stand.input.end();
-    expect(await stand.code).toBe(0);
-    // Вопрос активен до конца сессии: исход — по закрытию канала.
-    await bot.called(3);
-    expect(bot.calls[2].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const stand = await registered(back, {
+        write: (text) =>
+          text.includes("notifications/claude/channel")
+            ? Promise.reject(new Error("EPIPE"))
+            : Promise.resolve(),
+      });
+      await stop(back, "Какой цвет?");
+      await bot.called(1);
+      bot.deliver([textUpdate(1, 111, "Синий", 1)]);
+      await bot.called(2);
+      expect(bot.calls[1].text).toBe("не доставлено: сессия без канала");
+      assert(stand.err.some((line) => line.includes("запись не удалась")));
+      stand.input.end();
+      expect(await stand.code).toBe(0);
+      // Вопрос активен до конца сессии: исход — по закрытию канала.
+      await bot.called(3);
+      expect(bot.calls[2].text).toStrictEqual(`${HEAD}\n⌛ сессия закрыта`);
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("копия живого обмена совпадает с каналом спецификаций", async () => {
-  expect(await readFile(testdata("live-channel-exchange.jsonl"), "utf8"))
-    .toStrictEqual(
-      await readFile(
-        new URL(
-          "../../docs/specs/fixtures/telegram-relay/r2/live-channel-exchange.jsonl",
-          import.meta.url,
-        ),
-        "utf8",
+  expect(
+    await readFile(testdata("live-channel-exchange.jsonl"), "utf8"),
+  ).toStrictEqual(
+    await readFile(
+      new URL(
+        "../../docs/specs/fixtures/telegram-relay/r2/live-channel-exchange.jsonl",
+        import.meta.url,
       ),
-    );
+      "utf8",
+    ),
+  );
 });
 
 it("адрес ядра не разбирается — отказ попытки, а не падение канала; EOF — выход 0", async () => {

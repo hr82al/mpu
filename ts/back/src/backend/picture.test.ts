@@ -35,10 +35,10 @@ async function withPictures(
 ) {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    await withBack(
-      (back) => body(back, dir),
-      { launcher: (io) => new PictureLauncher(io, dir), pictureLimit },
-    );
+    await withBack((back) => body(back, dir), {
+      launcher: (io) => new PictureLauncher(io, dir),
+      pictureLimit,
+    });
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -67,7 +67,7 @@ const JSON_TYPE = "application/json";
 
 /** Строка программы из команд `telegram file` по сообщениям `ids`. */
 function program(...ids: number[]): string[] {
-  return ids.flatMap((id, at) => at === 0 ? file(id) : [".", ...file(id)]);
+  return ids.flatMap((id, at) => (at === 0 ? file(id) : [".", ...file(id)]));
 }
 
 it("P4: поток — out, picture, exit; голден", () =>
@@ -85,14 +85,19 @@ it("P3: собранный ответ — поле pictures после exit; г�
 it("P20: картинки программы — все после вывода, перед exit", () =>
   withPictures(async (back, dir) => {
     const text = await agentLine(back, dir, program(43, 50), NDJSON);
-    const kinds = text.trimEnd().split("\n").map((row) =>
-      Object.keys(JSON.parse(row))[0]
-    );
+    const kinds = text
+      .trimEnd()
+      .split("\n")
+      .map((row) => Object.keys(JSON.parse(row))[0]);
     // Программа печатает результат последнего оператора; картинку даёт
     // каждый успешный результат ([D.5]).
     expect(kinds).toStrictEqual(["out", "picture", "picture", "exit"]);
-    const pictures = text.trimEnd().split("\n").map((row) => JSON.parse(row))
-      .filter((frame) => "picture" in frame).map((frame) => frame.picture);
+    const pictures = text
+      .trimEnd()
+      .split("\n")
+      .map((row) => JSON.parse(row))
+      .filter((frame) => "picture" in frame)
+      .map((frame) => frame.picture);
     expect(pictures.map((one) => one.mime)).toStrictEqual([
       "image/jpeg",
       "image/png",

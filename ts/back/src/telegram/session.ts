@@ -46,7 +46,9 @@ import type {
 
 /** Открытый сеанс: клиент отправки, поиска и скачивания и его закрытие. */
 export interface TelegramSession
-  extends CommandClient, SearchClient, FileClient {
+  extends CommandClient,
+    SearchClient,
+    FileClient {
   /** Закрывает соединение; зовётся в любом исходе вызова. */
   readonly close: () => Promise<void>;
 }
@@ -98,7 +100,7 @@ export async function openSession(
       }),
     sendText: (to, text, markdown) =>
       refusing(async () =>
-        message(await client.sendText(inputPeer(to), body(text, markdown)))
+        message(await client.sendText(inputPeer(to), body(text, markdown))),
       ),
     sendDocuments: (to, documents, markdown) =>
       refusing(async () => {
@@ -108,12 +110,13 @@ export async function openSession(
             ...(document.caption === undefined
               ? {}
               : { caption: body(document.caption, markdown) }),
-          })
+          }),
         );
         const peer = inputPeer(to);
-        const sent = medias.length === 1
-          ? [await client.sendMedia(peer, medias[0])]
-          : await client.sendMediaGroup(peer, medias);
+        const sent =
+          medias.length === 1
+            ? [await client.sendMedia(peer, medias[0])]
+            : await client.sendMediaGroup(peer, medias);
         return sent.map(message);
       }),
     listDialogs: (limit) =>
@@ -128,21 +131,19 @@ export async function openSession(
       refusing(async () =>
         chatsFromSearch(
           await client.call({ _: "contacts.search", q: query, limit }),
-        )
+        ),
       ),
     // Страницы гоняет итератор клиента: разовый вызов поиска отдаёт одну
     // страницу, и `--limit` больше неё молча недобирал бы выдачу.
     searchInChat: ({ chat, query, from, limit }) =>
       refusing(async () => {
         const found: RawMessage[] = [];
-        for await (
-          const message of client.iterSearchMessages({
-            chatId: inputPeer(chat),
-            query,
-            limit,
-            ...(from === null ? {} : { fromUser: inputPeer(from) }),
-          })
-        ) {
+        for await (const message of client.iterSearchMessages({
+          chatId: inputPeer(chat),
+          query,
+          limit,
+          ...(from === null ? {} : { fromUser: inputPeer(from) }),
+        })) {
           found.push(rawMessage(message, download));
         }
         return found;
@@ -196,11 +197,11 @@ async function enter(client: TelegramClient, session: string): Promise<number> {
     // годной), либо отказ Telegram; в обоих случаях он обязан прийти до
     // операции и своим текстом, а не выдать себя за ненайденный чат.
     // Ответ на этот запрос — первый ответ после соединения, и он ограничен.
-    return (await answeredWithin(
-      client,
-      SESSION_ANSWER_LIMIT_MS,
-      () => client.getMe(),
-    )).id;
+    return (
+      await answeredWithin(client, SESSION_ANSWER_LIMIT_MS, () =>
+        client.getMe(),
+      )
+    ).id;
   } catch (err) {
     await client.destroy();
     throw entryFailure(err);
@@ -237,7 +238,8 @@ async function importSession(
  * объектом (`client_refusal.ts`).
  */
 function entryFailure(err: unknown): unknown {
-  const unauthorized = err instanceof tl.RpcError &&
+  const unauthorized =
+    err instanceof tl.RpcError &&
     /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(err.text);
   return unauthorized ? notAuthorized(err) : clientRefusal(err);
 }

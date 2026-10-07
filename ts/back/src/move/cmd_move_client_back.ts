@@ -38,9 +38,10 @@ const LIST_WORDS = ["ls", "list"];
 const RM_WORD = "rm";
 
 const argsSchema = z.object({
-  selector: z.string().optional().describe(
-    "селектор клиента, либо ls | rm <селектор>",
-  ),
+  selector: z
+    .string()
+    .optional()
+    .describe("селектор клиента, либо ls | rm <селектор>"),
   target: z.string().optional().describe("селектор для формы rm"),
 });
 
@@ -171,11 +172,16 @@ async function revert(
     query: (sql, ...params) => db.query(sql, ...params),
   };
   // Направление обратное записи: возвращаем оттуда, куда переносили.
-  const exitCode = await putJob(io, cache, {
-    clientId,
-    sourceServer: from,
-    targetServer: to,
-  }, options);
+  const exitCode = await putJob(
+    io,
+    cache,
+    {
+      clientId,
+      sourceServer: from,
+      targetServer: to,
+    },
+    options,
+  );
   // Запись снимается только после успешной постановки: иначе повторный
   // реверс потерял бы направление, а клиент остался бы на чужом
   // сервере (инвариант спеки).
@@ -187,9 +193,11 @@ async function revert(
 function localTime(seconds: number): string {
   const date = new Date(seconds * 1000);
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-` +
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-` +
     `${pad(date.getDate())} ${pad(date.getHours())}:` +
-    `${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    `${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
 }
 
 /** Вывод: таблица ходов у `ls`, строка про удаление у `rm`. */
@@ -197,18 +205,22 @@ export function renderMoveClientBack(result: BackResult): string {
   if (result.action === "ls") {
     if (result.moves.length === 0) return "нет записанных ходов\n";
     const head = "client_id\tперенос (откуда → куда)\tкогда\n";
-    return head + result.moves
-      .map((move) =>
-        `${move.client_id}\t${move.source} → ${move.target}\t` +
-        `${localTime(move.moved_at)}\n`
-      )
-      .join("");
+    return (
+      head +
+      result.moves
+        .map(
+          (move) =>
+            `${move.client_id}\t${move.source} → ${move.target}\t` +
+            `${localTime(move.moved_at)}\n`,
+        )
+        .join("")
+    );
   }
   if (result.action === "rm") {
     const move = result.moves[0];
     return result.removed && move !== undefined
       ? `запись удалена: client ${move.client_id}, ${move.source} → ` +
-        `${move.target}\n`
+          `${move.target}\n`
       : "";
   }
   return "";

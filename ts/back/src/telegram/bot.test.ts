@@ -105,22 +105,24 @@ it("файл уходит документом: sendDocument и multipart-тел
   const prefix = "multipart/form-data; boundary=";
   expect(seenType.startsWith(prefix), `тип части: ${seenType}`).toBe(true);
   const boundary = seenType.slice(prefix.length);
-  expect(seenBody).toStrictEqual([
-    `--${boundary}`,
-    'Content-Disposition: form-data; name="chat_id"',
-    "",
-    "987654321",
-    `--${boundary}`,
-    'Content-Disposition: form-data; name="caption"',
-    "",
-    "разбор за среду",
-    `--${boundary}`,
-    'Content-Disposition: form-data; name="document"; filename="разбор.md"',
-    "Content-Type: text/markdown",
-    "",
-    "# разбор\n",
-    `--${boundary}--`,
-  ].join("\r\n"));
+  expect(seenBody).toStrictEqual(
+    [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="chat_id"',
+      "",
+      "987654321",
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="caption"',
+      "",
+      "разбор за среду",
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="document"; filename="разбор.md"',
+      "Content-Type: text/markdown",
+      "",
+      "# разбор\n",
+      `--${boundary}--`,
+    ].join("\r\n"),
+  );
 });
 
 it("документ уходит под базовым именем, а не под путём", async () => {
@@ -301,9 +303,11 @@ it("прокси не принят клиентом — отказ называ�
         (e: unknown) => e,
       );
       assert(err instanceof DomainError, "ожидался отказ DomainError");
-      expect(err.message.startsWith(
-        "telegram: bot API недоступен: прокси не принят клиентом",
-      )).toBe(true);
+      expect(
+        err.message.startsWith(
+          "telegram: bot API недоступен: прокси не принят клиентом",
+        ),
+      ).toBe(true);
     },
   );
 });

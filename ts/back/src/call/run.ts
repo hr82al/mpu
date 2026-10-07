@@ -115,11 +115,10 @@ export async function runCall(
     marketplace: marketplace.name,
   });
   const { url } = aim;
-  const body = method === "POST" ? args.body ?? marketplace.emptyBody : null;
+  const body = method === "POST" ? (args.body ?? marketplace.emptyBody) : null;
   // Тип тела — только у запроса с телом: у GET описывать нечего.
-  const kind: Record<string, string> = body === null
-    ? {}
-    : { "content-type": "application/json" };
+  const kind: Record<string, string> =
+    body === null ? {} : { "content-type": "application/json" };
   if (args.dry) {
     return {
       kind: "dry",
@@ -129,16 +128,14 @@ export async function runCall(
       body,
     };
   }
-  const reply = await key.call(
-    { method, url, headers: kind, body },
-    (signed) =>
-      send(signed, {
-        seconds,
-        stop: io.signal,
-        net: deps,
-        quotaHeaders: marketplace.quotaHeaders,
-        mask: (text) => key.mask(text),
-      }),
+  const reply = await key.call({ method, url, headers: kind, body }, (signed) =>
+    send(signed, {
+      seconds,
+      stop: io.signal,
+      net: deps,
+      quotaHeaders: marketplace.quotaHeaders,
+      mask: (text) => key.mask(text),
+    }),
   );
   // Эхо ключа в теле (ошибка авторизации) скрывается до разбора: в
   // результат, печать и журнал уходит уже замаскированное.

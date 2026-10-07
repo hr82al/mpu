@@ -68,10 +68,12 @@ function column(rows: number) {
     text: JSON.stringify({
       success: true,
       result: {
-        valueRanges: [{
-          range: "Лист!B:B",
-          values: Array.from({ length: rows }, (_, at) => [`строка ${at}`]),
-        }],
+        valueRanges: [
+          {
+            range: "Лист!B:B",
+            values: Array.from({ length: rows }, (_, at) => [`строка ${at}`]),
+          },
+        ],
       },
     }),
   };
@@ -132,10 +134,12 @@ describe("одна ячейка: формулой и как есть — раз�
       );
       expect(sent.length).toBe(1);
       expect(sent[0].requestBody?.valueInputOption).toBe("USER_ENTERED");
-      expect(sent[0].requestBody?.data).toStrictEqual([{
-        range: "Лист!A1",
-        values: [["=SUM(B:B)"]],
-      }]);
+      expect(sent[0].requestBody?.data).toStrictEqual([
+        {
+          range: "Лист!A1",
+          values: [["=SUM(B:B)"]],
+        },
+      ]);
     });
   });
 
@@ -202,11 +206,9 @@ describe("форма вывода не зависит от числа запро
       ]);
       expect(result.groups.length).toBe(2);
       // Порядок групп фиксирован, а не взят из порядка ввода.
-      expect(result.groups.map((group) => group.valueInputOption))
-        .toStrictEqual([
-          "USER_ENTERED",
-          "RAW",
-        ]);
+      expect(
+        result.groups.map((group) => group.valueInputOption),
+      ).toStrictEqual(["USER_ENTERED", "RAW"]);
     });
   });
 });
@@ -236,9 +238,9 @@ it("отказ второго запроса называет записанно
       db,
       (_sent, at) =>
         at === 0
-          // 400, а не 500: пятисотый канал повторяет с паузами, и
-          // проверка простояла бы их все, ничего сверх не проверив.
-          ? updated(7)
+          ? // 400, а не 500: пятисотый канал повторяет с паузами, и
+            // проверка простояла бы их все, ничего сверх не проверив.
+            updated(7)
           : { status: 400, text: "сервер отказал" },
       json,
       false,
@@ -259,11 +261,13 @@ it("отказ второго запроса называет записанно
 it("неразбираемый диапазон — отказ до записи", async () => {
   await withDb(async (db) => {
     const { io, sent, options } = harness(db);
-    await expect(runSet(
-      args({ range: "Лист!A1:", value: "x", spreadsheet: SS }),
-      io,
-      options,
-    )).rejects.toThrow(UsageError);
+    await expect(
+      runSet(
+        args({ range: "Лист!A1:", value: "x", spreadsheet: SS }),
+        io,
+        options,
+      ),
+    ).rejects.toThrow(UsageError);
     // Ни одного обращения к серверу: пропустив такой диапазон, мы
     // записали бы значение и оставили кэш вкладки старым (инвариант 4).
     expect(sent).toStrictEqual([]);
@@ -286,11 +290,9 @@ describe("пакет из файла: комментарии, пустые и с
         options,
       );
       expect(sent.length).toBe(1);
-      expect(sent[0].requestBody?.data?.map((entry) => entry.range))
-        .toStrictEqual([
-          "Лист!A1",
-          "Лист!A2",
-        ]);
+      expect(
+        sent[0].requestBody?.data?.map((entry) => entry.range),
+      ).toStrictEqual(["Лист!A1", "Лист!A2"]);
     });
   });
 
@@ -301,12 +303,15 @@ describe("пакет из файла: комментарии, пустые и с
         ...io,
         readTextFile: () => Promise.resolve("Лист!A1\t1\nбез табуляции\n"),
       });
-      const err = await rejected(() =>
-        runSet(
-          args({ from: "пакет.tsv", spreadsheet: SS }),
-          withFile,
-          options,
-        ), UsageError);
+      const err = await rejected(
+        () =>
+          runSet(
+            args({ from: "пакет.tsv", spreadsheet: SS }),
+            withFile,
+            options,
+          ),
+        UsageError,
+      );
       expect(err.message).toContain("строка 2");
       expect(sent).toStrictEqual([]);
     });
@@ -372,11 +377,17 @@ it("пустой столбец не заливается на весь лист
 
 it("после записи вкладка инвалидируется", async () => {
   await withDb(async (db) => {
-    await writeTab(db, SS, "Лист", {
-      values: [["старое"]],
-      formulas: [[""]],
-      dims: { rows: 1, cols: 1 },
-    }, 1_700_000_000);
+    await writeTab(
+      db,
+      SS,
+      "Лист",
+      {
+        values: [["старое"]],
+        formulas: [[""]],
+        dims: { rows: 1, cols: 1 },
+      },
+      1_700_000_000,
+    );
     db.execute(
       "INSERT INTO cache (key, value, created_at, expires_at)" +
         " VALUES (?, '[]', ?, ?)",
@@ -394,8 +405,9 @@ it("после записи вкладка инвалидируется", async 
     // Следующее чтение обязано пойти к серверу: иначе оно отдаст то,
     // что мы только что перезаписали.
     expect(tabsOf(db, SS)).toBe(0);
-    expect(db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length)
-      .toBe(0);
+    expect(
+      db.query("SELECT key FROM cache WHERE key = ?", infoKey(SS)).length,
+    ).toBe(0);
   });
 });
 
@@ -468,9 +480,9 @@ describe("сервер величин не сообщил — их нет ни �
         "groups",
         "spreadsheetId",
       ]);
-      expect(Object.keys(
-        (printed.groups as Record<string, unknown>[])[0],
-      )).toStrictEqual(["valueInputOption"]);
+      expect(
+        Object.keys((printed.groups as Record<string, unknown>[])[0]),
+      ).toStrictEqual(["valueInputOption"]);
     });
   });
 

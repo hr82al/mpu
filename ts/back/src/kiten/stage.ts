@@ -102,7 +102,7 @@ export function stageFromInput(raw: string): Stage | null {
   const exact = PIPELINE.find((stage) => stage.toLowerCase() === value);
   if (exact !== undefined) return exact;
   const partial = PIPELINE.filter((stage) =>
-    stage.toLowerCase().includes(value)
+    stage.toLowerCase().includes(value),
   );
   return partial.length === 1 ? partial[0] : null;
 }

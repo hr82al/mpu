@@ -23,9 +23,13 @@ async function mentions(
   limit = 200,
 ): Promise<string> {
   return renderMentions(
-    await runMentions({ path, in: "fixture", limit }, {
-      cwd: () => repo.root,
-    }, [repo]),
+    await runMentions(
+      { path, in: "fixture", limit },
+      {
+        cwd: () => repo.root,
+      },
+      [repo],
+    ),
   );
 }
 
@@ -165,8 +169,10 @@ describe("область просмотра — файлы .md вне node_modul
   });
 
   it("зависимости не просматриваются", () => {
-    expect(seen.some((path) => path.startsWith("node_modules/")), `${seen}`)
-      .toBe(false);
+    expect(
+      seen.some((path) => path.startsWith("node_modules/")),
+      `${seen}`,
+    ).toBe(false);
   });
 });
 
@@ -176,14 +182,21 @@ it("путь, выходящий за корень, — ошибка ввода"
     const repo = await openFixture(temp);
     // Иначе команда отвечает «есть в коде» про соседнее дерево под
     // отметкой этого — два дерева в одном ответе.
-    const err = await rejected(() =>
-      runMentions({
-        path: "../other/src/a.ts",
-        in: "fixture",
-        limit: 200,
-      }, {
-        cwd: () => repo.root,
-      }, [repo]), UsageError);
+    const err = await rejected(
+      () =>
+        runMentions(
+          {
+            path: "../other/src/a.ts",
+            in: "fixture",
+            limit: 200,
+          },
+          {
+            cwd: () => repo.root,
+          },
+          [repo],
+        ),
+      UsageError,
+    );
     expect(err.message).toBe(
       "путь выходит за корень репозитория: '../other/src/a.ts'",
     );
@@ -199,14 +212,17 @@ it("путь, свёрнутый в корень, — ошибка ввода", 
     // Пустая строка совпадает с любой подстрокой: без этой проверки
     // команда объявляла упоминанием весь текст репозитория и печатала
     // строку существования с пустым именем.
-    const err = await rejected(() =>
-      runMentions(
-        { path: "src/..", in: "fixture", limit: 200 },
-        {
-          cwd: () => repo.root,
-        },
-        [repo],
-      ), UsageError);
+    const err = await rejected(
+      () =>
+        runMentions(
+          { path: "src/..", in: "fixture", limit: 200 },
+          {
+            cwd: () => repo.root,
+          },
+          [repo],
+        ),
+      UsageError,
+    );
     expect(err.message).toBe("нужен путь внутри репозитория");
   } finally {
     await rm(temp, { recursive: true });
@@ -219,14 +235,21 @@ it("несуществующий каталог окна — ошибка вво
     const repo = await openFixture(temp);
     // Иначе опечатка в имени каталога неотличима от «упоминаний нет» —
     // то самое молчание, ради которого семейство и заводится.
-    const err = await rejected(() =>
-      runMentions({
-        path: "src/days.ts",
-        in: "fixture:nosuchdir",
-        limit: 200,
-      }, {
-        cwd: () => repo.root,
-      }, [repo]), UsageError);
+    const err = await rejected(
+      () =>
+        runMentions(
+          {
+            path: "src/days.ts",
+            in: "fixture:nosuchdir",
+            limit: 200,
+          },
+          {
+            cwd: () => repo.root,
+          },
+          [repo],
+        ),
+      UsageError,
+    );
     expect(err.message).toBe("каталога 'nosuchdir' нет в fixture на вне git");
   } finally {
     await rm(temp, { recursive: true });

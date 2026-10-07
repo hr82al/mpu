@@ -29,14 +29,16 @@ it("kiten card: поля карточки после end", () =>
       ];
       for (const [line, stdout] of cases) {
         const ran = await runOnStand(file, words(line), stand);
-        expect({ stdout: ran.stdout, stderr: ran.stderr, exit: ran.exit }, line)
-          .toStrictEqual({
-            stdout,
-            stderr: "",
-            exit: 0,
-          });
+        expect(
+          { stdout: ran.stdout, stderr: ran.stderr, exit: ran.exit },
+          line,
+        ).toStrictEqual({
+          stdout,
+          stderr: "",
+          exit: 0,
+        });
       }
-    })
+    }),
   ));
 
 it("kiten card: у записи нет коллекционных сообщений", () =>
@@ -53,7 +55,7 @@ it("kiten card: у записи нет коллекционных сообщен
         exit: 2,
       });
       expect(ran.stderr).toContain("запись не понимает size; ближайшие: ");
-    })
+    }),
   ));
 
 it("kiten card: вариант после end — прежний отказ, без исполнения", () =>
@@ -73,21 +75,18 @@ it("kiten card: вариант после end — прежний отказ, б�
             "mpu kiten card no-comments id: 11\n",
         ),
       ]);
-    })
+    }),
   ));
 
 it("kiten card: end json — карточка, как без записи", () =>
   withPolicyFile((file) =>
     withStand(async (stand) => {
       allowEverything(file);
-      const ran = await runOnStand(file, [
-        "kiten",
-        "card",
-        "id:",
-        "11",
-        END,
-        "json",
-      ], stand);
+      const ran = await runOnStand(
+        file,
+        ["kiten", "card", "id:", "11", END, "json"],
+        stand,
+      );
       expect(ran.exit).toBe(0);
       const card = JSON.parse(ran.stdout);
       expect([card.id, card.title, card.comments.length]).toStrictEqual([
@@ -95,7 +94,7 @@ it("kiten card: end json — карточка, как без записи", () =
         "один",
         7,
       ]);
-    })
+    }),
   ));
 
 it("it: поле прошлой карточки, команда не исполняется снова", () =>
@@ -103,23 +102,18 @@ it("it: поле прошлой карточки, команда не испол
     withStand(async (stand) => {
       allowEverything(file);
       const results = new LastResults(() => 0);
-      const card = await runOnStand(
-        file,
-        words("kiten card id: 11"),
-        stand,
-        { memory: results.of("ppid:1") },
-      );
-      expect([card.exit, card.native], card.stderr).toStrictEqual([0, [
-        "kiten card",
-      ]]);
-      const it = await runOnStand(
-        file,
-        words("it title"),
-        stand,
-        { memory: results.of("ppid:1") },
-      );
+      const card = await runOnStand(file, words("kiten card id: 11"), stand, {
+        memory: results.of("ppid:1"),
+      });
+      expect([card.exit, card.native], card.stderr).toStrictEqual([
+        0,
+        ["kiten card"],
+      ]);
+      const it = await runOnStand(file, words("it title"), stand, {
+        memory: results.of("ppid:1"),
+      });
       expect([it.exit, it.stdout, it.native]).toStrictEqual([0, "один\n", []]);
-    })
+    }),
   ));
 
 it("программа: поле карточки в блоке и в переменной", () =>
@@ -136,12 +130,14 @@ it("программа: поле карточки в блоке и в перем
       ];
       for (const [line, stdout] of cases) {
         const ran = await runOnStand(file, words(line), stand);
-        expect({ stdout: ran.stdout, stderr: ran.stderr, exit: ran.exit }, line)
-          .toStrictEqual({
-            stdout,
-            stderr: "",
-            exit: 0,
-          });
+        expect(
+          { stdout: ran.stdout, stderr: ran.stderr, exit: ran.exit },
+          line,
+        ).toStrictEqual({
+          stdout,
+          stderr: "",
+          exit: 0,
+        });
       }
-    })
+    }),
   ));

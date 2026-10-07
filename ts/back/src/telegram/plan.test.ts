@@ -12,9 +12,10 @@ const FILES: Readonly<Record<string, string>> = {
 
 function io(stdin?: string): PlanIo {
   return makeFakeIo({
-    readStdin: stdin === undefined
-      ? undefined
-      : () => Promise.resolve(new TextEncoder().encode(stdin)),
+    readStdin:
+      stdin === undefined
+        ? undefined
+        : () => Promise.resolve(new TextEncoder().encode(stdin)),
     readRegularFile: (path: string) => {
       const text = FILES[path];
       if (text === undefined) {
@@ -67,12 +68,10 @@ it("'-' означает весь stdin", async () => {
 });
 
 describe("пустой текст без вложений — ошибка ввода", () => {
-  for (
-    const [name, patch, stdin] of [
-      ["пустая строка", { message: "" }, undefined],
-      ["пустой stdin", { message: "-" }, ""],
-    ] as const
-  ) {
+  for (const [name, patch, stdin] of [
+    ["пустая строка", { message: "" }, undefined],
+    ["пустой stdin", { message: "-" }, ""],
+  ] as const) {
     it(name, async () => {
       const err = await sendPlan(args(patch), io(stdin), "me").then(
         () => null,
@@ -128,12 +127,11 @@ it("вложение не найдено — отказ до сети", async ()
 });
 
 it("вложения проверяются раньше адресата и текста", async () => {
-  const err = await rejected(() =>
-    sendPlan(
-      args({ message: "", file: ["/no/such/file"] }),
-      io(),
-      undefined,
-    ), UsageError);
+  const err = await rejected(
+    () =>
+      sendPlan(args({ message: "", file: ["/no/such/file"] }), io(), undefined),
+    UsageError,
+  );
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
 });
 
@@ -151,11 +149,7 @@ it("вложение не читается по иной причине — то
 });
 
 it("имя вложения — базовое имя пути", async () => {
-  const plan = await sendPlan(
-    args({ file: ["/tmp/dir/b.txt"] }),
-    io(),
-    "me",
-  );
+  const plan = await sendPlan(args({ file: ["/tmp/dir/b.txt"] }), io(), "me");
   expect(plan.attachments[0].name).toBe("b.txt");
 });
 

@@ -23,7 +23,8 @@ interface AliasRow {
 /** Все алиасы по имени; таблицы нет — пустая выдача, а не отказ. */
 export function aliasRows(db: CacheDb): readonly AliasRow[] {
   try {
-    return db.query("SELECT name, ss_id FROM sheet_aliases ORDER BY name")
+    return db
+      .query("SELECT name, ss_id FROM sheet_aliases ORDER BY name")
       .map((row) => ({ name: String(row.name), ss_id: String(row.ss_id) }));
   } catch (err) {
     if (isMissingTable(err)) return [];

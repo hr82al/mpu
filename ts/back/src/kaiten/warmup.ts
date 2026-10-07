@@ -300,7 +300,7 @@ async function collectBoardPart(
         deadlineMs,
         nowMs,
         notes: notesPerBoard[index],
-      })
+      }),
     ),
   );
 

@@ -93,7 +93,10 @@ export function utf8Of(bytes: Uint8Array): string {
 /** Слова текста: BOM в начале снят, пустых слов нет. */
 export function wordsOf(text: string): string[] {
   const start = text.startsWith(BOM_CHAR) ? BOM_CHAR.length : 0;
-  return text.slice(start).split(SEPARATORS).filter((word) => word !== "");
+  return text
+    .slice(start)
+    .split(SEPARATORS)
+    .filter((word) => word !== "");
 }
 
 /**

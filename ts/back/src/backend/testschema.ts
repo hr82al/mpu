@@ -77,8 +77,8 @@ export function violations(
     }
   }
   if (Array.isArray(node.oneOf)) {
-    const matched = (node.oneOf as Node[]).filter((one) =>
-      violations(root, one, value, at).length === 0
+    const matched = (node.oneOf as Node[]).filter(
+      (one) => violations(root, one, value, at).length === 0,
     );
     if (matched.length !== 1) {
       found.push(`${at}: oneOf совпал ${matched.length} раз`);
@@ -86,7 +86,7 @@ export function violations(
   }
   if (Array.isArray(value) && node.items !== undefined) {
     value.forEach((item, i) =>
-      found.push(...violations(root, node.items as Node, item, `${at}[${i}]`))
+      found.push(...violations(root, node.items as Node, item, `${at}[${i}]`)),
     );
   }
   if (typeOf(value) === "object") {

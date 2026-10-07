@@ -25,9 +25,11 @@ interface Seen {
   readonly stderr: string;
 }
 
-async function viaClient(
-  setup: { base: string; main?: string; stdin?: string },
-): Promise<Seen> {
+async function viaClient(setup: {
+  base: string;
+  main?: string;
+  stdin?: string;
+}): Promise<Seen> {
   const run = testEnv(setup);
   const code = await runClient(ELICITATION.words, run.env);
   return { code, stdout: run.stdout.join(""), stderr: run.stderr.join("") };
@@ -65,19 +67,22 @@ it("сервер строк не отвечает — без решения, к�
 
 it("11 через клиент: Accept из чата — решение в stdout, код 0", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const seen = viaClient({
-      base: back.url,
-      main: back.token,
-      stdin: await gitlabForm(),
-    });
-    await bot.called(1);
-    bot.deliver([pressUpdate(1, 111, bot.calls[0].data[0][0])]);
-    expect(await seen).toStrictEqual({
-      code: 0,
-      stdout:
-        '{"hookSpecificOutput":{"hookEventName":"Elicitation","action":"accept","content":{}}}\n',
-      stderr: "",
-    });
-  }, { questions: fakeQuestions(bot) });
+  await withBack(
+    async (back) => {
+      const seen = viaClient({
+        base: back.url,
+        main: back.token,
+        stdin: await gitlabForm(),
+      });
+      await bot.called(1);
+      bot.deliver([pressUpdate(1, 111, bot.calls[0].data[0][0])]);
+      expect(await seen).toStrictEqual({
+        code: 0,
+        stdout:
+          '{"hookSpecificOutput":{"hookEventName":"Elicitation","action":"accept","content":{}}}\n',
+        stderr: "",
+      });
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });

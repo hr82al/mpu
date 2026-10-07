@@ -68,7 +68,7 @@ function moreKeys(
   typed: readonly string[],
 ): Suggestion[] {
   const fitting = methods.filter((method) =>
-    typed.every((key) => key in method.keys)
+    typed.every((key) => key in method.keys),
   );
   return fitting.flatMap((method) =>
     Object.entries(method.keys)
@@ -76,7 +76,7 @@ function moreKeys(
       .map(([name, kind]) => ({
         word: spelled(name, kind),
         purpose: method.purposes?.[name] ?? "",
-      }))
+      })),
   );
 }
 
@@ -136,9 +136,9 @@ async function walked(
 
 /** Строка дополнения словами: последнее слово — дописываемое. */
 export function typedWords(line: string): { typed: string[]; word: string } {
-  const words = line.split(" ").filter((word, i, all) =>
-    word !== "" || i === all.length - 1
-  );
+  const words = line
+    .split(" ")
+    .filter((word, i, all) => word !== "" || i === all.length - 1);
   return { typed: words.slice(0, -1), word: words.at(-1) ?? "" };
 }
 
@@ -161,9 +161,10 @@ export async function completeLine(
     const found = await walked(new Probe(origin), before, key, word);
     // Значения ключа уже отобраны по набранному (у клиента — и по имени);
     // слова протокола — по началу.
-    const chosen = key === undefined
-      ? found.filter((one) => one.word.startsWith(word))
-      : found;
+    const chosen =
+      key === undefined
+        ? found.filter((one) => one.word.startsWith(word))
+        : found;
     return unique(chosen);
   } catch (err) {
     // Незаконченная или неверная строка — не отказ дополнения, а пустой

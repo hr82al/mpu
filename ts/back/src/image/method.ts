@@ -94,8 +94,10 @@ export class ImageMethod {
    */
   named(receiver: readonly string[], written: string): boolean {
     const { name } = this.#record;
-    return this.#record.receiver.join(" ") === receiver.join(" ") &&
-      (name === written || name === `${written}:`);
+    return (
+      this.#record.receiver.join(" ") === receiver.join(" ") &&
+      (name === written || name === `${written}:`)
+    );
   }
 
   /** Звенья пути правила метода: получатель и имя по порядку. */
@@ -111,8 +113,10 @@ export class ImageMethod {
   /** Текст справки: кто и когда определил, исходник; ключи — у вида. */
   help(): string {
     const { author, time } = this.#record;
-    return `Метод образа, определён ${author} ${time}.\n` +
-      `Исходник: ${this.text()}`;
+    return (
+      `Метод образа, определён ${author} ${time}.\n` +
+      `Исходник: ${this.text()}`
+    );
   }
 
   /** Поле `image` узла метода в снимке дерева. */

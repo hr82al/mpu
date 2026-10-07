@@ -21,7 +21,7 @@ import {
 const decoder = new TextDecoder();
 
 /** Окружение сервера в тестах: одно имя со значением, прочих нет. */
-const serverEnv = (name: string) => name === "COLUMNS" ? "сервер" : undefined;
+const serverEnv = (name: string) => (name === "COLUMNS" ? "сервер" : undefined);
 
 it("ввод: поля нет — пусто, есть — то же содержимое дважды", async () => {
   const absent = callContextOf({});
@@ -79,8 +79,9 @@ describe("ввод по запросу: ввод строки — объект �
 describe("ввод: предел меряется байтами, а не длиной строки", () => {
   it("ровно предел — принимается", async () => {
     const text = "a".repeat(MAX_STDIN_BYTES);
-    expect((await callContextOf({ stdin: text }).input.bytes()).length)
-      .toStrictEqual(MAX_STDIN_BYTES);
+    expect(
+      (await callContextOf({ stdin: text }).input.bytes()).length,
+    ).toStrictEqual(MAX_STDIN_BYTES);
     expect(boundedInput(text).length).toStrictEqual(MAX_STDIN_BYTES);
   });
   it("предел + байт — отказ", () => {
@@ -178,9 +179,12 @@ describe("плохой кадр: вид полей", () => {
     ["флаг не булев", { tty: { stdout: "да" } }],
     ["columns не целое", { tty: { stdout: true, columns: 1.5 } }],
     ["columns ноль", { tty: { stdout: true, columns: MIN_COLUMNS - 1 } }],
-    ["columns больше предела", {
-      tty: { stdout: true, columns: MAX_COLUMNS + 1 },
-    }],
+    [
+      "columns больше предела",
+      {
+        tty: { stdout: true, columns: MAX_COLUMNS + 1 },
+      },
+    ],
     ["env не объект", { env: "COLUMNS=120" }],
     ["env значение не строка", { env: { COLUMNS: 120 } }],
   ];
@@ -273,15 +277,13 @@ it("список имён — только про вид вывода", async ()
     "WT_SESSION",
     "OS",
   ]);
-  for (
-    const name of [
-      "HOME",
-      "XDG_CONFIG_HOME",
-      "PGHOST",
-      "PGPASSWORD",
-      "CLAUDE_CODE_MESSAGING_TOKEN",
-    ]
-  ) {
+  for (const name of [
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "PGHOST",
+    "PGPASSWORD",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+  ]) {
     expect(CLIENT_ENV_NAMES.includes(name)).toBe(false);
   }
   expect(await NO_INPUT.bytes()).toStrictEqual(new Uint8Array());

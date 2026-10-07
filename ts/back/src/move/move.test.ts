@@ -147,15 +147,17 @@ it("команда постановки: source, target, client-id и --destroy"
     sourceServer: 3,
     targetServer: 4,
   });
-  expect(command.join(" ")).toStrictEqual([
-    "node cli service:clientsTransfer createJob",
-    "--source sl-3",
-    "--target sl-4",
-    "--client-id 1234",
-    // Без `--destroy` перенос стал бы копией, и клиент остался бы на
-    // обоих серверах — тихое удвоение вместо переезда.
-    "--destroy",
-  ].join(" "));
+  expect(command.join(" ")).toStrictEqual(
+    [
+      "node cli service:clientsTransfer createJob",
+      "--source sl-3",
+      "--target sl-4",
+      "--client-id 1234",
+      // Без `--destroy` перенос стал бы копией, и клиент остался бы на
+      // обоих серверах — тихое удвоение вместо переезда.
+      "--destroy",
+    ].join(" "),
+  );
 });
 
 describe("ход записывается только после успешной постановки", () => {
@@ -464,23 +466,26 @@ it("журнал без таблицы равнозначен пустому", a
 });
 
 it("контейнер переносов не в кэше — отказ с подсказкой", async () => {
-  await withIo(async (io, _db, ran) => {
-    const err = await rejected(
-      () =>
-        runMoveClient(
-          { selector: String(CLIENT), target: "sl-4" },
-          io,
-          transportOptions(0, ran),
-        ),
-      UsageError,
-      "контейнер mp-dt-cli не найден в кэше Portainer",
-    );
-    // Общий резолв селектора, не найдя имени, пошёл бы искать клиента —
-    // и заголовок, содержащий `mp-dt-cli`, увёл бы задачу в чужой
-    // контейнер. Здесь имя константное, и «не нашли» значит одно.
-    expect(String(err.hint)).toContain("mpu init");
-    expect(ran.length).toBe(0);
-  }, { withContainer: false });
+  await withIo(
+    async (io, _db, ran) => {
+      const err = await rejected(
+        () =>
+          runMoveClient(
+            { selector: String(CLIENT), target: "sl-4" },
+            io,
+            transportOptions(0, ran),
+          ),
+        UsageError,
+        "контейнер mp-dt-cli не найден в кэше Portainer",
+      );
+      // Общий резолв селектора, не найдя имени, пошёл бы искать клиента —
+      // и заголовок, содержащий `mp-dt-cli`, увёл бы задачу в чужой
+      // контейнер. Здесь имя константное, и «не нашли» значит одно.
+      expect(String(err.hint)).toContain("mpu init");
+      expect(ran.length).toBe(0);
+    },
+    { withContainer: false },
+  );
 });
 
 describe("журнал без таблицы: запись предупреждает, rm молчит", () => {
@@ -506,10 +511,14 @@ describe("журнал без таблицы: запись предупрежд�
     // Тихо создав схему, команда сделала бы недостижимым
     // предупреждение «реверс работать не будет» (отклонение спеки).
     expect(failed).toBe(true);
-    expect(plainRows(db.query(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-      "client_moves",
-    ))).toStrictEqual([]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+          "client_moves",
+        ),
+      ),
+    ).toStrictEqual([]);
   });
 
   it("forgetMove отвечает «записи не было»", () => {

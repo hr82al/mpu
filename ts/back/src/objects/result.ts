@@ -62,10 +62,16 @@ function printing(report: Report, printer: Printer): Report {
 
 /** Форматы результата данных. */
 const FORMATS: ReadonlyMap<string, readonly [Doc, Printer]> = new Map([
-  ["json", [{
-    purpose: "результат как JSON",
-    help: "Данные результата JSON-объектом: отступ 2, перевод строки в конце.",
-  }, JSON_PRINTER]],
+  [
+    "json",
+    [
+      {
+        purpose: "результат как JSON",
+        help: "Данные результата JSON-объектом: отступ 2, перевод строки в конце.",
+      },
+      JSON_PRINTER,
+    ],
+  ],
 ]);
 
 /** Имена форматов, которые понимает результат данных. */
@@ -84,16 +90,19 @@ const RESULT_DOC: Doc = {
 
 /** Справка метода, отдающего данные. */
 export function dataHelp(path: string, doc: Doc): Help {
-  return new Help({
-    path,
-    purpose: doc.purpose,
-    text: doc.help,
-    examples: [...(doc.examples ?? [])],
-    variants: [],
-    keys: [],
-    formats: [...DATA_FORMATS],
-    messages: [],
-  }, DATA_VIEW);
+  return new Help(
+    {
+      path,
+      purpose: doc.purpose,
+      text: doc.help,
+      examples: [...(doc.examples ?? [])],
+      variants: [],
+      keys: [],
+      formats: [...DATA_FORMATS],
+      messages: [],
+    },
+    DATA_VIEW,
+  );
 }
 
 /** Что результат после закрытия делает со словом, которое не формат. */
@@ -134,7 +143,7 @@ class Printed implements Receiver {
     return sent.route({
       named: (named) =>
         this.#format(named.selector(), named.text()) ??
-          this.#end.selects(this.#inner, named),
+        this.#end.selects(this.#inner, named),
       tail: () => formatsOnly(sent.selector()),
       close: () => endOf(this),
     });
@@ -158,19 +167,22 @@ class Printed implements Receiver {
 export const PRINTED: ResultKind = {
   parsing: () => ({ unary: [...DATA_FORMATS], keyword: [] }),
   about: (path, doc) =>
-    new Help({
-      path,
-      purpose: doc.purpose,
-      text: doc.help,
-      examples: [],
-      variants: [],
-      keys: [],
-      formats: [...DATA_FORMATS],
-      messages: [...FORMATS].map(([selector, [format]]) => ({
-        selector,
-        purpose: format.purpose,
-      })),
-    }, OBJECT_VIEW),
+    new Help(
+      {
+        path,
+        purpose: doc.purpose,
+        text: doc.help,
+        examples: [],
+        variants: [],
+        keys: [],
+        formats: [...DATA_FORMATS],
+        messages: [...FORMATS].map(([selector, [format]]) => ({
+          selector,
+          purpose: format.purpose,
+        })),
+      },
+      OBJECT_VIEW,
+    ),
   remedy: () => NO_REMEDY,
   reflect: () => ({
     ...DATA_REFLECTION,
@@ -266,7 +278,8 @@ class Answered implements Receiver {
 /** Справка самого ответа на `help`. */
 export const HELP_DOC: Doc = {
   purpose: "справка объекта",
-  help: `Данные о приёмнике: без формата — текст, ${GRAMMAR.close} json — ` +
+  help:
+    `Данные о приёмнике: без формата — текст, ${GRAMMAR.close} json — ` +
     "объект с полями path, purpose, text, examples, keys, formats, messages.",
 };
 

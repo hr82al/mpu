@@ -44,16 +44,14 @@ it("кадр ядра «доставить» — туда и обратно; н�
   expect(readCoreFrame(READY_FRAME, CORE)).toBe("готов");
   expect(readCoreFrame('{"ready":false}', CORE)).toBe("чужой");
   expect(deliverFrame(7, "Синий")).toBe('{"deliver":"Синий","id":7}');
-  for (
-    const junk of [
-      "",
-      "{",
-      '{"deliver":"x"}',
-      '{"deliver":1,"id":1}',
-      '{"deliver":"x","id":-1}',
-      '{"deliver":"x","id":1.5}',
-    ]
-  ) {
+  for (const junk of [
+    "",
+    "{",
+    '{"deliver":"x"}',
+    '{"deliver":1,"id":1}',
+    '{"deliver":"x","id":-1}',
+    '{"deliver":"x","id":1.5}',
+  ]) {
     expect(readCoreFrame(junk, CORE), junk).toBe("чужой");
   }
 });

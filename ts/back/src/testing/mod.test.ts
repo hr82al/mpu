@@ -42,8 +42,7 @@ it("фейк кэш-БД: до записи схемы нет — как на ч
   expect(configValue(db, "sheet.default")).toStrictEqual(undefined);
   expect(
     plainRows(db.query("SELECT name FROM sqlite_master WHERE name = 'config'")),
-  )
-    .toStrictEqual([]);
+  ).toStrictEqual([]);
 });
 
 it("фейк кэш-БД: прерванная транзакция откатывается", () => {
@@ -53,7 +52,7 @@ it("фейк кэш-БД: прерванная транзакция откаты
     db.transaction(() => {
       db.execute("INSERT INTO config (key, value) VALUES ('a', 'b')");
       throw new Error("обрыв");
-    })
+    }),
   ).toThrow();
   expect(plainRows(db.query("SELECT key FROM config"))).toStrictEqual([]);
 });

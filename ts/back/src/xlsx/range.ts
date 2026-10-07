@@ -25,10 +25,10 @@ export interface AreaRef {
 export type RangeTarget =
   | { readonly kind: "wholeSheet"; readonly sheet: string }
   | {
-    readonly kind: "area";
-    readonly sheet: string | undefined;
-    readonly area: AreaRef;
-  };
+      readonly kind: "area";
+      readonly sheet: string | undefined;
+      readonly area: AreaRef;
+    };
 
 /**
  * Разбирает один токен диапазона: `A1`, `A1:B2`, `A:A`, `1:5`,

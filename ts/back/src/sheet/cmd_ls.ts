@@ -16,23 +16,29 @@ import { type SheetIo, targetOf } from "./sources.ts";
 
 const argsSchema = z.object({
   spreadsheet: z.string().optional().describe("цель: URL, ID, алиас, …"),
-  long: z.boolean().default(false).describe(
-    "подробная строка: размеры, sheetId и индекс",
-  ),
+  long: z
+    .boolean()
+    .default(false)
+    .describe("подробная строка: размеры, sheetId и индекс"),
   json: z.boolean().default(false).describe("массив объектов JSON"),
-  refresh: z.boolean().default(false).describe(
-    "не читать кэш метаданных, перечитать и перезаписать",
-  ),
+  refresh: z
+    .boolean()
+    .default(false)
+    .describe("не читать кэш метаданных, перечитать и перезаписать"),
 });
 
 const resultSchema = z.object({
-  tabs: z.array(z.object({
-    title: z.string(),
-    sheet_id: z.number(),
-    rows: z.number(),
-    cols: z.number(),
-    index: z.number(),
-  })).describe("листы таблицы в порядке самой таблицы"),
+  tabs: z
+    .array(
+      z.object({
+        title: z.string(),
+        sheet_id: z.number(),
+        rows: z.number(),
+        cols: z.number(),
+        index: z.number(),
+      }),
+    )
+    .describe("листы таблицы в порядке самой таблицы"),
 });
 
 type LsArgs = z.infer<typeof argsSchema>;
@@ -120,9 +126,10 @@ function renderTabs(tabs: readonly TabInfo[], args: LsArgs): string {
   if (args.json) return `${JSON.stringify(tabs, null, 2)}\n`;
   if (args.long) {
     return tabs
-      .map((tab) =>
-        `${tab.title}\t${tab.rows}×${tab.cols}\tsheetId=${tab.sheet_id}` +
-        `\tindex=${tab.index}\n`
+      .map(
+        (tab) =>
+          `${tab.title}\t${tab.rows}×${tab.cols}\tsheetId=${tab.sheet_id}` +
+          `\tindex=${tab.index}\n`,
       )
       .join("");
   }

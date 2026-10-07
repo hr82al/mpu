@@ -28,10 +28,9 @@ it("renderGetTsv: шапка, строковый рендер, экраниро�
   expect(renderGetTsv(cells.slice(0, 2), "formulas")).toStrictEqual(
     "range\tformula\n" + "Л!A1\t=B2*2\n" + "Л!A2\t\n",
   );
-  expect(renderGetTsv(
-    [{ range: "Л!B1", value: "a\\b\nc\td\re" }],
-    "values",
-  )).toStrictEqual("range\tvalue\n" + "Л!B1\ta\\\\b\\nc\\td\\re\n");
+  expect(
+    renderGetTsv([{ range: "Л!B1", value: "a\\b\nc\td\re" }], "values"),
+  ).toStrictEqual("range\tvalue\n" + "Л!B1\ta\\\\b\\nc\\td\\re\n");
 });
 
 it("renderGetRaw: одна ячейка голая, много — построчно", () => {

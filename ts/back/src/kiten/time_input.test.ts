@@ -101,10 +101,7 @@ describe("parseDuration: остальные отказы", () => {
       "1441",
       "больше 24 ч в одной записи; заведите записи по дням через --date",
     ],
-    [
-      "25h",
-      "больше 24 ч в одной записи; заведите записи по дням через --date",
-    ],
+    ["25h", "больше 24 ч в одной записи; заведите записи по дням через --date"],
     [
       "мусор",
       "неразобранная длительность; ожидается 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h",
@@ -141,15 +138,17 @@ describe("parseCalendarDate: строго YYYY-MM-DD", () => {
   });
 
   it("текст отказа — голден канала", async () => {
-    expect(messageOf(() => parseCalendarDate("15.08.2026", "--date")))
-      .toStrictEqual(await golden("err-date-format-message.txt"));
+    expect(
+      messageOf(() => parseCalendarDate("15.08.2026", "--date")),
+    ).toStrictEqual(await golden("err-date-format-message.txt"));
   });
 
   const bad = ["2026-8-15", "2026-02-30", "2026-13-01", "", "2026-08-15T00:00"];
   for (const input of bad) {
     it(`отвергнуто: '${input}'`, () => {
-      expect(messageOf(() => parseCalendarDate(input, "--date-from")))
-        .toStrictEqual(`--date-from='${input}': ожидается YYYY-MM-DD\n`);
+      expect(
+        messageOf(() => parseCalendarDate(input, "--date-from")),
+      ).toStrictEqual(`--date-from='${input}': ожидается YYYY-MM-DD\n`);
     });
   }
 });

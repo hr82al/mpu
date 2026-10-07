@@ -28,12 +28,15 @@ async function withSpill(
   const root = await mkdtemp(join(tmpdir(), "mpu-"));
   const diagnosed: string[] = [];
   try {
-    await body({
-      dir: `${root}/mpu-out`,
-      threshold,
-      now: () => Date.now(),
-      diagnose: (line) => void diagnosed.push(line),
-    }, diagnosed);
+    await body(
+      {
+        dir: `${root}/mpu-out`,
+        threshold,
+        now: () => Date.now(),
+        diagnose: (line) => void diagnosed.push(line),
+      },
+      diagnosed,
+    );
   } finally {
     await rm(root, { recursive: true });
   }

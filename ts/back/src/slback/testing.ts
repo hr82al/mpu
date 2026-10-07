@@ -36,20 +36,18 @@ export async function startFakeSlback(
   reply: (seen: readonly CapturedRequest[]) => Response | Promise<Response>,
 ): Promise<FakeSlback> {
   const seen: CapturedRequest[] = [];
-  const server = await serveFetch(
-    async (req) => {
-      const url = new URL(req.url);
-      seen.push({
-        method: req.method,
-        pathname: url.pathname,
-        search: url.search,
-        authorization: req.headers.get("authorization"),
-        contentType: req.headers.get("content-type"),
-        body: await req.text(),
-      });
-      return reply(seen);
-    },
-  );
+  const server = await serveFetch(async (req) => {
+    const url = new URL(req.url);
+    seen.push({
+      method: req.method,
+      pathname: url.pathname,
+      search: url.search,
+      authorization: req.headers.get("authorization"),
+      contentType: req.headers.get("content-type"),
+      body: await req.text(),
+    });
+    return reply(seen);
+  });
   return {
     baseUrl: server.baseUrl,
     seen,

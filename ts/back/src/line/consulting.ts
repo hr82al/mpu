@@ -55,8 +55,9 @@ export class LineConsulting implements Consulting {
     const door = entryOf(walked).words.length;
     const hook = { readStdin, consulting: this, owner };
     return sourceOf(words, walked, door).consult(() =>
-      routeOf(walked.slice(door), { commands, methods, hook })
-        .consult(() => this.#probed(words, walked))
+      routeOf(walked.slice(door), { commands, methods, hook }).consult(() =>
+        this.#probed(words, walked),
+      ),
     );
   }
 
@@ -76,6 +77,7 @@ export class LineConsulting implements Consulting {
           stripped: strippedOf(words),
         }),
         values,
-      ));
+      ),
+    );
   }
 }

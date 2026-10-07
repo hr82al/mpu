@@ -22,9 +22,9 @@ import {
   type RoleRecord,
 } from "./roles.ts";
 
-const ROLE = z.string({ error: "нужен role: host|exec" }).describe(
-  "роль проекта: host или exec",
-);
+const ROLE = z
+  .string({ error: "нужен role: host|exec" })
+  .describe("роль проекта: host или exec");
 
 const NOTHING = z.object({});
 
@@ -33,19 +33,22 @@ const roleArgs = z.object({
   project: PROJECT,
   role: ROLE,
   dir: z.string().optional().describe("каталог запуска, абсолютный"),
-  powers: z.string().optional().describe(
-    "полномочия текстом — в первое сообщение роли дословно",
-  ),
+  powers: z
+    .string()
+    .optional()
+    .describe("полномочия текстом — в первое сообщение роли дословно"),
   session: z.string().optional().describe("сессия tmux"),
   window: z.string().optional().describe("окно tmux"),
   model: z.string().optional().describe("модель Claude Code"),
   mode: z.string().optional().describe("режим разрешений"),
-  "add-dir": z.array(z.string()).default([]).describe(
-    "каталог вне каталога запуска; повторяемый",
-  ),
-  read: z.array(z.string()).default([]).describe(
-    "файл, который роль читает первым; повторяемый",
-  ),
+  "add-dir": z
+    .array(z.string())
+    .default([])
+    .describe("каталог вне каталога запуска; повторяемый"),
+  read: z
+    .array(z.string())
+    .default([])
+    .describe("файл, который роль читает первым; повторяемый"),
 });
 
 type RoleArgs = z.infer<typeof roleArgs>;
@@ -56,7 +59,8 @@ export const taskRoleCommand: Command = defineCommand({
   texts: ["powers"],
   errorName: "task role",
   summary: "Записывает профиль роли проекта; forget — удаляет.",
-  usage: "mpu task role [forget] project: ИМЯ role: host|exec " +
+  usage:
+    "mpu task role [forget] project: ИМЯ role: host|exec " +
     "dir: ПУТЬ powers: ТЕКСТ [ключи профиля]",
   help: `Звать человеку, решая, как оркестратор запускает роль: каталог,
 модель, режим и полномочия сессии. Пишет только человек: строка всегда
@@ -116,19 +120,21 @@ function profileInput(args: RoleArgs): ProfileInput {
 }
 
 const rolesResult = z.object({
-  rows: z.array(z.object({
-    role: z.string(),
-    mark: z.string().nullable(),
-    mark_age_s: z.number().nullable(),
-    session: z.string(),
-    window: z.string(),
-    dir: z.string(),
-    model: z.string(),
-    mode: z.string(),
-    add_dir: z.array(z.string()),
-    read: z.array(z.string()),
-    powers: z.string(),
-  })),
+  rows: z.array(
+    z.object({
+      role: z.string(),
+      mark: z.string().nullable(),
+      mark_age_s: z.number().nullable(),
+      session: z.string(),
+      window: z.string(),
+      dir: z.string(),
+      model: z.string(),
+      mode: z.string(),
+      add_dir: z.array(z.string()),
+      read: z.array(z.string()),
+      powers: z.string(),
+    }),
+  ),
 });
 
 type RolesResult = z.infer<typeof rolesResult>;
@@ -164,11 +170,13 @@ Exit: 0; 2 — нет проекта.`,
     with: (_result, records) => ({ rows: records }),
   }),
   run: (args, io: TaskIo) =>
-    Promise.resolve(withJournal(io, (projects) => {
-      const now = Date.now();
-      const all = projects.at(args.project).roles().all();
-      return { rows: all.map((role) => role.record(now)) };
-    })),
+    Promise.resolve(
+      withJournal(io, (projects) => {
+        const now = Date.now();
+        const all = projects.at(args.project).roles().all();
+        return { rows: all.map((role) => role.record(now)) };
+      }),
+    ),
   render: (result, args) =>
     args.json
       ? `${JSON.stringify(result.rows)}\n`
@@ -184,7 +192,9 @@ function roleBlock(row: RoleRecord): string {
     ...row.add_dir.map((dir) => `  add-dir: ${dir}`),
     ...row.read.map((file) => `  read: ${file}`),
     `  powers: ${row.powers}`,
-  ].map((line) => `${line}\n`).join("");
+  ]
+    .map((line) => `${line}\n`)
+    .join("");
 }
 
 /** Команда отметки: роль говорит о себе `word` со временем. */
@@ -207,14 +217,11 @@ Exit: 0; 2 — нет проекта или роль не host|exec.`,
     argsSchema: z.object({ project: PROJECT, role: ROLE }),
     resultSchema: NOTHING,
     run: (args, io: TaskIo) => {
-      withJournal(
-        io,
-        (projects) =>
-          projects.at(args.project).roles().mark(
-            roleNamed(args.role),
-            word,
-            Date.now(),
-          ),
+      withJournal(io, (projects) =>
+        projects
+          .at(args.project)
+          .roles()
+          .mark(roleNamed(args.role), word, Date.now()),
       );
       return Promise.resolve({});
     },

@@ -84,14 +84,12 @@ it("подпись кнопки — до « · » и не длиннее 60", ()
 });
 
 it("копии экранов совпадают с каналом спецификаций", async () => {
-  for (
-    const name of [
-      "screen-permission-bash.txt",
-      "screen-ask-user-question.txt",
-      "screen-elicitation-fields.txt",
-      "settings-fragment-notification.json",
-    ]
-  ) {
+  for (const name of [
+    "screen-permission-bash.txt",
+    "screen-ask-user-question.txt",
+    "screen-elicitation-fields.txt",
+    "settings-fragment-notification.json",
+  ]) {
     expect(
       await readFile(
         new URL(`testdata/snapshot/${name}`, import.meta.url),

@@ -106,7 +106,9 @@ export class Queue {
 
   /** Текст владельца — ответ активному вопросу. */
   write(text: string): Promise<void> {
-    return this.#head().write(text).deliver((reply) => this.#chat.say(reply));
+    return this.#head()
+      .write(text)
+      .deliver((reply) => this.#chat.say(reply));
   }
 
   /** Перед первым вопросом: сообщения прошлого запуска — в «истёк». */
@@ -178,8 +180,10 @@ export class Queue {
    * нарисованной головы, сменившейся без исхода.
    */
   #owesUnbutton(): boolean {
-    return this.#closing.length > 0 ||
-      (this.#head() !== this.#shown && this.#row.has(this.#shown));
+    return (
+      this.#closing.length > 0 ||
+      (this.#head() !== this.#shown && this.#row.has(this.#shown))
+    );
   }
 
   /**

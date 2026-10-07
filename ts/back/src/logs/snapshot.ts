@@ -82,7 +82,8 @@ function requireTarget(
   deps: SnapshotDeps,
   serverNumber: number,
 ): PortainerTarget {
-  const target = deps.cache.portainerTarget(serverNumber) ??
+  const target =
+    deps.cache.portainerTarget(serverNumber) ??
     targetFromEnv(deps.env, serverNumber);
   if (target === undefined) {
     throw new UsageError(
@@ -121,8 +122,9 @@ function pickContainer(
   serverNumber: number,
 ): string {
   if (names.includes(wanted)) return wanted;
-  const matched = [...new Set(names.filter((name) => name.includes(wanted)))]
-    .sort();
+  const matched = [
+    ...new Set(names.filter((name) => name.includes(wanted))),
+  ].sort();
   if (matched.length === 1) return matched[0];
   if (matched.length === 0) {
     throw new UsageError(

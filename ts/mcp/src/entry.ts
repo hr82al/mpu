@@ -101,8 +101,8 @@ export async function runMcp(
       }),
     });
   } catch (err) {
-    const busy = err instanceof Error && "code" in err &&
-      err.code === "EADDRINUSE";
+    const busy =
+      err instanceof Error && "code" in err && err.code === "EADDRINUSE";
     if (!busy) throw err;
     proc.stderr(`mpu-mcp: порт ${port} занят\n`);
     return 1;

@@ -45,9 +45,10 @@ async function run(
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const human = answers === undefined
-    ? {}
-    : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
+  const human =
+    answers === undefined
+      ? {}
+      : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
   const code = await lineEntry(consentOf(file, answers))(
     argv,
     makeFakeIo({ ...io, ...human }),
@@ -69,18 +70,18 @@ describe("отказы с подсказкой по таблице спеки", 
     [
       ["kiten", "card", "id:", "123", "--json"],
       "mpu kiten card id: 123: формат — сообщение результату: " +
-      `mpu kiten card id: 123 ${END} json`,
+        `mpu kiten card id: 123 ${END} json`,
     ],
     [
       ["--json", "kiten", "card", "id:", "123"],
       "mpu kiten card id: 123: формат — сообщение результату: " +
-      `mpu kiten card id: 123 ${END} json`,
+        `mpu kiten card id: 123 ${END} json`,
     ],
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", END, "xml"],
       `mpu sql-ro target: 54 sql: select 1 ${END}: не понимает xml; ` +
-      "есть: json, md, first, first:, isEmpty, last, last:, pick:, size, " +
-      "sortBy:, where:",
+        "есть: json, md, first, first:, isEmpty, last, last:, pick:, size, " +
+        "sortBy:, where:",
     ],
     [
       ["sql-ro", "sl-1", "select 1"],
@@ -93,19 +94,19 @@ describe("отказы с подсказкой по таблице спеки", 
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", "-v"],
       "mpu sql-ro target: 54 sql: select 1: значение select 1 не понимает " +
-      "-v; вариант — словом до ключей: mpu sql-ro verbose target: 54 " +
-      'sql: "select 1"',
+        "-v; вариант — словом до ключей: mpu sql-ro verbose target: 54 " +
+        'sql: "select 1"',
     ],
     [["kiten", "card"], "mpu kiten card: не хватает ключа id"],
     [
       ["kiten", "card", "id:", "123", "--md"],
       "mpu kiten card: формат — сообщение результату: " +
-      `mpu kiten card id: 123 ${END} md`,
+        `mpu kiten card id: 123 ${END} md`,
     ],
     [
       ["kiten", "card", "id:", "1", "nope:", "x"],
       "mpu kiten card id: 1: понимаю id:; nope: результат не понимает; " +
-      "есть: json, md",
+        "есть: json, md",
     ],
     [
       ["kiten", "card", "nope:", "x", "id:", "1"],
@@ -117,7 +118,7 @@ describe("отказы с подсказкой по таблице спеки", 
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", "limit:", "5"],
       "mpu sql-ro target: 54 sql: select 1: понимаю target:sql:; limit: " +
-      "результат не понимает; есть: json, md",
+        "результат не понимает; есть: json, md",
     ],
     [
       ["kiten", "card", "id:", "1", GRAMMAR.open],
@@ -133,16 +134,18 @@ describe("отказы с подсказкой по таблице спеки", 
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
 it("--ключ значение — то же, что ключ: значение", () =>
   withPolicyFile(async (file) => {
-    expect(await run(file, ["kiten", "card", "--id", "123", END, "xml"]))
-      .toStrictEqual(
-        await run(file, ["kiten", "card", "id:", "123", END, "xml"]),
-      );
+    expect(
+      await run(file, ["kiten", "card", "--id", "123", END, "xml"]),
+    ).toStrictEqual(
+      await run(file, ["kiten", "card", "id:", "123", END, "xml"]),
+    );
   }));
 
 it("ключи подряд — одно сообщение, строка исполняется", () =>
@@ -196,10 +199,12 @@ it("справка образца end json — ключи из объявлен�
     expect(data.keys[0].required).toBe(true);
     expect(data.formats).toStrictEqual(["json", "md"]);
     expect(data.examples.length).toBe(4);
-    expect(data.keys.map((key: { name: string }) => key.name).sort())
-      .toStrictEqual(["id"]);
-    expect(data.variants.map((line: { selector: string }) => line.selector))
-      .toStrictEqual(["no-comments", "no-images"]);
+    expect(
+      data.keys.map((key: { name: string }) => key.name).sort(),
+    ).toStrictEqual(["id"]);
+    expect(
+      data.variants.map((line: { selector: string }) => line.selector),
+    ).toStrictEqual(["no-comments", "no-images"]);
   }));
 
 it("унарное за литералом — результату, как после end", () =>

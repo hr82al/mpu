@@ -26,10 +26,11 @@ const noGit: RunGit = () => {
   throw new Error("git must not be run");
 };
 
-const context = (
-  runGit: RunGit = noGit,
-  baseUrl = BASE,
-): ResolveContext => ({ access: access(baseUrl), cwd: "/repo", runGit });
+const context = (runGit: RunGit = noGit, baseUrl = BASE): ResolveContext => ({
+  access: access(baseUrl),
+  cwd: "/repo",
+  runGit,
+});
 
 describe("полный селектор не запускает git вовсе", () => {
   it("group/repo!iid", async () => {
@@ -75,27 +76,30 @@ it("неразбираемый селектор — ошибка ввода с �
 });
 
 it("git remote: формы ssh, scp и https", () => {
-  expect(parseRemoteUrl("git@gitlab.example.test:group/repo.git"))
-    .toStrictEqual({
-      host: "gitlab.example.test",
-      path: "group/repo.git",
-    });
-  expect(parseRemoteUrl("ssh://git@gitlab.example.test:2222/group/repo.git"))
-    .toStrictEqual({
-      host: "gitlab.example.test",
-      path: "/group/repo.git",
-    });
-  expect(parseRemoteUrl("https://gitlab.example.test/group/repo.git"))
-    .toStrictEqual({
-      host: "gitlab.example.test",
-      path: "/group/repo.git",
-    });
+  expect(
+    parseRemoteUrl("git@gitlab.example.test:group/repo.git"),
+  ).toStrictEqual({
+    host: "gitlab.example.test",
+    path: "group/repo.git",
+  });
+  expect(
+    parseRemoteUrl("ssh://git@gitlab.example.test:2222/group/repo.git"),
+  ).toStrictEqual({
+    host: "gitlab.example.test",
+    path: "/group/repo.git",
+  });
+  expect(
+    parseRemoteUrl("https://gitlab.example.test/group/repo.git"),
+  ).toStrictEqual({
+    host: "gitlab.example.test",
+    path: "/group/repo.git",
+  });
   expect(parseRemoteUrl("не-адрес")).toStrictEqual(null);
 });
 
 it("iid берётся у единственного открытого MR ветки", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json([{ iid: 77, title: "заголовок" }])
+    Response.json([{ iid: 77, title: "заголовок" }]),
   );
   try {
     const runGit: RunGit = (args) =>
@@ -104,11 +108,12 @@ it("iid берётся у единственного открытого MR ве�
           ? ok("git@127.0.0.1:group/repo.git")
           : ok("feat/branch"),
       );
-    expect(await resolveMr(context(runGit, stand.baseUrl), undefined))
-      .toStrictEqual({
-        project: "group/repo",
-        iid: 77,
-      });
+    expect(
+      await resolveMr(context(runGit, stand.baseUrl), undefined),
+    ).toStrictEqual({
+      project: "group/repo",
+      iid: 77,
+    });
     expect(stand.seen[0].search).toBe(
       "?source_branch=feat%2Fbranch&state=opened&per_page=100&page=1",
     );
@@ -139,7 +144,10 @@ describe("ноль и несколько открытых MR — отказ со
 
   it("несколько — перечислены с заголовками", async () => {
     const stand = await startFakeGitlab(() =>
-      Response.json([{ iid: 1, title: "первый" }, { iid: 2, title: "второй" }])
+      Response.json([
+        { iid: 1, title: "первый" },
+        { iid: 2, title: "второй" },
+      ]),
     );
     try {
       await rejected(
@@ -157,7 +165,11 @@ describe("ноль и несколько открытых MR — отказ со
 describe("исходы git: нет в PATH, ненулевой код, detached HEAD", () => {
   it("git не найден", async () => {
     await rejected(
-      () => resolveMr(context(() => Promise.resolve(null)), undefined),
+      () =>
+        resolveMr(
+          context(() => Promise.resolve(null)),
+          undefined,
+        ),
       MrRefError,
       "git не найден в PATH — укажи MR через --mr",
     );

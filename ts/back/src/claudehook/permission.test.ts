@@ -11,9 +11,12 @@ import { type PayloadReader, permissionPayloadOf } from "./permission.ts";
 const WORDS: PayloadReader<string> = {
   unparsed: (what) => `вход не разобран: ${what}`,
   parsed: (request) =>
-    request.asking.form([]).steps.map((step) =>
-      step.options.map((option) => option.label).join(" | ")
-    ).join(" / "),
+    request.asking
+      .form([])
+      .steps.map((step) =>
+        step.options.map((option) => option.label).join(" | "),
+      )
+      .join(" / "),
 };
 
 const BASH = { command: "ls", description: "List" };
@@ -127,19 +130,14 @@ describe("подписи кнопок права (§4 постановки)", ()
       [{ type: "setMode", mode: "acceptEdits" }],
       "Yes | Yes, always: setMode | No",
     ],
-    [
-      "незнакомое без type — нет кнопки",
-      [{ rules: [] }, 7],
-      "Yes | No",
-    ],
+    ["незнакомое без type — нет кнопки", [{ rules: [] }, 7], "Yes | No"],
     ["не список — как нет", { type: "addRules" }, "Yes | No"],
   ];
   for (const [name, suggestions, said] of cases) {
-    it(
-      name,
-      () =>
-        expect(read(bash({ permission_suggestions: suggestions })))
-          .toStrictEqual(said),
+    it(name, () =>
+      expect(read(bash({ permission_suggestions: suggestions }))).toStrictEqual(
+        said,
+      ),
     );
   }
 });
@@ -159,10 +157,16 @@ describe("текст шага права: описание, затем кома�
 });
 
 it("AskUserQuestion без header — «Вопрос»; описания вариантов — строками", () => {
-  const form = permissionPayloadOf(JSON.stringify(ask([{
-    question: "Какой?",
-    options: [{ label: "A", description: "буква" }, { label: "B" }],
-  }]))).read({
+  const form = permissionPayloadOf(
+    JSON.stringify(
+      ask([
+        {
+          question: "Какой?",
+          options: [{ label: "A", description: "буква" }, { label: "B" }],
+        },
+      ]),
+    ),
+  ).read({
     unparsed: () => undefined,
     parsed: (request) => request.asking.form(["ozon"]),
   });
@@ -174,12 +178,10 @@ it("AskUserQuestion без header — «Вопрос»; описания вар�
 });
 
 describe("R3c-7: право с пустым tool_input — текст шага «(без аргументов)»", () => {
-  for (
-    const [input, text] of [
-      [{}, "(без аргументов)"],
-      [{ path: "/x" }, '{"path":"/x"}'],
-    ] as const
-  ) {
+  for (const [input, text] of [
+    [{}, "(без аргументов)"],
+    [{ path: "/x" }, '{"path":"/x"}'],
+  ] as const) {
     it(text, () => {
       const steps = permissionPayloadOf(
         JSON.stringify(bash({ tool_name: "mcp__s__probe", tool_input: input })),

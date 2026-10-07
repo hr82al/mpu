@@ -24,10 +24,11 @@ const copyRoot = new URL("testdata/", import.meta.url);
 describe("копии фикстур совпадают с каналом спецификаций", () => {
   for (const name of NAMES) {
     it(`${CHANNEL}/${name}`, async () => {
-      expect(await readFile(new URL(`${CHANNEL}/${name}`, copyRoot), "utf8"))
-        .toStrictEqual(
-          await readFile(new URL(`${CHANNEL}/${name}`, channelRoot), "utf8"),
-        );
+      expect(
+        await readFile(new URL(`${CHANNEL}/${name}`, copyRoot), "utf8"),
+      ).toStrictEqual(
+        await readFile(new URL(`${CHANNEL}/${name}`, channelRoot), "utf8"),
+      );
     });
   }
 });
@@ -100,8 +101,8 @@ describe("копии эталонов хука Stop совпадают с кан
   }
   // Полнота копий — проверка самого теста, а не шага: после случаев.
   afterAll(async () => {
-    const found = (await readdir(new URL("stop/", copyRoot))).map((name) =>
-      `stop/${name}`
+    const found = (await readdir(new URL("stop/", copyRoot))).map(
+      (name) => `stop/${name}`,
     );
     expect(found.sort()).toStrictEqual(
       STOP_COPIES.map(([, copy]) => copy).sort(),
@@ -136,9 +137,9 @@ describe("копии эталонов хука Elicitation совпадают с
   }
   // Полнота копий — проверка самого теста, а не шага: после случаев.
   afterAll(async () => {
-    const found = (await readdir(new URL("elicitation/", copyRoot))).map((
-      name,
-    ) => `elicitation/${name}`);
+    const found = (await readdir(new URL("elicitation/", copyRoot))).map(
+      (name) => `elicitation/${name}`,
+    );
     expect(found.sort()).toStrictEqual(
       ELICITATION_COPIES.map(([, copy]) => copy).sort(),
     );

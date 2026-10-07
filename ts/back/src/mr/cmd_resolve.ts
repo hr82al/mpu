@@ -25,12 +25,17 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  discussion: z.string({
-    error: "нужен id: полный id треда или префикс от 6 символов",
-  }).describe("id треда или его префикс (≥6 символов)"),
-  mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
-  ),
+  discussion: z
+    .string({
+      error: "нужен id: полный id треда или префикс от 6 символов",
+    })
+    .describe("id треда или его префикс (≥6 символов)"),
+  mr: z
+    .string()
+    .optional()
+    .describe(
+      "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
+    ),
 });
 
 const resultSchema = z.object({

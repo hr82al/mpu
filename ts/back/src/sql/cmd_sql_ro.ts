@@ -26,7 +26,8 @@ export const sqlRoCommand = defineCommand({
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:
     "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
-  usage: `mpu sql-ro [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
+  usage:
+    `mpu sql-ro [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать для любого чтения из БД клиента или сервера: запрос идёт в
 read-only сессии, запись отклоняет сам сервер (SQLSTATE 25006), а не

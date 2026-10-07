@@ -43,43 +43,52 @@ describe("у отказавшего раздела нет ни гарантии,
   let temp: string;
   let repo: Repo;
   let result: {
-    section: {
-      kind: "answer";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      guarantee: "types" | "text";
-      target: { kind: "symbol" | "module"; path: string; line: number | null };
-      symbol: {
-        name: string;
-        signature: string;
-        scope:
-          | "entry"
-          | "module-only"
-          | "no-entry"
-          | "entry-unparsed"
-          | "entry-not-object"
-          | "private";
-      } | null;
-      consumers: { total: number; places: { path: string; line: number }[] };
-      unresolved: {
-        total: number;
-        items: {
-          path: string;
-          line: number;
-          specifier: string;
-          reason: string;
-        }[];
-      };
-    } | {
-      kind: "refused";
-      mark: {
-        repo: string;
-        git: { branch: string; commit: string; dirty: boolean } | null;
-      };
-      refusal: string;
-    };
+    section:
+      | {
+          kind: "answer";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          guarantee: "types" | "text";
+          target: {
+            kind: "symbol" | "module";
+            path: string;
+            line: number | null;
+          };
+          symbol: {
+            name: string;
+            signature: string;
+            scope:
+              | "entry"
+              | "module-only"
+              | "no-entry"
+              | "entry-unparsed"
+              | "entry-not-object"
+              | "private";
+          } | null;
+          consumers: {
+            total: number;
+            places: { path: string; line: number }[];
+          };
+          unresolved: {
+            total: number;
+            items: {
+              path: string;
+              line: number;
+              specifier: string;
+              reason: string;
+            }[];
+          };
+        }
+      | {
+          kind: "refused";
+          mark: {
+            repo: string;
+            git: { branch: string; commit: string; dirty: boolean } | null;
+          };
+          refusal: string;
+        };
   };
   beforeAll(async () => {
     temp = await mkdtemp(join(tmpdir(), "mpu-"));
@@ -124,10 +133,13 @@ async function hollowRepo(
   config: "tsconfig" | "deno",
 ): Promise<Repo> {
   await mkdir(`${root}/src`, { recursive: true });
-  const [name, text] = config === "deno" ? ["deno.json", "{}\n"] : [
-    "tsconfig.json",
-    '{"compilerOptions":{"strict":true,"noEmit":true},"include":["src/**/*"]}\n',
-  ];
+  const [name, text] =
+    config === "deno"
+      ? ["deno.json", "{}\n"]
+      : [
+          "tsconfig.json",
+          '{"compilerOptions":{"strict":true,"noEmit":true},"include":["src/**/*"]}\n',
+        ];
   await writeFile(`${root}/${name}`, text);
   return {
     name: "hollow",

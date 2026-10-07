@@ -57,7 +57,8 @@ const READ_ONLY_CHECK = "SELECT current_setting('transaction_read_only')";
 const PROMPT = "-- enter SQL, end with EOF (Ctrl+D):";
 
 /** Отказ сервера пишущему запросу — текст спеки дословно. */
-const WRITE_REFUSED = "запрос пытается писать — заблокировано read-only " +
+const WRITE_REFUSED =
+  "запрос пытается писать — заблокировано read-only " +
   "сессией. Для записи используйте `mpu sql`.";
 
 /**
@@ -67,26 +68,28 @@ const WRITE_REFUSED = "запрос пытается писать — забло
  * транзакции вызова, поэтому формулировка не утверждает, что гарантия
  * снята — только что она не подтверждена (`platform/readonly-default.md`).
  */
-const TRANSACTION_ENDED = "метка транзакции вызова не снята — гарантия " +
+const TRANSACTION_ENDED =
+  "метка транзакции вызова не снята — гарантия " +
   "только-чтения не подтверждена, результат не печатается";
 
 export const argsSchema = z.object({
   // Текст отсутствия — свой: голый `mpu sql-ro` спека завершает кодом 2,
   // и сообщение обязано называть, чего не хватает, а не показывать
   // формулировку схемы («expected string, received undefined»).
-  selector: z.string({
-    error: "нужен target: client_id, sl-N или dev:<client_id>",
-  }).describe(
-    "client_id / spreadsheet_id / заголовок (подстрока), sl-N " +
-      "или dev:<client_id>",
-  ),
-  sql: z.string().optional().describe(
-    "SQL; не задан — читается из stdin",
-  ),
+  selector: z
+    .string({
+      error: "нужен target: client_id, sl-N или dev:<client_id>",
+    })
+    .describe(
+      "client_id / spreadsheet_id / заголовок (подстрока), sl-N " +
+        "или dev:<client_id>",
+    ),
+  sql: z.string().optional().describe("SQL; не задан — читается из stdin"),
   server: z.string().optional().describe("override резолва: sl-N"),
-  dry: z.boolean().default(false).describe(
-    "только мета-блок и SQL, без подключения",
-  ),
+  dry: z
+    .boolean()
+    .default(false)
+    .describe("только мета-блок и SQL, без подключения"),
   json: z.boolean().default(false).describe("результат как JSON"),
   md: z.boolean().default(false).describe("результат как markdown-таблица"),
   verbose: z.boolean().default(false).describe("печатать мета-блок"),

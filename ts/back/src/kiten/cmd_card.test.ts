@@ -163,10 +163,7 @@ function run(argv: readonly string[], io: CommandIo): Promise<KitenCardResult> {
 }
 
 /** Текст вывода так, как его напечатает точка входа. */
-async function output(
-  argv: readonly string[],
-  io: CommandIo,
-): Promise<string> {
+async function output(argv: readonly string[], io: CommandIo): Promise<string> {
   return kitenCardCommand.renderResult(await run(argv, io), argv);
 }
 
@@ -199,8 +196,9 @@ describe("живая карточка: три вида вывода сходят
   it("--json не зависит от --images", async () => {
     const { io, baseUrl, stop } = await stand(live);
     try {
-      expect(await output([SELECTOR, "--json", "--no-images"], io))
-        .toStrictEqual(await expected("live-json-stdout.json", baseUrl));
+      expect(
+        await output([SELECTOR, "--json", "--no-images"], io),
+      ).toStrictEqual(await expected("live-json-stdout.json", baseUrl));
     } finally {
       await stop();
     }
@@ -270,10 +268,11 @@ describe("синтетическая карточка: key, участники, 
   it("--md --no-comments", async () => {
     const { io, baseUrl, stop } = await stand(synthetic);
     try {
-      expect(await output([SELECTOR, "--md", "--no-comments"], io))
-        .toStrictEqual(
-          await expected("synthetic-md-no-comments-stdout.md", baseUrl),
-        );
+      expect(
+        await output([SELECTOR, "--md", "--no-comments"], io),
+      ).toStrictEqual(
+        await expected("synthetic-md-no-comments-stdout.md", baseUrl),
+      );
     } finally {
       await stop();
     }
@@ -315,11 +314,14 @@ describe("файловое поле: массив в JSON, элементы че
     [CARD_PATH]: () => body("raw-card-file-property.json"),
     [COMMENTS_PATH]: () => Response.json([]),
     [PROPERTIES_PATH]: () =>
-      Response.json([...LIVE_PROPERTIES, {
-        id: 610303,
-        name: "9. AI-артефакт",
-        type: "file",
-      }]),
+      Response.json([
+        ...LIVE_PROPERTIES,
+        {
+          id: 610303,
+          name: "9. AI-артефакт",
+          type: "file",
+        },
+      ]),
   };
 
   it("JSON: массив остаётся массивом", async () => {
@@ -363,9 +365,7 @@ describe("файловое поле: массив в JSON, элементы че
       const text = await output([SELECTOR, "--md"], io);
 
       expect(
-        text.includes(
-          "- 9. AI-артефакт: 99536012-bcad-4801-bfe7-30c958fcbf22",
-        ),
+        text.includes("- 9. AI-артефакт: 99536012-bcad-4801-bfe7-30c958fcbf22"),
         "значение-массив печатается элементами, а не представлением списка",
       ).toBe(true);
     } finally {
@@ -441,18 +441,25 @@ describe("выбор вида: терминал — наглядный, пайп
 });
 
 it("--no-images: картинки-вложения уходят из наглядного вида", async () => {
-  const { io, stop } = await stand({
-    [CARD_PATH]: () =>
-      Response.json({
-        ...EMPTY_CARD,
-        files: [
-          { id: 1, url: "https://files.example.test/a.png", name: "схема.png" },
-          { id: 2, url: "https://files.example.test/b.txt", name: "лог.txt" },
-        ],
-      }),
-    [COMMENTS_PATH]: () => Response.json([]),
-    [PROPERTIES_PATH]: () => Response.json([]),
-  }, true);
+  const { io, stop } = await stand(
+    {
+      [CARD_PATH]: () =>
+        Response.json({
+          ...EMPTY_CARD,
+          files: [
+            {
+              id: 1,
+              url: "https://files.example.test/a.png",
+              name: "схема.png",
+            },
+            { id: 2, url: "https://files.example.test/b.txt", name: "лог.txt" },
+          ],
+        }),
+      [COMMENTS_PATH]: () => Response.json([]),
+      [PROPERTIES_PATH]: () => Response.json([]),
+    },
+    true,
+  );
   try {
     const shown = await output([SELECTOR], io);
     const hidden = await output([SELECTOR, "--no-images"], io);
@@ -473,8 +480,9 @@ it("недоступная карточка: 403 с пустым телом, exi
   try {
     const err = await rejected(() => run(["99999999"], io), DomainError);
 
-    expect(`${formatCommandError(kitenCardCommand.errorName, err)}\n`)
-      .toStrictEqual(await golden("err-not-found-stderr.txt"));
+    expect(
+      `${formatCommandError(kitenCardCommand.errorName, err)}\n`,
+    ).toStrictEqual(await golden("err-not-found-stderr.txt"));
     // Комментарии и справочник не запрашиваются: карточки нет.
     expect(paths(seen)).toStrictEqual(["/api/latest/cards/99999999"]);
   } finally {
@@ -522,21 +530,30 @@ describe("метка этапа: закрытый список и число в�
 });
 
 it("наглядный вид: свойства и комментарии без markdown-разметки", async () => {
-  const { io, stop } = await stand({
-    [CARD_PATH]: () =>
-      Response.json({
-        ...EMPTY_CARD,
-        properties: { id_291984: "гипотеза", id_610303: ["uid-1", "uid-2"] },
-      }),
-    [COMMENTS_PATH]: () =>
-      Response.json([{
-        id: 5001,
-        text: "первый",
-        created: "2026-08-14T16:33:42.672Z",
-        author: { id: 700001, full_name: "Иванов Иван", username: "ivanov" },
-      }]),
-    [PROPERTIES_PATH]: () => Response.json(LIVE_PROPERTIES),
-  }, true);
+  const { io, stop } = await stand(
+    {
+      [CARD_PATH]: () =>
+        Response.json({
+          ...EMPTY_CARD,
+          properties: { id_291984: "гипотеза", id_610303: ["uid-1", "uid-2"] },
+        }),
+      [COMMENTS_PATH]: () =>
+        Response.json([
+          {
+            id: 5001,
+            text: "первый",
+            created: "2026-08-14T16:33:42.672Z",
+            author: {
+              id: 700001,
+              full_name: "Иванов Иван",
+              username: "ivanov",
+            },
+          },
+        ]),
+      [PROPERTIES_PATH]: () => Response.json(LIVE_PROPERTIES),
+    },
+    true,
+  );
   try {
     const text = await output([SELECTOR], io);
 
@@ -584,9 +601,11 @@ it("границы markdown: нет автора, нет момента, фай�
       "без момента разделителя в заголовке нет",
     ).toBe(false);
     // Имени у файла нет — подписью служит сам адрес.
-    expect(text.includes(
-      "- [https://files.example.test/c.bin](https://files.example.test/c.bin)",
-    )).toBe(true);
+    expect(
+      text.includes(
+        "- [https://files.example.test/c.bin](https://files.example.test/c.bin)",
+      ),
+    ).toBe(true);
   } finally {
     await stop();
   }
@@ -608,9 +627,7 @@ it("порядок комментариев: по created, при равных �
 
     // Момент старше — раньше; при равных моментах разбирает id.
     expect(result.card.comments.map((comment) => comment.id)).toStrictEqual([
-      10,
-      20,
-      30,
+      10, 20, 30,
     ]);
   } finally {
     await stop();

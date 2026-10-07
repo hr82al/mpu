@@ -212,11 +212,10 @@ export async function httpGetBytes(
     options.timeouts ?? DEFAULT_TIMEOUTS,
     undefined,
     (signal, onHeaders) =>
-      follow(
-        { url, method: "GET", headers: options.headers ?? {} },
-        choice,
-        { signal, onHeaders },
-      ),
+      follow({ url, method: "GET", headers: options.headers ?? {} }, choice, {
+        signal,
+        onHeaders,
+      }),
   );
 }
 
@@ -285,21 +284,24 @@ async function withTimeouts(
   let timeoutMessage: string | undefined;
   const headersTimer = setTimeout(() => {
     if (controller.signal.aborted) return;
-    timeoutMessage =
-      `no response headers within ${timeouts.headersTimeoutMs}ms`;
+    timeoutMessage = `no response headers within ${timeouts.headersTimeoutMs}ms`;
     controller.abort();
   }, timeouts.headersTimeoutMs);
   const total = limited(timeouts.totalTimeoutMs);
-  const totalTimer = total === null ? undefined : setTimeout(() => {
-    if (controller.signal.aborted) return;
-    timeoutMessage = `no response within ${total}ms`;
-    controller.abort();
-  }, total);
+  const totalTimer =
+    total === null
+      ? undefined
+      : setTimeout(() => {
+          if (controller.signal.aborted) return;
+          timeoutMessage = `no response within ${total}ms`;
+          controller.abort();
+        }, total);
   // Отмена снаружи — тот же контроллер: причина отказа тогда — текст
   // рантайма об отмене, а таймеры снимаются в `finally` как обычно.
-  const signal = outside === undefined
-    ? controller.signal
-    : AbortSignal.any([controller.signal, outside]);
+  const signal =
+    outside === undefined
+      ? controller.signal
+      : AbortSignal.any([controller.signal, outside]);
   try {
     return await run(signal, () => clearTimeout(headersTimer));
   } catch (err) {
@@ -395,7 +397,7 @@ async function follow(
   call: CallControl,
 ): Promise<HttpBytesResponse> {
   let hop = first;
-  for (let redirects = 0;; redirects++) {
+  for (let redirects = 0; ; redirects++) {
     const { location, ...response } = await sendHop(hop, choice, call);
     if (!isRedirect(response.status, location)) return response;
     if (redirects === MAX_REDIRECTS) {
@@ -421,14 +423,14 @@ function isRedirect(
  */
 function redirected(hop: Hop, status: number, location: string): Hop {
   const url = redirectTarget(hop.url, location);
-  const toGet = (status === 303 && hop.method !== "GET" &&
-    hop.method !== "HEAD") ||
+  const toGet =
+    (status === 303 && hop.method !== "GET" && hop.method !== "HEAD") ||
     ((status === 301 || status === 302) && hop.method === "POST");
   const dropped = new Set<string>(toGet ? BODY_HEADERS : []);
   if (url.origin !== hop.url.origin) dropped.add("authorization");
   const headers = Object.fromEntries(
-    Object.entries(hop.headers).filter(([name]) =>
-      !dropped.has(name.toLowerCase())
+    Object.entries(hop.headers).filter(
+      ([name]) => !dropped.has(name.toLowerCase()),
     ),
   );
   return toGet
@@ -465,10 +467,13 @@ async function sendHop(
   const route = routeFor(hop.url, choice);
   try {
     // Длина тела известна всегда, и без неё `node:http` уходит в chunked.
-    const headers = hop.body === undefined ? hop.headers : {
-      ...hop.headers,
-      "Content-Length": String(byteLength(hop.body)),
-    };
+    const headers =
+      hop.body === undefined
+        ? hop.headers
+        : {
+            ...hop.headers,
+            "Content-Length": String(byteLength(hop.body)),
+          };
     const { request, options } = await route.open(hop.url, headers);
     return await exchange(
       request({
@@ -551,7 +556,8 @@ function collect(
         bytes: new Uint8Array(Buffer.concat(chunks)),
         retryAfter: single(res.headers["retry-after"]),
         location,
-      }));
+      }),
+    );
     res.on("error", reject);
   });
 }

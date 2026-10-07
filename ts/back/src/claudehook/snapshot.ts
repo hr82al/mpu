@@ -114,23 +114,25 @@ export class Snapshot {
     return new Form({
       places: rest,
       kind: URGENT,
-      steps: [{
-        head: `🖥 ${first}`,
-        get text() {
-          return shown();
-        },
-        options: [],
-        choice: { start: () => this.#selection() },
-        reply: {
-          write: (text, events) => {
-            this.#events = events;
-            this.#queue((asked, stop) => this.#typed(asked, stop, text));
-            return { deliver: () => Promise.resolve() };
+      steps: [
+        {
+          head: `🖥 ${first}`,
+          get text() {
+            return shown();
           },
+          options: [],
+          choice: { start: () => this.#selection() },
+          reply: {
+            write: (text, events) => {
+              this.#events = events;
+              this.#queue((asked, stop) => this.#typed(asked, stop, text));
+              return { deliver: () => Promise.resolve() };
+            },
+          },
+          clip: KEEP_TAIL,
+          markup: BOLD_FIRST_LINE,
         },
-        clip: KEEP_TAIL,
-        markup: BOLD_FIRST_LINE,
-      }],
+      ],
     });
   }
 
@@ -167,14 +169,18 @@ export class Snapshot {
         };
       },
       buttons: () => {
-        const items = this.#dialog.items().map((item, index): Button[] => [{
-          label: item.label,
-          key: new OptionKey(this.#numbered(index)),
-        }]);
-        const keys = KEYS.map((one, index): Button => ({
-          label: one.label,
-          key: new OptionKey(this.#numbered(KEY_SLOT + index)),
-        }));
+        const items = this.#dialog.items().map((item, index): Button[] => [
+          {
+            label: item.label,
+            key: new OptionKey(this.#numbered(index)),
+          },
+        ]);
+        const keys = KEYS.map(
+          (one, index): Button => ({
+            label: one.label,
+            key: new OptionKey(this.#numbered(KEY_SLOT + index)),
+          }),
+        );
         const screen: Button = {
           label: "весь экран",
           key: new OptionKey(this.#numbered(SCREEN_SLOT)),
@@ -191,13 +197,17 @@ export class Snapshot {
 
   /** Работа каждой кнопки нынешнего блока — по номеру кнопки. */
   #works(): ReadonlyMap<number, Work> {
-    const press = (key: string): Work => (asked, stop) =>
-      this.#pressed(asked, stop, key);
+    const press =
+      (key: string): Work =>
+      (asked, stop) =>
+        this.#pressed(asked, stop, key);
     return new Map<number, Work>([
-      ...this.#dialog.items().map((item, index): [number, Work] => [
-        this.#numbered(index),
-        press(String(item.number)),
-      ]),
+      ...this.#dialog
+        .items()
+        .map((item, index): [number, Work] => [
+          this.#numbered(index),
+          press(String(item.number)),
+        ]),
       ...KEYS.map((one, index): [number, Work] => [
         this.#numbered(KEY_SLOT + index),
         press(one.key),
@@ -273,10 +283,8 @@ export class Snapshot {
     if (stop.aborted) return;
     const next = await this.#parts.pane.type(
       text,
-      this.#afterKeys(
-        asked,
-        stop,
-        () => this.#post({ text: NOTHING_SENT, entities: [] }, "ответ"),
+      this.#afterKeys(asked, stop, () =>
+        this.#post({ text: NOTHING_SENT, entities: [] }, "ответ"),
       ),
     );
     await next();

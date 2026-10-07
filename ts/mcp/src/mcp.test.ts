@@ -61,20 +61,26 @@ it("tools/list — ровно help и mpu, схема — голден, опис
         ),
       );
       expect(listed).toStrictEqual(golden);
-      expect(listed.tools.map((tool: { name: string }) => tool.name))
-        .toStrictEqual(["help", "mpu"]);
-    })
+      expect(
+        listed.tools.map((tool: { name: string }) => tool.name),
+      ).toStrictEqual(["help", "mpu"]);
+    }),
   ));
 
 /** Та же строка через `POST /agent/line` с основным токеном. */
 async function direct(stack: Stack, words: readonly string[]) {
   return await collected(
     stack.back,
-    await post(stack.back, "/agent/line", {
-      words,
-      cwd: process.cwd(),
-      human: false,
-    }, { accept: "application/json" }),
+    await post(
+      stack.back,
+      "/agent/line",
+      {
+        words,
+        cwd: process.cwd(),
+        human: false,
+      },
+      { accept: "application/json" },
+    ),
   );
 }
 
@@ -82,10 +88,12 @@ it("mpu: version и kitn — итог равен POST /agent/line", () =>
   withStack((stack) =>
     withClient(stack, async (client) => {
       const version = await call(stack, client, "mpu", { words: ["version"] });
-      expect(version.content).toStrictEqual([{
-        type: "text",
-        text: "0.1.0\n",
-      }]);
+      expect(version.content).toStrictEqual([
+        {
+          type: "text",
+          text: "0.1.0\n",
+        },
+      ]);
       expect(version.isError).toBe(false);
       expect(version.structuredContent).toStrictEqual(
         await direct(stack, ["version"]),
@@ -102,7 +110,7 @@ it("mpu: version и kitn — итог равен POST /agent/line", () =>
       expect(kitn.structuredContent).toStrictEqual(
         await direct(stack, ["kitn"]),
       );
-    })
+    }),
   ));
 
 /** Отказ-объект из ответа тула; у успешной строки его нет. */
@@ -122,8 +130,7 @@ it("отказ — объект в structuredContent, hint — слова стр
         reason: "значение — ключом",
         hint: ["kiten", "comment", "id:", "55", "text:", "ok"],
         candidates: [],
-        text:
-          "mpu kiten comment: значение — ключом: mpu kiten comment id: 55 text: ok",
+        text: "mpu kiten comment: значение — ключом: mpu kiten comment id: 55 text: ok",
       });
       const kitn = await call(stack, client, "mpu", { words: ["kitn"] });
       expect(refusalOf(kitn)).toStrictEqual({
@@ -146,7 +153,7 @@ it("отказ — объект в structuredContent, hint — слова стр
       ]);
       const version = await call(stack, client, "mpu", { words: ["version"] });
       expect("refusal" in (version.structuredContent ?? {})).toBe(false);
-    })
+    }),
   ));
 
 it("отказ правил deny — hint null", () =>
@@ -180,11 +187,9 @@ it("help: корень без path, группа по path", () =>
       expect(kiten.structuredContent).toStrictEqual(
         await direct(stack, ["kiten", "help"]),
       );
-      const text = String(
-        (kiten.content as { text: string }[])[0].text,
-      );
+      const text = String((kiten.content as { text: string }[])[0].text);
       expect(text.includes("mpu kiten")).toBe(true);
-    })
+    }),
   ));
 
 it("mpu: пустые слова — -32602", () =>
@@ -199,27 +204,31 @@ it("mpu: пустые слова — -32602", () =>
         }
         expect(code, JSON.stringify(args)).toBe(-32602);
       }
-    })
+    }),
   ));
 
 it("правило через mcp не меняется, вопроса нет", () =>
   withStack(async (stack) => {
     const asked: ElicitRequest[] = [];
-    await withClient(stack, async (client) => {
-      await call(stack, client, "mpu", { words: ["version"] });
-      const before = await readFile(stack.back.policyFile);
-      const result = await call(stack, client, "mpu", {
-        words: ["allow:", "kiten ls"],
-      });
-      expect(result.isError).toBe(true);
-      expect((result.content as { text: string }[])[1].text).toBe(
-        "stderr:\nизменить правила может только человек\n",
-      );
-      expect(await readFile(stack.back.policyFile)).toStrictEqual(before);
-    }, (request) => {
-      asked.push(request);
-      return { action: "accept", content: {} };
-    });
+    await withClient(
+      stack,
+      async (client) => {
+        await call(stack, client, "mpu", { words: ["version"] });
+        const before = await readFile(stack.back.policyFile);
+        const result = await call(stack, client, "mpu", {
+          words: ["allow:", "kiten ls"],
+        });
+        expect(result.isError).toBe(true);
+        expect((result.content as { text: string }[])[1].text).toBe(
+          "stderr:\nизменить правила может только человек\n",
+        );
+        expect(await readFile(stack.back.policyFile)).toStrictEqual(before);
+      },
+      (request) => {
+        asked.push(request);
+        return { action: "accept", content: {} };
+      },
+    );
     expect(asked).toStrictEqual([]);
   }));
 
@@ -240,11 +249,15 @@ describe("вопрос формой: accept — исполнено, иначе �
   // Ответы клиента из голдена — схемой протокола: импорт JSON знает у
   // `action` только `string`.
   const replies = {
-    accept: ElicitResultSchema.parse(elicitation.client_responses.accept.result),
+    accept: ElicitResultSchema.parse(
+      elicitation.client_responses.accept.result,
+    ),
     decline: ElicitResultSchema.parse(
       elicitation.client_responses.decline.result,
     ),
-    escape: ElicitResultSchema.parse(elicitation.client_responses.escape.result),
+    escape: ElicitResultSchema.parse(
+      elicitation.client_responses.escape.result,
+    ),
   };
   const cases: readonly (readonly [string, Elicit, boolean])[] = [
     ["accept", () => replies.accept, true],
@@ -270,71 +283,77 @@ describe("вопрос формой: accept — исполнено, иначе �
       withStack(async (stack) => {
         askOnAliases(stack);
         const asked: ElicitRequest[] = [];
-        await withClient(stack, async (client) => {
-          const result = await call(stack, client, "mpu", {
-            words: ["ask", "xlsx", "alias", "ls"],
-          });
-          expect(result.isError).toStrictEqual(!runs);
-          if (runs) {
-            expect(stack.back.called).toStrictEqual(["xlsx alias ls"]);
-            allowAliases(stack);
-            expect(result.structuredContent).toStrictEqual(
-              await direct(stack, ["xlsx", "alias", "ls"]),
+        await withClient(
+          stack,
+          async (client) => {
+            const result = await call(stack, client, "mpu", {
+              words: ["ask", "xlsx", "alias", "ls"],
+            });
+            expect(result.isError).toStrictEqual(!runs);
+            if (runs) {
+              expect(stack.back.called).toStrictEqual(["xlsx alias ls"]);
+              allowAliases(stack);
+              expect(result.structuredContent).toStrictEqual(
+                await direct(stack, ["xlsx", "alias", "ls"]),
+              );
+              return;
+            }
+            expect((result.content as { text: string }[])[1].text).toBe(
+              "stderr:\nmpu xlsx alias ls: не подтверждено\n",
             );
-            return;
-          }
-          expect((result.content as { text: string }[])[1].text).toBe(
-            "stderr:\nmpu xlsx alias ls: не подтверждено\n",
-          );
-          expect(stack.back.called).toStrictEqual([]);
-        }, (request, extra) => {
-          asked.push(request);
-          return answer(request, extra);
-        });
+            expect(stack.back.called).toStrictEqual([]);
+          },
+          (request, extra) => {
+            asked.push(request);
+            return answer(request, extra);
+          },
+        );
         expect(asked.length).toBe(1);
         const form = elicitation.server_request.params;
         expect(asked[0].params).toStrictEqual({
           ...form,
           message: QUESTION,
         });
-      }));
-  }
-  it(
-    "клиент без elicitation — спросить некого",
-    () =>
-      withStack(async (stack) => {
-        askOnAliases(stack);
-        await withClient(stack, async (client) => {
-          const result = await call(stack, client, "mpu", {
-            words: ["ask", "xlsx", "alias", "ls"],
-          });
-          expect(result.isError).toBe(true);
-          expect((result.content as { text: string }[])[1].text).toBe(
-            "stderr:\nmpu xlsx alias ls: нужно подтверждение, а спросить некого\n",
-          );
-        });
-        expect(stack.back.called).toStrictEqual([]);
       }),
-  );
+    );
+  }
+  it("клиент без elicitation — спросить некого", () =>
+    withStack(async (stack) => {
+      askOnAliases(stack);
+      await withClient(stack, async (client) => {
+        const result = await call(stack, client, "mpu", {
+          words: ["ask", "xlsx", "alias", "ls"],
+        });
+        expect(result.isError).toBe(true);
+        expect((result.content as { text: string }[])[1].text).toBe(
+          "stderr:\nmpu xlsx alias ls: нужно подтверждение, а спросить некого\n",
+        );
+      });
+      expect(stack.back.called).toStrictEqual([]);
+    }));
 });
 
 it("ask-строка без двери — ошибка с подсказкой, формы нет", () =>
   withStack(async (stack) => {
     askOnAliases(stack);
     const asked: ElicitRequest[] = [];
-    await withClient(stack, async (client) => {
-      const result = await call(stack, client, "mpu", {
-        words: ["xlsx", "alias", "ls"],
-      });
-      expect(result.isError).toBe(true);
-      expect((result.content as { text: string }[])[1].text).toStrictEqual(
-        "stderr:\nmpu xlsx alias ls: требует подтверждения — " +
-          "вызывай mpu ask xlsx alias ls\n",
-      );
-    }, (request) => {
-      asked.push(request);
-      return { action: "accept", content: {} };
-    });
+    await withClient(
+      stack,
+      async (client) => {
+        const result = await call(stack, client, "mpu", {
+          words: ["xlsx", "alias", "ls"],
+        });
+        expect(result.isError).toBe(true);
+        expect((result.content as { text: string }[])[1].text).toStrictEqual(
+          "stderr:\nmpu xlsx alias ls: требует подтверждения — " +
+            "вызывай mpu ask xlsx alias ls\n",
+        );
+      },
+      (request) => {
+        asked.push(request);
+        return { action: "accept", content: {} };
+      },
+    );
     expect(asked).toStrictEqual([]);
     expect(stack.back.called).toStrictEqual([]);
   }));
@@ -367,8 +386,9 @@ it("доступ: неизвестная сессия — 404, чужой ток
     expect(await send({ Authorization: `Bearer ${stack.back.token}` })).toBe(
       401,
     );
-    expect(await send({ Authorization: `Bearer ${stack.back.agentToken}` }))
-      .toBe(401);
+    expect(
+      await send({ Authorization: `Bearer ${stack.back.agentToken}` }),
+    ).toBe(401);
     expect(await send({ Origin: "http://evil.localhost" })).toBe(403);
     // Без сессии и не `initialize` — отказ SDK, сессия не заводится.
     expect(await send(mine)).toBe(400);
@@ -387,10 +407,13 @@ it("GET /health — жив, pid, без токена", () =>
     const response = await fetch(stack.url.replace("/mcp", "/health"));
     const text = await response.text();
     stack.seen.push(text);
-    expect([response.status, JSON.parse(text)]).toStrictEqual([200, {
-      ok: true,
-      pid: process.pid,
-    }]);
+    expect([response.status, JSON.parse(text)]).toStrictEqual([
+      200,
+      {
+        ok: true,
+        pid: process.pid,
+      },
+    ]);
     const post = await fetch(stack.url.replace("/mcp", "/health"), {
       method: "POST",
     });
@@ -410,11 +433,11 @@ it("it: прошлый результат — только своей сесси
           { type: "text", text: "" },
           {
             type: "text",
-            text:
-              "stderr:\nmpu it: нет прошлого результата у этого вызывающего\n",
+            text: "stderr:\nmpu it: нет прошлого результата у этого вызывающего\n",
           },
         ]);
         const own = await call(stack, first, "mpu", { words: ["it"] });
         expect(own.content).toStrictEqual(stamp.content);
-      }))
+      }),
+    ),
   ));

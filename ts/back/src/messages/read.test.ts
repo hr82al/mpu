@@ -31,10 +31,12 @@ async function plain(step: MessageStep) {
 
 const SQLRO: ReceiverDescription = {
   unary: [],
-  keyword: [{
-    keys: { query: "value", "seller-id": "value" },
-    required: ["query", "seller-id"],
-  }],
+  keyword: [
+    {
+      keys: { query: "value", "seller-id": "value" },
+      required: ["query", "seller-id"],
+    },
+  ],
 };
 
 it("шаг повторяется", async () => {
@@ -99,13 +101,11 @@ describe("правила спеки вне эталона: один шаг", () 
 });
 
 describe("правила спеки вне эталона: унарное за значением — результату", () => {
-  for (
-    const words of [
-      ["card:", "1", "--help"],
-      ["card:", "1", LITERAL, "x"],
-      ["card:", "1", "x"],
-    ]
-  ) {
+  for (const words of [
+    ["card:", "1", "--help"],
+    ["card:", "1", LITERAL, "x"],
+    ["card:", "1", "x"],
+  ]) {
     it(words.join(" "), async () => {
       expect(await plain(readMessage(words, KITEN))).toStrictEqual({
         message: { keyword: { card: "1" } },
@@ -116,40 +116,41 @@ describe("правила спеки вне эталона: унарное за �
 });
 
 it("правила спеки вне эталона: короткий флаг за значением", () => {
-  const err = thrown(
-    () => readMessage(["card:", "1", "-v"], KITEN),
-    StrayWord,
-  );
+  const err = thrown(() => readMessage(["card:", "1", "-v"], KITEN), StrayWord);
   expect(err.message).toBe("значение 1 не понимает -v");
-  expect([err.value, err.word, err.taken]).toStrictEqual(["1", "-v", [
-    "card:",
+  expect([err.value, err.word, err.taken]).toStrictEqual([
     "1",
-  ]]);
+    "-v",
+    ["card:", "1"],
+  ]);
 });
 
 describe("правила спеки вне эталона: слово-не-значение", () => {
-  for (const words of [["card:", "--help"], ["card:", END]]) {
+  for (const words of [
+    ["card:", "--help"],
+    ["card:", END],
+  ]) {
     it(words.join(" "), () => {
-      const err = thrown(
-        () => readMessage(words, KITEN),
-        MessageParseError,
-      );
+      const err = thrown(() => readMessage(words, KITEN), MessageParseError);
       expect(err.message).toBe("у ключа card нет значения");
     });
   }
 });
 
 it("у приёмника с хвостом пустая строка — всё равно справка", async () => {
-  expect(await plain(readMessage([], { unary: [], keyword: [], tail: "args" })))
-    .toStrictEqual({ message: { unary: "help" }, rest: [] });
+  expect(
+    await plain(readMessage([], { unary: [], keyword: [], tail: "args" })),
+  ).toStrictEqual({ message: { unary: "help" }, rest: [] });
 });
 
 const LISTED: ReceiverDescription = {
   unary: [],
-  keyword: [{
-    keys: { range: "list", dry: "flag" },
-    required: ["range"],
-  }],
+  keyword: [
+    {
+      keys: { range: "list", dry: "flag" },
+      required: ["range"],
+    },
+  ],
 };
 
 describe("выражения значений: список, флаг, лишнее слово", () => {
@@ -178,12 +179,10 @@ describe("выражения значений: список, флаг, лишн�
       expect(err.message).toBe("ключ dry ждёт true или false");
     });
   }
-  for (
-    const [value, text] of [
-      [["dry:", "true"], "true"],
-      [["range:", GRAMMAR.stdin], GRAMMAR.stdin],
-    ]
-  ) {
+  for (const [value, text] of [
+    [["dry:", "true"], "true"],
+    [["range:", GRAMMAR.stdin], GRAMMAR.stdin],
+  ]) {
     it(`лишнее слово за ${text} — отказ с ним`, () => {
       const err = thrown(
         () => readMessage(["range:", "A1", ...value, "-v"], LISTED),

@@ -97,9 +97,9 @@ export async function waitFor(
     if (cell?.kind === kind) return cell;
     if (performance.now() >= deadline) {
       throw new CellError(
-        `${MARKER[kind]} не появился за ${
-          Math.round(options.timeoutMs / 1000)
-        } с`,
+        `${MARKER[kind]} не появился за ${Math.round(
+          options.timeoutMs / 1000,
+        )} с`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, options.everyMs));

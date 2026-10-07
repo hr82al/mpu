@@ -39,11 +39,14 @@ async function verdict(
   }
   let stderr = "";
   const finding = await ahead.verdict(decide, entryOf(words).ahead);
-  const code = await finding.settle({
-    stdout: () => {},
-    stderr: (text) => void (stderr += text),
-    refusal: (_data: RefusalData) => {},
-  }, () => Promise.resolve(0));
+  const code = await finding.settle(
+    {
+      stdout: () => {},
+      stderr: (text) => void (stderr += text),
+      refusal: (_data: RefusalData) => {},
+    },
+    () => Promise.resolve(0),
+  );
   return { code, stderr };
 }
 

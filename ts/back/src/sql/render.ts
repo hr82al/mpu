@@ -22,22 +22,22 @@ export type SqlValue =
 /** Результат первого оператора: набор строк либо его отсутствие. */
 export type SqlOutcome =
   | {
-    readonly kind: "rows";
-    readonly columns: readonly string[];
-    readonly rows: readonly (readonly SqlValue[])[];
-    /**
-     * Типы колонок (OID) в порядке `columns`; их сообщает сервер вместе
-     * с именами. Печати они не нужны и она их не смотрит — нужны тому,
-     * кто переносит значения в другую таблицу: по одному лишь значению
-     * JS массив `text[]` не отличить от массива в `json` (`src/copy/`).
-     */
-    readonly oids?: readonly number[];
-  }
+      readonly kind: "rows";
+      readonly columns: readonly string[];
+      readonly rows: readonly (readonly SqlValue[])[];
+      /**
+       * Типы колонок (OID) в порядке `columns`; их сообщает сервер вместе
+       * с именами. Печати они не нужны и она их не смотрит — нужны тому,
+       * кто переносит значения в другую таблицу: по одному лишь значению
+       * JS массив `text[]` не отличить от массива в `json` (`src/copy/`).
+       */
+      readonly oids?: readonly number[];
+    }
   | {
-    readonly kind: "done";
-    /** Затронутые строки, как их сообщает сервер; `SET` — `-1`. */
-    readonly rowcount: number;
-  };
+      readonly kind: "done";
+      /** Затронутые строки, как их сообщает сервер; `SET` — `-1`. */
+      readonly rowcount: number;
+    };
 
 /** Форма вывода: умолчание и два флага команды. */
 export type OutputFormat = "table" | "json" | "md";
@@ -83,7 +83,7 @@ function table(
   // у движка предел на число аргументов (около 125 тысяч), а выборка
   // ad-hoc запроса бывает и больше — раскрытие роняло бы её RangeError'ом.
   const widths = columns.map((name, i) =>
-    cells.reduce((max, row) => Math.max(max, width(row[i])), width(name))
+    cells.reduce((max, row) => Math.max(max, width(row[i])), width(name)),
   );
   const line = (values: readonly string[]) =>
     `${values.map((value, i) => pad(value, widths[i])).join("  ")}\n`;
@@ -103,12 +103,11 @@ function json(
   // Объект собирается из колонок, а не из готовой записи: у записи
   // ключ-число ушёл бы в начало по правилам порядка ключей JS, а порядок
   // колонок задаёт сервер.
-  const items = rows.map((row) =>
-    `{${
-      columns
+  const items = rows.map(
+    (row) =>
+      `{${columns
         .map((name, i) => `${JSON.stringify(name)}: ${jsonValue(row[i])}`)
-        .join(", ")
-    }}`
+        .join(", ")}}`,
   );
   return `[${items.join(", ")}]\n`;
 }
@@ -119,10 +118,13 @@ function markdown(
   rows: readonly (readonly SqlValue[])[],
 ): string {
   const line = (values: readonly string[]) => `| ${values.join(" | ")} |\n`;
-  return line(columns) +
+  return (
+    line(columns) +
     line(columns.map(() => "---")) +
-    rows.map((row) => line(columns.map((_, i) => escape(textOf(row[i])))))
-      .join("");
+    rows
+      .map((row) => line(columns.map((_, i) => escape(textOf(row[i])))))
+      .join("")
+  );
 }
 
 /**
@@ -144,11 +146,9 @@ function textOf(value: SqlValue): string {
 function jsonValue(value: SqlValue): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(jsonValue).join(", ")}]`;
-  return `{${
-    Object.entries(value)
-      .map(([key, item]) => `${JSON.stringify(key)}: ${jsonValue(item)}`)
-      .join(", ")
-  }}`;
+  return `{${Object.entries(value)
+    .map(([key, item]) => `${JSON.stringify(key)}: ${jsonValue(item)}`)
+    .join(", ")}}`;
 }
 
 /** Экранирование ячейки markdown: спецсимволы разметки и перевод строки. */

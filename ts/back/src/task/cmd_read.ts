@@ -26,9 +26,10 @@ import {
 } from "./project.ts";
 import { RULES_TEXT } from "./texts.ts";
 
-const SOME_PROJECT = z.string().optional().describe(
-  "имя проекта; без него — все проекты",
-);
+const SOME_PROJECT = z
+  .string()
+  .optional()
+  .describe("имя проекта; без него — все проекты");
 const TEXT_RESULT = z.object({ text: z.string() });
 /** `end json` записи печатает массивом записей (`task.md`, «CLI-контракт»). */
 const JSON_RECORDS = z.boolean().default(false).describe("массив записей JSON");
@@ -91,12 +92,13 @@ stdout — тело побайтово, как подано. Exit: 0; 1 — та
   argsSchema: readArgs,
   resultSchema: TEXT_RESULT,
   run: (args, io: TaskIo) =>
-    Promise.resolve(withJournal(io, (projects) => {
-      const pick = args.kind === undefined
-        ? ANY_KIND
-        : onlyKind(kindNamed(args.kind));
-      return { text: projects.at(args.project).read(pick, args.keep) };
-    })),
+    Promise.resolve(
+      withJournal(io, (projects) => {
+        const pick =
+          args.kind === undefined ? ANY_KIND : onlyKind(kindNamed(args.kind));
+        return { text: projects.at(args.project).read(pick, args.keep) };
+      }),
+    ),
   render: (result) => result.text,
 });
 
@@ -128,12 +130,15 @@ export const REAL_TIME: Waiting = {
 
 const waitArgs = z.object({
   project: PROJECT,
-  kind: z.string({ error: "нужен kind: <вид>" }).describe(
-    "вид ожидаемого сообщения",
-  ),
-  timeout: z.number().int().min(0).default(3600).describe(
-    "сколько ждать, секунды",
-  ),
+  kind: z
+    .string({ error: "нужен kind: <вид>" })
+    .describe("вид ожидаемого сообщения"),
+  timeout: z
+    .number()
+    .int()
+    .min(0)
+    .default(3600)
+    .describe("сколько ждать, секунды"),
 });
 
 type WaitArgs = z.infer<typeof waitArgs>;
@@ -188,7 +193,8 @@ function awaited(
         kind,
         (body) => () => Promise.resolve(body),
         () => later,
-      ))();
+      ),
+    )();
   const later = async (): Promise<string> => {
     const left = deadline - waiting.now();
     if (left <= 0) {
@@ -212,15 +218,17 @@ function contracted<T>(act: () => T): T {
 }
 
 const statusResult = z.object({
-  rows: z.array(z.object({
-    project: z.string(),
-    portion: z.number(),
-    turn: z.string(),
-    last: z.string().nullable(),
-    age_s: z.number().nullable(),
-    unread: z.boolean(),
-    note: z.string(),
-  })),
+  rows: z.array(
+    z.object({
+      project: z.string(),
+      portion: z.number(),
+      turn: z.string(),
+      last: z.string().nullable(),
+      age_s: z.number().nullable(),
+      unread: z.boolean(),
+      note: z.string(),
+    }),
+  ),
 });
 
 type StatusResult = z.infer<typeof statusResult>;
@@ -250,9 +258,13 @@ Exit: 0; 2 — нет проекта.`,
     with: (_result, records) => ({ rows: records }),
   }),
   run: (args, io: TaskIo) =>
-    Promise.resolve(withJournal(io, (projects) => ({
-      rows: chosen(projects, args.project).map((one) => one.status(Date.now())),
-    }))),
+    Promise.resolve(
+      withJournal(io, (projects) => ({
+        rows: chosen(projects, args.project).map((one) =>
+          one.status(Date.now()),
+        ),
+      })),
+    ),
   render: (result, args) => rendered(result.rows, args.json, statusLine),
 });
 
@@ -262,15 +274,17 @@ function chosen(projects: Projects, name: string | undefined): Project[] {
 }
 
 function statusLine(row: StatusRow): string {
-  return [
-    row.project,
-    `порция ${row.portion}`,
-    row.turn,
-    row.last ?? "-",
-    row.age_s === null ? "-" : age(row.age_s),
-    row.unread ? "непрочитано" : "-",
-    row.note,
-  ].join("  ") + "\n";
+  return (
+    [
+      row.project,
+      `порция ${row.portion}`,
+      row.turn,
+      row.last ?? "-",
+      row.age_s === null ? "-" : age(row.age_s),
+      row.unread ? "непрочитано" : "-",
+      row.note,
+    ].join("  ") + "\n"
+  );
 }
 
 /** Возраст крупнейшей целой единицей: секунды, минуты, часы, дни. */
@@ -284,20 +298,25 @@ export function age(seconds: number): string {
 const historyArgs = z.object({
   mode: z.string().optional().describe("режим: clear"),
   project: SOME_PROJECT,
-  limit: z.number().int().min(1).optional().describe(
-    "сколько сообщений показать",
-  ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("сколько сообщений показать"),
   json: JSON_RECORDS,
 });
 
 const historyResult = z.object({
-  rows: z.array(z.object({
-    project: z.string(),
-    portion: z.number(),
-    kind: z.string(),
-    at: z.string(),
-    first_line: z.string(),
-  })),
+  rows: z.array(
+    z.object({
+      project: z.string(),
+      portion: z.number(),
+      kind: z.string(),
+      at: z.string(),
+      first_line: z.string(),
+    }),
+  ),
 });
 
 type HistoryResult = z.infer<typeof historyResult>;
@@ -365,23 +384,26 @@ Exit: 0; 2 — нет проекта.`,
     with: (_result, records) => ({ rows: records }),
   }),
   run: (args, io: TaskIo) =>
-    Promise.resolve(withJournal(
-      io,
-      (projects) =>
+    Promise.resolve(
+      withJournal(io, (projects) =>
         historyAct(args.mode).run(chosen(projects, args.project), args.limit),
-    )),
+      ),
+    ),
   render: (result, args) => rendered(result.rows, args.json, historyLine),
 });
 
 /** Журналы проектов вместе, от свежего к старому. */
 function freshFirst(projects: readonly Project[]): HistoryRow[] {
-  return projects.flatMap((one) => one.history())
+  return projects
+    .flatMap((one) => one.history())
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
 function historyLine(row: HistoryRow): string {
-  return [row.project, row.portion, row.kind, row.at, row.first_line]
-    .join("  ") + "\n";
+  return (
+    [row.project, row.portion, row.kind, row.at, row.first_line].join("  ") +
+    "\n"
+  );
 }
 
 /** Сколько последних порций показывает `decisions` по умолчанию. */
@@ -390,21 +412,28 @@ export const DECISIONS_LIMIT = 5;
 const decisionsArgs = z.object({
   project: PROJECT,
   query: z.string().optional().describe("слово в сообщениях порций"),
-  limit: z.number().int().min(1).default(DECISIONS_LIMIT).describe(
-    "сколько последних порций показать",
-  ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .default(DECISIONS_LIMIT)
+    .describe("сколько последних порций показать"),
 });
 
 const decisionsResult = z.object({
   rules: z.string().nullable(),
-  portions: z.array(z.object({
-    portion: z.number(),
-    items: z.array(z.object({
-      kind: z.string(),
-      at: z.string(),
-      text: z.string(),
-    })),
-  })),
+  portions: z.array(
+    z.object({
+      portion: z.number(),
+      items: z.array(
+        z.object({
+          kind: z.string(),
+          at: z.string(),
+          text: z.string(),
+        }),
+      ),
+    }),
+  ),
 });
 
 export const taskDecisionsCommand: Command = defineCommand({
@@ -437,7 +466,8 @@ Exit: 0; 2 — нет проекта.`,
   run: (args, io: TaskIo) =>
     Promise.resolve(
       withJournal(io, (projects) =>
-        projects.at(args.project).decisions(args.query ?? "", args.limit)),
+        projects.at(args.project).decisions(args.query ?? "", args.limit),
+      ),
     ),
   render: (result) => decisionsText(result),
 });
@@ -445,9 +475,10 @@ Exit: 0; 2 — нет проекта.`,
 /** Markdown документа `decisions`: его же несёт первое сообщение роли. */
 export function decisionsText(decisions: Decisions): string {
   const rules = `## Правила\n\n${decisions.rules ?? "(нет)"}\n`;
-  const portions = decisions.portions.map((one) =>
-    `\n## Порция ${one.portion}\n\n` +
-    one.items.map((item) => `- ${item.kind}: ${item.text}\n`).join("")
+  const portions = decisions.portions.map(
+    (one) =>
+      `\n## Порция ${one.portion}\n\n` +
+      one.items.map((item) => `- ${item.kind}: ${item.text}\n`).join(""),
   );
   return rules + portions.join("");
 }

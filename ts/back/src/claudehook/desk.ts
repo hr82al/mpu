@@ -121,19 +121,15 @@ export class PermissionDesk {
     const places = placesOf(transcript.title(), request.project, window);
     const key = sessionKeyOf(env);
     const sessions = this.#parts.sessions;
-    const asked = key.seatPermission(
-      sessions,
-      () => questions.ask(request.asking.form(places)),
+    const asked = key.seatPermission(sessions, () =>
+      questions.ask(request.asking.form(places)),
     );
     // Строка, оборванная раньше постановки, истекает тут же: ряд убирает
     // непоказанный вопрос молча, в чат ничего не уходит.
     const gone = AbortSignal.any([signal, this.#closing.signal]);
     // Сбой наблюдателя не оставляет сессию навсегда «с вопросом».
-    const outcome = await heldWhile(
-      key,
-      sessions,
-      asked,
-      () => this.#settled(asked, transcript, gone),
+    const outcome = await heldWhile(key, sessions, asked, () =>
+      this.#settled(asked, transcript, gone),
     );
     return outcome.read(replyOf(request.asking));
   }

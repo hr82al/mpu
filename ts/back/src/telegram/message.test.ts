@@ -36,20 +36,22 @@ it("сообщение супергруппы: маркированный id и 
 });
 
 it("сообщение канала без имени: ссылка на сырой id", () => {
-  expect(foundMessage({
-    id: 77,
-    chat: {
-      peerType: "channel",
-      rawId: 202,
-      title: "Канал релизов",
-      username: null,
-    },
-    sender: null,
-    date: new Date("2026-08-15T18:03:00.000Z"),
-    text: "выгрузка отчётов включена в релиз",
-    file: noFile(77),
-    entities: [],
-  })).toStrictEqual({
+  expect(
+    foundMessage({
+      id: 77,
+      chat: {
+        peerType: "channel",
+        rawId: 202,
+        title: "Канал релизов",
+        username: null,
+      },
+      sender: null,
+      date: new Date("2026-08-15T18:03:00.000Z"),
+      text: "выгрузка отчётов включена в релиз",
+      file: noFile(77),
+      entities: [],
+    }),
+  ).toStrictEqual({
     id: 77,
     chat_id: -1000000000202,
     chat_title: "Канал релизов",
@@ -112,12 +114,14 @@ it("text — Markdown разметки сообщения (TM2)", () => {
     foundMessage({
       ...SUPERGROUP,
       text: "1. Ozon: сверка выкупа - готово к код-ревью",
-      entities: [{
-        _: "messageEntityTextUrl",
-        offset: 3,
-        length: 19,
-        url: "https://btlz.kaiten.ru/71300001",
-      }],
+      entities: [
+        {
+          _: "messageEntityTextUrl",
+          offset: 3,
+          length: 19,
+          url: "https://btlz.kaiten.ru/71300001",
+        },
+      ],
     }).text,
   ).toBe(
     "1. [Ozon: сверка выкупа](https://btlz.kaiten.ru/71300001) - готово к код-ревью",
@@ -125,15 +129,17 @@ it("text — Markdown разметки сообщения (TM2)", () => {
 });
 
 it("отсутствующее значение — null или пустая строка, не пропуск", () => {
-  expect(foundMessage({
-    id: 9,
-    chat: { peerType: "unknown", rawId: 7, title: "", username: null },
-    sender: null,
-    date: null,
-    text: "",
-    file: noFile(9),
-    entities: [],
-  })).toStrictEqual({
+  expect(
+    foundMessage({
+      id: 9,
+      chat: { peerType: "unknown", rawId: 7, title: "", username: null },
+      sender: null,
+      date: null,
+      text: "",
+      file: noFile(9),
+      entities: [],
+    }),
+  ).toStrictEqual({
     id: 9,
     chat_id: 7,
     chat_title: "",
@@ -150,15 +156,17 @@ describe("отправитель для клиентского фильтра �
     expect(senderId(SUPERGROUP)).toBe(500001);
   });
   it("канал от своего имени", () => {
-    expect(senderId({
-      ...SUPERGROUP,
-      sender: {
-        peerType: "channel",
-        rawId: 202,
-        title: "Канал релизов",
-        username: null,
-      },
-    })).toBe(-1000000000202);
+    expect(
+      senderId({
+        ...SUPERGROUP,
+        sender: {
+          peerType: "channel",
+          rawId: 202,
+          title: "Канал релизов",
+          username: null,
+        },
+      }),
+    ).toBe(-1000000000202);
   });
   it("отправителя нет", () => {
     expect(senderId({ ...SUPERGROUP, sender: null })).toStrictEqual(null);

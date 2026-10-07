@@ -111,15 +111,18 @@ export async function fillRates(
   roles: readonly CurrencyRates[],
   context: RatesContext,
 ): Promise<number> {
-  const probe = await context.docker.probe([
-    "docker",
-    "exec",
-    `${MAIN_SERVER}-pg`,
-    "sh",
-    "-c",
-    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
-    '"select count(*) from shared.currency_rates"',
-  ], context.cwd);
+  const probe = await context.docker.probe(
+    [
+      "docker",
+      "exec",
+      `${MAIN_SERVER}-pg`,
+      "sh",
+      "-c",
+      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
+        '"select count(*) from shared.currency_rates"',
+    ],
+    context.cwd,
+  );
   return await stateOf(probe).act(roles, context);
 }
 

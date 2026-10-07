@@ -33,16 +33,17 @@ describe("копии фикстур совпадают с каналом спе�
   for (const [channel, names] of Object.entries(CHANNELS)) {
     for (const name of names) {
       it(`${channel}/${name}`, async () => {
-        expect(await readFile(new URL(name, copyDir(channel)), "utf8"))
-          .toStrictEqual(
-            await readFile(
-              new URL(
-                `../../../docs/specs/fixtures/${channel}/${name}`,
-                import.meta.url,
-              ),
-              "utf8",
+        expect(
+          await readFile(new URL(name, copyDir(channel)), "utf8"),
+        ).toStrictEqual(
+          await readFile(
+            new URL(
+              `../../../docs/specs/fixtures/${channel}/${name}`,
+              import.meta.url,
             ),
-          );
+            "utf8",
+          ),
+        );
       });
     }
   }

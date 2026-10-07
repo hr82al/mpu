@@ -69,12 +69,14 @@ export class StoredMessages implements ShownMessages {
   all(): readonly ShownMessage[] {
     let shown: readonly ShownMessage[] = [];
     this.#with((db) => {
-      shown = db.query(
-        "SELECT message_id, card FROM telegram_questions ORDER BY message_id",
-      ).map((row) => ({
-        id: Number(row.message_id),
-        body: Card.parse(String(row.card)),
-      }));
+      shown = db
+        .query(
+          "SELECT message_id, card FROM telegram_questions ORDER BY message_id",
+        )
+        .map((row) => ({
+          id: Number(row.message_id),
+          body: Card.parse(String(row.card)),
+        }));
     });
     return shown;
   }

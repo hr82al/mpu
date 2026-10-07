@@ -28,11 +28,11 @@ type Row =
   | { readonly kind: "blank" }
   | { readonly kind: "hint" }
   | {
-    readonly kind: "item";
-    readonly number: number;
-    readonly text: string;
-    readonly indent: number;
-  }
+      readonly kind: "item";
+      readonly number: number;
+      readonly text: string;
+      readonly indent: number;
+    }
   | { readonly kind: "text"; readonly text: string; readonly indent: number };
 
 /** Вид строки экрана. */

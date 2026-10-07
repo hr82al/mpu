@@ -36,10 +36,15 @@ async function seen(
       void journal.push(`native ${command.path.join(" ")}`),
     note: (line: string) => void journal.push(`note ${line}`),
   };
-  const code = await entry(argv, makeFakeIo(overrides), {
-    stdout: (text) => void out.push(text),
-    stderr: (text) => void err.push(text),
-  }, log as unknown as InvokeJournal);
+  const code = await entry(
+    argv,
+    makeFakeIo(overrides),
+    {
+      stdout: (text) => void out.push(text),
+      stderr: (text) => void err.push(text),
+    },
+    log as unknown as InvokeJournal,
+  );
   return { code, stdout: out.join(""), stderr: err.join(""), journal };
 }
 
@@ -147,14 +152,7 @@ const LINES: readonly {
   { argv: ["update"] },
   {
     argv: ["backup-wb-unit-proto", "777", "--date", "не-дата", "--dry"],
-    line: [
-      "backup-wb-unit-proto",
-      "dry",
-      "target:",
-      "777",
-      "date:",
-      "не-дата",
-    ],
+    line: ["backup-wb-unit-proto", "dry", "target:", "777", "date:", "не-дата"],
   },
   { argv: ["kiten", "card", "123"], line: ["kiten", "card", "id:", "123"] },
 ];
@@ -171,6 +169,7 @@ describe("строка и runCli дают одно и то же", () => {
         expect(await seen(runLine, line.line ?? line.argv, io)).toStrictEqual(
           await seen(runCli, line.argv, io),
         );
-      }));
+      }),
+    );
   }
 });

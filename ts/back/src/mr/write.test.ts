@@ -56,8 +56,8 @@ function ioTo(baseUrl: string, overrides: Partial<CommandIo> = {}): CommandIo {
         name === "GITLAB_BASE_URL"
           ? baseUrl
           : name === "GLAB_TOKEN"
-          ? TOKEN
-          : undefined,
+            ? TOKEN
+            : undefined,
       require: (name: string) => {
         if (name === "GLAB_TOKEN") return TOKEN;
         throw new DomainError(`нет ключа ${name}`);
@@ -84,27 +84,30 @@ const MR_BODY = {
 };
 
 /** Файл песочницы: правка строки 7 в файле из двадцати строк. */
-const FILE_DIFF = [
-  "@@ -4,7 +4,7 @@",
-  " строка 4",
-  " строка 5",
-  " строка 6",
-  "-старая 7",
-  "+новая 7",
-  " строка 8",
-  " строка 9",
-  " строка 10",
-].join("\n") + "\n";
+const FILE_DIFF =
+  [
+    "@@ -4,7 +4,7 @@",
+    " строка 4",
+    " строка 5",
+    " строка 6",
+    "-старая 7",
+    "+новая 7",
+    " строка 8",
+    " строка 9",
+    " строка 10",
+  ].join("\n") + "\n";
 
 const CHANGES = {
-  changes: [{
-    old_path: "src/module.txt",
-    new_path: "src/module.txt",
-    new_file: false,
-    renamed_file: false,
-    deleted_file: false,
-    diff: FILE_DIFF,
-  }],
+  changes: [
+    {
+      old_path: "src/module.txt",
+      new_path: "src/module.txt",
+      new_file: false,
+      renamed_file: false,
+      deleted_file: false,
+      diff: FILE_DIFF,
+    },
+  ],
 };
 
 /** Нота, созданная инлайн-комментарием: DiffNote с позицией. */
@@ -217,15 +220,15 @@ it("исход comment + reply: тред приходит с позицией", 
     const last = seen[seen.length - 1];
     if (last.method === "POST" && last.pathname.endsWith("/discussions")) {
       const form = new URLSearchParams(last.body);
-      const position = form.has("position[new_line]") ||
-          form.has("position[old_line]")
-        ? {
-          old_path: form.get("position[old_path]"),
-          new_path: form.get("position[new_path]"),
-          old_line: numberOrNull(form.get("position[old_line]")),
-          new_line: numberOrNull(form.get("position[new_line]")),
-        }
-        : null;
+      const position =
+        form.has("position[new_line]") || form.has("position[old_line]")
+          ? {
+              old_path: form.get("position[old_path]"),
+              new_path: form.get("position[new_path]"),
+              old_line: numberOrNull(form.get("position[old_line]")),
+              new_line: numberOrNull(form.get("position[new_line]")),
+            }
+          : null;
       notes.push({
         ...DIFF_NOTE,
         id: 6,
@@ -345,13 +348,11 @@ describe("comment: строка вне диффа — отказ до POST, эт
       throw new Error("сети быть не должно");
     });
     try {
-      for (
-        const [target, text] of [
-          ["src/a.js", "ожидается FILE:LINE, получено 'src/a.js'"],
-          ["src/a.js:0", "LINE — положительное число"],
-          ["src/a.js:x", "LINE — положительное число"],
-        ]
-      ) {
+      for (const [target, text] of [
+        ["src/a.js", "ожидается FILE:LINE, получено 'src/a.js'"],
+        ["src/a.js:0", "LINE — положительное число"],
+        ["src/a.js:x", "LINE — положительное число"],
+      ]) {
         await rejected(
           () =>
             runComment({ ...args, target }, ioTo(quiet.baseUrl), {
@@ -417,8 +418,9 @@ describe("note и reply: вывод — эталоны канала", () => {
       { runGit: noGit },
     );
     // Голден снят на ноте 7; тред тот же, что у comment.
-    expect(renderNote({ ...result, note_id: 7, url: `${WEB_URL}#note_7` }))
-      .toStrictEqual(await golden("note-created.stdout"));
+    expect(
+      renderNote({ ...result, note_id: 7, url: `${WEB_URL}#note_7` }),
+    ).toStrictEqual(await golden("note-created.stdout"));
   });
 
   it("reply", async () => {
@@ -468,8 +470,9 @@ describe("тело уходит дословно, из -m и из stdin", () => 
       runGit: noGit,
     });
     const posts = stand.seen.filter((r) => r.method === "POST");
-    expect(new URLSearchParams(posts[posts.length - 1].body).get("body"))
-      .toBe("из stdin\nвторая\n");
+    expect(new URLSearchParams(posts[posts.length - 1].body).get("body")).toBe(
+      "из stdin\nвторая\n",
+    );
   });
 });
 
@@ -546,9 +549,7 @@ describe("resolve и unresolve: вывод, query и нерезолвабель�
       true,
       { runGit: noGit },
     );
-    expect(renderResolve(result)).toStrictEqual(
-      await golden("resolve.stdout"),
-    );
+    expect(renderResolve(result)).toStrictEqual(await golden("resolve.stdout"));
     const put = stand.seen.find((r) => r.method === "PUT")!;
     expect(put.search).toBe("?resolved=true");
   });
@@ -567,13 +568,15 @@ describe("resolve и unresolve: вывод, query и нерезолвабель�
 it("resolve нерезолвабельного треда не шлёт PUT", async () => {
   const general = {
     id: THREAD_ID,
-    notes: [{
-      ...DIFF_NOTE,
-      resolvable: false,
-      resolved: false,
-      type: null,
-      position: undefined,
-    }],
+    notes: [
+      {
+        ...DIFF_NOTE,
+        resolvable: false,
+        resolved: false,
+        type: null,
+        position: undefined,
+      },
+    ],
   };
   const stand = await standWith({ discussions: [general] });
   try {
@@ -645,7 +648,7 @@ it("edit чужой ноты: 403 — отказ, а не успех", async () 
   const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].method === "PUT"
       ? new Response(`{"message":"403 Forbidden"}`, { status: 403 })
-      : Response.json(MR_BODY)
+      : Response.json(MR_BODY),
   );
   try {
     await rejected(
@@ -708,17 +711,19 @@ describe("delete: без TTY отказ и ни одного DELETE", () => {
       DomainError,
       "отменено",
     );
-    expect(stand.seen.filter((r) => r.method === "DELETE").length)
-      .toStrictEqual(before);
+    expect(
+      stand.seen.filter((r) => r.method === "DELETE").length,
+    ).toStrictEqual(before);
   });
 });
 
 it("create: 409 GitLab — эталон канала", async () => {
-  const stand = await startFakeGitlab(() =>
-    new Response(
-      `{"message":["Another open merge request already exists for this source branch: !1"]}`,
-      { status: 409 },
-    )
+  const stand = await startFakeGitlab(
+    () =>
+      new Response(
+        `{"message":["Another open merge request already exists for this source branch: !1"]}`,
+        { status: 409 },
+      ),
   );
   try {
     const err = await rejected(
@@ -748,7 +753,7 @@ it("create: 409 GitLab — эталон канала", async () => {
 describe("create: ветка из git, detached HEAD — свой текст", () => {
   it("исходная ветка — текущая", async () => {
     const stand = await startFakeGitlab(() =>
-      Response.json({ ...MR_BODY, iid: 7 })
+      Response.json({ ...MR_BODY, iid: 7 }),
     );
     try {
       const runGit: RunGit = () =>
@@ -837,29 +842,33 @@ it("comment: ответ без привязки — отказ, а не «соз
 it("comment на переименованный файл подтверждает новый путь", async () => {
   const renamed = {
     changes: {
-      changes: [{
-        old_path: "src/старый.txt",
-        new_path: "src/новый.txt",
-        new_file: false,
-        renamed_file: true,
-        deleted_file: false,
-        diff: FILE_DIFF,
-      }],
+      changes: [
+        {
+          old_path: "src/старый.txt",
+          new_path: "src/новый.txt",
+          new_file: false,
+          renamed_file: true,
+          deleted_file: false,
+          diff: FILE_DIFF,
+        },
+      ],
     },
   };
   const stand = await standWith({
     ...renamed,
     created: {
       id: THREAD_ID,
-      notes: [{
-        ...DIFF_NOTE,
-        position: {
-          old_path: "src/старый.txt",
-          new_path: "src/новый.txt",
-          old_line: 8,
-          new_line: 8,
+      notes: [
+        {
+          ...DIFF_NOTE,
+          position: {
+            old_path: "src/старый.txt",
+            new_path: "src/новый.txt",
+            old_line: 8,
+            new_line: 8,
+          },
         },
-      }],
+      ],
     },
   });
   try {
@@ -886,14 +895,16 @@ it("comment на переименованный файл подтверждае�
 it("comment: перечень изменённых включает оба имени переименованного", async () => {
   const renamed = {
     changes: {
-      changes: [{
-        old_path: "src/старый.txt",
-        new_path: "src/новый.txt",
-        new_file: false,
-        renamed_file: true,
-        deleted_file: false,
-        diff: FILE_DIFF,
-      }],
+      changes: [
+        {
+          old_path: "src/старый.txt",
+          new_path: "src/новый.txt",
+          new_file: false,
+          renamed_file: true,
+          deleted_file: false,
+          diff: FILE_DIFF,
+        },
+      ],
     },
   };
   const stand = await standWith(renamed);

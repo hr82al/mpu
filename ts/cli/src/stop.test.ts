@@ -89,25 +89,30 @@ it("R2a-13 через клиент: бот не настроен — без во
 
 it("R2a-1, R2a-9 через клиент: тишина и код 0; ключ сессии дошёл до ядра", async () => {
   const bot = new FakeBot();
-  await withBack(async (back) => {
-    const ask = async (message: string) =>
-      await viaClient(STOP.words, {
-        base: back.url,
-        main: back.token,
-        stdin: await stopPayload(message),
-        values: SESSION,
+  await withBack(
+    async (back) => {
+      const ask = async (message: string) =>
+        await viaClient(STOP.words, {
+          base: back.url,
+          main: back.token,
+          stdin: await stopPayload(message),
+          values: SESSION,
+        });
+      expect(await ask("Вы выбрали: Пн.")).toStrictEqual({
+        code: 0,
+        stdout: "",
+        stderr: "",
       });
-    expect(await ask("Вы выбрали: Пн.")).toStrictEqual({
-      code: 0,
-      stdout: "",
-      stderr: "",
-    });
-    await ask("Какой размер?");
-    await bot.called(3);
-    // Второй конец хода той же сессии снял первый — ключ принёс клиент.
-    expect(bot.calls[1].text.split("\n").at(-1)).toBe("✅ решено в терминале");
-    expect(bot.calls[2].method).toBe("send");
-  }, { questions: fakeQuestions(bot) });
+      await ask("Какой размер?");
+      await bot.called(3);
+      // Второй конец хода той же сессии снял первый — ключ принёс клиент.
+      expect(bot.calls[1].text.split("\n").at(-1)).toBe(
+        "✅ решено в терминале",
+      );
+      expect(bot.calls[2].method).toBe("send");
+    },
+    { questions: fakeQuestions(bot) },
+  );
 });
 
 it("R2a-12: справка — однострока, код 0", () =>

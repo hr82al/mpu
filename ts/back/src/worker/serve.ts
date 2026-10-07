@@ -88,7 +88,7 @@ class Conversation {
   /** Вопрос ядру; `null` — спросить некого. */
   async ask(kind: AskKind, text: string): Promise<string | null> {
     const reply = Promise.withResolvers<string | null>();
-    this.#answer = this.#awaited(reply, () => this.#answer = NO_REPLY);
+    this.#answer = this.#awaited(reply, () => (this.#answer = NO_REPLY));
     await this.send({ ask: { kind, text } });
     return await reply.promise;
   }
@@ -96,7 +96,7 @@ class Conversation {
   /** Команда программы — ядру отдельной строкой; ответ — итог строки. */
   async line(words: readonly string[]): Promise<LineReply> {
     const reply = Promise.withResolvers<LineReply>();
-    this.#lined = this.#awaited(reply, () => this.#lined = NO_REPLY);
+    this.#lined = this.#awaited(reply, () => (this.#lined = NO_REPLY));
     await this.send({ line: words });
     return await reply.promise;
   }
@@ -110,16 +110,13 @@ class Conversation {
 
   async #requested(): Promise<Uint8Array> {
     const reply = Promise.withResolvers<Uint8Array>();
-    this.#input = this.#awaited(reply, () => this.#input = NO_REPLY);
+    this.#input = this.#awaited(reply, () => (this.#input = NO_REPLY));
     await this.send({ stdin: true });
     return await reply.promise;
   }
 
   /** Ожидание одного ответа: пришёл — ожидание снято. */
-  #awaited<T>(
-    reply: PromiseWithResolvers<T>,
-    done: () => void,
-  ): Reply<T> {
+  #awaited<T>(reply: PromiseWithResolvers<T>, done: () => void): Reply<T> {
     return {
       settle: (value) => {
         done();

@@ -71,38 +71,36 @@ it("isEmail: маска предиката резолва", () => {
 });
 
 describe("effectiveScope: auto по форме селектора, явный scope не переопределяется", () => {
-  const cases:
-    readonly (readonly [string, string, "auto" | "user" | "access", string])[] =
-      [
-        ["целое, auto — access", "10", "auto", "access"],
-        [
-          "полный uuid, auto — access",
-          "00000000-0000-4000-8000-000000000001",
-          "auto",
-          "access",
-        ],
-        [
-          "полный uuid в верхнем регистре, auto — access",
-          "00000000-0000-4000-8000-000000000001".toUpperCase(),
-          "auto",
-          "access",
-        ],
-        [
-          "строка не uuid и не целое, auto — user",
-          "u@example.com",
-          "auto",
-          "user",
-        ],
-        ["заголовок, auto — user", "Отчёт", "auto", "user"],
-        ["целое, явный user — не переопределяется", "10", "user", "user"],
-        ["целое, явный access — не переопределяется", "10", "access", "access"],
-        [
-          "не-целое, явный access — не переопределяется",
-          "текст",
-          "access",
-          "access",
-        ],
-      ];
+  const cases: readonly (readonly [
+    string,
+    string,
+    "auto" | "user" | "access",
+    string,
+  ])[] = [
+    ["целое, auto — access", "10", "auto", "access"],
+    [
+      "полный uuid, auto — access",
+      "00000000-0000-4000-8000-000000000001",
+      "auto",
+      "access",
+    ],
+    [
+      "полный uuid в верхнем регистре, auto — access",
+      "00000000-0000-4000-8000-000000000001".toUpperCase(),
+      "auto",
+      "access",
+    ],
+    ["строка не uuid и не целое, auto — user", "u@example.com", "auto", "user"],
+    ["заголовок, auto — user", "Отчёт", "auto", "user"],
+    ["целое, явный user — не переопределяется", "10", "user", "user"],
+    ["целое, явный access — не переопределяется", "10", "access", "access"],
+    [
+      "не-целое, явный access — не переопределяется",
+      "текст",
+      "access",
+      "access",
+    ],
+  ];
   for (const [name, value, scope, expected] of cases) {
     it(name, () => {
       expect(effectiveScope(value, scope)).toStrictEqual(expected);

@@ -28,26 +28,31 @@ interface ClientRow {
 }
 
 function clients(cache: CacheReader): ClientRow[] {
-  return cache.query(
-    "SELECT c.client_id AS id, COALESCE(MIN(s.title), '') AS title," +
-      " COALESCE(c.server, '') AS server FROM sl_clients c" +
-      " LEFT JOIN sl_spreadsheets s ON s.client_id = c.client_id" +
-      " GROUP BY c.client_id",
-  ).map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    server: String(row.server),
-  }));
+  return cache
+    .query(
+      "SELECT c.client_id AS id, COALESCE(MIN(s.title), '') AS title," +
+        " COALESCE(c.server, '') AS server FROM sl_clients c" +
+        " LEFT JOIN sl_spreadsheets s ON s.client_id = c.client_id" +
+        " GROUP BY c.client_id",
+    )
+    .map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      server: String(row.server),
+    }));
 }
 
 /** Совпадение: начало номера или подстрока имени без учёта регистра. */
 function matches(client: ClientRow, like: string): boolean {
-  return client.id.startsWith(like) ||
-    client.title.toLowerCase().includes(like.toLowerCase());
+  return (
+    client.id.startsWith(like) ||
+    client.title.toLowerCase().includes(like.toLowerCase())
+  );
 }
 
 function described(client: ClientRow): string {
-  return [client.title, client.server].filter((part) => part !== "")
+  return [client.title, client.server]
+    .filter((part) => part !== "")
     .join(" · ");
 }
 
@@ -55,13 +60,15 @@ function described(client: ClientRow): string {
 function found(rows: readonly ClientRow[], like: string): TargetValue[] {
   if (like.startsWith(DEV)) {
     const id = like.slice(DEV.length);
-    return rows.filter((row) => row.id.startsWith(id))
+    return rows
+      .filter((row) => row.id.startsWith(id))
       .map((row) => ({ value: `${DEV}${row.id}`, purpose: described(row) }));
   }
   const servers = [...new Set(rows.map((row) => row.server))]
     .filter((server) => server !== "" && server.startsWith(like))
     .map((server) => ({ value: server, purpose: "сервер" }));
-  const named = rows.filter((row) => matches(row, like))
+  const named = rows
+    .filter((row) => matches(row, like))
     .map((row) => ({ value: row.id, purpose: described(row) }));
   return [...servers, ...named];
 }
@@ -74,10 +81,7 @@ function found(rows: readonly ClientRow[], like: string): TargetValue[] {
  * @param cache чтение кэш-БД
  * @param like набранное начало значения
  */
-export function targetValues(
-  cache: CacheReader,
-  like: string,
-): TargetValue[] {
+export function targetValues(cache: CacheReader, like: string): TargetValue[] {
   try {
     assertInitialized(cache);
   } catch (err) {
@@ -86,6 +90,6 @@ export function targetValues(
     throw err;
   }
   return found(clients(cache), like)
-    .sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0)
+    .sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0))
     .slice(0, LIMIT);
 }

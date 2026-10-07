@@ -123,10 +123,8 @@ class Seen implements Sight {
   }
 
   methods(path: readonly string[]): Method<Line>[] {
-    return imageEntries(
-      this.#image,
-      path,
-      (report, line) => line.consent(report, this.#view),
+    return imageEntries(this.#image, path, (report, line) =>
+      line.consent(report, this.#view),
     );
   }
 
@@ -166,7 +164,7 @@ class Seen implements Sight {
   #under(path: readonly string[]): TreeNode[] {
     this.#executing ??= registryNodes().filter((node) => node.tail !== null);
     return this.#executing.filter((node) =>
-      path.every((link, i) => node.path[i] === link)
+      path.every((link, i) => node.path[i] === link),
     );
   }
 
@@ -277,11 +275,7 @@ function leafShape(
 
 /** Вид узла группы: что она делает с чужим словом и с концом строки. */
 interface GroupKind {
-  options(
-    path: readonly string[],
-    doc: Doc,
-    sight: Sight,
-  ): ShapeOptions<Line>;
+  options(path: readonly string[], doc: Doc, sight: Sight): ShapeOptions<Line>;
 }
 
 /** Только дети; конец строки — справка. */
@@ -337,7 +331,7 @@ function groupShape(
   children: readonly { name: string }[] = childrenOf(path),
 ): Shape<Line> {
   const methods = children.map((child) =>
-    childMethod([...path, child.name], child.name, sight)
+    childMethod([...path, child.name], child.name, sight),
   );
   return new Shape<Line>([...methods, ...sight.methods(path), ...own], {
     ...kind.options(path, doc, sight),
@@ -490,9 +484,7 @@ function methodNodes(
  *
  * @param image методы образа; нет — только реестр
  */
-export function registryNodes(
-  image: readonly ImageMethod[] = [],
-): TreeNode[] {
+export function registryNodes(image: readonly ImageMethod[] = []): TreeNode[] {
   return nodesUnder([], ROOT_SUMMARY, rootShape(whole(image)), image);
 }
 
@@ -557,14 +549,15 @@ export function registryRoot(
   const shape = rootShape(new Seen(NORMAL, book, parts), [
     door,
     completion(root),
-    ...parts.own ?? [],
+    ...(parts.own ?? []),
   ]);
   return root();
 }
 
 const COMPLETE_DOC: Doc = {
   purpose: "варианты следующего слова набранной строки",
-  help: "Звать из дополнения оболочки: complete: — строка после mpu одним\n" +
+  help:
+    "Звать из дополнения оболочки: complete: — строка после mpu одним\n" +
     "словом, последнее слово — дописываемое. Ничего не исполняет: ни\n" +
     "команды, ни вопроса, ни записи в журнал вызовов.",
 };

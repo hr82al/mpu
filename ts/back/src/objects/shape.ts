@@ -189,8 +189,8 @@ export class Shape<S> implements Yields<S> {
       candidates: (key, like) => this.#values.candidates(key, like),
       understands: (selector) => this.#understands(selector),
       prompts: (key) =>
-        this.#fallbackKeyword().some((method) =>
-          method.prompts?.includes(key) === true
+        this.#fallbackKeyword().some(
+          (method) => method.prompts?.includes(key) === true,
         ),
     };
   }
@@ -227,32 +227,38 @@ export class Shape<S> implements Yields<S> {
   #understands(selector: string): boolean {
     if (this.#methods.has(selector)) return this.#roster.lists(selector);
     if (this.#variants.has(selector)) return true;
-    return this.#messages().some((line) => line.selector === selector) ||
-      this.#commandKeys().some((key) =>
-        spelled(key.name, key.kind) === selector
-      );
+    return (
+      this.#messages().some((line) => line.selector === selector) ||
+      this.#commandKeys().some(
+        (key) => spelled(key.name, key.kind) === selector,
+      )
+    );
   }
 
   #listed(): Method<S>[] {
-    return [...this.#methods.values()]
-      .filter((method) => this.#roster.lists(method.selector));
+    return [...this.#methods.values()].filter((method) =>
+      this.#roster.lists(method.selector),
+    );
   }
 
   about(path: string, doc: Doc): Help {
     const messages = [...this.#ownLines(), ...this.#fallback.lines()];
-    return new Help({
-      path,
-      purpose: doc.purpose,
-      text: doc.help,
-      examples: [...(doc.examples ?? [])],
-      variants: this.#variantLines().map(({ selector, purpose }) => ({
-        selector,
-        purpose,
-      })),
-      keys: this.#keys(),
-      formats: [...this.#closing.formats()],
-      messages,
-    }, OBJECT_VIEW);
+    return new Help(
+      {
+        path,
+        purpose: doc.purpose,
+        text: doc.help,
+        examples: [...(doc.examples ?? [])],
+        variants: this.#variantLines().map(({ selector, purpose }) => ({
+          selector,
+          purpose,
+        })),
+        keys: this.#keys(),
+        formats: [...this.#closing.formats()],
+        messages,
+      },
+      OBJECT_VIEW,
+    );
   }
 
   remedy(word: string, after: readonly string[]): Remedy {
@@ -275,7 +281,7 @@ export class Shape<S> implements Yields<S> {
         kind,
         required: method.required.includes(name),
         purpose: method.purposes?.[name] ?? "",
-      }))
+      })),
     );
   }
 
@@ -300,9 +306,12 @@ export class Shape<S> implements Yields<S> {
       this.#fallback.understand(sent, self, () => this.#refuse(selector));
     return sent.route({
       named: (named) =>
-        (this.#methods.get(selector) ?? this.#variants.get(selector))
-          ?.bind(self, named) ??
-          reflected(named, this.reflect()) ?? otherwise(),
+        (this.#methods.get(selector) ?? this.#variants.get(selector))?.bind(
+          self,
+          named,
+        ) ??
+        reflected(named, this.reflect()) ??
+        otherwise(),
       tail: otherwise,
       close: () => this.#closing.close(self, this),
     });

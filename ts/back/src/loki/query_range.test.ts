@@ -85,16 +85,18 @@ describe("мусор в теле: пропуск поштучно, а не от�
       "негодные пары values пропускаются",
       JSON.stringify({
         data: {
-          result: [{
-            values: [
-              "не массив",
-              ["одна"],
-              [1, "нестроковый ts"],
-              ["не-целое", "строка"],
-              ["2", 42],
-              ["3", "жива", "лишнее"],
-            ],
-          }],
+          result: [
+            {
+              values: [
+                "не массив",
+                ["одна"],
+                [1, "нестроковый ts"],
+                ["не-целое", "строка"],
+                ["2", 42],
+                ["3", "жива", "лишнее"],
+              ],
+            },
+          ],
         },
       }),
       1,
@@ -103,8 +105,8 @@ describe("мусор в теле: пропуск поштучно, а не от�
 
   for (const [title, body, expected] of cases) {
     it(title, async () => {
-      const { baseUrl, stop } = await serveFetch(() =>
-        new Response(body, { status: 200 })
+      const { baseUrl, stop } = await serveFetch(
+        () => new Response(body, { status: 200 }),
       );
       try {
         expect((await queryRange({ baseUrl }, QUERY)).length).toStrictEqual(
@@ -130,8 +132,8 @@ it("метки потока: строковые берутся, прочие и 
       ],
     },
   });
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response(body, { status: 200 })
+  const { baseUrl, stop } = await serveFetch(
+    () => new Response(body, { status: 200 }),
   );
   try {
     const entries = await queryRange({ baseUrl }, QUERY);
@@ -146,8 +148,11 @@ it("метки потока: строковые берутся, прочие и 
 });
 
 it("ответ вне 2xx — LokiHttpError с кодом и телом", async () => {
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response("  end timestamp must not be before start  ", { status: 400 })
+  const { baseUrl, stop } = await serveFetch(
+    () =>
+      new Response("  end timestamp must not be before start  ", {
+        status: 400,
+      }),
   );
   try {
     const err = await rejected(
@@ -162,13 +167,10 @@ it("ответ вне 2xx — LokiHttpError с кодом и телом", async 
 });
 
 it("сетевой сбой — LokiError, а не отказ с кодом", async () => {
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response("", { status: 200 })
+  const { baseUrl, stop } = await serveFetch(
+    () => new Response("", { status: 200 }),
   );
   await stop();
-  const err = await rejected(
-    () => queryRange({ baseUrl }, QUERY),
-    LokiError,
-  );
+  const err = await rejected(() => queryRange({ baseUrl }, QUERY), LokiError);
   expect(err instanceof LokiHttpError).toBe(false);
 });

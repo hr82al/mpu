@@ -50,12 +50,15 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
   const { ts, program, repoRoot } = deps;
   const checker = program.getTypeChecker();
   const entry = entryFile(ts, program, deps.projectPath);
-  const files = program.getSourceFiles()
+  const files = program
+    .getSourceFiles()
     .filter((file) => !file.isDeclarationFile && inRepo(file.fileName));
 
   function inRepo(fileName: string): boolean {
-    return fileName.startsWith(`${repoRoot}/`) &&
-      !fileName.includes("/node_modules/");
+    return (
+      fileName.startsWith(`${repoRoot}/`) &&
+      !fileName.includes("/node_modules/")
+    );
   }
 
   function rel(fileName: string): string {
@@ -75,16 +78,15 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
       const file = fileOf(path);
       return {
         kind: "known",
-        declarations: file === undefined
-          ? []
-          : declarationsIn(ts, checker, file, entry),
+        declarations:
+          file === undefined ? [] : declarationsIn(ts, checker, file, entry),
       };
     },
     declarationsRefusal: () => null,
     bodiesOf: () => ({
       kind: "known",
       bodies: files.flatMap((file) =>
-        bodiesIn(ts, checker, file, rel(file.fileName))
+        bodiesIn(ts, checker, file, rel(file.fileName)),
       ),
     }),
     consumersOf: (target) => placesFor(ts, checker, files, fileOf, rel, target),
@@ -155,11 +157,7 @@ function commonDir(paths: readonly string[]): string {
  * `main` указывает на `dist/index.js`, артефакта в программе нет, и
  * вход по нему находиться не должен (замер 2026-09-08 на `ozon`).
  */
-function declaredEntry(
-  ts: typeof TS,
-  program: TS.Program,
-  dir: string,
-): Entry {
+function declaredEntry(ts: typeof TS, program: TS.Program, dir: string): Entry {
   for (const name of ["package.json", "deno.json", "deno.jsonc"]) {
     const fields = entryFields(ts, `${dir}/${name}`);
     if (fields.kind === "unknown") {
@@ -192,9 +190,10 @@ function entryFields(
   if (parsed.error !== undefined) {
     return {
       kind: "unknown",
-      scope: parsed.error.code === NOT_AN_OBJECT
-        ? "entry-not-object"
-        : "entry-unparsed",
+      scope:
+        parsed.error.code === NOT_AN_OBJECT
+          ? "entry-not-object"
+          : "entry-unparsed",
     };
   }
   // Разобравшийся конфиг всегда объект: не-объект компилятор бракует
@@ -204,8 +203,9 @@ function entryFields(
   const fields = parsed.config as Record<string, unknown>;
   return {
     kind: "fields",
-    fields: [fields.types, pickExport(fields.exports), fields.main]
-      .filter((value): value is string => typeof value === "string"),
+    fields: [fields.types, pickExport(fields.exports), fields.main].filter(
+      (value): value is string => typeof value === "string",
+    ),
   };
 }
 
@@ -217,8 +217,9 @@ function pickExport(value: unknown): unknown {
   if (typeof root === "string") return root;
   if (typeof root !== "object" || root === null) return undefined;
   const conditions = root as Record<string, unknown>;
-  return [conditions.import, conditions.default]
-    .find((value): value is string => typeof value === "string");
+  return [conditions.import, conditions.default].find(
+    (value): value is string => typeof value === "string",
+  );
 }
 
 /** Объявления верхнего уровня файла по возрастанию строки. */
@@ -245,8 +246,8 @@ function declarationsIn(
       // вызываемых из них две).
       const type = checker.getTypeOfSymbolAtLocation(symbol, node.name);
       const signatures = type.getCallSignatures();
-      const own = signatures.find((entry) =>
-        entry.declaration === node.declaration
+      const own = signatures.find(
+        (entry) => entry.declaration === node.declaration,
       );
       const overloaded = signatures.length > 1;
       // Реализация перегрузки: своей вызываемой формы у неё нет, и
@@ -256,19 +257,24 @@ function declarationsIn(
       const call = own ?? signatures[0];
       found.push({
         name: symbol.getName(),
-        signature: call === undefined
-          ? checker.typeToString(type)
-          : checker.signatureToString(call),
-        returnType: call === undefined
-          ? null
-          : checker.typeToString(call.getReturnType()),
-        paramTypes: call === undefined
-          ? null
-          : call.getParameters().map((parameter) =>
-            checker.typeToString(
-              checker.getTypeOfSymbolAtLocation(parameter, node.name),
-            )
-          ),
+        signature:
+          call === undefined
+            ? checker.typeToString(type)
+            : checker.signatureToString(call),
+        returnType:
+          call === undefined
+            ? null
+            : checker.typeToString(call.getReturnType()),
+        paramTypes:
+          call === undefined
+            ? null
+            : call
+                .getParameters()
+                .map((parameter) =>
+                  checker.typeToString(
+                    checker.getTypeOfSymbolAtLocation(parameter, node.name),
+                  ),
+                ),
         line: lineOf(file, node.getStart(file)),
         scope: scopeOf(ts, checker, symbol, file, entry),
       });
@@ -325,11 +331,13 @@ function namedNodes(
   // Значение проверяется следующей строкой, а не берётся на веру.
   const named = statement as TS.Node & { readonly name?: TS.Node };
   if (named.name === undefined || !ts.isIdentifier(named.name)) return [];
-  return [{
-    name: named.name,
-    declaration: statement,
-    getStart: (f: TS.SourceFile) => statement.getStart(f),
-  }];
+  return [
+    {
+      name: named.name,
+      declaration: statement,
+      getStart: (f: TS.SourceFile) => statement.getStart(f),
+    },
+  ];
 }
 
 /** Область видимости символа: одно значение из четырёх. */
@@ -357,7 +365,8 @@ function isExportedFrom(
 ): boolean {
   const moduleSymbol = checker.getSymbolAtLocation(file);
   if (moduleSymbol === undefined) return false;
-  return checker.getExportsOfModule(moduleSymbol)
+  return checker
+    .getExportsOfModule(moduleSymbol)
     .some((exported) => resolveAlias(ts, checker, exported) === symbol);
 }
 
@@ -397,7 +406,7 @@ function placesFor(
   if (target.kind === "module") {
     return others
       .flatMap((file) =>
-        at(rel, file, readerLine(ts, checker, file, targetFile))
+        at(rel, file, readerLine(ts, checker, file, targetFile)),
       )
       .sort(byPathAndLine);
   }
@@ -530,7 +539,8 @@ function entryLine(
   const visit = (node: TS.Node): void => {
     const specifier = moduleSpecifierOf(ts, node);
     if (
-      specifier !== undefined && bringsNames(ts, node) &&
+      specifier !== undefined &&
+      bringsNames(ts, node) &&
       exportsSymbol(ts, checker, specifier, symbol)
     ) {
       const start = lineOf(file, statementOf(ts, node).getStart(file));
@@ -562,7 +572,8 @@ function exportsSymbol(
 ): boolean {
   const module = checker.getSymbolAtLocation(specifier);
   if (module === undefined) return false;
-  return checker.getExportsOfModule(module)
+  return checker
+    .getExportsOfModule(module)
     .some((exported) => resolveAlias(ts, checker, exported) === symbol);
 }
 

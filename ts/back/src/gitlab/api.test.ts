@@ -14,7 +14,7 @@ const access = (baseUrl: string): GitlabAccess => ({ baseUrl, token: "t" });
 
 it("шапка MR: путь с URL-encoded project", async () => {
   const stand = await startFakeGitlab(() =>
-    Response.json({ iid: 456, title: "заголовок", author: { username: "u" } })
+    Response.json({ iid: 456, title: "заголовок", author: { username: "u" } }),
   );
   try {
     const mr = await mergeRequest(access(stand.baseUrl), ADDRESS);
@@ -35,7 +35,7 @@ it("файлы: только /changes и только с access_raw_diffs", asyn
         { new_path: "b.ts", old_path: "b.ts", diff: "@@ -1,1 +1,1 @@\n+a\n" },
         { new_path: "a.ts", old_path: "a.ts", diff: "" },
       ],
-    })
+    }),
   );
   try {
     const files = await changedFiles(access(stand.baseUrl), ADDRESS);
@@ -65,7 +65,7 @@ it("треды: пагинировано и в порядке ответа", asy
       seen.length === 1
         ? page(Array.from({ length: 100 }, (_, i) => `id${i}`))
         : page(["last"]),
-    )
+    ),
   );
   try {
     const threads = await discussions(access(stand.baseUrl), ADDRESS);

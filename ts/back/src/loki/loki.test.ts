@@ -55,11 +55,12 @@ it("happy path: golden-ответ даёт 4 хоста и 4 пары", async ()
     new URL("testdata/series-ok.json", import.meta.url),
     "utf8",
   );
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response(fixture, {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    })
+  const { baseUrl, stop } = await serveFetch(
+    () =>
+      new Response(fixture, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
   );
   try {
     const series = await collectLokiSeries(accessTo(baseUrl));
@@ -160,8 +161,8 @@ it("разбор записей: запись без пригодного host �
 });
 
 it("HTTP вне 2xx: LokiError с текстом HTTP 503", async () => {
-  const { baseUrl, stop } = await serveFetch(() =>
-    new Response("upstream unavailable", { status: 503 })
+  const { baseUrl, stop } = await serveFetch(
+    () => new Response("upstream unavailable", { status: 503 }),
   );
   try {
     const err = await rejected(
@@ -225,7 +226,7 @@ describe("requireLokiAccess: ключ есть / пуст / отсутствуе
   for (const c of cases) {
     it(c.name, () => {
       const envFile = {
-        get: (name: string) => name === "LOKI_URL" ? c.value : undefined,
+        get: (name: string) => (name === "LOKI_URL" ? c.value : undefined),
       };
       if (c.expected === "ошибка") {
         const err = thrown(
@@ -245,39 +246,53 @@ it("writeLokiCache: полная перезапись обеих таблиц о
   await withBootstrappedDb((dbPath) => {
     using db = openCacheDb(dbPath);
 
-    writeLokiCache(db, {
-      hosts: ["sl-1", "sl-2"],
-      pairs: [{ host: "sl-1", service: "api" }],
-    }, 1_000);
+    writeLokiCache(
+      db,
+      {
+        hosts: ["sl-1", "sl-2"],
+        pairs: [{ host: "sl-1", service: "api" }],
+      },
+      1_000,
+    );
 
     expect(
       plainRows(
         db.query("SELECT host, discovered_at FROM loki_hosts ORDER BY host"),
       ),
-    )
-      .toStrictEqual([
-        { host: "sl-1", discovered_at: 1_000 },
-        { host: "sl-2", discovered_at: 1_000 },
-      ]);
-    expect(plainRows(db.query(
-      "SELECT host, service, discovered_at FROM loki_services_by_host ORDER BY host, service",
-    ))).toStrictEqual([{ host: "sl-1", service: "api", discovered_at: 1_000 }]);
+    ).toStrictEqual([
+      { host: "sl-1", discovered_at: 1_000 },
+      { host: "sl-2", discovered_at: 1_000 },
+    ]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT host, service, discovered_at FROM loki_services_by_host ORDER BY host, service",
+        ),
+      ),
+    ).toStrictEqual([{ host: "sl-1", service: "api", discovered_at: 1_000 }]);
 
     // Второй вызов с другим набором — полная перезапись: старых строк не
     // остаётся (инвариант спеки, `platform/loki-http.md`, «Инварианты»).
-    writeLokiCache(db, {
-      hosts: ["wb-1"],
-      pairs: [],
-    }, 2_000);
+    writeLokiCache(
+      db,
+      {
+        hosts: ["wb-1"],
+        pairs: [],
+      },
+      2_000,
+    );
 
     expect(
       plainRows(
         db.query("SELECT host, discovered_at FROM loki_hosts ORDER BY host"),
       ),
-    )
-      .toStrictEqual([{ host: "wb-1", discovered_at: 2_000 }]);
-    expect(plainRows(db.query(
-      "SELECT host, service, discovered_at FROM loki_services_by_host",
-    ))).toStrictEqual([]);
+    ).toStrictEqual([{ host: "wb-1", discovered_at: 2_000 }]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT host, service, discovered_at FROM loki_services_by_host",
+        ),
+      ),
+    ).toStrictEqual([]);
   });
 });

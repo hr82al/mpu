@@ -67,7 +67,10 @@ export class Chat {
     keyboard: Keyboard,
   ): Promise<boolean> {
     if (
-      !await this.#tried("правка сообщения", this.#bot.edit(id, text, keyboard))
+      !(await this.#tried(
+        "правка сообщения",
+        this.#bot.edit(id, text, keyboard),
+      ))
     ) {
       return false;
     }

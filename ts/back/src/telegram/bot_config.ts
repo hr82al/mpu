@@ -101,7 +101,7 @@ function checkedProxy(value: string): string {
       `прокси-URL неразбираем — '${withoutCredentials(value)}'`,
     );
   }
-  if (!PROXY_SCHEMES.includes(url.protocol as typeof PROXY_SCHEMES[number])) {
+  if (!PROXY_SCHEMES.includes(url.protocol as (typeof PROXY_SCHEMES)[number])) {
     const scheme = url.protocol.replace(":", "");
     throw configError(
       `Bot API не умеет прокси ${scheme}; поддерживаются` +

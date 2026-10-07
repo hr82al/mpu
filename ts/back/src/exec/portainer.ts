@@ -107,11 +107,15 @@ export async function detachOverPortainer(options: {
     options.scriptPath.lastIndexOf("/") + 1,
   );
   await upload(call, name, new TextEncoder().encode(options.script));
-  const id = await createExec(call, [
-    "sh",
-    "-c",
-    `nohup node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null &`,
-  ], { tty: false });
+  const id = await createExec(
+    call,
+    [
+      "sh",
+      "-c",
+      `nohup node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null &`,
+    ],
+    { tty: false },
+  );
   await call.stream(id, options.output.out);
   return await exitCode(call, run, id);
 }
@@ -158,9 +162,10 @@ async function exitCode(
   run: PortainerRun,
   id: string,
 ): Promise<number> {
-  const delay = run.delay ??
+  const delay =
+    run.delay ??
     ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  for (let waited = 0;; waited += EXIT_STEP_MS) {
+  for (let waited = 0; ; waited += EXIT_STEP_MS) {
     const code = await inspectExec(call, id);
     if (code !== null) return code;
     if (waited >= EXIT_WAIT_MS) break;
@@ -328,7 +333,7 @@ function parsed(text: string): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(text);
     return typeof value === "object" && value !== null
-      ? value as Record<string, unknown>
+      ? (value as Record<string, unknown>)
       : null;
   } catch {
     // Не JSON — для вызывающего то же самое, что ответ без нужного поля.

@@ -29,28 +29,36 @@ import {
 } from "./render.ts";
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен id: id карточки или её URL" })
+  selector: z
+    .string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   md: z.boolean().default(false).describe("чистый GFM markdown"),
-  json: z.boolean().default(false).describe(
-    "сырой JSON: карточка и комментарии",
-  ),
-  images: z.boolean().default(true).describe(
-    "вложения-картинки в наглядном виде; выключить — вариантом no-images",
-  ),
-  comments: z.boolean().default(true).describe(
-    "комментарии карточки; не читать их — вариантом no-comments",
-  ),
+  json: z
+    .boolean()
+    .default(false)
+    .describe("сырой JSON: карточка и комментарии"),
+  images: z
+    .boolean()
+    .default(true)
+    .describe(
+      "вложения-картинки в наглядном виде; выключить — вариантом no-images",
+    ),
+  comments: z
+    .boolean()
+    .default(true)
+    .describe("комментарии карточки; не читать их — вариантом no-comments"),
 });
 
 const resultSchema = z.object({
-  view: z.enum(["json", "md", "pretty"]).describe(
-    "вид вывода, выбранный флагами и терминальностью stdout",
-  ),
+  view: z
+    .enum(["json", "md", "pretty"])
+    .describe("вид вывода, выбранный флагами и терминальностью stdout"),
   card: cardViewSchema,
-  propertyNames: z.record(z.string(), z.string()).describe(
-    "имена кастомных полей: id_NNN → имя; справочник не ответил — пусто",
-  ),
+  propertyNames: z
+    .record(z.string(), z.string())
+    .describe(
+      "имена кастомных полей: id_NNN → имя; справочник не ответил — пусто",
+    ),
 });
 
 /** Разобранные аргументы вызова. */
@@ -131,7 +139,8 @@ export const kitenCardCommand = defineCommand({
   errorName: "kiten card",
   summary:
     "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
-  usage: `mpu kiten card [no-comments] [no-images] id: ID ` +
+  usage:
+    `mpu kiten card [no-comments] [no-images] id: ID ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать, когда нужна одна карточка Kaiten целиком: шапка, свойства,
 описание, файлы, комментарии. Свои карточки списком — mpu kiten ls.

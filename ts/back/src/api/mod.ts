@@ -38,4 +38,4 @@ export const apiCommands: readonly Command[] = [
   // Третья кастомная группа: шесть команд управления загрузчиками
   // (`docs/specs/api-wb-loader.md`). С ней `api` уходит с легаси.
   ...wbLoaderCommands,
-].sort((a, b) => a.path[1] < b.path[1] ? -1 : a.path[1] > b.path[1] ? 1 : 0);
+].sort((a, b) => (a.path[1] < b.path[1] ? -1 : a.path[1] > b.path[1] ? 1 : 0));

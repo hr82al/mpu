@@ -140,7 +140,7 @@ const SYNC: ImageCommand = {
       dir: args.dir,
       base: args.base,
       files: args.files,
-      overflows: (plan) => args.deletes === undefined ? plan.overflows() : [],
+      overflows: (plan) => (args.deletes === undefined ? plan.overflows() : []),
       hint: (said) => [ASK_WORD, ...said, ...DELETES_ALLOW],
       applier: (dir, context) =>
         args["dry-run"] ? new Printing(context) : new Applying(dir, context),
@@ -176,13 +176,13 @@ const EXPORT: ImageCommand = {
 /** Строка команды образа по словам без входа двери; иначе — не образ. */
 export function syncLineOf(said: readonly string[]): ImageLine {
   const command = [SYNC, EXPORT].find((one) =>
-    one.path.every((word, i) => said[i] === word)
+    one.path.every((word, i) => said[i] === word),
   );
   if (command === undefined) return NOT_IMAGE;
   return {
     settle: (context) =>
-      context.walk((session, words) =>
-        new SyncLine(command, session, words, context)
+      context.walk(
+        (session, words) => new SyncLine(command, session, words, context),
       ),
     consult: atExecution,
   };
@@ -276,10 +276,8 @@ class SyncLine implements Line {
       plainRefusal(UNNAMED_REFUSAL, err.message).tell(context.speech);
       return err.code;
     }
-    return await ruled(
-      context,
-      this.#command.path,
-      () => executed(run, context),
+    return await ruled(context, this.#command.path, () =>
+      executed(run, context),
     );
   }
 }
@@ -367,9 +365,7 @@ function allowedDir(
 }
 
 /** Значение ключа `image.dir` в кэш-БД строки; нет — `undefined`. */
-function configuredDir(
-  io: Pick<CommandIo, "openCacheDb">,
-): string | undefined {
+function configuredDir(io: Pick<CommandIo, "openCacheDb">): string | undefined {
   return readPreferences(io, (db) => configValue(db, IMAGE_DIR.key), undefined);
 }
 
@@ -395,7 +391,7 @@ function preference(
     throw new Refused(`${said}: ${err.message}`, MISWRITTEN);
   }
   const both = prefer.base.find((one) =>
-    prefer.files.some((other) => other.text() === one.text())
+    prefer.files.some((other) => other.text() === one.text()),
   );
   if (both !== undefined) {
     throw new Refused(
@@ -403,12 +399,9 @@ function preference(
       MISWRITTEN,
     );
   }
-  const named = [
-    ...base.map((one) => one.method.record()),
-    ...files.files,
-  ];
-  const missing = [...prefer.base, ...prefer.files].find((address) =>
-    !named.some((one) => address.names(one))
+  const named = [...base.map((one) => one.method.record()), ...files.files];
+  const missing = [...prefer.base, ...prefer.files].find(
+    (address) => !named.some((one) => address.names(one)),
   );
   if (missing !== undefined) {
     throw new Refused(
@@ -430,7 +423,8 @@ async function executed(run: Run, context: ImageContext): Promise<number> {
   const [overflow] = run.chosen.overflows(run.plan);
   if (overflow !== undefined) {
     const hint = run.chosen.hint(context.said);
-    const said = `${lineText(ROOT_TEXT, context.said)}: ${WOULD_DELETE} ` +
+    const said =
+      `${lineText(ROOT_TEXT, context.said)}: ${WOULD_DELETE} ` +
       `${overflow.deleted} из ${overflow.of} методов (${overflow.side})`;
     new RefusalNotice({
       reason: WOULD_DELETE,

@@ -84,9 +84,9 @@ async function directFrames(one: Case, file: string) {
   const queue = [...one.answers];
   const client: Channel = one.human
     ? new Human(
-      (question) => void frames.push({ ask: question }),
-      () => Promise.resolve(queue.shift()),
-    )
+        (question) => void frames.push({ ask: question }),
+        () => Promise.resolve(queue.shift()),
+      )
     : NOBODY;
   const channel = one.path === "/agent/line" ? new Agent(client) : client;
   const journal = {
@@ -104,10 +104,15 @@ async function directFrames(one: Case, file: string) {
     rootMethods: [],
     memory: NO_CALLER,
     refusal: (data) => void frames.push({ refusal: data }),
-  })(one.words, makeFakeIo(), {
-    stdout: (text) => void frames.push({ out: text }),
-    stderr: (text) => void frames.push({ err: text }),
-  }, journal);
+  })(
+    one.words,
+    makeFakeIo(),
+    {
+      stdout: (text) => void frames.push({ out: text }),
+      stderr: (text) => void frames.push({ err: text }),
+    },
+    journal,
+  );
   frames.push({ exit: code });
   return { frames, called, rules: rulesOf(file) };
 }
@@ -135,8 +140,9 @@ describe("кадры строки равны прямому исполнению
           expect(frames).toStrictEqual(
             JSON.parse(await readFile(golden, "utf8")),
           );
-        })
-      ));
+        }),
+      ),
+    );
   }
 });
 
@@ -144,9 +150,12 @@ it("правило: человек меняет, агент — нет, файл
   withBack(async (back) => {
     await line(back, "/line", ["version"]);
     const before = await readFile(back.policyFile);
-    const agent = await line(back, "/agent/line", ["allow:", "kiten ls"], [
-      "y",
-    ]);
+    const agent = await line(
+      back,
+      "/agent/line",
+      ["allow:", "kiten ls"],
+      ["y"],
+    );
     expect(agent).toStrictEqual([
       refusalFrame(HUMAN_ONLY, HUMAN_ONLY),
       { err: "изменить правила может только человек\n" },
@@ -158,8 +167,9 @@ it("правило: человек меняет, агент — нет, файл
       ask: "изменить правило: kiten ls → allow? [y/N] ",
     });
     expect(human.at(-1)).toStrictEqual({ exit: 0 });
-    expect(rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"))
-      .toStrictEqual({ path: "kiten ls", verdict: "allow" });
+    expect(
+      rulesOf(back.policyFile).find((rule) => rule.path === "kiten ls"),
+    ).toStrictEqual({ path: "kiten ls", verdict: "allow" });
   }));
 
 it("ask без человека: отказ, команда не вызвана", () =>
@@ -179,26 +189,31 @@ it("ask без человека: отказ, команда не вызвана"
 describe("плохой первый кадр и нет каталога — отказ с кодом 2", () => {
   const cases: readonly (readonly [string, unknown, readonly Frame[]])[] = [
     ["не JSON", "{", [{ err: "mpu-back: плохой кадр строки\n" }, { exit: 2 }]],
-    ["нет cwd", { words: ["version"] }, [
-      { err: "mpu-back: плохой кадр строки\n" },
-      { exit: 2 },
-    ]],
-    ["human не булево", { words: ["version"], cwd: "/", human: "да" }, [
-      { err: "mpu-back: плохой кадр строки\n" },
-      { exit: 2 },
-    ]],
-    ["words не строки", { words: [1], cwd: "/" }, [
-      { err: "mpu-back: плохой кадр строки\n" },
-      { exit: 2 },
-    ]],
-    ["cwd относительный", { words: ["version"], cwd: "tmp" }, [
-      { err: "mpu-back: плохой кадр строки\n" },
-      { exit: 2 },
-    ]],
-    ["нет каталога", { words: ["version"], cwd: "/нет/такого" }, [
-      { err: "mpu-back: нет каталога /нет/такого\n" },
-      { exit: 2 },
-    ]],
+    [
+      "нет cwd",
+      { words: ["version"] },
+      [{ err: "mpu-back: плохой кадр строки\n" }, { exit: 2 }],
+    ],
+    [
+      "human не булево",
+      { words: ["version"], cwd: "/", human: "да" },
+      [{ err: "mpu-back: плохой кадр строки\n" }, { exit: 2 }],
+    ],
+    [
+      "words не строки",
+      { words: [1], cwd: "/" },
+      [{ err: "mpu-back: плохой кадр строки\n" }, { exit: 2 }],
+    ],
+    [
+      "cwd относительный",
+      { words: ["version"], cwd: "tmp" },
+      [{ err: "mpu-back: плохой кадр строки\n" }, { exit: 2 }],
+    ],
+    [
+      "нет каталога",
+      { words: ["version"], cwd: "/нет/такого" },
+      [{ err: "mpu-back: нет каталога /нет/такого\n" }, { exit: 2 }],
+    ],
   ];
   for (const [name, first, expected] of cases) {
     it(name, () =>
@@ -208,6 +223,7 @@ describe("плохой первый кадр и нет каталога — от
         client.send(first);
         expect(await client.finished()).toStrictEqual(expected);
         expect(back.called).toStrictEqual([]);
-      }));
+      }),
+    );
   }
 });

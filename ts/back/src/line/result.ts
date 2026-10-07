@@ -177,7 +177,9 @@ function unknownWord(
       const refuse = (): never => {
         const known = [
           ...names,
-          ...selectionMessages().map((line) => line.selector).sort(),
+          ...selectionMessages()
+            .map((line) => line.selector)
+            .sort(),
         ];
         throw notUnderstood(`не понимает ${selector}`, selector, known, "есть");
       };
@@ -195,7 +197,8 @@ function unknownWord(
 function formatDoc(name: string): Doc {
   return {
     purpose: `результат в формате ${name}`,
-    help: `Печатает результат команды в формате ${name}; код завершения ` +
+    help:
+      `Печатает результат команды в формате ${name}; код завершения ` +
       "тот же, что без формата.",
   };
 }
@@ -230,11 +233,8 @@ export const TEXT_RESULT: Results = {
   closing: <S>(): Closing<S> => ({
     close: (self: S) => {
       const text = new Shape<S>([]);
-      return new AsideCall(
-        GRAMMAR.close,
-        TEXT_DOC,
-        text,
-        () => text.receive(self),
+      return new AsideCall(GRAMMAR.close, TEXT_DOC, text, () =>
+        text.receive(self),
       );
     },
     formats: () => [],
@@ -273,12 +273,9 @@ export class ResultOf implements Results {
     this.#names = names;
     this.#shape = new Shape<Pending>(
       names.map((name) =>
-        gate(
-          name,
-          formatDoc(name),
-          chosen,
-          (pending) => pending.as(formats[name]),
-        )
+        gate(name, formatDoc(name), chosen, (pending) =>
+          pending.as(formats[name]),
+        ),
       ),
       { fallback: unknownWord(names, field, execution), ending },
     );
@@ -286,7 +283,8 @@ export class ResultOf implements Results {
     this.#execution = execution;
     this.#doc = {
       purpose: "результат команды",
-      help: `Слово после ${GRAMMAR.close} — формат результата: ` +
+      help:
+        `Слово после ${GRAMMAR.close} — формат результата: ` +
         `${names.join(", ")} — или сообщение отбора. Без формата — вид по ` +
         "умолчанию.",
     };

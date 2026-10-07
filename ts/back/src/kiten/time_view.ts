@@ -24,9 +24,10 @@ export const timeLogViewSchema = z.object({
   for_date: z.string().describe("день записи YYYY-MM-DD"),
   minutes: z.number().int().describe("длительность в целых минутах"),
   role_id: z.number().int().nullable().describe("id роли записи"),
-  role: z.string().nullable().describe(
-    "название роли из ответа внешней системы; названия нет — null",
-  ),
+  role: z
+    .string()
+    .nullable()
+    .describe("название роли из ответа внешней системы; названия нет — null"),
   user_id: z.number().int().nullable().describe("id владельца записи"),
   user: z.string().nullable().describe("отображаемое имя владельца записи"),
   comment: z.string().describe("комментарий записи; пустая строка — его нет"),
@@ -97,12 +98,15 @@ export function renderTimeLogTable(
   const widths = columnWidths(rows);
   const table = rows
     .map((row) =>
-      row.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd()
+      row
+        .map((cell, index) => cell.padEnd(widths[index]))
+        .join("  ")
+        .trimEnd(),
     )
     .join("\n");
-  const total = `итого: ${formatDuration(totalMinutes)} (${
-    formatLogCount(logs.length)
-  })`;
+  const total = `итого: ${formatDuration(totalMinutes)} (${formatLogCount(
+    logs.length,
+  )})`;
   return `${table}\n${total}\n`;
 }
 
@@ -134,7 +138,7 @@ function bodyRow(log: TimeLogView, withUser: boolean): readonly string[] {
 
 function columnWidths(rows: readonly (readonly string[])[]): readonly number[] {
   return rows[0].map((_, index) =>
-    Math.max(...rows.map((row) => row[index].length))
+    Math.max(...rows.map((row) => row[index].length)),
   );
 }
 

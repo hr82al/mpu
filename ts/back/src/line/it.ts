@@ -182,15 +182,19 @@ class Recalled implements Receiver {
     return sent.route({
       named: (named) =>
         this.#format(named) ??
-          selectionOf(
-            named,
-            KIND,
-            () => this.#source(),
-            () =>
-              this.#kept.command.field(named, () => this.#source(), () => {
+        selectionOf(
+          named,
+          KIND,
+          () => this.#source(),
+          () =>
+            this.#kept.command.field(
+              named,
+              () => this.#source(),
+              () => {
                 throw this.#refusal(named.selector());
-              }),
-          ),
+              },
+            ),
+        ),
       tail: () => {
         throw this.#refusal(sent.selector());
       },
@@ -233,7 +237,9 @@ class Recalled implements Receiver {
     const known = [
       JSON_FORMAT,
       ...Object.keys(this.#kept.command.formats).sort(),
-      ...selectionMessages().map((line) => line.selector).sort(),
+      ...selectionMessages()
+        .map((line) => line.selector)
+        .sort(),
     ];
     return notUnderstood(`не понимает ${selector}`, selector, known, "есть");
   }
@@ -270,7 +276,8 @@ class Absent implements Receiver {
 
 const IT_DOC: Doc = {
   purpose: "последний результат этого вызывающего",
-  help: "Звать, чтобы перерисовать или отобрать прошлый результат без\n" +
+  help:
+    "Звать, чтобы перерисовать или отобрать прошлый результат без\n" +
     "повторного запроса: mpu it md, mpu it json, mpu it where: … end size.\n" +
     "Ничего не исполняет и правил не спрашивает; помнится результат с\n" +
     "кодом 0, не поток, до перезапуска back или часа без строк.",

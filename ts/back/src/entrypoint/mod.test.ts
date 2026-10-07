@@ -290,8 +290,9 @@ describe("раскладка selector-first: селектор до имени п
 
   it("режимы печати перед селектором не мешают", async () => {
     const cli = makeCli();
-    expect(await cli.run("ozon-jobs", "-p", "sl-2", "show", "--нет-флага"))
-      .toBe(2);
+    expect(
+      await cli.run("ozon-jobs", "-p", "sl-2", "show", "--нет-флага"),
+    ).toBe(2);
     expect(cli.stderr()).toContain("mpu ozon-jobs show --help");
   });
 

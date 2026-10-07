@@ -22,10 +22,12 @@ it("порча записи — не ошибка, а отсутствие за�
   expect(cachedToken("{", 0)).toStrictEqual(undefined);
   expect(cachedToken("[]", 0)).toStrictEqual(undefined);
   expect(cachedToken('"строка"', 0)).toStrictEqual(undefined);
-  expect(cachedToken(JSON.stringify({ token: 1, expires_at: 9 }), 0))
-    .toStrictEqual(undefined);
-  expect(cachedToken(JSON.stringify({ token: "T", expires_at: "9" }), 0))
-    .toStrictEqual(undefined);
+  expect(
+    cachedToken(JSON.stringify({ token: 1, expires_at: 9 }), 0),
+  ).toStrictEqual(undefined);
+  expect(
+    cachedToken(JSON.stringify({ token: "T", expires_at: "9" }), 0),
+  ).toStrictEqual(undefined);
 });
 
 it("новая запись живёт ровно TTL от момента получения", () => {

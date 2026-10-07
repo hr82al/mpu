@@ -144,11 +144,10 @@ describe("успех записи без набора строк — этало�
   const argv = ["sl-3", "UPDATE t SET a = 1 WHERE 1=0"];
   let result: SqlResult;
   beforeAll(async () => {
-    result = await runSql(
-      args({ selector: argv[0], sql: argv[1] }),
-      io,
-      { mode: "write", openSession: sessions.open },
-    );
+    result = await runSql(args({ selector: argv[0], sql: argv[1] }), io, {
+      mode: "write",
+      openSession: sessions.open,
+    });
   });
 
   it("ok-rowcount-stdout.txt", async () => {
@@ -180,9 +179,8 @@ it("--dry: намерение без вывода в stdout", async () => {
 });
 
 it("ошибка БД: текст сервера как есть, без своих подсказок", async () => {
-  const server = 'syntax error at or near "SELEC"\n' +
-    "LINE 1: SELEC 1\n" +
-    "        ^";
+  const server =
+    'syntax error at or near "SELEC"\n' + "LINE 1: SELEC 1\n" + "        ^";
   const sessions = fakeSessions(() => new DbError(server));
   const { io } = harness();
   const err = await rejected(
@@ -203,14 +201,13 @@ it("sw-селектор: отказ и у пишущей половины", asyn
   // ошибки у половин разный: без этой проверки свидетелем текста была
   // бы только `sql-ro`.
   const { io } = harness();
-  const err = await rejected(() =>
-    runSql(
-      args({ selector: "workspaces", sql: "UPDATE t SET a = 1" }),
-      io,
-      {
+  const err = await rejected(
+    () =>
+      runSql(args({ selector: "workspaces", sql: "UPDATE t SET a = 1" }), io, {
         mode: "write",
-      },
-    ), UsageError);
+      }),
+    UsageError,
+  );
   expect(formatCommandError("sql", err)).toBe(
     "mpu sql: маршрут sw выброшен: доступа к контуру воркспейсов нет",
   );

@@ -25,9 +25,11 @@ import { shellCommand } from "../exec/mod.ts";
 import { runProgram } from "../subprocess/mod.ts";
 
 const argsSchema = z.object({
-  selector: z.string({
-    error: "нужен target: sl-N, client_id или заголовок",
-  }).describe("сервер-источник: используется только его номер"),
+  selector: z
+    .string({
+      error: "нужен target: sl-N, client_id или заголовок",
+    })
+    .describe("сервер-источник: используется только его номер"),
 });
 
 const resultSchema = z.object({
@@ -160,8 +162,10 @@ export async function runCopyShared(
   };
   let serverNumber: number;
   try {
-    serverNumber = resolveSelector({ cache, env: io.envFile }, args.selector)
-      .serverNumber;
+    serverNumber = resolveSelector(
+      { cache, env: io.envFile },
+      args.selector,
+    ).serverNumber;
   } finally {
     db?.[Symbol.dispose]();
   }
@@ -173,22 +177,16 @@ export async function runCopyShared(
   }
   const configDir = configDirOf(io);
   if (!exists(configDir)) {
-    throw new UsageError(
-      `mp-config-local dir not found: ${configDir}`,
-      { hint: "override via MPU_MP_CONFIG_LOCAL=..." },
-    );
+    throw new UsageError(`mp-config-local dir not found: ${configDir}`, {
+      hint: "override via MPU_MP_CONFIG_LOCAL=...",
+    });
   }
   const composeFile = `${configDir}/compose.sl-dt-host.yaml`;
   if (!exists(composeFile)) {
     throw new UsageError(`compose file not found: ${composeFile}`);
   }
 
-  const argv = composeArgs(
-    configDir,
-    sourceHost,
-    io.stdinIsTerminal(),
-    exists,
-  );
+  const argv = composeArgs(configDir, sourceHost, io.stdinIsTerminal(), exists);
   const command = shellCommand(argv);
   io.progress(`$ ${command}`);
   // Код переносящего процесса становится кодом команды 1:1: свои
@@ -255,10 +253,7 @@ target: влияет ровно на одно — адрес источника:
 
 Exit: код переносящего процесса; 2 — резолв селектора, нет pg_<N>, нет
 каталога или compose-файла.`,
-  examples: [
-    "mpu copy-shared target: sl-1",
-    "mpu copy-shared target: 5175",
-  ],
+  examples: ["mpu copy-shared target: sl-1", "mpu copy-shared target: 5175"],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" } },

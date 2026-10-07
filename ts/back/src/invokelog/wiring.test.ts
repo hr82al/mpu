@@ -115,7 +115,7 @@ it("вход в Telegram: журнал не получает ни строки �
       ["telegram", "login"],
       makeFakeIo({
         envFile: {
-          get: (name) => name === "TELEGRAM_SESSION" ? session : undefined,
+          get: (name) => (name === "TELEGRAM_SESSION" ? session : undefined),
           values: () => ({}),
           require: () => {
             throw new Error("require не ожидается");
@@ -216,8 +216,9 @@ describe("пометка «без записи вывода» — часть о�
     expect(defineCommand(declaration).logsOutput).toBe(true);
   });
   it("пометка выключает секции вывода", () => {
-    expect(defineCommand({ ...declaration, logsOutput: false }).logsOutput)
-      .toBe(false);
+    expect(
+      defineCommand({ ...declaration, logsOutput: false }).logsOutput,
+    ).toBe(false);
   });
   it("пометка доезжает до записи тула", () => {
     const marked = defineCommand({ ...declaration, logsOutput: false });
@@ -280,21 +281,24 @@ function toolCall(
   io = makeFakeIo({ cwd: () => "/work" }),
   published: readonly Command[] = commands,
 ) {
-  return handleMcp({
-    method: "POST",
-    path: "/ro",
-    headers: {
-      "MCP-Protocol-Version": "2026-07-28",
-      "Mcp-Method": "tools/call",
-      "Mcp-Name": name,
+  return handleMcp(
+    {
+      method: "POST",
+      path: "/ro",
+      headers: {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": name,
+      },
+      body: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name, arguments: args },
+      },
     },
-    body: {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name, arguments: args },
-    },
-  }, { io, commands: published, version: "0.0.0-test", log });
+    { io, commands: published, version: "0.0.0-test", log },
+  );
 }
 
 describe("вызов тула журналируется как вторая точка входа", () => {
@@ -362,15 +366,18 @@ describe("вызов тула журналируется как вторая т�
     });
   });
   it("два вызова в одну миллисекунду — разные run_id", async () => {
-    await withStand(async (stand) => {
-      await toolCall(stand.log, "xlsx_resolve", {});
-      await toolCall(stand.log, "xlsx_resolve", {});
-      const ids = (await stand.records()).map((line) =>
-        line.split(" ").find((part) => part.startsWith("run="))
-      );
-      expect(ids.length).toBe(2);
-      expect(new Set(ids).size, `run_id повторились: ${ids}`).toBe(2);
-    }, () => new Date("2026-08-05T04:42:28.205Z"));
+    await withStand(
+      async (stand) => {
+        await toolCall(stand.log, "xlsx_resolve", {});
+        await toolCall(stand.log, "xlsx_resolve", {});
+        const ids = (await stand.records()).map((line) =>
+          line.split(" ").find((part) => part.startsWith("run=")),
+        );
+        expect(ids.length).toBe(2);
+        expect(new Set(ids).size, `run_id повторились: ${ids}`).toBe(2);
+      },
+      () => new Date("2026-08-05T04:42:28.205Z"),
+    );
   });
 });
 
@@ -507,12 +514,10 @@ describe("журнал: значение опции по объявлению к
   });
 
   it("необъявленная прячет значение в обеих формах", async () => {
-    for (
-      const argv of [
-        ["log", "--pasword", "hunter2"],
-        ["log", "--pasword=hunter2"],
-      ]
-    ) {
+    for (const argv of [
+      ["log", "--pasword", "hunter2"],
+      ["log", "--pasword=hunter2"],
+    ]) {
       await withStand(async (stand) => {
         const outcome = await cli(stand, argv);
         const text = await stand.text();

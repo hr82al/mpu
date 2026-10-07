@@ -55,20 +55,24 @@ it("diff_refs: только полный набор трёх SHA", () => {
   const full = { base_sha: "a", start_sha: "b", head_sha: "c" };
   expect(diffRefsOf({ diff_refs: full })).toStrictEqual(full);
   // Половина набора означала бы инлайн без якоря — такого не бывает.
-  expect(diffRefsOf({ diff_refs: { base_sha: "a", head_sha: "c" } }))
-    .toStrictEqual(null);
+  expect(
+    diffRefsOf({ diff_refs: { base_sha: "a", head_sha: "c" } }),
+  ).toStrictEqual(null);
   expect(diffRefsOf({})).toStrictEqual(null);
 });
 
 it("шапка MR: project из адресации, пустые SHA — null", () => {
-  const mr = mergeRequestOf({
-    iid: 456,
-    title: "заголовок",
-    state: "opened",
-    author: { name: "Имя Фамилия", username: "user" },
-    squash_commit_sha: "",
-    project_id: 1001,
-  }, "group/repo");
+  const mr = mergeRequestOf(
+    {
+      iid: 456,
+      title: "заголовок",
+      state: "opened",
+      author: { name: "Имя Фамилия", username: "user" },
+      squash_commit_sha: "",
+      project_id: 1001,
+    },
+    "group/repo",
+  );
   expect(mr.project).toBe("group/repo");
   expect(mr.author_username).toBe("user");
   // Пустая строка от API равнозначна отсутствию: в JSON уходит null.

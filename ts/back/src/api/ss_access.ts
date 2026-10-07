@@ -79,10 +79,10 @@ export const JOBS_PATH = "/admin/jobs/ss";
 export class GrantResolveError extends UsageError {
   override name = "GrantResolveError";
   constructor(reason: string, options?: { cause?: unknown }) {
-    super(
-      `резолв выдачи в main-БД не удался: ${reason}`,
-      { ...options, advice: "проверь доступ к main-БД (pg_0), не к sl-back" },
-    );
+    super(`резолв выдачи в main-БД не удался: ${reason}`, {
+      ...options,
+      advice: "проверь доступ к main-БД (pg_0), не к sl-back",
+    });
   }
 }
 

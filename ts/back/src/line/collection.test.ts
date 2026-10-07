@@ -125,7 +125,7 @@ it("сценарий 1: size — число, команда исполнена �
       expect([got.code, got.stdout], got.stderr).toStrictEqual([0, "4\n"]);
       expect(got.called).toStrictEqual(["kiten ls"]);
       expect(stand.asked()).toStrictEqual(2 * once);
-    })
+    }),
   ));
 
 it("сценарий 2: where: … is: и first: — JSON отобранных записей", () =>
@@ -137,19 +137,17 @@ it("сценарий 2: where: … is: и first: — JSON отобранных �
         .filter((row) => (row as { column: string }).column === "9101")
         .slice(0, 2);
       const tail = ["first:", "2", END, "json"];
-      for (
-        const line of [
-          ["kiten", "ls", "where:", "column", "is:", "9101", END, ...tail],
-          ["kiten", "ls", END, "where:", "column", "is:", "9101", END, ...tail],
-        ]
-      ) {
+      for (const line of [
+        ["kiten", "ls", "where:", "column", "is:", "9101", END, ...tail],
+        ["kiten", "ls", END, "where:", "column", "is:", "9101", END, ...tail],
+      ]) {
         const got = await run(file, line, stand);
         expect(got.code, got.stderr).toBe(0);
         expect(got.stdout).toStrictEqual(
           `${JSON.stringify(expected, null, 2)}\n`,
         );
       }
-    })
+    }),
   ));
 
 it("сценарий 3: sql-ro — строки записями, first n — значение", async () => {
@@ -192,25 +190,29 @@ it("сценарий 4: нет поля — отказ с ближайшими, 
           "ближайшие: id, state, due_date, updated, title, url, column, " +
           "columnMapped\n",
       );
-    })
+    }),
   ));
 
 it("сценарий 5: даты ISO — текстом", () =>
   withPolicyFile((file) =>
     withStand(async (stand) => {
       allowEverything(file);
-      const got = await run(file, [
-        "kiten",
-        "ls",
-        "where:",
-        "updated",
-        "less:",
-        "2026-09-01",
-        END,
-        "size",
-      ], stand);
+      const got = await run(
+        file,
+        [
+          "kiten",
+          "ls",
+          "where:",
+          "updated",
+          "less:",
+          "2026-09-01",
+          END,
+          "size",
+        ],
+        stand,
+      );
       expect([got.code, got.stdout], got.stderr).toStrictEqual([0, "2\n"]);
-    })
+    }),
   ));
 
 it("сценарий 6: поток — только форматы, до исполнения", () =>
@@ -227,7 +229,7 @@ it("сценарий 6: поток — только форматы, до исп�
         `mpu logs follow target: sl-1 ${END}: поток — только форматы\n`,
       );
       expect(got.called).toStrictEqual([]);
-    })
+    }),
   ));
 
 it("сценарий 7: скаляр отбора — значение ключа", () =>
@@ -258,7 +260,7 @@ it("сценарий 7: скаляр отбора — значение ключ�
         "выполнить mpu kiten comment id: 11 text: ping? [y/N] " +
           "mpu kiten comment id: 11 text: ping: не подтверждено\n",
       );
-    })
+    }),
   ));
 
 it("сценарий 8: текст отобранной коллекции — вид команды", () =>
@@ -276,31 +278,25 @@ it("сценарий 8: текст отобранной коллекции — �
       expect(two.stdout).toStrictEqual(
         ls.renderResult({ view: "table", rows: rows.slice(0, 2) }, []),
       );
-    })
+    }),
   ));
 
 it("значение-список записей с id — отказ с готовым значением", () =>
   withPolicyFile((file) =>
     withStand(async (stand) => {
       allowEverything(file);
-      const got = await run(file, [
-        "kiten",
-        "comment",
-        "id:",
-        DO,
-        "kiten",
-        "ls",
-        END,
-        "text:",
-        "ping",
-      ], stand);
+      const got = await run(
+        file,
+        ["kiten", "comment", "id:", DO, "kiten", "ls", END, "text:", "ping"],
+        stand,
+      );
       expect(got.code).toBe(2);
       expect(got.stderr).toStrictEqual(
         "mpu kiten comment: значение ключа id — не скаляр (список); " +
           `скаляром: id: ${DO} kiten ls ${END} first id\n`,
       );
       expect(got.called).toStrictEqual(["kiten ls"]);
-    })
+    }),
   ));
 
 describe("граничные случаи отбора", () => {
@@ -329,17 +325,7 @@ describe("граничные случаи отбора", () => {
       "",
     ],
     [
-      [
-        "kiten",
-        "ls",
-        END,
-        "where:",
-        "title",
-        "includes:",
-        "ДВ",
-        END,
-        "size",
-      ],
+      ["kiten", "ls", END, "where:", "title", "includes:", "ДВ", END, "size"],
       0,
       "1\n",
       "",
@@ -356,26 +342,24 @@ describe("граничные случаи отбора", () => {
     [["sql-ro", "where:", "n", "is:", "1"], 2, "", "не понимает is:where:"],
   ];
   for (const [line, code, stdout, refusal] of cases) {
-    it(
-      line.join(" "),
-      () =>
-        withPolicyFile((file) =>
-          withStand(async (stand) => {
-            allowEverything(file);
-            const got = await run(file, line, stand);
-            expect([got.code, got.stdout], got.stderr).toStrictEqual([
-              code,
-              stdout,
-            ]);
-            assert(
-              got.stderr.endsWith(`${refusal}\n`) || refusal === "",
-              got.stderr,
-            );
-            // Отбор идёт по готовому результату; до исполнения отказывает
-            // только разбор ключей.
-            if (line[0] === "sql-ro") expect(got.called).toStrictEqual([]);
-          })
-        ),
+    it(line.join(" "), () =>
+      withPolicyFile((file) =>
+        withStand(async (stand) => {
+          allowEverything(file);
+          const got = await run(file, line, stand);
+          expect([got.code, got.stdout], got.stderr).toStrictEqual([
+            code,
+            stdout,
+          ]);
+          assert(
+            got.stderr.endsWith(`${refusal}\n`) || refusal === "",
+            got.stderr,
+          );
+          // Отбор идёт по готовому результату; до исполнения отказывает
+          // только разбор ключей.
+          if (line[0] === "sql-ro") expect(got.called).toStrictEqual([]);
+        }),
+      ),
     );
   }
 });
@@ -390,7 +374,7 @@ it("команда упала — отбора нет, код и отказ ко
       const got = await run(file, [...line, END, "size"], stand);
       expect(got).toStrictEqual({ ...plain, stdout: "" });
       assert(got.code !== 0, got.stderr);
-    })
+    }),
   ));
 
 it("ответ протокола после end — только форматы", () =>
@@ -401,5 +385,5 @@ it("ответ протокола после end — только форматы
       expect(got.stderr).toStrictEqual(
         `mpu kiten messages ${END}: не понимает size; есть: json\n`,
       );
-    })
+    }),
   ));

@@ -44,35 +44,42 @@ const rowSchema = z.object({
 });
 
 const argsSchema = z.object({
-  value: z.string().describe(
-    "селектор: client_id, таблица, заголовок, sid, IP, email",
-  ),
+  value: z
+    .string()
+    .describe("селектор: client_id, таблица, заголовок, sid, IP, email"),
   "client-id": z.boolean().default(false).describe("печатать только client_id"),
-  "spreadsheet-id": z.boolean().default(false).describe(
-    "печатать только spreadsheet_id",
-  ),
+  "spreadsheet-id": z
+    .boolean()
+    .default(false)
+    .describe("печатать только spreadsheet_id"),
   title: z.boolean().default(false).describe("печатать только заголовок"),
   server: z.boolean().default(false).describe("печатать только сервер"),
-  "server-number": z.boolean().default(false).describe(
-    "печатать только номер сервера",
-  ),
+  "server-number": z
+    .boolean()
+    .default(false)
+    .describe("печатать только номер сервера"),
   "sl-ip": z.boolean().default(false).describe("печатать только адрес sl"),
   "pg-ip": z.boolean().default(false).describe("печатать только адрес pg"),
-  sids: z.boolean().default(false).describe(
-    "печатать только WB-кабинеты через запятую",
-  ),
-  update: z.boolean().default(true).describe(
-    "на пустом результате обновить кэш и повторить поиск",
-  ),
-  reason: z.string().optional().describe(
-    "причина impersonation для аудита 10X; дефолт «ТП <дата>»",
-  ),
-  "refresh-cache": z.boolean().default(false).describe(
-    "не верить кэшу 10X: перерезолвить через API",
-  ),
-  scope: z.enum(["auto", "user", "access"]).default("auto").describe(
-    "область staff-поиска 10X",
-  ),
+  sids: z
+    .boolean()
+    .default(false)
+    .describe("печатать только WB-кабинеты через запятую"),
+  update: z
+    .boolean()
+    .default(true)
+    .describe("на пустом результате обновить кэш и повторить поиск"),
+  reason: z
+    .string()
+    .optional()
+    .describe("причина impersonation для аудита 10X; дефолт «ТП <дата>»"),
+  "refresh-cache": z
+    .boolean()
+    .default(false)
+    .describe("не верить кэшу 10X: перерезолвить через API"),
+  scope: z
+    .enum(["auto", "user", "access"])
+    .default("auto")
+    .describe("область staff-поиска 10X"),
 });
 
 const sessionSchema = z.object({
@@ -93,11 +100,13 @@ const targetSchema = z.object({
   reason: z.string(),
   fetched_at: z.number().int(),
   owned: z.array(rowSchema),
-  member_only: z.array(z.object({
-    workspace_id: z.number().int().nullable(),
-    name: z.string().nullable(),
-    marketplace: z.string().nullable(),
-  })),
+  member_only: z.array(
+    z.object({
+      workspace_id: z.number().int().nullable(),
+      name: z.string().nullable(),
+      marketplace: z.string().nullable(),
+    }),
+  ),
   sessions: z.array(sessionSchema),
   workspaces: z.array(z.record(z.string(), z.unknown())),
 });
@@ -190,7 +199,7 @@ Exit: 0 — успех, включая пустой результат; 1 — с
   render: renderSearch,
   // Неоднозначный staff-поиск — не ошибка разбора: список кандидатов
   // печатается в stdout, а код возврата всё равно 2 (спека).
-  textExitCode: (result) => result.ambiguous === null ? 0 : 2,
+  textExitCode: (result) => (result.ambiguous === null ? 0 : 2),
 });
 
 /**
@@ -261,9 +270,9 @@ async function runX10(
     // в stdout: команда обязана отдать оба, а результат у неё один
     // (спека, «10X-резолв не-email селектора»).
     io.progress(
-      `mpu search: 10X staff search (scope=${
-        effective(args)
-      }): по '${args.value}' найдено кандидатов: ${outcome.candidates.length};` +
+      `mpu search: 10X staff search (scope=${effective(
+        args,
+      )}): по '${args.value}' найдено кандидатов: ${outcome.candidates.length};` +
         " повтори с точным email или с user.id (--scope user)",
     );
     return {

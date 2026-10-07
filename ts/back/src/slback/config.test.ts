@@ -20,33 +20,45 @@ function envOf(values: Readonly<Record<string, string>>): EnvFile {
 }
 
 it("BASE_API_URL как полный URL побеждает хост", () => {
-  expect(slbackBaseUrl(envOf({
-    BASE_API_URL: "https://api.example.test/v2/",
-    NEXT_PUBLIC_SERVER_URL: "https://другой.test",
-  }))).toBe("https://api.example.test/v2");
+  expect(
+    slbackBaseUrl(
+      envOf({
+        BASE_API_URL: "https://api.example.test/v2/",
+        NEXT_PUBLIC_SERVER_URL: "https://другой.test",
+      }),
+    ),
+  ).toBe("https://api.example.test/v2");
 });
 
 it("правило 2: у префикса срезаются ведущие слэши, у хоста — хвостовые", () => {
-  expect(slbackBaseUrl(envOf({
-    BASE_API_URL: "/api/",
-    NEXT_PUBLIC_SERVER_URL: "https://sl.example.test//",
-  }))).toBe("https://sl.example.test/api/");
+  expect(
+    slbackBaseUrl(
+      envOf({
+        BASE_API_URL: "/api/",
+        NEXT_PUBLIC_SERVER_URL: "https://sl.example.test//",
+      }),
+    ),
+  ).toBe("https://sl.example.test/api/");
 });
 
 it("хвостовой слэш префикса остаётся — и даёт `//` перед путём", () => {
   // Не украшательство, а буква спеки: адрес обязан совпадать с адресом
   // прежней реализации, иначе сверка сравнивала бы разные запросы.
-  const base = slbackBaseUrl(envOf({
-    BASE_API_URL: "/api/",
-    NEXT_PUBLIC_SERVER_URL: "https://sl.example.test",
-  }));
+  const base = slbackBaseUrl(
+    envOf({
+      BASE_API_URL: "/api/",
+      NEXT_PUBLIC_SERVER_URL: "https://sl.example.test",
+    }),
+  );
   expect(new URL(`${base}/admin/roles`).pathname).toBe("/api//admin/roles");
 });
 
 it("один хост без пути — он и есть база", () => {
-  expect(slbackBaseUrl(
-    envOf({ NEXT_PUBLIC_SERVER_URL: "https://sl.example.test/" }),
-  )).toBe("https://sl.example.test");
+  expect(
+    slbackBaseUrl(
+      envOf({ NEXT_PUBLIC_SERVER_URL: "https://sl.example.test/" }),
+    ),
+  ).toBe("https://sl.example.test");
 });
 
 it("пустые значения равнозначны незаданным: отказ с обоими именами", () => {
@@ -81,9 +93,11 @@ it("флаг закрывает свой ключ и побеждает env по
     email: "из-флага@test",
     password: "пароль",
   });
-  expect(slbackCredentials(envOf({ TOKEN_PASSWORD: "пароль" }), {
-    email: "из-флага@test",
-  })).toStrictEqual({ email: "из-флага@test", password: "пароль" });
+  expect(
+    slbackCredentials(envOf({ TOKEN_PASSWORD: "пароль" }), {
+      email: "из-флага@test",
+    }),
+  ).toStrictEqual({ email: "из-флага@test", password: "пароль" });
 });
 
 it("недостающим считается только пустой ключ", () => {

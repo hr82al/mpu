@@ -120,24 +120,24 @@ export async function putJob(
   const output = io.openRemoteOutput();
   return target.kind === "ssh"
     ? await runOverSsh({
-      target,
-      command,
-      stdin: new Uint8Array(),
-      keyPath: keyPath(io),
-      output,
-      cwd: io.cwd(),
-      signal: io.signal,
-      run: options.runProcess,
-    })
+        target,
+        command,
+        stdin: new Uint8Array(),
+        keyPath: keyPath(io),
+        output,
+        cwd: io.cwd(),
+        signal: io.signal,
+        run: options.runProcess,
+      })
     : await runOverPortainer({
-      target,
-      command,
-      stdin: new Uint8Array(),
-      output,
-      warn: io.progress,
-      http: options.httpCall,
-      open: options.openChannel,
-    });
+        target,
+        command,
+        stdin: new Uint8Array(),
+        output,
+        warn: io.progress,
+        http: options.httpCall,
+        open: options.openChannel,
+      });
 }
 
 /** Номер сервера из `sl-N`; иная форма — `undefined`. */

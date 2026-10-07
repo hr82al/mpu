@@ -110,7 +110,7 @@ function jwtExpiry(token: string): number | null {
 /** base64url → текст: `-`/`_` вместо `+`/`/`, выравнивание необязательно. */
 function base64UrlDecode(raw: string): string {
   const padded = raw.replaceAll("-", "+").replaceAll("_", "/");
-  const full = padded + "=".repeat((4 - padded.length % 4) % 4);
+  const full = padded + "=".repeat((4 - (padded.length % 4)) % 4);
   return new TextDecoder().decode(
     Uint8Array.from(atob(full), (char) => char.charCodeAt(0)),
   );

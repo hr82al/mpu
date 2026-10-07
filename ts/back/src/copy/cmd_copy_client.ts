@@ -49,9 +49,11 @@ function clientTempFile(): string {
 }
 
 const argsSchema = z.object({
-  selector: z.string({
-    error: "нужен target: client_id, spreadsheet_id или заголовок",
-  }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
+  selector: z
+    .string({
+      error: "нужен target: client_id, spreadsheet_id или заголовок",
+    })
+    .describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
 });
 
 const countSchema = z.object({ table: z.string(), rows: z.number() });
@@ -68,10 +70,7 @@ type CopyArgs = z.infer<typeof argsSchema>;
 type CopyResult = z.infer<typeof resultSchema>;
 
 /** Срез порта: кэш селектора, env-файл и печать хода. */
-export type CopyIo = Pick<
-  CommandIo,
-  "envFile" | "openCacheDb" | "progress"
->;
+export type CopyIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress">;
 
 /**
  * Исполнитель redis-вызовов: подставленный тестом либо настоящий.
@@ -126,8 +125,8 @@ export async function runCopyClient(
   io.progress(`copy-client ${clientId}: sl-${serverNumber} → локальный стенд`);
   const sl1 = localSl1(io.envFile);
   const sl0 = localSl0(io.envFile);
-  const open: OpenSession = options.openSession ??
-    ((target, mode) => openPgSession(target, mode));
+  const open: OpenSession =
+    options.openSession ?? ((target, mode) => openPgSession(target, mode));
   const counts = await copyClientData({
     progress: io.progress,
     clientId,
@@ -216,10 +215,7 @@ async function warmClientCache(
  * Свой `try`, а не общий с проводкой: вход уже заведён, и ронять из-за
  * кэша нечего — его сбрасывают руками той же командой из подсказки.
  */
-async function flushSwBack(
-  io: CopyIo,
-  runRedis: RunRedis,
-): Promise<void> {
+async function flushSwBack(io: CopyIo, runRedis: RunRedis): Promise<void> {
   try {
     await runRedis(
       [
@@ -278,9 +274,10 @@ async function seedSwFront(
     // Метка оператора — то, чего в тексте сервера может не быть вовсе:
     // «column does not exist» не называет таблицу, а операторов в
     // проводке шесть на кабинет, и все они про разные таблицы.
-    const reason = err instanceof StatementError && err.label !== undefined
-      ? `${err.label}: ${line}`
-      : line;
+    const reason =
+      err instanceof StatementError && err.label !== undefined
+        ? `${err.label}: ${line}`
+        : line;
     // Текст дословно из спеки, включая префикс команды.
     io.progress(
       `mpu copy-client: WARN проводка sw-front не удалась (${reason}); ` +
@@ -292,17 +289,20 @@ async function seedSwFront(
 
 /** Итог: что и куда скопировано, плюс как войти в локальный sw-front. */
 export function renderCopyClient(result: CopyResult): string {
-  const head = `✓ client ${result.clientId}: схема + public-строки → sl-1, ` +
+  const head =
+    `✓ client ${result.clientId}: схема + public-строки → sl-1, ` +
     `токен-строки → sl-0.\n`;
   // Строки про вход печатаются только при удавшейся проводке: обещать
   // вход, которого нет, хуже, чем промолчать (спека, «Ввод/вывод»).
   if (!result.login) return head;
-  return head +
+  return (
+    head +
     `✓ вход: http://sw.localhost/login → ${localEmail(result.clientId)} / ` +
     `${LOCAL_PASSWORD}\n` +
     `  (workspace ${result.clientId}; если раздел просит активировать ` +
     `подписку — добавь ${result.clientId} в ` +
-    `BILLING_MOCK_ACCESS_WORKSPACE_IDS фронта и пересоздай sw-front)\n`;
+    `BILLING_MOCK_ACCESS_WORKSPACE_IDS фронта и пересоздай sw-front)\n`
+  );
 }
 
 export const copyClientCommand = defineCommand({

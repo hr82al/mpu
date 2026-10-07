@@ -36,9 +36,10 @@ async function run(
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const human = answers === undefined
-    ? {}
-    : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
+  const human =
+    answers === undefined
+      ? {}
+      : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
   const code = await lineEntry(consentOf(file, answers))(
     argv,
     makeFakeIo({ ...io, ...human }),
@@ -90,12 +91,12 @@ describe("вариант не на месте и прежний флаг — о�
     [
       ["process", "target:", "54", "dry"],
       `mpu process target: 54 ${END}: вариант — до ключей: ` +
-      "mpu process dry target: 54",
+        "mpu process dry target: 54",
     ],
     [
       ["process", "verbose", "target:", "54", END, "dry"],
       `mpu process verbose target: 54 ${END}: вариант — до ключей: ` +
-      "mpu process verbose dry target: 54",
+        "mpu process verbose dry target: 54",
     ],
     [
       ["process", "target:", "54", "--dry-run"],
@@ -104,7 +105,7 @@ describe("вариант не на месте и прежний флаг — о�
     [
       ["process", "print", "target:", "54", "--dry_run"],
       "mpu process print: вариант — словом до ключей: " +
-      "mpu process print dry target: 54",
+        "mpu process print dry target: 54",
     ],
     [
       ["logs", "target:", "sl-1", "--via", "portainer"],
@@ -117,7 +118,7 @@ describe("вариант не на месте и прежний флаг — о�
     [
       ["kiten", "card", "id:", "1", "--no-comments"],
       "mpu kiten card: вариант — словом до ключей: " +
-      "mpu kiten card no-comments id: 1",
+        "mpu kiten card no-comments id: 1",
     ],
   ];
   for (const [argv, stderr] of cases) {
@@ -130,7 +131,8 @@ describe("вариант не на месте и прежний флаг — о�
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -144,10 +146,7 @@ describe("голое слово, которому нет ключа, — лиш�
       ["kiten", "spaces", "archived"],
       "mpu kiten spaces: лишнее слово archived",
     ],
-    [
-      ["logs", "portainer", "loki"],
-      "mpu logs portainer: лишнее слово loki",
-    ],
+    [["logs", "portainer", "loki"], "mpu logs portainer: лишнее слово loki"],
     [
       ["logs", "portainer", "sl-1"],
       "mpu logs portainer: значение — ключом: mpu logs portainer target: sl-1",
@@ -163,7 +162,8 @@ describe("голое слово, которому нет ключа, — лиш�
           stderr: `${stderr}\n`,
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 
@@ -188,9 +188,10 @@ it("variants — варианты команды, справка — разде�
     const listed = await run(file, ["process", "variants"]);
     expect(listed.code, listed.stderr).toBe(0);
     expect(listed.called).toStrictEqual([]);
-    const names = listed.stdout.trimEnd().split("\n").map((row) =>
-      row.split("\t")[0]
-    );
+    const names = listed.stdout
+      .trimEnd()
+      .split("\n")
+      .map((row) => row.split("\t")[0]);
     for (const name of ["dry", "local", "print", "verbose"]) {
       expect(names.includes(name), name).toBe(true);
     }
@@ -205,9 +206,9 @@ it("variants — варианты команды, справка — разде�
     expect(via.stdout.includes("follow\t"), via.stdout).toBe(true);
     const json = await run(file, ["logs", "variants", END, "json"]);
     expect(
-      JSON.parse(json.stdout).filter((line: { input: string }) =>
-        line.input === "via"
-      ).map((line: { selector: string }) => line.selector),
+      JSON.parse(json.stdout)
+        .filter((line: { input: string }) => line.input === "via")
+        .map((line: { selector: string }) => line.selector),
     ).toStrictEqual(["loki", "portainer"]);
   }));
 
@@ -247,7 +248,8 @@ describe("вариант не звено пути правил, но слово 
       expect(await run(file, argv, ["n"])).toStrictEqual({
         code: 1,
         stdout: "",
-        stderr: "выполнить mpu process dry target: 54? [y/N] " +
+        stderr:
+          "выполнить mpu process dry target: 54? [y/N] " +
           "mpu process dry target: 54: не подтверждено\n",
         called: [],
       });

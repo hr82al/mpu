@@ -89,56 +89,62 @@ export async function withWebImage(
   let now = Date.parse(DEFINED_AT);
   try {
     await mkdir(`${home}/mr/mp/mpu`, { recursive: true });
-    await withBack(async (back) => {
-      const bearer = { Authorization: `Bearer ${back.token}` };
-      const terminal = async (
-        said: string | readonly string[],
-        answers: readonly string[] = [],
-      ) => {
-        let reply = await line(back, "/line", bearer, {
-          words: typeof said === "string" ? said.split(" ") : said,
-          cwd: "/",
-          human: true,
-        });
-        for (const answer of answers) {
-          if (!("ticket" in reply)) break;
-          reply = await line(back, "/line/answer", bearer, {
-            ticket: reply.ticket,
-            answer,
+    await withBack(
+      async (back) => {
+        const bearer = { Authorization: `Bearer ${back.token}` };
+        const terminal = async (
+          said: string | readonly string[],
+          answers: readonly string[] = [],
+        ) => {
+          let reply = await line(back, "/line", bearer, {
+            words: typeof said === "string" ? said.split(" ") : said,
+            cwd: "/",
+            human: true,
           });
+          for (const answer of answers) {
+            if (!("ticket" in reply)) break;
+            reply = await line(back, "/line/answer", bearer, {
+              ticket: reply.ticket,
+              answer,
+            });
+          }
+          return reply;
+        };
+        for (const said of THREE) {
+          const done = await terminal(said, ["y"]);
+          strictEqual(done.exit, 0, JSON.stringify(done));
         }
-        return reply;
-      };
-      for (const said of THREE) {
-        const done = await terminal(said, ["y"]);
-        strictEqual(done.exit, 0, JSON.stringify(done));
-      }
-      now = Date.parse(LINES_AT);
-      const cookie = await session(back);
-      await body({
-        back,
-        home,
-        dir: `${home}/mr/mp/mpu/image`,
-        screen: (words) =>
-          line(back, "/line", cookie, { words, cwd: "/", human: true }),
-        answer: (asked, answer) =>
-          line(back, "/line/answer", cookie, { ticket: asked.ticket, answer }),
-        terminal,
-        rpc: async (method) => {
-          const response = await fetch(`${back.url}/rpc`, {
-            method: "POST",
-            headers: bearer,
-            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method }),
-          });
-          const text = await response.text();
-          back.seen.push(text);
-          return JSON.parse(text).result;
-        },
-      });
-    }, {
-      now: () => now,
-      io: { env: (name) => name === "HOME" ? home : undefined },
-    });
+        now = Date.parse(LINES_AT);
+        const cookie = await session(back);
+        await body({
+          back,
+          home,
+          dir: `${home}/mr/mp/mpu/image`,
+          screen: (words) =>
+            line(back, "/line", cookie, { words, cwd: "/", human: true }),
+          answer: (asked, answer) =>
+            line(back, "/line/answer", cookie, {
+              ticket: asked.ticket,
+              answer,
+            }),
+          terminal,
+          rpc: async (method) => {
+            const response = await fetch(`${back.url}/rpc`, {
+              method: "POST",
+              headers: bearer,
+              body: JSON.stringify({ jsonrpc: "2.0", id: 1, method }),
+            });
+            const text = await response.text();
+            back.seen.push(text);
+            return JSON.parse(text).result;
+          },
+        });
+      },
+      {
+        now: () => now,
+        io: { env: (name) => (name === "HOME" ? home : undefined) },
+      },
+    );
   } finally {
     await rm(home, { recursive: true });
   }

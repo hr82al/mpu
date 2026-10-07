@@ -65,7 +65,7 @@ const IN_LINK: Escaping = new TextEscaping("\\`[]");
 
 /** Внутри кода разбор толкует только экранирование и закрывающую кавычку. */
 const VERBATIM: Escaping = {
-  escape: (char) => "\\`".includes(char) ? `\\${char}` : char,
+  escape: (char) => ("\\`".includes(char) ? `\\${char}` : char),
   inLink: () => VERBATIM,
 };
 

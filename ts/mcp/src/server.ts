@@ -98,10 +98,9 @@ function sessionServer(options: McpOptions): Server {
     const elicits = server.getClientCapabilities()?.elicitation !== undefined;
     asker = elicits ? eliciting(server) : NOBODY;
   };
-  server.setRequestHandler(
-    ListToolsRequestSchema,
-    () => ({ tools: [...TOOLS] }),
-  );
+  server.setRequestHandler(ListToolsRequestSchema, () => ({
+    tools: [...TOOLS],
+  }));
   server.setRequestHandler(
     CallToolRequestSchema,
     (
@@ -174,13 +173,13 @@ class Translator {
         // только при закрытии сервера: без него строка осталась бы
         // жить, хотя её итога уже некому ждать
         // (`platform/mcp-cancel.md`).
-        this.#closing = this.#closing.then(() => closed.server.close()).catch(
-          () => {
+        this.#closing = this.#closing
+          .then(() => closed.server.close())
+          .catch(() => {
             // Закрытие чужой сессии — уборка: её отказ не должен
             // всплыть отказом постороннего по времени `stop()`, а
             // чинить тут нечего — клиента уже нет.
-          },
-        );
+          });
       },
     });
     await server.connect(transport);
@@ -222,7 +221,7 @@ export async function serveMcp(options: McpOptions): Promise<RunningMcp> {
     port: address.port,
     hostname: LOOPBACK,
     stop: () =>
-      stopping ??= (async () => {
+      (stopping ??= (async () => {
         await translator.stop();
         // Без закрытия соединений `close` ждёт keep-alive клиентов, и
         // процесс под Deno не выходит (проба этапа 2).
@@ -234,9 +233,9 @@ export async function serveMcp(options: McpOptions): Promise<RunningMcp> {
             // цель остановки уже достигнута.
             if (err === undefined || isNotRunning(err)) resolve();
             else reject(err);
-          })
+          }),
         );
-      })(),
+      })()),
   };
 }
 

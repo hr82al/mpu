@@ -50,7 +50,7 @@ function boardWith(replies: readonly Reply[]) {
         const reply = replies[Math.min(index++, replies.length - 1)];
         // 204 запрещает тело — это код удаления, и пустая строка ему
         // не подходит: `Response` бросает.
-        const body = reply.status === 204 ? null : reply.body ?? "";
+        const body = reply.status === 204 ? null : (reply.body ?? "");
         return Promise.resolve(
           new Response(body, { status: reply.status, headers: reply.headers }),
         );
@@ -175,10 +175,12 @@ it("листинг идёт по всем страницам, а не по пе�
 });
 
 it("дети фрейма читаются в форме живого ответа", async () => {
-  const stand = boardWith([{
-    status: 200,
-    body: await fixture("frame-children.json"),
-  }]);
+  const stand = boardWith([
+    {
+      status: 200,
+      body: await fixture("frame-children.json"),
+    },
+  ]);
   const children = await stand.board.children("3458764682192590187");
   expect(children.length).toBe(3);
   expect(children[0].id).toBe("3458764682192590497");
@@ -197,9 +199,7 @@ it("коннектор создаётся кодом 200, а не 201", async ()
 
 describe("удаление: 404 — успех, 400 locked — разлочить и повторить", () => {
   it("уже удалён", async () => {
-    const stand = boardWith([
-      { status: 404, body: '{"code":"3.0201"}' },
-    ]);
+    const stand = boardWith([{ status: 404, body: '{"code":"3.0201"}' }]);
     await stand.board.remove("/items", "42");
     expect(stand.calls.length).toBe(1);
   });

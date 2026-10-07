@@ -66,7 +66,7 @@ async function serve(status: string, script: Script): Promise<Server> {
     const [conn]: Socket[] = await accepted;
     try {
       const read = reader(conn);
-      request = decoder.decode(await read() ?? new Uint8Array());
+      request = decoder.decode((await read()) ?? new Uint8Array());
       await write(conn, encoder.encode(`${status}\r\n\r\n`));
       await script({ send: (frame) => write(conn, frame), read });
     } finally {
@@ -97,7 +97,7 @@ function reader(conn: Socket): () => Promise<Uint8Array | null> {
   });
   return async () => {
     while (arrived.length === 0) {
-      await new Promise<void>((resolve) => wake = resolve);
+      await new Promise<void>((resolve) => (wake = resolve));
     }
     const next = arrived[0];
     if (next !== null) arrived.shift();
@@ -107,10 +107,9 @@ function reader(conn: Socket): () => Promise<Uint8Array | null> {
 
 function write(conn: Socket, bytes: Uint8Array): Promise<void> {
   return new Promise((resolve, reject) =>
-    conn.write(
-      bytes,
-      (err) => err === undefined || err === null ? resolve() : reject(err),
-    )
+    conn.write(bytes, (err) =>
+      err === undefined || err === null ? resolve() : reject(err),
+    ),
   );
 }
 
@@ -126,16 +125,16 @@ it("рукопожатие: свои заголовки и ключ", async () =
       onData: () => Promise.resolve(),
     });
     const request = server.request();
-    expect(request.startsWith("GET /api/websocket/exec?id=x HTTP/1.1"), request)
-      .toBe(true);
-    for (
-      const line of [
-        "Upgrade: websocket",
-        "Connection: Upgrade",
-        "Sec-WebSocket-Version: 13",
-        "X-API-Key: секрет",
-      ]
-    ) {
+    expect(
+      request.startsWith("GET /api/websocket/exec?id=x HTTP/1.1"),
+      request,
+    ).toBe(true);
+    for (const line of [
+      "Upgrade: websocket",
+      "Connection: Upgrade",
+      "Sec-WebSocket-Version: 13",
+      "X-API-Key: секрет",
+    ]) {
       expect(request.includes(line), line).toBe(true);
     }
     // Ключ — 16 случайных байт в base64: ровно 24 символа с хвостом «==».

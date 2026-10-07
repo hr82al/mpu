@@ -48,31 +48,42 @@ export type SshIo = Pick<
 >;
 
 export const argsSchema = z.object({
-  selector: z.string().optional().describe(
-    "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
-      " при all-containers: — первый токен команды",
-  ),
-  command: z.array(z.string()).default([]).describe(
-    "команда для контейнера; неопознанные флаги уходят в неё как есть",
-  ),
-  via: z.string().optional().describe(
-    "транспорт серверного таргета: ssh|portainer",
-  ),
-  "all-containers": z.string().optional().describe(
-    "выполнить во всех контейнерах кэша, чьё имя содержит подстроку",
-  ),
+  selector: z
+    .string()
+    .optional()
+    .describe(
+      "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
+        " при all-containers: — первый токен команды",
+    ),
+  command: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "команда для контейнера; неопознанные флаги уходят в неё как есть",
+    ),
+  via: z
+    .string()
+    .optional()
+    .describe("транспорт серверного таргета: ssh|portainer"),
+  "all-containers": z
+    .string()
+    .optional()
+    .describe("выполнить во всех контейнерах кэша, чьё имя содержит подстроку"),
   "stdin-text": z.string().optional().describe("stdin команды строкой"),
   "stdin-file": z.string().optional().describe("stdin команды из файла"),
-  "stdin-tty": z.boolean().default(false).describe(
-    "читать stdin с терминала до Ctrl+D",
-  ),
+  "stdin-tty": z
+    .boolean()
+    .default(false)
+    .describe("читать stdin с терминала до Ctrl+D"),
 });
 
 export const resultSchema = z.object({
   exitCode: z.number().int().describe("код выхода удалённой команды, 1:1"),
-  output: z.string().describe(
-    "вывод удалённой команды; в CLI он уже ушёл в потоки и здесь пуст",
-  ),
+  output: z
+    .string()
+    .describe(
+      "вывод удалённой команды; в CLI он уже ушёл в потоки и здесь пуст",
+    ),
 });
 
 /**
@@ -123,9 +134,10 @@ export async function runSsh(
 
   const filter = args["all-containers"];
   try {
-    const exitCode = filter === undefined
-      ? await run(placeOf(args.selector ?? "", { cache, env: io.envFile }))
-      : await fanOut(filter, attempt, run);
+    const exitCode =
+      filter === undefined
+        ? await run(placeOf(args.selector ?? "", { cache, env: io.envFile }))
+        : await fanOut(filter, attempt, run);
     return { exitCode, output: output.captured() };
   } finally {
     db?.[Symbol.dispose]();
@@ -152,24 +164,24 @@ function execute(place: ExecPlace, attempt: Attempt): Promise<number> {
   });
   return target.kind === "ssh"
     ? runOverSsh({
-      target,
-      command: attempt.command,
-      stdin: attempt.stdin,
-      keyPath: keyPath(attempt.io),
-      output: attempt.output,
-      cwd: attempt.io.cwd(),
-      signal: attempt.io.signal,
-      run: attempt.options.runProcess,
-    })
+        target,
+        command: attempt.command,
+        stdin: attempt.stdin,
+        keyPath: keyPath(attempt.io),
+        output: attempt.output,
+        cwd: attempt.io.cwd(),
+        signal: attempt.io.signal,
+        run: attempt.options.runProcess,
+      })
     : runOverPortainer({
-      target,
-      command: attempt.command,
-      stdin: attempt.stdin,
-      output: attempt.output,
-      warn: attempt.io.progress,
-      open: attempt.options.openChannel,
-      http: attempt.options.httpCall,
-    });
+        target,
+        command: attempt.command,
+        stdin: attempt.stdin,
+        output: attempt.output,
+        warn: attempt.io.progress,
+        open: attempt.options.openChannel,
+        http: attempt.options.httpCall,
+      });
 }
 
 /**
@@ -226,8 +238,9 @@ async function stdinOf(args: SshArgs, io: SshIo): Promise<Uint8Array> {
   const text = args["stdin-text"];
   const file = args["stdin-file"];
   const tty = args["stdin-tty"];
-  const explicit = [text !== undefined, file !== undefined, tty]
-    .filter(Boolean).length;
+  const explicit = [text !== undefined, file !== undefined, tty].filter(
+    Boolean,
+  ).length;
   if (explicit > 1) {
     throw new UsageError(
       "stdin-text: / stdin-file: / stdin-tty взаимоисключающи",

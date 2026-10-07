@@ -78,15 +78,22 @@ export const DEFAULT_INIT_LIMITS: InitLimits = {
 };
 
 const argsSchema = z.object({
-  portainer: z.string().optional().describe(
-    "базовый URL Portainer API; без флага — PORTAINER_URL в env-файле",
-  ),
-  "dry-run": z.boolean().default(false).describe(
-    "только сводка шага 2: кэш не изменяется, шаги 3–5 не выполняются",
-  ),
-  reset: z.boolean().default(false).describe(
-    "перед записью удалить весь прежний кэш контейнеров",
-  ),
+  portainer: z
+    .string()
+    .optional()
+    .describe(
+      "базовый URL Portainer API; без флага — PORTAINER_URL в env-файле",
+    ),
+  "dry-run": z
+    .boolean()
+    .default(false)
+    .describe(
+      "только сводка шага 2: кэш не изменяется, шаги 3–5 не выполняются",
+    ),
+  reset: z
+    .boolean()
+    .default(false)
+    .describe("перед записью удалить весь прежний кэш контейнеров"),
 });
 
 /** Счётчик части прогрева; `null` печатается в сводке как `?`. */
@@ -96,43 +103,53 @@ const resultSchema = z.object({
   /** Базовый URL Portainer после нормализации (без хвостовых `/`). */
   portainerUrl: z.string(),
   /** sl-N контейнеры, найденные обходом, по возрастанию server_number. */
-  containers: z.array(z.object({
-    serverNumber: z.number().int(),
-    containerName: z.string(),
-    state: z.string(),
-    endpointId: z.number().int(),
-    endpointName: z.string(),
-  })),
+  containers: z.array(
+    z.object({
+      serverNumber: z.number().int(),
+      containerName: z.string(),
+      state: z.string(),
+      endpointId: z.number().int(),
+      endpointName: z.string(),
+    }),
+  ),
   /** Контейнеры без sl-номера, найденные тем же обходом. */
   otherCount: z.number().int(),
   /** Итог `--reset`; null — флаг не задан либо сработал `--dry-run`. */
   reset: z.object({ deleted: z.number().int() }).nullable(),
   /** Итог записи в кэш-БД; null означает `--dry-run` (кэш не тронут). */
-  write: z.object({
-    written: z.number().int(),
-    cacheDbPath: z.string(),
-  }).nullable(),
+  write: z
+    .object({
+      written: z.number().int(),
+      cacheDbPath: z.string(),
+    })
+    .nullable(),
   /** Итог шага 3; null — шаг не выполнялся (`--dry-run`). */
-  loki: z.object({
-    /** Причина пропуска шага; null — шаг отработал. */
-    skipped: z.string().nullable(),
-    hosts: countSchema,
-    pairs: countSchema,
-  }).nullable(),
+  loki: z
+    .object({
+      /** Причина пропуска шага; null — шаг отработал. */
+      skipped: z.string().nullable(),
+      hosts: countSchema,
+      pairs: countSchema,
+    })
+    .nullable(),
   /** Итог шага 4; null — шаг не выполнялся (`--dry-run`). */
-  kaiten: z.object({
-    skipped: z.string().nullable(),
-    spaces: countSchema,
-    boards: countSchema,
-    lanes: countSchema,
-    columns: countSchema,
-    roles: countSchema,
-    /** Доски, пропущенные в частях 2–3, по возрастанию id. */
-    skippedBoards: z.array(z.object({
-      boardId: z.number().int(),
-      reason: z.string(),
-    })),
-  }).nullable(),
+  kaiten: z
+    .object({
+      skipped: z.string().nullable(),
+      spaces: countSchema,
+      boards: countSchema,
+      lanes: countSchema,
+      columns: countSchema,
+      roles: countSchema,
+      /** Доски, пропущенные в частях 2–3, по возрастанию id. */
+      skippedBoards: z.array(
+        z.object({
+          boardId: z.number().int(),
+          reason: z.string(),
+        }),
+      ),
+    })
+    .nullable(),
   /** Итог шага 5; null — шаг не выполнялся (`--dry-run`). */
   telegram: z.object({ skipped: z.string().nullable() }).nullable(),
 });
@@ -268,9 +285,9 @@ function deleteMissingContainers(
   }
   return db.execute(
     `DELETE FROM portainer_containers WHERE portainer_url = ? AND ` +
-      `endpoint_id = ? AND container_id NOT IN (${
-        placeholders(currentContainerIds.size)
-      })`,
+      `endpoint_id = ? AND container_id NOT IN (${placeholders(
+        currentContainerIds.size,
+      )})`,
     portainerUrl,
     endpointId,
     ...currentContainerIds,
@@ -348,10 +365,10 @@ function scanContainers(
 type EndpointScan =
   | { readonly ok: false; readonly failure: EndpointFailure }
   | {
-    readonly ok: true;
-    readonly rows: readonly ContainerRow[];
-    readonly containerIds: ReadonlySet<string>;
-  };
+      readonly ok: true;
+      readonly rows: readonly ContainerRow[];
+      readonly containerIds: ReadonlySet<string>;
+    };
 
 /**
  * Классифицирует находки одного endpoint'а в строки кэша. Вынесено из
@@ -460,9 +477,10 @@ function writeContainerCache(
  * транзакция: сбой строки посреди записи откатывает всё разом, а не
  * фиксирует часть удалений отдельно от упавшего upsert'а.
  */
-function runContainerTransaction(
-  params: WriteContainerCacheParams,
-): { reset: { deleted: number } | null; reconciled: number } {
+function runContainerTransaction(params: WriteContainerCacheParams): {
+  reset: { deleted: number } | null;
+  reconciled: number;
+} {
   let reset: { deleted: number } | null = null;
   let reconciled = 0;
   params.db.transaction(() => {
@@ -528,9 +546,7 @@ Kaiten ${KAITEN_TIMEOUTS.headersTimeoutMs}/${KAITEN_TIMEOUTS.totalTimeoutMs} ms;
 
 Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без схемы;
 1 — сбой списка endpoints либо ни одного контейнера.`,
-  examples: [
-    "mpu init portainer: https://portainer.example.com",
-  ],
+  examples: ["mpu init portainer: https://portainer.example.com"],
   policy: "rw",
   argsSchema,
   resultSchema,
@@ -555,9 +571,8 @@ Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без �
  * Portainer, Loki и Kaiten), кэш-БД стенда, строка хода и — шагом
  * входа в Telegram — терминал для вопросов пользователю.
  */
-type InitIo =
-  & Pick<CommandIo, "envFile" | "openCacheDb" | "progress">
-  & TelegramIo;
+type InitIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress"> &
+  TelegramIo;
 
 /**
  * Все пять шагов. Вынесено из объявления команды по двум причинам:
@@ -650,15 +665,18 @@ function persistContainers(
   progress: (line: string) => void,
 ): { reset: { deleted: number } | null; write: InitResult["write"] } {
   if (args["dry-run"]) return { reset: null, write: null };
-  return writeContainerCache({
-    db,
-    portainerUrl,
-    reset: args.reset,
-    rows: scan.rows,
-    downEndpointIds: scan.downEndpoints.map((e) => e.id),
-    listedEndpointIds: endpoints.map((e) => e.id),
-    containerIdsByEndpoint: scan.containerIdsByEndpoint,
-  }, progress);
+  return writeContainerCache(
+    {
+      db,
+      portainerUrl,
+      reset: args.reset,
+      rows: scan.rows,
+      downEndpointIds: scan.downEndpoints.map((e) => e.id),
+      listedEndpointIds: endpoints.map((e) => e.id),
+      containerIdsByEndpoint: scan.containerIdsByEndpoint,
+    },
+    progress,
+  );
 }
 
 /** Собирает итоговый `InitResult` из результатов всех пяти шагов. */
@@ -668,9 +686,9 @@ function buildInitResult(
   outcome: { reset: InitResult["reset"]; write: InitResult["write"] },
   warmups: WarmupResults,
 ): InitResult {
-  const slRows = rows.filter(hasServerNumber).sort((a, b) =>
-    a.serverNumber - b.serverNumber
-  );
+  const slRows = rows
+    .filter(hasServerNumber)
+    .sort((a, b) => a.serverNumber - b.serverNumber);
   return {
     portainerUrl,
     containers: slRows.map((row) => ({
@@ -725,7 +743,7 @@ async function discoverContainers(
   const [outcomes, loki, kaiten] = await Promise.all([
     Promise.allSettled(
       upEndpoints.map((endpoint) =>
-        listContainers(access, endpoint.id, limits.timeouts)
+        listContainers(access, endpoint.id, limits.timeouts),
       ),
     ),
     warm ? collectLoki(io, limits) : Promise.resolve(null),
@@ -758,10 +776,7 @@ type KaitenStep =
  * бы в поток посреди конкурентной фазы и порядок блоков зависел бы от
  * того, кто ответил первым.
  */
-async function collectLoki(
-  io: InitIo,
-  limits: InitLimits,
-): Promise<LokiStep> {
+async function collectLoki(io: InitIo, limits: InitLimits): Promise<LokiStep> {
   try {
     const access = requireLokiAccess(io.envFile);
     return {
@@ -802,7 +817,7 @@ function applyLoki(
     return { skipped: step.reason, hosts: null, pairs: null };
   }
   const failed = writeOrReason(() =>
-    writeLokiCache(db, step.series, discoveredAt)
+    writeLokiCache(db, step.series, discoveredAt),
   );
   if (failed !== null) {
     io.progress(`# loki: пропущено (${failed})`);
@@ -836,7 +851,7 @@ function applyKaiten(
   }
   const warmup = step.warmup;
   const failed = writeOrReason(() =>
-    writeKaitenWarmup(db, warmup, discoveredAt)
+    writeKaitenWarmup(db, warmup, discoveredAt),
   );
   if (failed !== null) {
     io.progress(`# kaiten: пропущено (${failed})`);
@@ -869,9 +884,7 @@ function applyKaiten(
 }
 
 /** Шаг 5: тот же вход, что у команды; его исход код выхода init не меняет. */
-async function applyTelegram(
-  io: InitIo,
-): Promise<{ skipped: string | null }> {
+async function applyTelegram(io: InitIo): Promise<{ skipped: string | null }> {
   // Строку `# telegram: пропущено (<причина>)` печатает сам вход: с
   // порции 95 шаг зовёт его напрямую, и вторая печать здесь задвоила
   // бы её. Причина всё равно нужна — она уходит в результат команды.

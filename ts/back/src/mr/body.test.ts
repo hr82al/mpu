@@ -6,14 +6,14 @@ describe("stripAssistantFooter", () => {
     [
       "подпись с markdown-ссылкой",
       "текст описания\n\n" +
-      "🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+        "🤖 Generated with [Claude Code](https://claude.com/claude-code)",
       "текст описания",
     ],
     [
       "подпись со ссылкой на сессию отдельной строкой",
       "текст описания\n\n" +
-      "🤖 Generated with Claude Code\n" +
-      "https://claude.ai/code/session_01QC4yaTL2gKN6YR2HkMtNEc",
+        "🤖 Generated with Claude Code\n" +
+        "https://claude.ai/code/session_01QC4yaTL2gKN6YR2HkMtNEc",
       "текст описания",
     ],
     [

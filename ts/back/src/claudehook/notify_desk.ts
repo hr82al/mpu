@@ -157,9 +157,11 @@ export class NotifyDesk {
   }
 
   #own(work: Promise<void>): void {
-    const owned = work.catch((err) => {
-      this.#parts.diagnose(`claude-hook notification: ${String(err)}`);
-    }).finally(() => this.#watching.delete(owned));
+    const owned = work
+      .catch((err) => {
+        this.#parts.diagnose(`claude-hook notification: ${String(err)}`);
+      })
+      .finally(() => this.#watching.delete(owned));
     this.#watching.add(owned);
   }
 
@@ -211,12 +213,15 @@ export class NotifyDesk {
       projectOf(payload.fields.cwd),
       await windows.captionOf(env),
     );
-    const snapshot = new Snapshot({
-      pane,
-      clock,
-      post: (message) => questions.post(message),
-      diagnose,
-    }, screen);
+    const snapshot = new Snapshot(
+      {
+        pane,
+        clock,
+        post: (message) => questions.post(message),
+        diagnose,
+      },
+      screen,
+    );
     const key = sessionKeyOf(env);
     await key.seatSnapshot(
       sessions,

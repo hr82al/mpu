@@ -77,13 +77,11 @@ it("сценарий 1: it json — тот же результат, команд
     const again = await run(file, ["it", "json"], results.of("ppid:3"));
     expect(again.stdout).toStrictEqual(stamp.stdout);
     expect(again.stdout.includes("stamp"), again.stdout).toBe(true);
-    for (
-      const [words, expected] of [
-        [["it", "json"], json.stdout],
-        [["it"], plain.stdout],
-        [["it", END, "json"], json.stdout],
-      ] as const
-    ) {
+    for (const [words, expected] of [
+      [["it", "json"], json.stdout],
+      [["it"], plain.stdout],
+      [["it", END, "json"], json.stdout],
+    ] as const) {
       const got = await run(file, words, results.of("ppid:1"));
       expect([got.code, got.stdout], got.stderr).toStrictEqual([0, expected]);
       expect(got.called).toStrictEqual([]);
@@ -102,7 +100,8 @@ describe("сценарий 2: нет прошлого результата — �
           stderr: "mpu it: нет прошлого результата у этого вызывающего\n",
           called: [],
         });
-      }));
+      }),
+    );
   }
 });
 

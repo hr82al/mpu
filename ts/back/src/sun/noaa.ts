@@ -103,8 +103,11 @@ function solarNoonMinutes(midnightJulian: number, query: SolarQuery): number {
   let minutes = HALF_DAY_MINUTES;
   for (let step = 0; step < 3; step++) {
     const century = centuryAt(midnightJulian, minutes);
-    minutes = HALF_DAY_MINUTES - 4 * query.longitude -
-      equationOfTimeMinutes(century) + query.timezoneHours * 60;
+    minutes =
+      HALF_DAY_MINUTES -
+      4 * query.longitude -
+      equationOfTimeMinutes(century) +
+      query.timezoneHours * 60;
   }
   return minutes;
 }
@@ -132,7 +135,7 @@ function horizonCrossing(
   let high = noon;
   for (let step = 0; step < BISECTION_STEPS; step++) {
     const middle = (low + high) / 2;
-    if ((at(middle) > HORIZON_ALTITUDE) === noonAbove) {
+    if (at(middle) > HORIZON_ALTITUDE === noonAbove) {
       high = middle;
     } else {
       low = middle;
@@ -149,11 +152,16 @@ function altitudeAt(
 ): number {
   const century = centuryAt(midnightJulian, minutes);
   const declination = sunDeclination(century);
-  const trueSolarMinutes = minutes + equationOfTimeMinutes(century) +
-    4 * query.longitude - query.timezoneHours * 60;
+  const trueSolarMinutes =
+    minutes +
+    equationOfTimeMinutes(century) +
+    4 * query.longitude -
+    query.timezoneHours * 60;
   const hourAngle = trueSolarMinutes / 4 - 180;
-  const sine = Math.sin(query.latitude * RAD) * Math.sin(declination * RAD) +
-    Math.cos(query.latitude * RAD) * Math.cos(declination * RAD) *
+  const sine =
+    Math.sin(query.latitude * RAD) * Math.sin(declination * RAD) +
+    Math.cos(query.latitude * RAD) *
+      Math.cos(declination * RAD) *
       Math.cos(hourAngle * RAD);
   // Зажим — не защитный код: арифметически синус не превосходит
   // единицу, но в double сумма произведений даёт `1 + 2⁻⁵²`, и
@@ -177,24 +185,30 @@ function julianDayOf(query: SolarQuery): number {
   }
   const a = Math.floor(year / 100);
   const b = 2 - a + Math.floor(a / 4);
-  return Math.floor(365.25 * (year + 4716)) +
-    Math.floor(30.6001 * (month + 1)) + query.day + b - 1524.5;
+  return (
+    Math.floor(365.25 * (year + 4716)) +
+    Math.floor(30.6001 * (month + 1)) +
+    query.day +
+    b -
+    1524.5
+  );
 }
 
 /** Склонение Солнца в градусах. */
 function sunDeclination(century: number): number {
   const lambda = apparentLongitude(century);
   const obliquity = correctedObliquity(century);
-  return Math.asin(
-    Math.sin(obliquity * RAD) * Math.sin(lambda * RAD),
-  ) / RAD;
+  return Math.asin(Math.sin(obliquity * RAD) * Math.sin(lambda * RAD)) / RAD;
 }
 
 /** Видимая долгота Солнца с поправкой на нутацию и аберрацию. */
 function apparentLongitude(century: number): number {
   const trueLongitude = meanLongitude(century) + equationOfCenter(century);
-  return trueLongitude - 0.00569 -
-    0.00478 * Math.sin((125.04 - 1934.136 * century) * RAD);
+  return (
+    trueLongitude -
+    0.00569 -
+    0.00478 * Math.sin((125.04 - 1934.136 * century) * RAD)
+  );
 }
 
 /** Средняя долгота Солнца, приведённая к [0, 360). */
@@ -210,26 +224,26 @@ function meanAnomaly(century: number): number {
 
 /** Эксцентриситет земной орбиты. */
 function eccentricity(century: number): number {
-  return 0.016708634 -
-    century * (0.000042037 + 0.0000001267 * century);
+  return 0.016708634 - century * (0.000042037 + 0.0000001267 * century);
 }
 
 /** Уравнение центра: поправка на эллиптичность орбиты. */
 function equationOfCenter(century: number): number {
   const anomaly = meanAnomaly(century) * RAD;
-  return Math.sin(anomaly) *
-      (1.914602 - century * (0.004817 + 0.000014 * century)) +
+  return (
+    Math.sin(anomaly) * (1.914602 - century * (0.004817 + 0.000014 * century)) +
     Math.sin(2 * anomaly) * (0.019993 - 0.000101 * century) +
-    Math.sin(3 * anomaly) * 0.000289;
+    Math.sin(3 * anomaly) * 0.000289
+  );
 }
 
 /** Наклон эклиптики с поправкой. */
 function correctedObliquity(century: number): number {
-  const mean = 23 +
+  const mean =
+    23 +
     (26 +
-        (21.448 -
-            century * (46.815 + century * (0.00059 - century * 0.001813))) /
-          60) /
+      (21.448 - century * (46.815 + century * (0.00059 - century * 0.001813))) /
+        60) /
       60;
   return mean + 0.00256 * Math.cos((125.04 - 1934.136 * century) * RAD);
 }
@@ -237,16 +251,17 @@ function correctedObliquity(century: number): number {
 /** Уравнение времени в минутах. */
 function equationOfTimeMinutes(century: number): number {
   const obliquity = correctedObliquity(century);
-  const y = Math.tan(obliquity / 2 * RAD) ** 2;
+  const y = Math.tan((obliquity / 2) * RAD) ** 2;
   const longitude = meanLongitude(century) * RAD;
   const anomaly = meanAnomaly(century) * RAD;
   const e = eccentricity(century);
-  const value = y * Math.sin(2 * longitude) -
+  const value =
+    y * Math.sin(2 * longitude) -
     2 * e * Math.sin(anomaly) +
     4 * e * y * Math.sin(anomaly) * Math.cos(2 * longitude) -
     0.5 * y * y * Math.sin(4 * longitude) -
     1.25 * e * e * Math.sin(2 * anomaly);
-  return 4 * value / RAD;
+  return (4 * value) / RAD;
 }
 
 /** Длительность из минут: `HH:MM:SS`, без сворачивания в сутки. */

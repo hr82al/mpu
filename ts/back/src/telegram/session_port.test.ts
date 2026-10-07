@@ -77,27 +77,30 @@ const CONFIG = { apiId: 1, apiHash: "проба", session: acceptedSession() };
 const PEER: PeerRef = { ref: { _: "inputPeerSelf" }, id: 42 };
 
 /** Сообщение с документом — тем, что клиент собирает из ответа Telegram. */
-const DOCUMENT = new Message({
-  _: "message",
-  id: 42,
-  peerId: { _: "peerUser", userId: 42 },
-  date: 1_790_000_000,
-  message: "",
-  media: {
-    _: "messageMediaDocument",
-    document: {
-      _: "document",
-      id: Long.fromNumber(1),
-      accessHash: Long.fromNumber(2),
-      fileReference: new Uint8Array(),
-      date: 1_790_000_000,
-      mimeType: "text/markdown",
-      size: 4,
-      dcId: 2,
-      attributes: [{ _: "documentAttributeFilename", fileName: "a.md" }],
+const DOCUMENT = new Message(
+  {
+    _: "message",
+    id: 42,
+    peerId: { _: "peerUser", userId: 42 },
+    date: 1_790_000_000,
+    message: "",
+    media: {
+      _: "messageMediaDocument",
+      document: {
+        _: "document",
+        id: Long.fromNumber(1),
+        accessHash: Long.fromNumber(2),
+        fileReference: new Uint8Array(),
+        date: 1_790_000_000,
+        mimeType: "text/markdown",
+        size: 4,
+        dcId: 2,
+        attributes: [{ _: "documentAttributeFilename", fileName: "a.md" }],
+      },
     },
   },
-}, new PeersIndex());
+  new PeersIndex(),
+);
 
 /** Метод порта, метод клиента под ним и то, как метод клиента отказывает. */
 interface PortMethod {
@@ -201,42 +204,31 @@ function failing(
 
 describe("порт сеанса: отказ клиента — строкой слоя, прочее — тем же объектом", () => {
   for (const method of METHODS) {
-    it(
-      `${method.name}: дефект своего кода — тот же объект`,
-      async () => {
-        using _connect = connectedAtOnce();
-        using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
-        const defect = new TypeError(`дефект в ${method.name}`);
-        using _failing = stub(method.client, failing(method, defect));
-        const session = await openSession(CONFIG);
-        try {
-          const err = await rejected(() => method.call(session), Error);
-          expect(err).toBe(defect);
-        } finally {
-          await session.close();
-        }
-      },
-    );
-    it(
-      `${method.name}: rate-limit клиента — строкой слоя`,
-      async () => {
-        using _connect = connectedAtOnce();
-        using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
-        using _failing = stub(method.client, failing(method, floodWait()));
-        const session = await openSession(CONFIG);
-        try {
-          const err = await rejected(
-            () => method.call(session),
-            VerbatimError,
-          );
-          expect(err.message).toStrictEqual(
-            "telegram: rate-limit, подожди 42s",
-          );
-        } finally {
-          await session.close();
-        }
-      },
-    );
+    it(`${method.name}: дефект своего кода — тот же объект`, async () => {
+      using _connect = connectedAtOnce();
+      using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
+      const defect = new TypeError(`дефект в ${method.name}`);
+      using _failing = stub(method.client, failing(method, defect));
+      const session = await openSession(CONFIG);
+      try {
+        const err = await rejected(() => method.call(session), Error);
+        expect(err).toBe(defect);
+      } finally {
+        await session.close();
+      }
+    });
+    it(`${method.name}: rate-limit клиента — строкой слоя`, async () => {
+      using _connect = connectedAtOnce();
+      using _getMe = stub("getMe", () => Promise.resolve({ id: 42 }));
+      using _failing = stub(method.client, failing(method, floodWait()));
+      const session = await openSession(CONFIG);
+      try {
+        const err = await rejected(() => method.call(session), VerbatimError);
+        expect(err.message).toStrictEqual("telegram: rate-limit, подожди 42s");
+      } finally {
+        await session.close();
+      }
+    });
   }
 });
 
@@ -256,9 +248,8 @@ describe("вход в сеанс: дефект своего кода при пр
   });
   it("отказ авторизации — «не авторизован»", async () => {
     using _connect = connectedAtOnce();
-    using _getMe = stub(
-      "getMe",
-      () => Promise.reject(new tl.RpcError(401, "AUTH_KEY_UNREGISTERED")),
+    using _getMe = stub("getMe", () =>
+      Promise.reject(new tl.RpcError(401, "AUTH_KEY_UNREGISTERED")),
     );
     const err = await rejected(() => openSession(CONFIG), VerbatimError);
     expect(err.message).toStrictEqual(

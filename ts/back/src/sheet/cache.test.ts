@@ -58,7 +58,7 @@ function suiteDb(use: (db: CacheDb) => void): void {
 
 describe("кэш листа: запись, чтение и протухание", () => {
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(async () => {
     await writeTab(db, "ss-1", "Sheet1", PAYLOAD, 1000);
   });
@@ -72,8 +72,9 @@ describe("кэш листа: запись, чтение и протухание"
   it("протухшая равнозначна отсутствующей", async () => {
     // TTL проверяется на чтении, поэтому смена настройки действует и
     // на уже лежащие записи (атом).
-    expect(await readTab(db, "ss-1", "Sheet1", SETTINGS, 1000 + 7201))
-      .toStrictEqual(undefined);
+    expect(
+      await readTab(db, "ss-1", "Sheet1", SETTINGS, 1000 + 7201),
+    ).toStrictEqual(undefined);
   });
 
   it("чужой лист не подставляется", async () => {
@@ -94,14 +95,16 @@ describe("кэш листа: запись, чтение и протухание"
 
 describe("кэш метаданных: свой TTL и ключ на таблицу", () => {
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
-  const tabs = [{
-    title: "Sheet1",
-    sheet_id: 0,
-    rows: 1000,
-    cols: 26,
-    index: 0,
-  }];
+  suiteDb((opened) => (db = opened));
+  const tabs = [
+    {
+      title: "Sheet1",
+      sheet_id: 0,
+      rows: 1000,
+      cols: 26,
+      index: 0,
+    },
+  ];
   beforeAll(() => {
     writeInfo(db, "ss-1", tabs, 1000);
   });
@@ -117,7 +120,7 @@ describe("кэш метаданных: свой TTL и ключ на табли�
 
 describe("housekeeping: протухшие и лишние по объёму", () => {
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(async () => {
     await writeTab(db, "ss-1", "Старый", PAYLOAD, 1000);
     await writeTab(db, "ss-1", "Свежий", PAYLOAD, 9000);
@@ -128,8 +131,9 @@ describe("housekeeping: протухшие и лишние по объёму", (
     expect(await readTab(db, "ss-1", "Старый", SETTINGS, 9000)).toStrictEqual(
       undefined,
     );
-    expect(await readTab(db, "ss-1", "Свежий", SETTINGS, 9000) !== undefined)
-      .toBe(true);
+    expect(
+      (await readTab(db, "ss-1", "Свежий", SETTINGS, 9000)) !== undefined,
+    ).toBe(true);
   });
 
   it("при превышении объёма уходят старейшие", async () => {
@@ -160,7 +164,7 @@ it("housekeeping на БД без таблиц не падает", () => {
 
 describe("настройки кэша: только предпочтения, мусор — заметкой", () => {
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   const io = (
     config: Readonly<Record<string, string>>,
     notes: string[],
@@ -185,10 +189,7 @@ describe("настройки кэша: только предпочтения, м
   });
 
   it("предпочтения перекрывают умолчание", () => {
-    const settings = cacheSettings(
-      io({ "sheet.cache.tab_ttl": "60" }, []),
-      db,
-    );
+    const settings = cacheSettings(io({ "sheet.cache.tab_ttl": "60" }, []), db);
     expect(settings.tabTtlSeconds).toBe(60);
   });
 
@@ -220,7 +221,7 @@ describe("настройки кэша: только предпочтения, м
 describe("источники резолва читают кэш-БД", () => {
   let sources: TargetSources;
   let db: CacheDb;
-  suiteDb((opened) => db = opened);
+  suiteDb((opened) => (db = opened));
   beforeAll(() => {
     db.execute(
       "INSERT INTO sheet_aliases (name, ss_id, created_at) VALUES (?, ?, ?)",
@@ -228,13 +229,11 @@ describe("источники резолва читают кэш-БД", () => {
       "ss-alias",
       1000,
     );
-    for (
-      const [ssId, clientId, title, active] of [
-        ["ss-1", 4326, "Отчёт WB", 1],
-        ["ss-2", 4326, "Отчёт Ozon", 1],
-        ["ss-3", 777, "Архив", 0],
-      ] as const
-    ) {
+    for (const [ssId, clientId, title, active] of [
+      ["ss-1", 4326, "Отчёт WB", 1],
+      ["ss-2", 4326, "Отчёт Ozon", 1],
+      ["ss-3", 777, "Архив", 0],
+    ] as const) {
       db.execute(
         "INSERT INTO sl_spreadsheets (ss_id, client_id, title, is_active," +
           " server, synced_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -366,9 +365,11 @@ describe("удаление ключа метаданных — одно мест
         // Тесты — обоих раннеров: `*_test.ts` (deno test) и `*.test.ts`
         // (Vitest).
         if (
-          !entry.name.endsWith(".ts") || entry.name.endsWith("_test.ts") ||
+          !entry.name.endsWith(".ts") ||
+          entry.name.endsWith("_test.ts") ||
           entry.name.endsWith(".test.ts")
-        ) continue;
+        )
+          continue;
         const text = await readFile(child, "utf8");
         for (const line of text.split("\n")) {
           if (/DELETE\s+FROM\s+cache\b/i.test(line)) {
@@ -382,7 +383,9 @@ describe("удаление ключа метаданных — одно мест
     await walk(root);
     // Обе строки — в `dropInfo`: по ключу и по образцу `sheet:info:%`.
     expect(hits.length, `удаление из cache вне dropInfo: ${hits}`).toBe(2);
-    expect(hits.every((hit) => hit.startsWith("sheet/cache.ts:")), `${hits}`)
-      .toBe(true);
+    expect(
+      hits.every((hit) => hit.startsWith("sheet/cache.ts:")),
+      `${hits}`,
+    ).toBe(true);
   });
 });

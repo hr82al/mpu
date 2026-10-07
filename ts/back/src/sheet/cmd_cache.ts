@@ -26,27 +26,33 @@ const infoResult = z.object({
   ready: z.boolean().describe("таблицы кэша существуют"),
   tabs: z.number().describe("всего вкладок в кэше"),
   bytes: z.number().describe("суммарный размер тел вкладок"),
-  spreadsheets: z.array(z.object({
-    ss_id: z.string(),
-    tabs: z.number(),
-    bytes: z.number(),
-    latest: z.number(),
-  })).describe("разбивка по таблицам, от крупных к мелким"),
+  spreadsheets: z
+    .array(
+      z.object({
+        ss_id: z.string(),
+        tabs: z.number(),
+        bytes: z.number(),
+        latest: z.number(),
+      }),
+    )
+    .describe("разбивка по таблицам, от крупных к мелким"),
 });
 
 type InfoResult = z.infer<typeof infoResult>;
 
 const clearArgs = z.object({
-  spreadsheet: z.string().optional().describe(
-    "цель: URL, ID, алиас, …; без неё чистится весь кэш",
-  ),
+  spreadsheet: z
+    .string()
+    .optional()
+    .describe("цель: URL, ID, алиас, …; без неё чистится весь кэш"),
 });
 
 const clearResult = z.object({
   ready: z.boolean().describe("таблицы кэша существуют"),
-  spreadsheetId: z.string().nullable().describe(
-    "таблица, чей кэш чистили; null — весь кэш",
-  ),
+  spreadsheetId: z
+    .string()
+    .nullable()
+    .describe("таблица, чей кэш чистили; null — весь кэш"),
   tabs: z.number().describe("удалённых вкладок"),
   info: z.number().describe("удалённых ключей метаданных"),
 });
@@ -70,12 +76,16 @@ export function renderCacheInfo(result: InfoResult): string {
     return "кэша нет: таблицы не заведены; попробуй: mpu init\n";
   }
   const head = `total: ${result.tabs} tabs, ${kb(result.bytes)} KB\n`;
-  return head + result.spreadsheets
-    .map((entry) =>
-      `  ${entry.ss_id}  tabs=${entry.tabs}  size=${kb(entry.bytes)}KB` +
-      `  latest=${entry.latest}\n`
-    )
-    .join("");
+  return (
+    head +
+    result.spreadsheets
+      .map(
+        (entry) =>
+          `  ${entry.ss_id}  tabs=${entry.tabs}  size=${kb(entry.bytes)}KB` +
+          `  latest=${entry.latest}\n`,
+      )
+      .join("")
+  );
 }
 
 /**
@@ -91,15 +101,15 @@ export function renderCacheClear(result: ClearResult): string {
   // Число, а не слово, и одно и то же в обоих режимах: без `-s` ключей
   // бывает много, и «dropped» скрыло бы величину, которая уже снята с
   // работы. Форма вывода не должна зависеть от того, как позвали.
-  const metadata = result.info > 0
-    ? `metadata dropped: ${result.info}`
-    : "no metadata";
+  const metadata =
+    result.info > 0 ? `metadata dropped: ${result.info}` : "no metadata";
   // Область названа вслух: без `-s` снимается кэш всех таблиц сразу, и
   // отличить этот исход от точечного оператор обязан по самой строке, а
   // не по памяти о том, как он позвал.
-  const scope = result.spreadsheetId === null
-    ? " (весь кэш)"
-    : ` (${result.spreadsheetId})`;
+  const scope =
+    result.spreadsheetId === null
+      ? " (весь кэш)"
+      : ` (${result.spreadsheetId})`;
   return `cleared ${result.tabs} tabs${scope}; ${metadata}\n`;
 }
 
@@ -169,9 +179,7 @@ export const sheetCacheClearCommand = defineCommand({
 Таблиц кэша нет вовсе — команда говорит об этом и завершается успехом.
 
 Exit: 0 — успех; 2 — цель не резолвится.`,
-  examples: [
-    "mpu sheet cache clear spreadsheet: 4326",
-  ],
+  examples: ["mpu sheet cache clear spreadsheet: 4326"],
   policy: "rw",
   argsSchema: clearArgs,
   forms: { spreadsheet: { short: "s" } },
@@ -188,9 +196,10 @@ Exit: 0 — успех; 2 — цель не резолвится.`,
     }
     // Резолв цели — до всякого удаления: неразобранная цель не должна
     // стоить кэша.
-    const ssId = args.spreadsheet === undefined
-      ? undefined
-      : targetOf(db, args.spreadsheet).ss_id;
+    const ssId =
+      args.spreadsheet === undefined
+        ? undefined
+        : targetOf(db, args.spreadsheet).ss_id;
     return Promise.resolve({
       ready: true,
       spreadsheetId: ssId ?? null,

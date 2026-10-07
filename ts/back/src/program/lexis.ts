@@ -19,14 +19,22 @@ export const NUMBER = /^-?\d+(\.\d+)?$/;
 
 /** Слово — ключ ключевого сообщения: `id:`; `^итог:` — начало текста. */
 export function isKey(word: string): boolean {
-  return word.length > 1 && word.endsWith(GRAMMAR.parameter) &&
-    word !== GRAMMAR.assign && !word.startsWith(GRAMMAR.quote);
+  return (
+    word.length > 1 &&
+    word.endsWith(GRAMMAR.parameter) &&
+    word !== GRAMMAR.assign &&
+    !word.startsWith(GRAMMAR.quote)
+  );
 }
 
 /** Параметр блока: `:a` сразу за `do` и за другим параметром. */
 export function isParameter(word: string | undefined): boolean {
-  return word !== undefined && word.length > 1 &&
-    word.startsWith(GRAMMAR.parameter) && word !== GRAMMAR.assign;
+  return (
+    word !== undefined &&
+    word.length > 1 &&
+    word.startsWith(GRAMMAR.parameter) &&
+    word !== GRAMMAR.assign
+  );
 }
 
 /** Лист дерева глазами решения «программа ли строка». */
@@ -67,8 +75,8 @@ function asIs(key: string, value: string, texts: ReadonlySet<string>) {
   const name = key.endsWith(GRAMMAR.parameter)
     ? key.slice(0, -GRAMMAR.parameter.length)
     : key.startsWith("--")
-    ? key.slice(2)
-    : undefined;
+      ? key.slice(2)
+      : undefined;
   if (name === undefined || !texts.has(name)) return false;
   return !value.startsWith(GRAMMAR.quote) && value !== GRAMMAR.open;
 }

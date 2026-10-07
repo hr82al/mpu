@@ -84,12 +84,15 @@ function row(
 const SECRET = "wb-client-secret";
 
 const ALL_SECRETS = [
-  ...Object.values(TOKENS).flat().map((one) => one.token),
+  ...Object.values(TOKENS)
+    .flat()
+    .map((one) => one.token),
   SECRET,
   "cs-1",
 ];
 
-const W1_URL = "https://statistics-api.wildberries.ru/api/v5/supplier/" +
+const W1_URL =
+  "https://statistics-api.wildberries.ru/api/v5/supplier/" +
   "reportDetailByPeriod?dateFrom=2026-09-01";
 
 const CARDS_URL =
@@ -124,9 +127,7 @@ interface Seen {
  * Сессия стенда: строки клиента из параметра запроса; `fits` — по
  * колонке категории, названной в запросе (`true` — любая).
  */
-function sessions(
-  queries: [string, readonly unknown[]][],
-): OpenSession {
+function sessions(queries: [string, readonly unknown[]][]): OpenSession {
   return () =>
     Promise.resolve({
       query: (text: string, params: readonly unknown[] = []) => {
@@ -203,9 +204,10 @@ function errorText(err: Error, name: string): string {
 
 /** Ни в одном выходе нет ни токена, ни секрета стенда. */
 function assertNoSecret(outcome: CallResult | Error, seen: Seen, name: string) {
-  const outputs = outcome instanceof Error
-    ? [outcome.message, errorText(outcome, name)]
-    : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
+  const outputs =
+    outcome instanceof Error
+      ? [outcome.message, errorText(outcome, name)]
+      : [renderCall(outcome), JSON.stringify(callRecord(outcome))];
   for (const text of [...outputs, ...seen.notes]) {
     for (const secret of ALL_SECRETS) {
       assert(!text.includes(secret), `секрет ${secret} в выводе: ${text}`);
@@ -226,7 +228,8 @@ function refusalOf(outcome: CallResult | Error, name = "wb call-ro") {
   };
 }
 
-const W1_STDOUT = "HTTP 200 GET statistics-api.wildberries.ru/api/v5/" +
+const W1_STDOUT =
+  "HTTP 200 GET statistics-api.wildberries.ru/api/v5/" +
   "supplier/reportDetailByPeriod?dateFrom=2026-09-01\n" +
   "x-ratelimit-remaining: 9\nx-ratelimit-limit: 10\n\n[]\n";
 
@@ -270,7 +273,8 @@ it("W3: ручки нет в реестре — отказ с хостом, до
   const { outcome, seen } = await onStand({ url: CARDS_URL });
   expect(refusalOf(outcome)).toStrictEqual({
     code: 2,
-    stderr: "mpu wb call-ro: ручки GET content-api.wildberries.ru/content/" +
+    stderr:
+      "mpu wb call-ro: ручки GET content-api.wildberries.ru/content/" +
       "v2/get/cards/list нет в списке чтения — запись: mpu ask wb call " +
       `target: 57 url: ${CARDS_URL}\n`,
   });
@@ -346,7 +350,8 @@ it("W6: кабинетов два без cabinet: — отказ со списк
   });
   expect(refusalOf(outcome)).toStrictEqual({
     code: 2,
-    stderr: "mpu wb call-ro: у клиента 58 кабинетов WB 2 — укажи " +
+    stderr:
+      "mpu wb call-ro: у клиента 58 кабинетов WB 2 — укажи " +
       "cabinet: sid-a | sid-b\n",
   });
   expect(seen.requests.length).toBe(0);
@@ -372,13 +377,16 @@ it("нет такого кабинета WB — отказ, код 2", async () 
 });
 
 it("W8: 429 — заголовки и тело напечатаны, код 1, запрос один", async () => {
-  const { outcome, seen } = await onStand({}, {
-    reply: () =>
-      new Response('{"title":"too many requests"}', {
-        status: 429,
-        headers: { "x-ratelimit-retry": "3" },
-      }),
-  });
+  const { outcome, seen } = await onStand(
+    {},
+    {
+      reply: () =>
+        new Response('{"title":"too many requests"}', {
+          status: 429,
+          headers: { "x-ratelimit-retry": "3" },
+        }),
+    },
+  );
   const result = resultOf(outcome);
   expect(renderCall(result)).toStrictEqual(
     "HTTP 429 GET statistics-api.wildberries.ru/api/v5/supplier/" +
@@ -412,16 +420,21 @@ it("вызов при заданных WB_CLIENT_SECRET и WB_USER_AGENT", async
   const env = { WB_CLIENT_SECRET: SECRET, WB_USER_AGENT: "mpu-probe" };
   const { seen } = await onStand({}, { env });
   const { headers } = seen.requests[0];
-  expect([headers.get("x-client-secret"), headers.get("user-agent")])
-    .toStrictEqual([SECRET, "mpu-probe"]);
+  expect([
+    headers.get("x-client-secret"),
+    headers.get("user-agent"),
+  ]).toStrictEqual([SECRET, "mpu-probe"]);
 });
 
 it("эхо токена и секрета в теле ответа заменено на ***", async () => {
   const env = { WB_CLIENT_SECRET: SECRET };
-  const { outcome } = await onStand({}, {
-    env,
-    reply: () => new Response(`{"echo":"w-ro ${SECRET}"}`),
-  });
+  const { outcome } = await onStand(
+    {},
+    {
+      env,
+      reply: () => new Response(`{"echo":"w-ro ${SECRET}"}`),
+    },
+  );
   expect(callRecord(resultOf(outcome))).toStrictEqual({
     status: 200,
     method: "GET",
@@ -471,8 +484,10 @@ it("W12: одни сервисные, секрет задан — запрос �
   expect(callExitCode(resultOf(outcome))).toBe(0);
   expect(seen.requests.length).toBe(1);
   const { headers } = seen.requests[0];
-  expect([headers.get("authorization"), headers.get("x-client-secret")])
-    .toStrictEqual(["w-svc", "cs-1"]);
+  expect([
+    headers.get("authorization"),
+    headers.get("x-client-secret"),
+  ]).toStrictEqual(["w-svc", "cs-1"]);
 });
 
 describe("W13: сервисный и несервисный, секрета нет — ушёл несервисный", () => {
@@ -511,9 +526,10 @@ async function lineOnStand(words: readonly string[], answers?: string[]) {
       return (same ?? command).invoke(args, io);
     },
   };
-  const human = answers === undefined
-    ? {}
-    : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
+  const human =
+    answers === undefined
+      ? {}
+      : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
   const journal = {
     nativeCall: () => {},
     note: () => {},
@@ -527,11 +543,16 @@ async function lineOnStand(words: readonly string[], answers?: string[]) {
         ...human,
       });
       const ports = { ...consentOf(file, answers), invoker };
-      code = await lineEntry(ports)(words, io, {
-        stdout: (text: string) => void (stdout += text),
-        stderr: (text: string) => void (stderr += text),
-      }, journal);
-    })
+      code = await lineEntry(ports)(
+        words,
+        io,
+        {
+          stdout: (text: string) => void (stdout += text),
+          stderr: (text: string) => void (stderr += text),
+        },
+        journal,
+      );
+    }),
   );
   return { code, stdout, stderr, requests };
 }

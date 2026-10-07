@@ -38,11 +38,13 @@ describe("кадры: строка NDJSON разбирается в тот же 
     {
       evaluate: {
         words: ["kiten", "mine"],
-        methods: [{
-          receiver: ["kiten"],
-          name: "mine",
-          source: ["do", "kiten", "ls", "done"],
-        }],
+        methods: [
+          {
+            receiver: ["kiten"],
+            name: "mine",
+            source: ["do", "kiten", "ls", "done"],
+          },
+        ],
         source: "stdin",
         params: null,
       },
@@ -98,15 +100,17 @@ describe("кадры: строка NDJSON разбирается в тот же 
 });
 
 it("кадры: результат undefined — значение без поля", () => {
-  expect(workerFrameOf(encode({ result: { value: undefined } }).trimEnd()))
-    .toStrictEqual({ result: { value: undefined } });
+  expect(
+    workerFrameOf(encode({ result: { value: undefined } }).trimEnd()),
+  ).toStrictEqual({ result: { value: undefined } });
 });
 
 it("кадр evaluate без source — набранная строка", () => {
-  expect(hostFrameOf('{"evaluate": {"words": ["x"], "methods": []}}'))
-    .toStrictEqual({
-      evaluate: { words: ["x"], methods: [], source: null, params: null },
-    });
+  expect(
+    hostFrameOf('{"evaluate": {"words": ["x"], "methods": []}}'),
+  ).toStrictEqual({
+    evaluate: { words: ["x"], methods: [], source: null, params: null },
+  });
 });
 
 describe("кадры: чужое — отказ разбора своей стороны", () => {

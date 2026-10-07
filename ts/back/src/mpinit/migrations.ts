@@ -80,15 +80,18 @@ class Succeeded implements WaitOutcome {
   constructor(private readonly server: string) {}
 
   async report(context: MigrationsContext): Promise<number> {
-    const probe = await context.docker.probe([
-      "docker",
-      "exec",
-      `${this.server}-pg`,
-      "sh",
-      "-c",
-      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
-      '"select count(*) from public.migrations"',
-    ], context.cwd);
+    const probe = await context.docker.probe(
+      [
+        "docker",
+        "exec",
+        `${this.server}-pg`,
+        "sh",
+        "-c",
+        'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
+          '"select count(*) from public.migrations"',
+      ],
+      context.cwd,
+    );
     // Не снятый счёт — не отказ: миграции уже подтверждены кодом
     // контейнера, число лишь показывает, сколько их (решение хоста 3).
     const count = probe.code === 0 ? probe.stdout.trim() : "?";
@@ -132,7 +135,10 @@ class TimedOut implements WaitOutcome {
 
 /** Сам `docker wait` не ответил (контейнера нет): проверки не было. */
 class WaitFailed implements WaitOutcome {
-  constructor(private readonly server: string, private readonly rc: number) {}
+  constructor(
+    private readonly server: string,
+    private readonly rc: number,
+  ) {}
 
   report(context: MigrationsContext): Promise<number> {
     context.progress(

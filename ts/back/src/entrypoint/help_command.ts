@@ -25,18 +25,15 @@ export interface HelpSink {
  * ровно один источник справки, и «четвёртого вида» не бывает по типам,
  * а не по проверке в рантайме.
  */
-export type HelpEntry =
-  & {
-    /** Полное имя команды: `mpu <путь>` — в той же форме её спрашивают. */
-    readonly name: string;
-    readonly summary: string;
-  }
-  & (
-    /** Команда контракта: справка рендерится из объявления. */
-    | { readonly kind: "command"; readonly command: Command }
-    /** Поверхность точки входа: справка складывается из полей реестра. */
-    | { readonly kind: "surface"; readonly surface: SurfaceCommand }
-  );
+export type HelpEntry = {
+  /** Полное имя команды: `mpu <путь>` — в той же форме её спрашивают. */
+  readonly name: string;
+  readonly summary: string;
+} /** Команда контракта: справка рендерится из объявления. */ & (
+  | { readonly kind: "command"; readonly command: Command }
+  /** Поверхность точки входа: справка складывается из полей реестра. */
+  | { readonly kind: "surface"; readonly surface: SurfaceCommand }
+);
 
 /**
  * Всё дерево команд в порядке реестра: команды контракта и
@@ -48,18 +45,22 @@ export function helpEntries(
   surfaces: readonly SurfaceCommand[],
 ): readonly HelpEntry[] {
   return [
-    ...commands.map((command): HelpEntry => ({
-      kind: "command",
-      name: `mpu ${command.path.join(" ")}`,
-      summary: command.summary,
-      command,
-    })),
-    ...surfaces.map((surface): HelpEntry => ({
-      kind: "surface",
-      name: `mpu ${surface.path.join(" ")}`,
-      summary: surface.summary,
-      surface,
-    })),
+    ...commands.map(
+      (command): HelpEntry => ({
+        kind: "command",
+        name: `mpu ${command.path.join(" ")}`,
+        summary: command.summary,
+        command,
+      }),
+    ),
+    ...surfaces.map(
+      (surface): HelpEntry => ({
+        kind: "surface",
+        name: `mpu ${surface.path.join(" ")}`,
+        summary: surface.summary,
+        surface,
+      }),
+    ),
   ];
 }
 
@@ -133,6 +134,8 @@ function renderList(entries: readonly HelpEntry[]): string {
   const lines = entries.map(
     (entry) => `  ${entry.name.padEnd(width)}  ${entry.summary}\n`,
   );
-  return `Available commands:\n\n${lines.join("")}\n` +
-    "Run `<command> --help` for detailed usage.\n";
+  return (
+    `Available commands:\n\n${lines.join("")}\n` +
+    "Run `<command> --help` for detailed usage.\n"
+  );
 }

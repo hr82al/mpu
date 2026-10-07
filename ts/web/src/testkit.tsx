@@ -76,9 +76,9 @@ export function scripted(
 
 /** Слова строк, ушедших на `/line`, по порядку. */
 export function sentLines(seen: readonly Seen[]): unknown[] {
-  return seen.filter((one) => one.path === "/line").map((one) =>
-    one.body.words
-  );
+  return seen
+    .filter((one) => one.path === "/line")
+    .map((one) => one.body.words);
 }
 
 /** Сколько раз прочитан метод `/rpc`. */

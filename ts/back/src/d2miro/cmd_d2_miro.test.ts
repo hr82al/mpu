@@ -85,14 +85,12 @@ it("--dry-run: план в stdout, диагностика в stderr, ни одн
   );
   // План — тот же текст, что у объекта (голден плана снят с него).
   const golden = await fixture("sample-dry-run.txt");
-  const planLines = golden.split("\n").filter((line) =>
-    line.startsWith("[dry-run]") || line.startsWith("  ")
-  );
+  const planLines = golden
+    .split("\n")
+    .filter((line) => line.startsWith("[dry-run]") || line.startsWith("  "));
   expect(result.plan).toStrictEqual(`${planLines.join("\n")}\n`);
   expect([result.shapes, result.edges, result.markdown]).toStrictEqual([
-    5,
-    5,
-    1,
+    5, 5, 1,
   ]);
   // Инвариант спеки: `--dry-run` не делает ни одного вызова Miro API —
   // здесь он держится тем, что `fetch` в этом окружении бросает.
@@ -100,7 +98,7 @@ it("--dry-run: план в stdout, диагностика в stderr, ни одн
   expect(stand.progress).toStrictEqual([
     "[warn] in d2 source but not in SVG: ['card']",
     "[info] схема.d2: 5 shapes, 5 edges, 1 markdown blocks; " +
-    "viewBox 478x1146 -> frame 478x1418 (scale=1.000)",
+      "viewBox 478x1146 -> frame 478x1418 (scale=1.000)",
   ]);
 });
 
@@ -155,8 +153,9 @@ describe("выбор SVG: правила спеки по порядку", () => 
         hasD2: () => Promise.reject(new Error("d2 звать не должны")),
       }),
     );
-    expect(stand.progress.some((line) => line.startsWith("[info] rendering")))
-      .toBe(false);
+    expect(
+      stand.progress.some((line) => line.startsWith("[info] rendering")),
+    ).toBe(false);
   });
 
   it("d2 нет, SVG устарел — предупреждение и старый файл", async () => {
@@ -430,10 +429,13 @@ describe("рисовать нечего: отказ до службы, доск�
     // Граница считает шейпы И блоки: у входа из одних `|md` шейпов нет
     // по построению, и счёт по одним шейпам отказал бы там, где рисовать
     // есть что. Мутация «убрать markdown из условия» краснеет здесь.
-    const stand = makeIo({
-      "м.d2": "card: |md\n  ## Карточка\n|\n",
-      "м.svg": '<svg viewBox="0 0 100 50"></svg>',
-    }, keys);
+    const stand = makeIo(
+      {
+        "м.d2": "card: |md\n  ## Карточка\n|\n",
+        "м.svg": '<svg viewBox="0 0 100 50"></svg>',
+      },
+      keys,
+    );
     const result = await runD2MiroWith(
       { file: "м.d2", "skip-render": true, "dry-run": true },
       stand.io,
@@ -513,10 +515,13 @@ describe("--position: недописанная пара — отказ, а не 
 });
 
 it("отказ службы — доменная ошибка с текстом, а не unexpected", async () => {
-  const stand = makeIo({
-    "s.d2": await fixture("sample.d2"),
-    "s.svg": await fixture("sample.svg"),
-  }, { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" });
+  const stand = makeIo(
+    {
+      "s.d2": await fixture("sample.d2"),
+      "s.svg": await fixture("sample.svg"),
+    },
+    { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" },
+  );
   const err = await rejected(
     () =>
       runD2MiroWith(
@@ -540,10 +545,13 @@ it("отказ службы — доменная ошибка с текстом,
 });
 
 it("рендер: итог называет числа, снятые с ответов службы", async () => {
-  const stand = makeIo({
-    "s.d2": await fixture("sample.d2"),
-    "s.svg": await fixture("sample.svg"),
-  }, { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" });
+  const stand = makeIo(
+    {
+      "s.d2": await fixture("sample.d2"),
+      "s.svg": await fixture("sample.svg"),
+    },
+    { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" },
+  );
   let created = 0;
   const sent: { url: string; body: unknown }[] = [];
   const result = await runD2MiroWith(
@@ -575,8 +583,8 @@ it("рендер: итог называет числа, снятые с отве
   expect(sent.some((call) => call.url.includes("секрет"))).toBe(false);
   // Каждый шейп и текст создаются ребёнком фрейма: без `parent` они
   // легли бы на холст мимо фрейма, и повторный рендер их не убрал бы.
-  const children = sent.filter((call) =>
-    call.url.endsWith("/shapes") || call.url.endsWith("/texts")
+  const children = sent.filter(
+    (call) => call.url.endsWith("/shapes") || call.url.endsWith("/texts"),
   );
   expect(children.length).toBe(6);
   for (const call of children) {
@@ -588,8 +596,9 @@ it("рендер: итог называет числа, снятые с отве
   // меньшим src — `top`, у обратного — `bottom` (спека).
   const connectors = sent
     .filter((call) => call.url.endsWith("/connectors"))
-    .map((call) =>
-      (call.body as { startItem: { snapTo?: string } }).startItem.snapTo
+    .map(
+      (call) =>
+        (call.body as { startItem: { snapTo?: string } }).startItem.snapTo,
     );
   expect(connectors.filter((snap) => snap === "top").length).toBe(1);
   expect(connectors.filter((snap) => snap === "bottom").length).toBe(1);

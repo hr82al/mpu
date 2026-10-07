@@ -134,9 +134,8 @@ export function parseD2(text: string): D2Source {
       continue;
     }
     const [, name, rest] = declaration;
-    const target = inside === undefined || inside === null
-      ? undefined
-      : byName.get(inside);
+    const target =
+      inside === undefined || inside === null ? undefined : byName.get(inside);
     if (target !== undefined && !opens && applyAttribute(target, name, rest)) {
       continue;
     }
