@@ -34,6 +34,13 @@
 4. `rg -c 'Deno\.' <файлы *.test.ts порции>` → пусто: вызовы `Deno.*` в самих
    тестах переведены на `node:*` (`node:fs/promises`, `node:os`, `node:path`,
    `process.env`, `node:child_process`); код под тестом не меняется.
+   Исключение до этапа 3 (решение хоста 2026-10-07): тест подменяет или
+   строит объект рантайма, которым пользуется код под тестом, — перевод
+   опустошил бы проверку. Такие места перечисляются в отчёте поимённо; на
+   2026-10-07: `backend/prompt.test.ts` (подмена `Deno.open`),
+   `registry/contract.test.ts` (перехват `Deno.stdout/stderr`),
+   `backend/socket.test.ts` (`Deno.serve` + `Deno.upgradeWebSocket`),
+   `api/schema_golden.test.ts` (`new Deno.errors.NotCapable`).
 5. `deno task test` (оставшиеся `*_test.ts`) → зелёно; число файлов = до минус
    файлы P.
 6. Для каждого вида утверждения или помощника `@std/*`, которого нет в таблице
@@ -47,12 +54,23 @@
    записью «было → стало» в отчёте.
 8. Помощник `testback.ts` (V3) и `teststand.ts` (V4) — на `node:assert/strict`;
    старые `*_test.ts`, которые его зовут, зелёные под `deno task test`.
-9. Только V5, последней по слиянию: в репозитории нет `*_test.ts` вне `web/`;
-   `@std/assert`, `@std/testing` ушли из `deno.jsonc`; гейт и «Команды» в
-   `ts/CLAUDE.md` — без `deno task test`; `back/scripts/smoke.ts` — на
+9. Только V5, последней по слиянию: `*_test.ts` вне `web/` остались только
+   у файлов, чей код под тестом грузит JSR-пакет `@mtcute/deno` (на npm его
+   нет; Vite карту `imports` не читает) — 12 файлов `back/src/telegram`
+   (`client_refusal`, `cmd_login`, `connection`, `crypto`, `login_client`,
+   `lookup`, `markdown`, `media_file`, `search`, `send`, `session`,
+   `session_port`); они переходят на Vitest в порции этапа 3, где Telegram
+   уходит на `@mtcute/node`. `@std/assert`, `@std/testing` остаются в
+   `deno.jsonc` только для них; гейт и «Команды» в `ts/CLAUDE.md` — `deno task
+   test` с этой оговоркой; `back/scripts/smoke.ts` — на
    `node:assert/strict`, `deno task smoke` зелёный.
 10. Гейты порции зелёные: `deno fmt --check`, `deno lint`, `deno check .`,
     `deno task test`, `deno task vitest`, `deno task smoke`.
+
+11. Предел времени случая и хука у Vitest снят (`testTimeout: 0`,
+    `hookTimeout: 0` в корневом `vitest.config.ts`), как у `deno test`: под
+    нагрузкой 5 с давали ложные красные, а брошенный по пределу случай
+    продолжал исполняться и портил следующий. Частных пределов в тестах нет.
 
 ## Инварианты
 
