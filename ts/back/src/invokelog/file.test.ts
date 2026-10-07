@@ -13,7 +13,6 @@ import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import lockfile from "proper-lockfile";
 import { appendRecord, LOCK_NAME } from "./file.ts";
 
 /** Временный каталог журнала с уборкой; путь файла — внутри него. */
@@ -166,18 +165,21 @@ it("две записи разом: обе целы, ни одна не разр
 it("лок занят: запись не теряется, ротации нет", async () => {
   await withDir(async (dir, path) => {
     await appendRecord(path, "старое\n", NO_ROTATION);
-    // Лок держит «сосед» тем же способом, каким его берёт ротация.
-    const release = await lockfile.lock(`${dir}/${LOCK_NAME}`, {
-      realpath: false,
+    const held = await Deno.open(`${dir}/${LOCK_NAME}`, {
+      read: true,
+      write: true,
+      create: true,
     });
     try {
+      await held.lock(true);
       await appendRecord(path, "новое\n", { maxBytes: 4, keep: 5 });
       // Ротация не состоялась — запись всё равно на месте, дописана к
       // прежнему содержимому.
       expect(await readFile(path, "utf8")).toBe("старое\nновое\n");
       expect(await exists(`${path}.1`)).toBe(false);
     } finally {
-      await release();
+      await held.unlock();
+      held.close();
     }
   });
 });

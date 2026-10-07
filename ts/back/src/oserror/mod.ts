@@ -11,6 +11,7 @@ export type OsErrorCode =
   | "ENOTDIR"
   | "EISDIR"
   | "EACCES"
+  | "EPERM"
   | "EEXIST"
   | "EPIPE";
 

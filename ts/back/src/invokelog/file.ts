@@ -7,15 +7,7 @@
  */
 
 import { Buffer } from "node:buffer";
-import {
-  appendFile,
-  chmod,
-  mkdir,
-  open,
-  rename,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { hasErrorCode } from "../oserror/mod.ts";
 
 /**
@@ -27,31 +19,8 @@ export const LOCK_NAME = "mpu.lock";
 /** Сколько ждать лок ротации: не дождались — пишем без неё (спека). */
 const LOCK_TIMEOUT_MS = 500;
 
-/** Шаг опроса лока: своего события об освобождении лок не даёт. */
+/** Шаг опроса лока: своего события об освобождении flock не даёт. */
 const LOCK_POLL_MS = 10;
-
-/** Снять взятый лок. */
-type Release = () => Promise<void>;
-
-/**
- * Та часть `proper-lockfile`, что берёт ротация: у пакета нет своих типов,
- * и без этого описания импорт молча был бы `any`.
- */
-interface LockLibrary {
-  lock(
-    path: string,
-    options: {
-      readonly realpath: boolean;
-      readonly retries: {
-        readonly retries: number;
-        readonly factor: number;
-        readonly minTimeout: number;
-        readonly maxTimeout: number;
-        readonly maxRetryTime: number;
-      };
-    },
-  ): Promise<Release>;
-}
 
 /** Правила ротации файла журнала. */
 export interface Rotation {
@@ -92,7 +61,12 @@ export async function appendRecord(
   const file = await open(path, "a", 0o600);
   try {
     await file.chmod(0o600);
-    await file.write(Buffer.from(record));
+    // Короткая запись дописывается остатком, а не теряет хвост молча.
+    const bytes = Buffer.from(record);
+    let written = 0;
+    while (written < bytes.length) {
+      written += (await file.write(bytes, written)).bytesWritten;
+    }
   } finally {
     await file.close();
   }
@@ -106,22 +80,31 @@ async function rotate(
 ): Promise<void> {
   if (rotation.maxBytes <= 0) return;
   if (await sizeOf(path) < rotation.maxBytes) return;
-  const lockPath = `${dir}/${LOCK_NAME}`;
-  // Сам lock-файл — по-прежнему файл 0600 (спека); лок `proper-lockfile`
-  // — каталог рядом с ним (`mpu.lock.lock`): у прежних версий `mpu.lock`
-  // уже лежит обычным файлом, и каталог на его месте не создать.
-  await appendFile(lockPath, "", { mode: 0o600 });
-  await chmod(lockPath, 0o600);
-  const release = await waitLock(lockPath);
-  if (release === undefined) return;
+  // Лок — flock на `mpu.lock` средствами Deno до перехода сборки на Bun
+  // (E4): у `node:fs` flock нет, а `proper-lockfile` под правами
+  // собранного бинаря не загружается — его `graceful-fs` читает
+  // переменные окружения, которых нет в `--allow-env` (решение владельца
+  // 2026-10-07, порция E2).
+  const lock = await Deno.open(`${dir}/${LOCK_NAME}`, {
+    read: true,
+    write: true,
+    create: true,
+    mode: 0o600,
+  });
   try {
-    // Размер перечитывается под локом: пока мы ждали, файл мог
-    // ротировать сосед — второй раз подряд ротировать нечего.
-    if (await sizeOf(path) >= rotation.maxBytes) {
-      await shift(path, rotation.keep);
+    await Deno.chmod(`${dir}/${LOCK_NAME}`, 0o600);
+    if (!await waitLock(lock)) return;
+    try {
+      // Размер перечитывается под локом: пока мы ждали, файл мог
+      // ротировать сосед — второй раз подряд ротировать нечего.
+      if (await sizeOf(path) >= rotation.maxBytes) {
+        await shift(path, rotation.keep);
+      }
+    } finally {
+      await lock.unlock();
     }
   } finally {
-    await release();
+    lock.close();
   }
 }
 
@@ -148,33 +131,17 @@ async function shiftStep(step: () => Promise<void>): Promise<void> {
 }
 
 /**
- * Ждёт эксклюзивный лок не дольше отведённого времени; не дождался —
- * `undefined`. Опрос с шагом и потолком по времени — у
- * `proper-lockfile` своего ожидания освобождения нет. Библиотека
- * грузится только здесь: при загрузке она вешает обработчики сигналов
- * процесса и подменяет `fs.close`, а ротация — редкая ветка.
+ * Ждёт эксклюзивный лок не дольше отведённого времени. Опрос, а не
+ * ожидание на `lock()`: у блокирующего варианта нет ни таймаута, ни
+ * отмены, и незавершённый промис остался бы висеть после отказа ждать.
  */
-async function waitLock(path: string): Promise<Release | undefined> {
-  // Пакет CommonJS без типов: его `module.exports` — это `default`
-  // импорта, а форма описана `LockLibrary` по исходнику версии 4.1.2.
-  const library = (await import("proper-lockfile")).default as LockLibrary;
-  try {
-    return await library.lock(path, {
-      realpath: false,
-      retries: {
-        retries: Math.ceil(LOCK_TIMEOUT_MS / LOCK_POLL_MS),
-        factor: 1,
-        minTimeout: LOCK_POLL_MS,
-        maxTimeout: LOCK_POLL_MS,
-        maxRetryTime: LOCK_TIMEOUT_MS,
-      },
-    });
-  } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "ELOCKED") {
-      return undefined;
-    }
-    throw err;
+async function waitLock(file: Deno.FsFile): Promise<boolean> {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  while (!await file.tryLock(true)) {
+    if (Date.now() >= deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS));
   }
+  return true;
 }
 
 /** Размер файла; файла нет — 0, ротировать нечего. */

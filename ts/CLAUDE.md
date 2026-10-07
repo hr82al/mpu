@@ -709,11 +709,6 @@ Node (у `coverage-v8` ветви расходятся).
   непонятого сообщения (`back/src/objects/nearest.ts`); заменил
   `@std/text/levenshtein-distance` (решение владельца 2026-10-07). Зависимостей
   у пакета нет.
-- `proper-lockfile` — межпроцессная блокировка ротации журнала вызовов
-  (`back/src/invokelog/file.ts`) вместо `Deno.FsFile.lock`: у `node:fs` нет
-  flock (решение владельца 2026-10-07, `platform/node-runtime.md`). Лок —
-  атомарный `mkdir`, одинаково под Bun, Deno и Node; грузится лениво, только на
-  ветке ротации.
 
 - `vitest` — раннер тестов `*.test.ts`, одинаковый под Bun, Deno и Node
   (`platform/vitest.md`); задача `deno task vitest`. Версия совпадает с записью

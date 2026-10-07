@@ -271,7 +271,7 @@ function titlesOf(
 
 /** Отказ чтения файла: нет его, нет права, это каталог. */
 function unreadable(err: unknown): boolean {
-  return hasErrorCode(err, "ENOENT", "EACCES", "EISDIR");
+  return hasErrorCode(err, "ENOENT", "EACCES", "EPERM", "EISDIR");
 }
 
 /** Читаемый транскрипт: хвост смотрится до ответа на вызов вопроса. */

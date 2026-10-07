@@ -144,7 +144,7 @@ async function realOf(files: ProgramFiles, full: string): Promise<string> {
   try {
     return await files.realPath(full);
   } catch (err) {
-    if (hasErrorCode(err, "EACCES")) {
+    if (hasErrorCode(err, "EACCES", "EPERM")) {
       throw new SourceError(NO_READ, `${NO_READ} ${full}`);
     }
     if (hasErrorCode(err, "ENOENT", "ENOTDIR")) {
@@ -164,7 +164,7 @@ async function settingsOf(files: ProgramFiles): Promise<string[]> {
       return [await files.realPath(dir)];
     } catch (err) {
       // Каталога нет или его не пройти — остаётся проверка по набранному.
-      if (hasErrorCode(err, "ENOENT", "ENOTDIR", "EACCES")) return [];
+      if (hasErrorCode(err, "ENOENT", "ENOTDIR", "EACCES", "EPERM")) return [];
       throw err;
     }
   }));
@@ -209,7 +209,7 @@ async function programBytes(
   try {
     return await files.read(real);
   } catch (err) {
-    if (!hasErrorCode(err, "EACCES")) throw err;
+    if (!hasErrorCode(err, "EACCES", "EPERM")) throw err;
     throw new SourceError(NO_READ, `${NO_READ} ${full}`);
   }
 }
