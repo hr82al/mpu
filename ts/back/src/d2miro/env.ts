@@ -41,7 +41,7 @@ export function denoD2MiroEnv(cwd: string): D2MiroEnv {
   return {
     mtime: async (path) => {
       try {
-        return (await stat(dir.resolve(path))).mtimeMs;
+        return (await stat(dir.resolve(path))).mtime.getTime();
       } catch {
         // Отсутствие файла и любая другая причина «времени нет» для
         // правил выбора SVG — одно и то же: рендерить заново.

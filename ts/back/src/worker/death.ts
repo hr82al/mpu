@@ -92,7 +92,7 @@ export class MarkerDir implements Markers {
     let text: string;
     let written: number;
     try {
-      written = (await stat(path)).mtimeMs;
+      written = (await stat(path)).mtime.getTime();
       text = await readFile(path, "utf8");
       await rm(path);
     } catch (err) {
