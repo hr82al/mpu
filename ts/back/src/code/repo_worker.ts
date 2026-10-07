@@ -1,28 +1,31 @@
-/// <reference lib="deno.worker" />
 /**
- * Воркер одного репозитория: считает раздел ответа в своём потоке.
+ * Воркер одного репозитория: считает раздел ответа в своём потоке
+ * (`node:worker_threads`).
  *
  * Тонкая оболочка над сборщиками разделов — и в этом смысл: обход
  * решает, где считать, а что считать, знают сами поверхности. Задание
  * приходит данными (`sweep.ts`), ответом уходит раздел либо описанная
  * ошибка: класс ошибки решает код выхода, и потерять его нельзя.
- *
- * Директива `reference lib` обязательна: без неё `self` типизируется
- * как окно, а не как область воркера, и `postMessage` не существует.
  */
 
+import { parentPort } from "node:worker_threads";
 import { mentionsSection } from "./mentions.ts";
 import { nameSection } from "./name.ts";
 import { describeError, type Job } from "./sweep.ts";
 
-self.onmessage = async (event: MessageEvent<Job>) => {
+const port = parentPort;
+if (port === null) {
+  throw new Error("repo_worker.ts — модуль воркера, не программа");
+}
+port.once("message", async (job: Job) => {
   try {
-    self.postMessage({ kind: "section", section: await sectionOf(event.data) });
+    port.postMessage({ kind: "section", section: await sectionOf(job) });
   } catch (err) {
-    self.postMessage({ kind: "error", error: describeError(err) });
+    port.postMessage({ kind: "error", error: describeError(err) });
   }
-  self.close();
-};
+  // Порт закрыт — воркеру больше нечего ждать, и он кончается сам.
+  port.close();
+});
 
 /**
  * Раздел по виду задания. Тип возврата широк намеренно: разделы у

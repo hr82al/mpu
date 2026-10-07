@@ -15,6 +15,7 @@
  * другой поток.
  */
 
+import { Worker } from "node:worker_threads";
 import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { Address } from "./address.ts";
@@ -228,23 +229,20 @@ function restoreError(data: ErrorData): Error {
 
 /** Считает задание в отдельном потоке. */
 function inWorker<S>(job: Job, schema: z.ZodType<S>): Promise<S> {
-  // Ссылка на модуль воркера — `new URL(…, import.meta.url)` дословно:
-  // `deno compile` включает воркер в бинарь только в этой форме, а
-  // `import.meta.resolve` даёт тот же URL и на исходниках работает, но
-  // в собранном бинаре модуль не находится вовсе (замер 2026-09-09,
-  // проверка smoke краснела на `Module not found`).
-  const worker = new Worker(new URL("./repo_worker.ts", import.meta.url), {
-    type: "module",
-  });
+  // Воркер — `node:worker_threads`: глобального `Worker` у Node нет
+  // (проба 2026-10-07). Ссылка на модуль — `new URL(…, import.meta.url)`:
+  // сборка встраивает воркер вторым входом (`compile:back`), и в бинаре
+  // он находится по этому же адресу.
+  const worker = new Worker(new URL("./repo_worker.ts", import.meta.url));
   return new Promise<S>((resolve, reject) => {
-    /** Воркер закрывается на КАЖДОМ выходе, включая отказные. */
+    /**
+     * Воркер закрывается на каждом отказном выходе; ответивший
+     * кончается сам (`repo_worker.ts` закрывает порт).
+     */
     const fail = (err: Error): void => {
-      worker.terminate();
-      reject(err);
+      worker.terminate().then(() => reject(err), reject);
     };
-    worker.onmessage = (event: MessageEvent<Answer>) => {
-      worker.terminate();
-      const answer = event.data;
+    worker.once("message", (answer: Answer) => {
       if (answer.kind === "error") {
         reject(restoreError(answer.error));
         return;
@@ -258,23 +256,24 @@ function inWorker<S>(job: Job, schema: z.ZodType<S>): Promise<S> {
       } catch (err) {
         reject(err);
       }
-    };
+    });
     // Ответ, не поддавшийся десериализации, поднимает СВОЁ событие:
     // без этой ветки промис не разрешался бы никогда, а воркер остался
     // бы жив — зависание без диагностики.
-    worker.onmessageerror = () =>
-      fail(new DomainError(`ответ по ${job.repo.name} не разобран`));
-    worker.onerror = (event: ErrorEvent) => {
+    worker.once(
+      "messageerror",
+      () => fail(new DomainError(`ответ по ${job.repo.name} не разобран`)),
+    );
+    worker.once("error", (err: Error) => {
       // Отказ самого воркера — доменная ошибка, а не отказ раздела: он
       // не про репозиторий, а про то, что считать его было нечем.
-      event.preventDefault();
       fail(
         new DomainError(
-          `разбор репозитория ${job.repo.name} не выполнен: ${event.message}`,
-          { cause: event.error },
+          `разбор репозитория ${job.repo.name} не выполнен: ${err.message}`,
+          { cause: err },
         ),
       );
-    };
+    });
     try {
       worker.postMessage(job);
     } catch (err) {
