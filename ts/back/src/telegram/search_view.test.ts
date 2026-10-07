@@ -1,8 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { foundMessage, type RawMessage } from "./message.ts";
+import {
+  documentFile,
+  foundMessage,
+  noFile,
+  type RawMessage,
+} from "@mpu/telegram";
 import { renderMessagesJson, renderMessagesTable } from "./search_view.ts";
-import { documentFile, noFile } from "./message_file.ts";
 
 async function golden(name: string): Promise<string> {
   return await readFile(

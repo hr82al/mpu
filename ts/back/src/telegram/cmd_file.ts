@@ -9,13 +9,19 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
-import type { PeerRef } from "./client.ts";
+import {
+  type FileClient,
+  Inbox,
+  parsePeer,
+  resolveTarget,
+  type SavedFile,
+} from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
-import { Inbox, INBOX_DIR } from "./inbox.ts";
-import type { MessageFile, SavedFile } from "./message_file.ts";
-import { parsePeer } from "./peer.ts";
+import { asCommand } from "./errors.ts";
 import { filePicture } from "../picture/mod.ts";
-import { type PeerResolver, resolveTarget } from "./resolve.ts";
+
+/** Каталог вложений по умолчанию: `/tmp` уже в праве записи у CLI и сервера. */
+export const INBOX_DIR = "/tmp/mpu-telegram";
 
 const argsSchema = z.object({
   chat: z
@@ -37,12 +43,6 @@ const resultSchema = z.object({
 
 type TelegramFileArgs = z.infer<typeof argsSchema>;
 
-/** Что нужно команде от клиента поверх резолва адресата. */
-export interface FileClient extends PeerResolver {
-  /** Вложение сообщения; сообщения нет — объект, отвечающий отказом. */
-  readonly messageFile: (chat: PeerRef, id: number) => Promise<MessageFile>;
-}
-
 /** Сеанс, каким его видит команда: клиент плюс закрытие. */
 export type FileSession = FileClient & { readonly close: () => Promise<void> };
 
@@ -61,13 +61,21 @@ export async function runTelegramFile(
   io: Pick<CommandIo, "envFile">,
   options: FileOptions = {},
 ): Promise<SavedFile> {
+  return await asCommand(() => saveMessageFile(args, io, options));
+}
+
+async function saveMessageFile(
+  args: TelegramFileArgs,
+  io: Pick<CommandIo, "envFile">,
+  options: FileOptions,
+): Promise<SavedFile> {
   const id = messageId(args.id);
   const peer = parsePeer(args.chat);
   const open =
     options.openSession ??
     (async () => {
       const config = telegramConfig(io.envFile);
-      const { openSession } = await import("./session.ts");
+      const { openSession } = await import("@mpu/telegram/session");
       return await openSession(config);
     });
   const session = await open();

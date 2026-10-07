@@ -8,15 +8,16 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { findMessages, SCAN_CAP, type SearchClient } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
-import {
-  findMessages,
-  SCAN_CAP,
-  SCAN_CAP_WARNING,
-  type SearchClient,
-} from "./search.ts";
+import { asCommand } from "./errors.ts";
 import { LIMIT_MAX, LIMIT_MIN, searchPlan } from "./search_plan.ts";
 import { renderMessagesJson, renderMessagesTable } from "./search_view.ts";
+
+/** Предупреждение об остановке скана; печатается в stderr при exit 0. */
+export const SCAN_CAP_WARNING =
+  `telegram: скан остановлен на ${SCAN_CAP} сообщениях; ` +
+  "более старые совпадения не показаны";
 
 const argsSchema = z.object({
   query: z
@@ -160,12 +161,20 @@ export async function runTelegramSearch(
   io: SearchIo,
   options: SearchOptions = {},
 ): Promise<TelegramSearchResult> {
+  return await asCommand(() => searchMessages(args, io, options));
+}
+
+async function searchMessages(
+  args: TelegramSearchArgs,
+  io: SearchIo,
+  options: SearchOptions,
+): Promise<TelegramSearchResult> {
   const plan = searchPlan(args);
   const open =
     options.openSession ??
     (async () => {
       const config = telegramConfig(io.envFile);
-      const { openSession } = await import("./session.ts");
+      const { openSession } = await import("@mpu/telegram/session");
       return await openSession(config);
     });
   const session = await open();

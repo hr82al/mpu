@@ -5,7 +5,6 @@
  * (`platform/telegram-mtproto.md`, «Конфигурация»). До сети дело не доходит.
  */
 
-import { __getWasm } from "@mtcute/wasm";
 import { expect, it } from "vitest";
 import type { EnvFile } from "../command/mod.ts";
 import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
@@ -27,12 +26,9 @@ it("вход при init: сбой криптографии — пропуск �
   };
   const progress: string[] = [];
   // Сбой «модуль не поднялся» — отказ `new WebAssembly.Module` в `initSync`
-  // пакета `@mtcute/wasm`. После первой удачной инициализации `initSync`
-  // ничего не делает, поэтому подмена действует лишь пока модуль не
-  // поднят: это проверяется до неё, иначе случай ничего не проверит.
-  expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
-    undefined,
-  );
+  // криптографии `@mpu/telegram`. После первой удачной инициализации
+  // `initSync` ничего не делает, и подмена действует лишь пока модуль не
+  // поднят; поднятый не даст строки сбоя — случай краснеет на ней.
   const realModule = WebAssembly.Module;
   Reflect.set(WebAssembly, "Module", function () {
     throw new Error("нет встроенного модуля");

@@ -10,13 +10,13 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
-import { parseProxy, type ProxySettings } from "./proxy.ts";
 import {
   type LoginClient,
-  type LoginIo,
-  type LoginResult,
-  runLogin,
-} from "./login.ts";
+  parseProxy,
+  type ProxySettings,
+} from "@mpu/telegram";
+import { asCommand } from "./errors.ts";
+import { type LoginIo, type LoginResult, runLogin } from "./login.ts";
 
 const argsSchema = z.object({});
 
@@ -65,7 +65,7 @@ export async function runTelegramLoginStep(
     // старт каждого вызова `mpu`, а до входа доходит меньшинство
     // прогонов — все отказы сценария случаются раньше.
     openClient: async (keys): Promise<LoginClient> => {
-      const { openLoginClient } = await import("./login_client.ts");
+      const { openLoginClient } = await import("@mpu/telegram/session");
       return openLoginClient(keys, proxyOf(io));
     },
   };
@@ -125,7 +125,7 @@ Exit: 0 — успех и любой пропуск, в том числе сбо
   logsOutput: false,
   argsSchema,
   resultSchema,
-  run: runLoginCommand,
+  run: (args, io) => asCommand(() => runLoginCommand(args, io)),
   // Всё, что видит человек, идёт строками хода в stderr: у входа нет
   // результата, который имело бы смысл печатать в stdout.
   render: () => "",

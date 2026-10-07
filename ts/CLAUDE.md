@@ -233,7 +233,7 @@ code in this repository.
 **Шаг 1 — гейты.**
 
 ```bash
-bun install                        # пакеты package.json, модуль wasm Telegram
+bun install                        # пакеты package.json
 VITEST_MAX_FORKS=3 bun run gate    # всё ниже по порядку
 ```
 
@@ -655,27 +655,13 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   непонятого сообщения (`back/src/objects/nearest.ts`); заменил
   `@std/text/levenshtein-distance` (решение владельца 2026-10-07). Зависимостей
   у пакета нет.
-- `@mtcute/node` — клиент MTProto для семейства `mpu telegram`
-  (`docs/specs/platform/telegram-mtproto.md`): отправка от имени личного
-  аккаунта, шифрование, схема TL и транспорт с прокси
-  (socks4/socks5/http/https); заменил JSR `@mtcute/deno` (порция E3 этапа 3,
-  `platform/node-runtime.md`, [S.8]). Тянет `better-sqlite3` (нативный) — с
-  `MemoryStorage` он не загружается.
-- `@mtcute/convert` — строка сессии в формате прежней реализации: клиент её как
-  есть не принимает, конвертер переводит в вид для `importSession`; без него
-  переезд потребовал бы повторного входа оператора.
-- `@mtcute/markdown-parser` — флаг `--md`: `[текст](url)` становится
-  сущностью-ссылкой, а не остаётся текстом.
-- `@mtcute/wasm` — транзитивный из дерева выше, назван поимённо ради `initSync`:
-  штатная инициализация берёт wasm по адресу рядом с пакетом, а у собранной
-  программы его там нет; байты приходят модулем
-  `back/src/telegram/wasm_modules.ts`. Экземпляр один на граф — тот, которым
-  шифрует `@mtcute/node`.
-
-  Четыре `@mtcute/*` — строго одной версии и бампятся ОТДЕЛЬНОЙ порцией:
-  библиотека держит строку сессии и api-hash и несёт бинарный wasm, её
-  обновление — смена того, кому доверен секрет. При бампе пересобирается
-  `wasm_modules.ts` (сверяет `crypto.test.ts`).
+- `@mpu/telegram` — разговор с Telegram для семейства `mpu telegram`, хука
+  уведомлений и вопросов бота: сеанс MTProto, вход, Bot API
+  (`docs/specs/platform/tslibs-telegram.md`); библиотека `tslibs/telegram`,
+  архивом `release/`. Клиент `@mtcute/*` и его wasm — её зависимости, их
+  «зачем» — в `tslibs/telegram/CLAUDE.md`; импортировать `@mtcute/*` из `ts/`
+  нельзя. Живой клиент — за входом `@mpu/telegram/session`, который команды
+  грузят лениво.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
@@ -801,7 +787,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
 ## Команды
 
 ```bash
-bun install                 # установка с нуля: пакеты, модуль wasm Telegram
+bun install                 # установка с нуля: пакеты package.json
 bun run fmt                 # формат Biome (`bun run lint` — только проверка)
 bun run lint                # формат и линт Biome
 bun run typecheck           # tsc --noEmit: дерево и web/
@@ -836,7 +822,7 @@ git commit -m "…" -- ts/              # коммит с pathspec
 шесть: `back/` (сервер строк: `back.ts`, исполнитель строк `worker.ts`
 (`platform/line-executor.md`, модули — `src/worker/`), оркестратор ролей
 `task.ts` (`task-orchestrator.md`, модули — `src/task/orchestra/`), `src/`,
-`scripts/` — `smoke.ts`, генераторы голденов и модуля wasm (`gen-*.ts`) и
+`scripts/` — `smoke.ts`, генераторы голденов (`gen-*.ts`) и
 `worker.sh` для `bun run back` из исходников), `cli/` (клиент `mpu`), `mcp/`,
 `complete/`, `supervisor/`, `web/`. Общими остаются `docs/`, `handoff/`,
 `.tmp/`, `cov/`. Пути ниже — от `ts/back/`, если не сказано иное.

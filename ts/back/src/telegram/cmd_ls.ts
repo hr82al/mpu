@@ -9,8 +9,9 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
-import { dedupeById, dialogOf } from "./chat.ts";
+import { dedupeById, dialogOf } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
+import { asCommand } from "./errors.ts";
 import { renderDialogsJson, renderDialogsTable } from "./ls_view.ts";
 
 const LIMIT_MIN = 1;
@@ -84,7 +85,7 @@ async function runTelegramLs(
 ): Promise<TelegramLsResult> {
   const limit = parseLimit(args.limit);
   const config = telegramConfig(io.envFile);
-  const { openSession } = await import("./session.ts");
+  const { openSession } = await import("@mpu/telegram/session");
   const session = await openSession(config);
   try {
     // Отказ клиента оформлен портом сеанса (`session.ts`); команда ошибок
@@ -154,7 +155,7 @@ Telegram; 2 — ошибка ввода (limit: вне диапазона).`,
   formats: { table: ["--table"] },
   forms: { query: { positional: "one" } },
   resultSchema,
-  run: runTelegramLs,
+  run: (args, io) => asCommand(() => runTelegramLs(args, io)),
   render: (result) =>
     result.table
       ? renderDialogsTable(result.dialogs)

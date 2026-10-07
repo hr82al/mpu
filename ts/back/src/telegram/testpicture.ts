@@ -6,19 +6,18 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { VerbatimError } from "../command/mod.ts";
-import type { PeerRef } from "./client.ts";
-import { type FileSession, runTelegramFile } from "./cmd_file.ts";
-import { INBOX_DIR } from "./inbox.ts";
 import {
   documentFile,
   type MessageFile,
   noFile,
   noMessage,
+  type PeerRef,
   photoFile,
+  type ResolvablePeer,
   type SavedFile,
-} from "./message_file.ts";
-import type { ResolvablePeer } from "./peer.ts";
+  TelegramError,
+} from "@mpu/telegram";
+import { type FileSession, INBOX_DIR, runTelegramFile } from "./cmd_file.ts";
 
 /** Чат сценариев. */
 export const PICTURE_CHAT = "-1000000000101";
@@ -89,7 +88,7 @@ class StandSession implements FileSession {
 
   resolve(peer: ResolvablePeer): Promise<PeerRef> {
     if (peer.kind === "id") return Promise.resolve({ ref: peer, id: peer.id });
-    return Promise.reject(new VerbatimError("telegram: чат не на стенде"));
+    return Promise.reject(new TelegramError("telegram: чат не на стенде"));
   }
 
   searchChats(): Promise<readonly never[]> {

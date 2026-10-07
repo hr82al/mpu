@@ -3,7 +3,7 @@
  * JSON по умолчанию и таблица по флагу.
  */
 
-import type { Dialog } from "./chat.ts";
+import { type Dialog } from "@mpu/telegram";
 import { alignedRows } from "./table.ts";
 
 /** JSON-массив: отступ 2, юникод как есть, один перевод строки в конце. */

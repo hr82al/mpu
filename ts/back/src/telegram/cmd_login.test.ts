@@ -5,7 +5,6 @@
  * запускается: оба случая отказывают до сети.
  */
 
-import { __getWasm } from "@mtcute/wasm";
 import { describe, expect, it } from "vitest";
 import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
@@ -66,10 +65,8 @@ describe("mpu telegram login: сбой самого входа — пропущ�
   it("сбой криптографии — причина текстом спеки", async () => {
     // Байты модуля встроены, читать нечего: сбой подделывается в
     // `WebAssembly.Module`, которым `initSync` разбирает модуль. Работает,
-    // лишь пока модуль не поднят: у поднятого `initSync` — пустой вызов.
-    expect(__getWasm(), "модуль уже поднят — случай ничего не проверит").toBe(
-      undefined,
-    );
+    // лишь пока модуль не поднят: у поднятого `initSync` — пустой вызов, и
+    // тогда строки сбоя криптографии нет — случай краснеет на ней.
     const real = WebAssembly.Module;
     Reflect.set(WebAssembly, "Module", function () {
       throw new Error("нет встроенного модуля");

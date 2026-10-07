@@ -8,7 +8,7 @@
 
 import { UsageError } from "../command/mod.ts";
 import { inputError } from "./errors.ts";
-import { parsePeer, type Peer } from "./peer.ts";
+import { parsePeer, type Peer } from "@mpu/telegram";
 
 export const LIMIT_MIN = 1;
 export const LIMIT_MAX = 500;

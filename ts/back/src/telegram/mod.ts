@@ -3,15 +3,11 @@
  * него (`docs/specs/platform/telegram-mtproto.md`).
  *
  * Наружу модуль отдаёт команды реестра — сеанс, план и разбор адресата
- * остаются внутренностями. Сверх них наружу выведена отправка в личного
- * бота: ею пользуется `mpu claude-hook notification`
- * (`docs/specs/claude-hook-notification.md`), и второй копии правил
- * конфигурации и вызова Bot API быть не должно. Конфигурацией бота и
- * вызовом метода Bot API (`./bot_call.ts`) пользуются и вопросы
- * владельцу (`../botquestions/`).
+ * остаются внутренностями. Сверх них наружу выведены конфигурация бота и
+ * вызов метода Bot API из `@mpu/telegram` — ими пользуются вопросы
+ * владельцу (`../botquestions/`): второй копии правил быть не должно.
  */
 
-export { sendBotMessage } from "./bot.ts";
 export {
   BOT_TIMEOUTS,
   BotCallError,
@@ -19,9 +15,8 @@ export {
   type BotFailureWords,
   callBot,
   TELEGRAM_API_BASE,
-} from "./bot_call.ts";
-export { botConfig } from "./bot_config.ts";
-export type { EnvKeys } from "./config.ts";
+} from "@mpu/telegram";
+export { botConfig, type EnvKeys } from "./config.ts";
 
 export { telegramLogCommand } from "./cmd_log.ts";
 export { telegramFileCommand } from "./cmd_file.ts";

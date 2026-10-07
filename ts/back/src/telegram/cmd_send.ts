@@ -11,9 +11,10 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { sendMessage } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
+import { asCommand } from "./errors.ts";
 import { type PlanIo, type SendArgs, sendPlan } from "./plan.ts";
-import { sendMessage } from "./send.ts";
 import { renderSent } from "./send_view.ts";
 
 const argsSchema = z.object({
@@ -69,7 +70,7 @@ async function runTelegramSend(
     io.envFile.get("TELEGRAM_DEFAULT_CHAT"),
   );
   const config = telegramConfig(io.envFile);
-  const { openSession } = await import("./session.ts");
+  const { openSession } = await import("@mpu/telegram/session");
   const session = await openSession(config);
   try {
     const sent = await sendMessage(session, plan);
@@ -129,6 +130,6 @@ Exit: 0 — успех; 1 — конфигурация или отказ Telegra
     file: { short: "f" },
   },
   resultSchema,
-  run: runTelegramSend,
+  run: (args, io) => asCommand(() => runTelegramSend(args, io)),
   render: renderSent,
 });

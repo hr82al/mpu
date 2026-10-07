@@ -7,10 +7,14 @@
  */
 
 import { type CommandIo, readTextStdin } from "../command/mod.ts";
-import { type Attachment, readAttachment } from "./attachment.ts";
+import { readAttachment } from "./attachment.ts";
 import { inputError } from "./errors.ts";
-import { EMPTY_TARGET, parsePeer } from "./peer.ts";
-import type { SendPlan } from "./send.ts";
+import {
+  type Attachment,
+  EMPTY_TARGET,
+  parsePeer,
+  type SendPlan,
+} from "@mpu/telegram";
 
 /** Аргументы вызова после разбора схемой. */
 export interface SendArgs {

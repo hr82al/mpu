@@ -21,10 +21,9 @@ import {
   requireKaitenAccess,
 } from "../kaiten/mod.ts";
 import { movesInWindow } from "../kiten/card_move.ts";
+import { EMPTY_TARGET, parsePeer, type Peer, sendMessage } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
-import { inputError } from "./errors.ts";
-import { EMPTY_TARGET, parsePeer, type Peer } from "./peer.ts";
-import { sendMessage } from "./send.ts";
+import { asCommand, inputError } from "./errors.ts";
 import { renderSent, type SentView } from "./send_view.ts";
 import { type DayWindow, mskDayWindow } from "./status_day.ts";
 import {
@@ -213,7 +212,7 @@ async function send(
   text: string,
 ): Promise<SentView> {
   const config = telegramConfig(io.envFile);
-  const { openSession } = await import("./session.ts");
+  const { openSession } = await import("@mpu/telegram/session");
   const session = await openSession(config);
   try {
     const sent = await sendMessage(session, {
@@ -270,7 +269,7 @@ Exit: 1 — конфигурация или отказ Telegram; 2 — адре�
   policy: "rw",
   argsSchema,
   resultSchema,
-  run: runTelegramStatus,
+  run: (args, io) => asCommand(() => runTelegramStatus(args, io)),
   render: (result) =>
     result.sent === null ? `${result.text}\n` : renderSent(result.sent),
 });

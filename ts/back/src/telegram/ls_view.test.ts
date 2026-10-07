@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import type { Dialog } from "./chat.ts";
+import { type Dialog } from "@mpu/telegram";
 import { renderDialogsJson, renderDialogsTable } from "./ls_view.ts";
 
 const DIALOGS: readonly Dialog[] = [

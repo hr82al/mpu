@@ -1,80 +1,61 @@
 /**
- * Конфигурация сеанса Telegram из env-файла
- * (`docs/specs/platform/telegram-mtproto.md`, «Конфигурация»).
+ * Конфигурация Telegram из env-файла для слоя команд
+ * (`docs/specs/platform/telegram-mtproto.md`, «Конфигурация»;
+ * `docs/specs/telegram-log.md`, «Конфигурация»): правила разбора — в
+ * `@mpu/telegram`, здесь — env-файл в форме порта библиотеки.
+ *
+ * Порт отдаёт «ключа нет» уже строкой слоя: класс отказа env-файла
+ * (`DomainError`) знает только слой команд, и различать его по типу можно
+ * только здесь.
  */
 
+import {
+  type BotConfig,
+  botConfig as readBotConfig,
+  type EnvKeys as LayerEnvKeys,
+  type TelegramConfig,
+  TelegramError,
+  telegramConfig as readTelegramConfig,
+} from "@mpu/telegram";
 import { DomainError, type EnvFile } from "../command/mod.ts";
-import { configError } from "./errors.ts";
-import { parseProxy, type ProxySettings } from "./proxy.ts";
+import { commandError } from "./errors.ts";
 
 /** Что из env-файла нужно конфигурации: чтение ключа и обязательный ключ. */
 export type EnvKeys = Pick<EnvFile, "get" | "require">;
 
-/** Разобранная конфигурация сеанса. */
-export interface TelegramConfig {
-  readonly apiId: number;
-  readonly apiHash: string;
-  /**
-   * Строка сессии как её записал вход `mpu init`. Принимается как есть и
-   * никогда не переписывается: ту же строку читает прежняя реализация,
-   * пока переезд не закончен.
-   */
-  readonly session: string;
-  /**
-   * Прокси только для Telegram; не задан ни одним источником — поля нет.
-   * Адресата по умолчанию здесь нет намеренно: он читается раньше
-   * конфигурации, иначе отказ конфигурации (код 1) обгонял бы ошибку
-   * ввода (код 2) — см. `cmd_send.ts`.
-   */
-  readonly proxy?: ProxySettings;
+/** Конфигурация сеанса MTProto; непригодное значение — отказ слоя. */
+export function telegramConfig(env: EnvKeys): TelegramConfig {
+  return readTelegramConfig(telegramEnv(env));
 }
 
 /**
- * Источники прокси по старшинству. `HTTPS_PROXY` из env-файла проксирует
- * весь инструмент, а не только Telegram — ловушка оставлена видимой
- * (там же, «Прокси»).
+ * Конфигурация личного бота; непригодное значение — `VerbatimError`. Отказ
+ * переведён здесь, а не в команде: по нему непригодную настройку различают
+ * и вопросы владельцу (`../botquestions/`), у которых команды нет.
  */
-const PROXY_KEYS = ["TELEGRAM_PROXY", "HTTPS_PROXY", "https_proxy"] as const;
-
-/** Читает конфигурацию; непригодное значение — ошибка конфигурации. */
-export function telegramConfig(env: EnvKeys): TelegramConfig {
-  const apiId = required(env, "TELEGRAM_API_ID");
-  if (!/^\d+$/.test(apiId)) {
-    throw configError(
-      `TELEGRAM_API_ID должен быть числом, получено '${apiId}'`,
-    );
-  }
-  const apiHash = required(env, "TELEGRAM_API_HASH");
-  const session = env.get("TELEGRAM_SESSION");
-  if (session === undefined || session === "") {
-    throw configError("не авторизован; запусти `mpu init`");
-  }
-  const proxy = proxyValue(env);
-  return {
-    apiId: Number(apiId),
-    apiHash,
-    session,
-    // Пустое значение равнозначно незаданному, поэтому поле не заводится.
-    ...(proxy === undefined ? {} : { proxy: parseProxy(proxy) }),
-  };
-}
-
-/** Обязательный ключ: сообщение слоя env-файла несёт имя ключа и путь. */
-function required(env: EnvKeys, name: string): string {
+export function botConfig(env: EnvKeys): BotConfig {
   try {
-    return env.require(name);
+    return readBotConfig(telegramEnv(env));
   } catch (err) {
-    if (err instanceof DomainError) {
-      throw configError(err.message, { cause: err });
-    }
-    throw err;
+    throw commandError(err);
   }
 }
 
-function proxyValue(env: EnvKeys): string | undefined {
-  for (const key of PROXY_KEYS) {
-    const value = env.get(key);
-    if (value !== undefined && value !== "") return value;
-  }
-  return undefined;
+/**
+ * Env-файл портом библиотеки: отсутствие обязательного ключа — отказ слоя
+ * `telegram: <текст env-файла>` (он называет ключ и путь). Прочий отказ
+ * чтения — дефект — уходит тем же объектом.
+ */
+function telegramEnv(env: EnvKeys): LayerEnvKeys {
+  return {
+    get: (name) => env.get(name),
+    require: (name) => {
+      try {
+        return env.require(name);
+      } catch (err) {
+        if (!(err instanceof DomainError)) throw err;
+        throw new TelegramError(`telegram: ${err.message}`, { cause: err });
+      }
+    },
+  };
 }

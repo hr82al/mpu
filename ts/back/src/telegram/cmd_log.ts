@@ -11,9 +11,9 @@
 import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { readAttachment } from "./attachment.ts";
-import { type BotMessage, sendBotMessage } from "./bot.ts";
-import { botConfig } from "./bot_config.ts";
-import { inputError } from "./errors.ts";
+import { type BotMessage, sendBotMessage } from "@mpu/telegram";
+import { botConfig } from "./config.ts";
+import { asCommand, inputError } from "./errors.ts";
 
 const argsSchema = z.object({
   message: z
@@ -149,6 +149,6 @@ Exit: 0 — успех; 1 — конфигурация или отказ Bot API
     file: { short: "f", once: true },
   },
   resultSchema,
-  run: runTelegramLog,
+  run: (args, io) => asCommand(() => runTelegramLog(args, io)),
   render: (result: LogResult) => `{"id": ${result.id}}\n`,
 });

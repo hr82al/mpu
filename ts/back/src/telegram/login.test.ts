@@ -11,11 +11,10 @@
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
 import { NO_ONE, type Prompt } from "../command/mod.ts";
-import { configError } from "./errors.ts";
+import { type LoginClient, TelegramError } from "@mpu/telegram";
 import {
   API_HASH_KEY,
   API_ID_KEY,
-  type LoginClient,
   type LoginIo,
   PHONE_KEY,
   runLogin,
@@ -212,7 +211,9 @@ describe("телефон: из env-файла берётся молча, вве�
       answers: ["+70001112233"],
       signIn: () =>
         Promise.reject(
-          configError("RPC error: PHONE_CODE_INVALID\nподробности"),
+          new TelegramError(
+            "telegram: RPC error: PHONE_CODE_INVALID\nподробности",
+          ),
         ),
     });
     expect(await runLogin(stand.io)).toStrictEqual({

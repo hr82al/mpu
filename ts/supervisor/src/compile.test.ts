@@ -2,7 +2,7 @@
  * Настоящая сборка `compile:back` (`platform/supervisor-install.md`,
  * «Части»; `platform/node-runtime.md`, [S.11]): собранный `mpu-back`
  * отвечает на `--version` и несёт в себе воркер разбора кода (вторым
- * входом сборки) и оба wasm Telegram (модулем `wasm_modules.ts`) — без
+ * входом сборки) и оба wasm Telegram (модулем `@mpu/telegram`) — без
  * них программа падает на `code` и `telegram`. Признак — кусок
  * содержимого в байтах бинаря, а не имя файла.
  */
@@ -13,13 +13,23 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  MTCUTE_SIMD_WASM,
-  MTCUTE_WASM,
-} from "../../back/src/telegram/wasm_modules.ts";
+
+/**
+ * Пакет wasm криптографии Telegram: ставится зависимостью `@mpu/telegram`, и
+ * его файлы — эталон байтов, встроенных в бинарь модулем библиотеки.
+ */
+const WASM_PACKAGE = new URL(
+  "../../node_modules/@mtcute/wasm/",
+  import.meta.url,
+);
+
+/** Байты wasm пакета base64 — так они лежат в модуле библиотеки. */
+async function wasmBase64(name: string): Promise<string> {
+  return (await readFile(new URL(name, WASM_PACKAGE))).toString("base64");
+}
 
 /** Что обязано быть в бинаре: имя для сообщения и кусок содержимого. */
-function embedded(): readonly (readonly [string, Uint8Array])[] {
+async function embedded(): Promise<readonly (readonly [string, Uint8Array])[]> {
   const encoder = new TextEncoder();
   // Кусок из середины base64: не заголовок, общий для обоих wasm.
   const middle = (text: string) =>
@@ -33,8 +43,8 @@ function embedded(): readonly (readonly [string, Uint8Array])[] {
       "back/src/code/repo_worker.ts",
       encoder.encode("$bunfs/root/repo_worker.js"),
     ],
-    ["mtcute.wasm", middle(MTCUTE_WASM)],
-    ["mtcute-simd.wasm", middle(MTCUTE_SIMD_WASM)],
+    ["mtcute.wasm", middle(await wasmBase64("mtcute.wasm"))],
+    ["mtcute-simd.wasm", middle(await wasmBase64("mtcute-simd.wasm"))],
   ];
 }
 
@@ -94,7 +104,7 @@ it("compile:back — --version и встроенные воркер и wasm", as
       "0.1.0\n",
     ]);
     const binary = await readFile(out);
-    for (const [name, piece] of embedded()) {
+    for (const [name, piece] of await embedded()) {
       expect(contains(binary, piece), `${name} не встроен`).toBe(true);
     }
   } finally {

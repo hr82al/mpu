@@ -22,20 +22,21 @@ import {
   VerbatimError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import type { PeerRef } from "./client.ts";
-import {
-  type FileSession,
-  runTelegramFile,
-  telegramFileCommand,
-} from "./cmd_file.ts";
 import {
   documentFile,
   type MessageFile,
   noFile,
   noMessage,
+  type PeerRef,
   photoFile,
-} from "./message_file.ts";
-import type { ResolvablePeer } from "./peer.ts";
+  type ResolvablePeer,
+  TelegramError,
+} from "@mpu/telegram";
+import {
+  type FileSession,
+  runTelegramFile,
+  telegramFileCommand,
+} from "./cmd_file.ts";
 
 const command: Command = telegramFileCommand;
 
@@ -64,7 +65,7 @@ async function* parts(...chunks: readonly Uint8Array[]) {
 async function* brokenAfter(chunk: Uint8Array) {
   yield chunk;
   await Promise.resolve();
-  throw new VerbatimError("telegram: RPC error: CONNECTION_LOST");
+  throw new TelegramError("telegram: RPC error: CONNECTION_LOST");
 }
 
 /** Сообщения супергруппы `-1000000000101` по сценариям спеки. */
@@ -124,7 +125,7 @@ class FakeSession implements FileSession {
   resolve(peer: ResolvablePeer): Promise<PeerRef> {
     if (peer.kind === "id") return Promise.resolve({ ref: peer, id: peer.id });
     return Promise.reject(
-      new VerbatimError("telegram: RPC error: USERNAME_NOT_OCCUPIED"),
+      new TelegramError("telegram: RPC error: USERNAME_NOT_OCCUPIED"),
     );
   }
 

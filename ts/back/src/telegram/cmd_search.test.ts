@@ -8,15 +8,14 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { foundMessage, noFile, type RawMessage, SCAN_CAP } from "@mpu/telegram";
 import {
   runTelegramSearch,
+  SCAN_CAP_WARNING,
   type SearchSession,
   type TelegramSearchArgs,
   telegramSearchCommand,
 } from "./cmd_search.ts";
-import { SCAN_CAP } from "./search.ts";
-import { foundMessage, type RawMessage } from "./message.ts";
-import { noFile } from "./message_file.ts";
 
 const command: Command = telegramSearchCommand;
 
@@ -225,4 +224,10 @@ describe("оборванный потолком скан уезжает в ре�
     expect(result.messages.length).toBe(50);
     expect(result.more, "набранный `--limit` — это «есть ещё»").toBe(true);
   });
+});
+
+it("строка предупреждения совпадает с голденом", async () => {
+  expect(`${SCAN_CAP_WARNING}\n`).toStrictEqual(
+    await golden("warn-scan-cap-stderr.txt"),
+  );
 });

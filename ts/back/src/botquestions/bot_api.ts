@@ -47,7 +47,7 @@ export interface BotApi {
 /**
  * Отказ Bot API или транспорта. Сообщение — причина для человека
  * (`бот недоступен: 401 Unauthorized`); токен из неё вычищен вызовом
- * (`../telegram/bot_call.ts`).
+ * (`callBot` из `@mpu/telegram`).
  */
 export class BotFailure extends Error {
   override name = "BotFailure";

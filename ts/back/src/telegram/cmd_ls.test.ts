@@ -4,7 +4,7 @@ import { rejected } from "@mpu/testing/thrown";
 import type { Command, CommandIo } from "../command/mod.ts";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import type { RawChat } from "./chat.ts";
+import { type RawChat } from "@mpu/telegram";
 import { telegramLsCommand } from "./cmd_ls.ts";
 
 const command: Command = telegramLsCommand;

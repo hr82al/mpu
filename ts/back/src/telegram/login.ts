@@ -13,50 +13,20 @@
  * замеру оригинала 2026-08-31).
  */
 
-import {
-  type Answer,
-  type EnvFile,
-  type Prompt,
-  VerbatimError,
-  VerbatimUsageError,
-} from "../command/mod.ts";
 import { firstLine } from "@mpu/http";
+import {
+  type AppKeys,
+  isLayerError,
+  type LoginClient,
+  type LoginPrompts,
+} from "@mpu/telegram";
+import type { Answer, EnvFile, Prompt } from "../command/mod.ts";
 
 /** Ключи env-файла, которыми распоряжается вход. */
 export const SESSION_KEY = "TELEGRAM_SESSION";
 export const API_ID_KEY = "TELEGRAM_API_ID";
 export const API_HASH_KEY = "TELEGRAM_API_HASH";
 export const PHONE_KEY = "TELEGRAM_PHONE";
-
-/** Что вход спрашивает у человека. */
-export interface LoginPrompts {
-  /** Вопрос с видимым ответом; ответа нет — `undefined`. */
-  readonly ask: (question: string) => Promise<string | undefined>;
-  /** Вопрос со скрытым ответом: пароль второго фактора. */
-  readonly askSecret: (question: string) => Promise<string | undefined>;
-  /**
-   * Строка хода входа от клиента (код отправлен, код не подошёл) — туда
-   * же, куда прочие строки хода сценария, а не в stdout («stdout входа»).
-   */
-  readonly progress: (line: string) => void;
-}
-
-/** Живой вход в Telegram — единственное, чего нет в этом модуле. */
-export interface LoginClient {
-  /**
-   * Проводит вход и возвращает строку сессии. Код и пароль клиент
-   * спрашивает сам через переданные функции: их порядок и число
-   * попыток задаёт протокол, а не мы.
-   */
-  readonly signIn: (phone: string, prompts: LoginPrompts) => Promise<string>;
-  readonly close: () => Promise<void>;
-}
-
-/** Ключи приложения Telegram. */
-export interface AppKeys {
-  readonly apiId: string;
-  readonly apiHash: string;
-}
 
 /** Порт сценария. */
 export interface LoginIo {
@@ -217,7 +187,7 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   try {
     client = await io.openClient(keys.keys);
   } catch (err) {
-    if (!isLayerRefusal(err)) throw err;
+    if (!isLayerError(err)) throw err;
     return skip(io, loginFailureReason(err));
   }
   try {
@@ -225,7 +195,7 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
     try {
       session = await client.signIn(number, prompts);
     } catch (err) {
-      if (!isLayerRefusal(err)) throw err;
+      if (!isLayerError(err)) throw err;
       return skip(io, loginFailureReason(err));
     }
     // Единственное место, куда уходит строка сессии.
@@ -235,16 +205,6 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   } finally {
     await client.close();
   }
-}
-
-/**
- * Сбой самого входа — отказ, уже оформленный слоем Telegram строкой
- * `telegram: …`: отказ протокола, непригодный прокси, сбой криптографии.
- * Различение по типу: дефект своего кода и отказ терминала таким не
- * бывают и пропуском не становятся (инвариант 3).
- */
-function isLayerRefusal(err: unknown): boolean {
-  return err instanceof VerbatimError || err instanceof VerbatimUsageError;
 }
 
 /**

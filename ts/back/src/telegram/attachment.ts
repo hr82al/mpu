@@ -1,21 +1,15 @@
 /**
- * Файл, прикладываемый к сообщению: чтение с диска и имя, под которым он
- * уйдёт в Telegram. Модуль общий на два канала — личный аккаунт
- * (`mpu telegram send`, MTProto) и личного бота (`mpu telegram log`,
- * Bot API): протоколы разные, а ввод один, и тексты отказов у него
- * обязаны совпадать.
+ * Вложение сообщения (`Attachment` из `@mpu/telegram`): чтение с диска и
+ * имя, под которым файл уйдёт в Telegram. Модуль общий на два канала —
+ * личный аккаунт (`mpu telegram send`, MTProto) и личного бота
+ * (`mpu telegram log`, Bot API): протоколы разные, а ввод один, и тексты
+ * отказов у него обязаны совпадать.
  *
  * Чтение — до сети: отбитый вызов не стоит ни одного обращения наружу.
  */
 
+import type { Attachment } from "@mpu/telegram";
 import { type CommandIo, NotFoundIoError, UsageError } from "../command/mod.ts";
-
-/** Файл, уходящий документом без превью; несколько — альбом. */
-export interface Attachment {
-  /** Имя файла в Telegram: файлы уходят под своими именами. */
-  readonly name: string;
-  readonly bytes: Uint8Array;
-}
 
 /** Что чтению нужно от порта: вложения — обычные файлы. */
 export type AttachmentIo = Pick<CommandIo, "readRegularFile">;

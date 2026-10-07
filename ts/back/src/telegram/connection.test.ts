@@ -1,27 +1,21 @@
 /**
- * Предел соединения с Telegram и поток логов клиента
+ * Предел соединения с Telegram и поток логов клиента у команд
  * (`docs/specs/platform/telegram-mtproto.md`, «Прокси»): соединение не
- * установлено за 20 с — отказ текстом спеки, у входа — пропуск с тем же
- * текстом; сообщения библиотеки клиента в stdout не пишутся.
+ * установлено за 20 с — код 1 с текстом спеки, у входа — пропуск с тем же
+ * текстом и код 0; сообщения библиотеки клиента в stdout не пишутся. Пределы
+ * самого сеанса и входа проверяет `@mpu/telegram`.
  *
- * Наружу не уходит ничего: `connect` сокета подменён отказом либо соединение
- * и запросы клиента подменены на прототипе, а пределы (20 с, у входа 60 с)
- * отсчитывают поддельные часы Vitest.
- * Переподключения клиента под поддельными часами редки (зонд разбора 132:
- * две попытки к 25 с), так что тишина за предел ничего не доказывает:
- * «клиент погашен» проверяется счётчиком `destroy`, а цикл переподключения
- * по настоящим часам держит smoke-проверка бинаря.
+ * Наружу не уходит ничего: `connect` сокета подменён отказом, а предел
+ * отсчитывают поддельные часы Vitest. Цикл переподключения по настоящим
+ * часам держит smoke-проверка бинаря.
  */
 
 import { Socket } from "node:net";
 import process from "node:process";
-import { TelegramClient } from "@mtcute/node";
-import { describe, expect, it, vi } from "vitest";
-import { VerbatimError } from "../command/mod.ts";
+import { expect, it, vi } from "vitest";
 import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo, promptQueue } from "../testing/mod.ts";
-import { openSession } from "./session.ts";
 
 /** Причина отказа соединения, как её отдаёт `node:net`. */
 const REFUSAL = "connect ECONNREFUSED 127.0.0.1:1";
@@ -174,20 +168,6 @@ async function drain(operation: {
   }
 }
 
-it("сеанс: нет соединения за 20 с — отказ текстом спеки, ровно на пределе", async () => {
-  using _time = fakeTime();
-  using refused = refuseConnections();
-  using _logs = captureClientLogs();
-  const opening = track(
-    openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
-  );
-  await Promise.race([refused.attempted, opening.done]);
-  await expireLimit(opening);
-  const outcome = await opening.done;
-  expect(outcome instanceof VerbatimError, String(outcome)).toBe(true);
-  expect((outcome as VerbatimError).message).toBe(LIMIT_TEXT);
-});
-
 it("mpu telegram ls: нет соединения — код 1 с текстом спеки, stdout без лога клиента", async () => {
   using _time = fakeTime();
   using refused = refuseConnections();
@@ -230,167 +210,3 @@ function fakeTime(): Disposable {
   vi.useFakeTimers();
   return { [Symbol.dispose]: () => void vi.useRealTimers() };
 }
-
-/**
- * Подменяет метод на прототипе клиента на время теста. Метод, лежавший
- * выше по цепочке, возвращается снятием подмены, а не записью копии.
- */
-function stubClient(
-  name: "connect" | "getMe" | "start" | "destroy",
-  impl: (this: TelegramClient, ...args: never[]) => unknown,
-): Disposable {
-  const proto = TelegramClient.prototype;
-  const own = Object.hasOwn(proto, name);
-  const real: unknown = Reflect.get(proto, name);
-  Reflect.set(proto, name, impl);
-  return {
-    [Symbol.dispose]: () =>
-      void (own
-        ? Reflect.set(proto, name, real)
-        : Reflect.deleteProperty(proto, name)),
-  };
-}
-
-/** Соединение подменено: сокет «открыт» сразу, сети нет. */
-function connectedAtOnce(): Disposable {
-  return stubClient("connect", function () {
-    this.onConnectionState.emit("connected");
-    return Promise.resolve();
-  });
-}
-
-/** Сколько раз клиента погасили; настоящее закрытие исполняется. */
-function countDestroys(): { readonly count: () => number } & Disposable {
-  let count = 0;
-  const real = TelegramClient.prototype.destroy;
-  const stub = stubClient("destroy", function () {
-    count++;
-    return real.call(this);
-  });
-  return { count: () => count, [Symbol.dispose]: () => stub[Symbol.dispose]() };
-}
-
-/** Запрос, на который ответа нет; первый вызов отмечается. */
-function silentRequest(
-  name: "getMe" | "start",
-  before: (client: TelegramClient) => void = () => {},
-): { readonly asked: Promise<void> } & Disposable {
-  const asked = Promise.withResolvers<void>();
-  const stub = stubClient(name, function () {
-    before(this);
-    asked.resolve();
-    return new Promise<never>(() => {});
-  });
-  return {
-    asked: asked.promise,
-    [Symbol.dispose]: () => stub[Symbol.dispose](),
-  };
-}
-
-describe("сеанс: соединение есть, ответа нет за 20 с — отказ текстом спеки, клиент погашен", () => {
-  const cases = [
-    {
-      name: "узел молчит — узел не ответил",
-      before: () => {},
-      text: "telegram: нет ответа от Telegram за 20 с: узел не ответил",
-    },
-    {
-      name: "узел рвёт соединение — первая строка срыва",
-      before: (client: TelegramClient) =>
-        client.onError.emit(new Error("срыв соединения\nподробности")),
-      text: "telegram: нет ответа от Telegram за 20 с: срыв соединения",
-    },
-  ];
-  for (const { name, before, text } of cases) {
-    it(name, async () => {
-      using _time = fakeTime();
-      using _refused = refuseConnections();
-      using _logs = captureClientLogs();
-      using _connect = connectedAtOnce();
-      using destroys = countDestroys();
-      using silent = silentRequest("getMe", before);
-      const opening = track(
-        openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
-      );
-      await Promise.race([silent.asked, opening.done]);
-      await expireLimit(opening);
-      const outcome = await opening.done;
-      expect(outcome instanceof VerbatimError, String(outcome)).toBe(true);
-      expect((outcome as VerbatimError).message).toBe(text);
-      expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
-    });
-  }
-});
-
-it("сеанс: отказ по пределу соединения — клиент погашен ровно раз", async () => {
-  using _time = fakeTime();
-  using refused = refuseConnections();
-  using _logs = captureClientLogs();
-  using destroys = countDestroys();
-  const opening = track(
-    openSession({ apiId: 1, apiHash: "проба", session: acceptedSession() }),
-  );
-  await Promise.race([refused.attempted, opening.done]);
-  await expireLimit(opening);
-  expect((await opening.done) instanceof VerbatimError).toBe(true);
-  expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
-});
-
-it("сеанс: успех — пределы и подписки сняты, таймеров от вызова нет", async () => {
-  // Неснятый таймер предела ничем не проявляется: он лишь разрешает
-  // обещание, которого никто не ждёт, а санитайзер теста таймеров не
-  // считает. Поэтому признак — поддельные часы: после входа у них не
-  // остаётся ни одного запланированного таймера (`vi.getTimerCount()`).
-  using _time = fakeTime();
-  using _refused = refuseConnections();
-  using _logs = captureClientLogs();
-  let entered: TelegramClient | undefined;
-  using _connect = stubClient("connect", function () {
-    entered = this;
-    this.onConnectionState.emit("connected");
-    return Promise.resolve();
-  });
-  using _getMe = stubClient("getMe", () => Promise.resolve({ id: 42 }));
-  const session = await openSession({
-    apiId: 1,
-    apiHash: "проба",
-    session: acceptedSession(),
-  });
-  try {
-    expect(vi.getTimerCount(), "после входа остался таймер").toBe(0);
-    // Время за пределами обоих пределов: отказа нет, сеанс цел.
-    await vi.advanceTimersByTimeAsync(40_000);
-    expect(entered?.onError.length, "подписка на ошибки не снята").toBe(0);
-    expect(
-      entered?.onConnectionState.length,
-      "подписка на состояние не снята",
-    ).toBe(0);
-  } finally {
-    await session.close();
-  }
-});
-
-it("mpu telegram login: соединение есть, ответа нет — пропуск с текстом спеки, код 0", async () => {
-  using _time = fakeTime();
-  using _refused = refuseConnections();
-  using _logs = captureClientLogs();
-  using _connect = connectedAtOnce();
-  using destroys = countDestroys();
-  using silent = silentRequest("start");
-  const login = run(["telegram", "login"], {
-    TELEGRAM_API_ID: "1",
-    TELEGRAM_API_HASH: "проба",
-  });
-  const code = track(login.code);
-  await Promise.race([silent.asked, code.done]);
-  // У входа предел первого ответа — 60 с (спека: смена DC и flood-wait).
-  await expireLimit(code, 60_000);
-  const stderr = login.stderr.join("");
-  expect(await code.done, stderr).toBe(0);
-  expect(stderr).toContain(
-    "# telegram: пропущено (telegram: нет ответа от Telegram за 60 с: узел не ответил)\n",
-  );
-  // Рендер входа — пустой текст: запись есть, но stdout пуст.
-  expect(login.stdout.join("")).toBe("");
-  expect(destroys.count(), "клиент не погашен ровно раз").toBe(1);
-});
