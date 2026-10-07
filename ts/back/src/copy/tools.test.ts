@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { rejected } from "../testing/thrown.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { BACK_TASK } from "../../scripts/compile_task.ts";
 import {
@@ -33,6 +33,21 @@ it("временный файл дампа ложится в каталог вр
   } finally {
     removeDumpFile(dump);
     rmSync(reference, { recursive: true });
+  }
+});
+
+it("временный файл дампа создан пустым, только владельцу и каждый раз новым", () => {
+  // Дамп клиента — чужие данные: файл заводится до `pg_dump` с правами
+  // 0600, как у `mkstemp`, и под новым именем на каждый вызов.
+  const first = makeDumpFile("mpu-test-");
+  const second = makeDumpFile("mpu-test-");
+  try {
+    const info = statSync(first);
+    expect([info.size, info.mode & 0o777]).toStrictEqual([0, 0o600]);
+    expect(second === first, first).toBe(false);
+  } finally {
+    removeDumpFile(first);
+    removeDumpFile(second);
   }
 });
 

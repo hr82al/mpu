@@ -11,6 +11,7 @@
 
 import { writeSync } from "node:fs";
 import { hasErrorCode } from "../oserror/mod.ts";
+import { runProgram, startProgram } from "../subprocess/mod.ts";
 
 /** Дескриптор stderr процесса: эхо пишется в него синхронно. */
 const STDERR = 2;
@@ -75,14 +76,14 @@ export const systemClock: Clock = {
 export const systemDocker: Docker = {
   async probe(argv, cwd, signal) {
     const [bin, ...rest] = argv;
-    const output = await new Deno.Command(bin, {
+    const output = await runProgram(bin, {
       args: rest,
       cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
       signal,
-    }).output();
+    });
     const decoder = new TextDecoder();
     return {
       code: output.code,
@@ -92,26 +93,26 @@ export const systemDocker: Docker = {
   },
   async run(argv, cwd, input = {}) {
     const [bin, ...rest] = argv;
-    const child = new Deno.Command(bin, {
+    const child = await startProgram(bin, {
       args: rest,
       cwd,
       env: input.env,
       stdin: input.stdin === undefined ? "null" : "piped",
       stdout: "inherit",
       stderr: "inherit",
-    }).spawn();
+    });
     if (input.stdin !== undefined) await feed(child.stdin, input.stdin);
     return (await child.status).code;
   },
   async watch(argv, cwd) {
     const [bin, ...rest] = argv;
-    const child = new Deno.Command(bin, {
+    const child = await startProgram(bin, {
       args: rest,
       cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
-    }).spawn();
+    });
     const [stdout, stderr] = await Promise.all([
       echoed(child.stdout),
       echoed(child.stderr),

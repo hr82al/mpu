@@ -7,6 +7,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { hasErrorCode } from "../../oserror/mod.ts";
+import { runProgram } from "../../subprocess/mod.ts";
 import type { Letters, Notices, Place, Windows } from "./ports.ts";
 
 export const TMUX = "/usr/bin/tmux";
@@ -24,12 +25,12 @@ export type Run = (program: string, args: readonly string[]) => Promise<Ran>;
 
 /** Запуск подпроцессом. */
 export const SYSTEM_RUN: Run = async (program, args) => {
-  const out = await new Deno.Command(program, {
-    args: [...args],
+  const out = await runProgram(program, {
+    args,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
-  }).output();
+  });
   const decoder = new TextDecoder();
   return {
     code: out.code,

@@ -1,6 +1,6 @@
 /**
  * Подставной HTTP-сервер на петле для тестов `*.test.ts`: обработчик в
- * форме `Request → Response`, как у `Deno.serve`, а сервер — `node:http`
+ * форме `Request → Response`, как у сервера Deno, а сервер — `node:http`
  * (`node:https` с сертификатом), одинаковый под Deno, Node и Bun.
  *
  * Модуль подключают только тесты.
@@ -20,7 +20,7 @@ import {
   type Server as NetServer,
 } from "node:net";
 
-/** Обработчик запроса — как у `Deno.serve`. */
+/** Обработчик запроса — как у сервера Deno. */
 export type FetchHandler = (request: Request) => Response | Promise<Response>;
 
 /** Запущенный сервер. */
@@ -30,7 +30,7 @@ export interface FakeHttp {
   readonly port: number;
   /**
    * Перестать принимать соединения и дождаться начатых ответов —
-   * как `shutdown` у `Deno.serve`. Висящий обработчик тест отпускает до
+   * как `shutdown` у сервера Deno. Висящий обработчик тест отпускает до
    * `stop`: при живом клиенте `stop` ждёт его ответа без срока.
    */
   stop(): Promise<void>;
@@ -102,7 +102,7 @@ async function answer(
   res: ServerResponse,
 ): Promise<void> {
   // Обрыв клиентом до конца ответа — отмена запроса, как `request.signal`
-  // у `Deno.serve`.
+  // у сервера Deno.
   const aborted = new AbortController();
   res.on("close", () => {
     if (!res.writableFinished) aborted.abort();
@@ -111,13 +111,13 @@ async function answer(
   try {
     response = await handler(await requestOf(scheme, req, aborted.signal));
   } catch (err) {
-    // `Deno.serve` на брошенном из обработчика отвечает 500 и пишет ошибку.
+    // Сервер Deno на брошенном из обработчика отвечает 500 и пишет ошибку.
     console.error(err);
     response = new Response("Internal Server Error", { status: 500 });
   }
   res.writeHead(response.status, [...response.headers].flat());
   if (response.body !== null) {
-    // Клиент ушёл — тело отменяется, как у `Deno.serve`: бесконечный
+    // Клиент ушёл — тело отменяется, как у сервера Deno: бесконечный
     // поток иначе читался бы вечно.
     const reader = response.body.getReader();
     aborted.signal.addEventListener(
@@ -136,7 +136,7 @@ async function answer(
       }
     } catch (err) {
       // Тело оборвалось у обработчика — соединение рвётся, как у
-      // `Deno.serve`: клиент видит обрыв, а не тихо укороченный ответ.
+      // сервера Deno: клиент видит обрыв, а не тихо укороченный ответ.
       console.error(err);
       res.destroy();
       return;

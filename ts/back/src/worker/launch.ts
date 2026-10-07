@@ -4,7 +4,9 @@
  * исполнением строки и тем же кодеком кадров, только без процесса.
  */
 
+import { spawn } from "node:child_process";
 import type { CommandIo } from "../command/mod.ts";
+import { Program } from "../subprocess/mod.ts";
 import { type ExitStatus, killedStatus, type StopSignal } from "./death.ts";
 import { serveOne } from "./serve.ts";
 import { memoryWires, streamWire, type Wire } from "./wire.ts";
@@ -29,9 +31,10 @@ export interface Launcher {
 
 /**
  * Обёртка запуска: `oom_score_adj` ставит оболочка и `exec`-ом отдаёт
- * процесс исполнителю — значение наследуется. Сам Deno к `/proc` не
- * пускает ни при каком списке путей (замер 166a: `NotCapable … Requires
- * all access`), поэтому права на запись там нет вовсе.
+ * процесс исполнителю — значение наследуется. Оболочкой, а не записью
+ * в `/proc/<pid>/oom_score_adj` после запуска: значение действует с
+ * первой инструкции исполнителя, а не с момента, когда ядро успело его
+ * записать.
  */
 const OOM_WRAPPER = 'echo 1000 > /proc/self/oom_score_adj && exec "$0" "$@"';
 
@@ -69,12 +72,13 @@ export class ProcessLauncher implements Launcher {
 
   launch(): Spawned {
     const { command, args, diagnose, now } = this.#parts;
-    const child = new Deno.Command("/bin/sh", {
-      args: ["-c", OOM_WRAPPER, command, ...args],
-      stdin: "piped",
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
+    // Запуск синхронен по контракту пула, а `/bin/sh` есть всегда:
+    // отказ запуска, если он всё же случится, придёт статусом.
+    const child = new Program(
+      spawn("/bin/sh", ["-c", OOM_WRAPPER, command, ...args], {
+        stdio: ["pipe", "pipe", "pipe"],
+      }),
+    );
     const pid = child.pid;
     // Сбой чтения stderr — строка диагностики, а не отказ статуса: конец
     // процесса ждут пул и остановка, и отвергнутый статус оставил бы их
@@ -93,14 +97,8 @@ export class ProcessLauncher implements Launcher {
         code: status.code,
         signal: status.signal,
       })),
-      kill(signal) {
-        try {
-          child.kill(signal);
-        } catch (err) {
-          // Процесс уже кончился — гасить нечего.
-          if (!(err instanceof TypeError)) throw err;
-        }
-      },
+      // Кончившийся процесс сигнал не получает и не бросает.
+      kill: (signal) => child.kill(signal),
     };
   }
 }

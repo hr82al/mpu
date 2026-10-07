@@ -12,6 +12,7 @@
 import type { RemoteOutput } from "../command/mod.ts";
 import { quoteArg, shellCommand } from "./shell.ts";
 import type { ExecTarget } from "./target.ts";
+import { type Program, startProgram } from "../subprocess/mod.ts";
 
 /** Ssh-таргет: бэкенд другого не принимает. */
 export type SshTarget = Extract<ExecTarget, { kind: "ssh" }>;
@@ -46,7 +47,7 @@ export const KILL_AFTER_MS = 5_000;
 /**
  * Запуск локального процесса: бинарь, аргументы и подача с приёмником.
  * Порт на стороне потребителя — тесту достаточно подставить функцию, а
- * не подменять `Deno.Command`.
+ * не подменять запуск процессов.
  */
 export type RunProcess = (
   bin: string,
@@ -177,13 +178,13 @@ export async function detachOverSsh(options: {
  * обязаны все.
  */
 export const spawnProcess: RunProcess = async (bin, args, proc) => {
-  const child = new Deno.Command(bin, {
-    args: [...args],
+  const child = await startProgram(bin, {
+    args,
     cwd: proc.cwd,
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
-  }).spawn();
+  });
   using leaving = asksToLeave(child, proc);
   try {
     await Promise.all([
@@ -212,15 +213,10 @@ interface Leaving extends Disposable {
  * срок. Таймер и подписка снимаются, когда подпроцесс кончился, —
  * иначе у долгой строки копились бы и то и другое.
  */
-function asksToLeave(child: Deno.ChildProcess, proc: ProcessRun): Leaving {
+function asksToLeave(child: Program, proc: ProcessRun): Leaving {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const kill = (signal: Deno.Signal) => {
-    try {
-      child.kill(signal);
-    } catch {
-      // Подпроцесс уже кончился: снимать нечего, и это не отказ.
-    }
-  };
+  // Кончившийся подпроцесс сигнал не получает и не бросает.
+  const kill = (signal: NodeJS.Signals) => child.kill(signal);
   const leave = () => {
     kill("SIGTERM");
     // Срок — параметр: тест не ждёт пять секунд, а называет свой.
@@ -249,7 +245,8 @@ function asksToLeave(child: Deno.ChildProcess, proc: ProcessRun): Leaving {
  * ждала бы ввода вечно. Отказ записи не поднимается наверх — он значит,
  * что процесс уже закрыл свой stdin (вышел раньше или ввод ему не
  * нужен), и ответом на вызов остаётся его код выхода, а не жалоба на
- * трубу.
+ * трубу. Ловится и на закрытии: запись буферизуется, и сломанная труба
+ * обнаруживается при сбросе буфера — под Node это `close`, а не `write`.
  */
 async function feed(
   stream: WritableStream<Uint8Array>,
@@ -258,12 +255,10 @@ async function feed(
   const writer = stream.getWriter();
   try {
     await writer.write(bytes);
+    await writer.close();
   } catch {
-    // Закрытие сломанной трубы отвергается тем же отказом.
-    await writer.close().catch(() => {});
-    return;
+    // Труба сломана — сказать о процессе нечего, кроме его кода.
   }
-  await writer.close();
 }
 
 async function pump(

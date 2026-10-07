@@ -22,6 +22,7 @@ import {
 } from "../command/mod.ts";
 import { type CacheReader, resolveSelector } from "../selector/mod.ts";
 import { shellCommand } from "../exec/mod.ts";
+import { runProgram } from "../subprocess/mod.ts";
 
 const argsSchema = z.object({
   selector: z.string({
@@ -209,13 +210,13 @@ function existsOnDisk(path: string): boolean {
 /** Настоящий запуск: потоки процесса достаются оператору как есть. */
 const spawnLocal: RunLocal = async (argv, cwd) => {
   const [bin, ...rest] = argv;
-  const output = await new Deno.Command(bin, {
+  const output = await runProgram(bin, {
     args: rest,
     cwd,
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
-  }).output();
+  });
   return output.code;
 };
 

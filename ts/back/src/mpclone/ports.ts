@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hasErrorCode } from "../oserror/mod.ts";
+import { startProgram } from "../subprocess/mod.ts";
 
 /** Итог подпроцесса: код и собранные потоки. */
 export interface ProcessOutcome {
@@ -51,12 +52,12 @@ export const systemShell: Shell = {
   async run(argv, stdin) {
     const [bin, ...args] = argv;
     try {
-      const child = new Deno.Command(bin, {
+      const child = await startProgram(bin, {
         args,
         stdin: stdin === undefined ? "null" : "piped",
         stdout: "piped",
         stderr: "piped",
-      }).spawn();
+      });
       if (stdin !== undefined) await feed(child.stdin, stdin);
       const output = await child.output();
       const decoder = new TextDecoder();

@@ -6,6 +6,7 @@
  */
 
 import { hasErrorCode, isPermissionRefusal } from "../oserror/mod.ts";
+import { type ProgramOutput, runProgram } from "../subprocess/mod.ts";
 
 /** Программа tmux: путём, как в праве `--allow-run` ядра [D.7]. */
 export const TMUX = "/usr/bin/tmux";
@@ -21,15 +22,15 @@ export type TmuxRun = (args: readonly string[]) => Promise<string | undefined>;
 
 /** Настоящий tmux: срок — `WINDOW_MS`, по сроку процесс снимается. */
 export const RUN_TMUX: TmuxRun = async (args) => {
-  let output: Deno.CommandOutput;
+  let output: ProgramOutput;
   try {
-    output = await new Deno.Command(TMUX, {
-      args: [...args],
+    output = await runProgram(TMUX, {
+      args,
       stdin: "null",
       stdout: "piped",
       stderr: "null",
       signal: AbortSignal.timeout(WINDOW_MS),
-    }).output();
+    });
   } catch (err) {
     // Нет tmux или права его звать — подписи нет: окно лишь подписывает
     // вопрос и не меняет, куда он идёт.

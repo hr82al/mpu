@@ -15,10 +15,14 @@
  * что данные на месте (`copy-client.md`, «Известные ловушки»).
  */
 
-import { rmSync } from "node:fs";
+import { closeSync, openSync, rmSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { isPermissionRefusal } from "../oserror/mod.ts";
 import { DomainError } from "../command/mod.ts";
 import type { PgTarget } from "../sql/mod.ts";
+import { type ProgramOutput, startProgram } from "../subprocess/mod.ts";
 
 /** Итог запуска инструмента. */
 export interface ToolOutcome {
@@ -193,13 +197,13 @@ export function toolFailure(
  */
 export const spawnTool: RunTool = async (argv, env, onLine) => {
   const [bin, ...rest] = argv;
-  const child = new Deno.Command(bin, {
+  const child = await startProgram(bin, {
     args: rest,
-    env: { ...env },
+    env,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
-  }).spawn();
+  });
   const decoder = new TextDecoder();
   const pump = async (stream: ReadableStream<Uint8Array>) => {
     let tail = "";
@@ -236,7 +240,15 @@ export const DUMP_DIRS: readonly string[] = ["/tmp", "/var/tmp"];
  */
 export function makeDumpFile(prefix: string): string {
   try {
-    return Deno.makeTempFileSync({ prefix, suffix: ".dump" });
+    // `wx` — создать, а не открыть лежащий (`O_EXCL`), как `mkstemp`:
+    // имя случайное, но чужой файл с ним не подменяется. 0600 — дамп
+    // несёт данные клиента.
+    const path = join(
+      tmpdir(),
+      `${prefix}${randomBytes(6).toString("hex")}.dump`,
+    );
+    closeSync(openSync(path, "wx", 0o600));
+    return path;
   } catch (err) {
     if (!isPermissionRefusal(err)) throw err;
     throw new DomainError(
@@ -281,13 +293,13 @@ export type RunRedis = (
  */
 export const spawnRedis: RunRedis = async (argv, stdin) => {
   const [bin, ...rest] = argv;
-  const child = new Deno.Command(bin, {
+  const child = await startProgram(bin, {
     args: rest,
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
-  }).spawn();
-  let outcome: Deno.CommandOutput;
+  });
+  let outcome: ProgramOutput;
   try {
     // Подача и чтение идут одновременно: контейнера может не быть
     // вовсе, тогда процесс закрывает трубу раньше, чем мы дописали, — и
@@ -328,7 +340,9 @@ export const spawnRedis: RunRedis = async (argv, stdin) => {
  * Подача stdin целиком и закрытие трубы. Отказ записи наверх не идёт:
  * он значит, что процесс уже закрыл свой stdin — вышел раньше либо
  * ввод ему не нужен (`FLUSHALL` не читает ничего), — и ответом на
- * вызов остаётся его код выхода, а не жалоба на трубу.
+ * вызов остаётся его код выхода, а не жалоба на трубу. Ловится и на
+ * закрытии: сломанная труба обнаруживается при сбросе буфера, и под
+ * Node это `close`, а не `write`.
  */
 async function feed(
   stream: WritableStream<Uint8Array>,
@@ -337,9 +351,8 @@ async function feed(
   const writer = stream.getWriter();
   try {
     await writer.write(new TextEncoder().encode(text));
+    await writer.close();
   } catch {
-    await writer.close().catch(() => {});
-    return;
+    // Труба сломана — сказать о процессе нечего, кроме его кода.
   }
-  await writer.close();
 }

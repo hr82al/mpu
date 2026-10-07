@@ -6,6 +6,7 @@
  */
 
 import { hasErrorCode } from "../oserror/mod.ts";
+import { runProgram } from "../subprocess/mod.ts";
 import type { GitOutcome, RunGit } from "./resolve.ts";
 
 /**
@@ -19,13 +20,13 @@ export const spawnGit: RunGit = async (
 ): Promise<GitOutcome | null> => {
   const decoder = new TextDecoder();
   try {
-    const output = await new Deno.Command("git", {
-      args: [...args],
+    const output = await runProgram("git", {
+      args,
       cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
-    }).output();
+    });
     return {
       code: output.code,
       stdout: decoder.decode(output.stdout),

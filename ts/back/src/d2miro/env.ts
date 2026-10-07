@@ -11,6 +11,7 @@
 
 import { stat } from "node:fs/promises";
 import { hasErrorCode } from "../oserror/mod.ts";
+import { runProgram } from "../subprocess/mod.ts";
 import { Workdir } from "../workdir/mod.ts";
 import type { FetchLike } from "./miro.ts";
 
@@ -65,13 +66,13 @@ async function run(
   cwd: string,
 ): Promise<{ code: number; stderr: string } | undefined> {
   try {
-    const output = await new Deno.Command(bin, {
-      args: [...args],
+    const output = await runProgram(bin, {
+      args,
       cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
-    }).output();
+    });
     return {
       code: output.code,
       stderr: new TextDecoder().decode(output.stderr),
