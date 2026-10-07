@@ -1,0 +1,94 @@
+/**
+ * Права задач порции (`platform/supervisor-install.md`): у супервизора —
+ * запуск двух программ, `HOME` и права сторожа памяти
+ * (`platform/line-executor.md`); у `compile:*` — ровно права задачи
+ * запуска (у `back` и `worker` — плюс `--include` воркера и двух
+ * `.wasm`); права `worker` — права `back`. Версия
+ * супервизора — та же, что у `back/src/version.ts`.
+ */
+
+import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
+import { VERSION } from "./mod.ts";
+
+async function task(name: string): Promise<string[]> {
+  const denoJsonc = await readFile("deno.jsonc", "utf8");
+  const line = denoJsonc.match(new RegExp(`"${name}": "([^"]*)"`))?.[1];
+  expect(line !== undefined, `нет задачи ${name}`).toBe(true);
+  return (line ?? "").split(/\s+/);
+}
+
+const permissions = (words: readonly string[]) =>
+  words.filter((word) =>
+    word.startsWith("--allow") || word.startsWith("--deny")
+  )
+    .sort();
+
+it("права супервизора — дочерние, сторож памяти и его отметки", async () => {
+  expect(permissions(await task("supervisor"))).toStrictEqual([
+    "--allow-env=HOME,XDG_RUNTIME_DIR",
+    "--allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp," +
+    "$HOME/.local/bin/mpu-task,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill",
+    "--allow-write=$XDG_RUNTIME_DIR/mpu/killed",
+  ]);
+});
+
+it("права оркестратора — кэш-БД, первые сообщения, tmux, notify-send", async () => {
+  // `task-orchestrator.md`, «Порты и права»: каждое — строкой с
+  // обоснованием в `deno.jsonc`; `claude` процессом не запускается.
+  expect(permissions(await task("task"))).toStrictEqual([
+    "--allow-env=HOME,XDG_RUNTIME_DIR",
+    "--allow-read=$HOME/.config/mpu",
+    "--allow-run=/usr/bin/tmux,/usr/bin/notify-send",
+    "--allow-write=$HOME/.config/mpu,$XDG_RUNTIME_DIR/mpu-task",
+  ]);
+});
+
+describe("compile:* — права задач запуска, путь — MPU_OUT", () => {
+  const pairs = [
+    ["compile:back", "back", "back/back.ts"],
+    ["compile:worker", "worker", "back/worker.ts"],
+    ["compile:mcp", "mcp", "mcp/main.ts"],
+    ["compile:cli", "cli", "cli/main.ts"],
+    ["compile:supervisor", "supervisor", "supervisor/main.ts"],
+    ["compile:task", "task", "back/task.ts"],
+    ["compile:complete", "complete", "complete/main.ts"],
+  ] as const;
+  for (const [compile, run, script] of pairs) {
+    it(compile, async () => {
+      const words = await task(compile);
+      expect(permissions(words)).toStrictEqual(permissions(await task(run)));
+      expect(words.slice(-3)).toStrictEqual(["-o", "$MPU_OUT", script]);
+    });
+  }
+});
+
+it("права исполнителя строк — права ядра", async () => {
+  // Та же программа команд (`platform/line-executor.md`): исполнителю
+  // нужно всё, что нужно команде, и не больше, чем ядру.
+  expect(permissions(await task("worker"))).toStrictEqual(
+    permissions(await task("back")),
+  );
+});
+
+it("compile:back несёт воркер разбора и оба .wasm Telegram", async () => {
+  // Без них собранный `mpu-back` падает на `code` и `telegram`
+  // (`platform/supervisor-install.md`). Сравнивать теперь не с чем:
+  // задача монолита ушла вместе с его точкой входа.
+  const includes = (words: readonly string[]) =>
+    words.flatMap((word, i) => word === "--include" ? [words[i + 1]] : []);
+  for (const name of ["compile:back", "compile:worker"]) {
+    expect(includes(await task(name)), name).toStrictEqual([
+      "back/src/code/repo_worker.ts",
+      "back/src/telegram/mtcute.wasm",
+      "back/src/telegram/mtcute-simd.wasm",
+    ]);
+  }
+});
+
+it("версия супервизора — версия сборки back", async () => {
+  const back = (await readFile("back/src/version.ts", "utf8")).match(
+    /export const VERSION = "([^"]+)";/,
+  )?.[1];
+  expect(VERSION).toStrictEqual(back);
+});

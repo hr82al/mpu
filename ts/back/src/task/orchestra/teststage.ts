@@ -4,11 +4,10 @@
  * печатает баннер с моделью и `❯ <сообщение>`, ставит отметки настоящими
  * строками `mpu task busy` на стенде канала и по разделу «Что делать
  * сейчас» читает постановку или отчёт, как читала бы роль. Часы —
- * `FakeTime`: пауза порта двигает их сразу.
+ * поддельные (`vi.useFakeTimers`): пауза порта двигает их сразу.
  */
 
-import type { FakeTime } from "@std/testing/time";
-import { expect, setUp, type Stand } from "../teststand.ts";
+import { expectRun, setUp, type Stand } from "../teststand.ts";
 import type { Hands, Place, Windows } from "./ports.ts";
 import { Orchestra } from "./orchestra.ts";
 
@@ -215,6 +214,11 @@ export class FakeNotices {
 /** Каталог файлов первых сообщений на стенде. */
 export const LETTER_DIR = "/run/user/1000/mpu-task";
 
+/** Поддельные часы стенда: сдвиг на `ms` миллисекунд. */
+export interface Clock {
+  tick(ms: number): void;
+}
+
 /** Стенд оркестратора поверх стенда канала. */
 export class Rig {
   readonly stand: Stand;
@@ -222,9 +226,9 @@ export class Rig {
   readonly notices = new FakeNotices();
   readonly letters = new Map<string, string>();
   readonly orchestra: Orchestra;
-  readonly #time: FakeTime;
+  readonly #time: Clock;
 
-  constructor(stand: Stand, time: FakeTime) {
+  constructor(stand: Stand, time: Clock) {
     this.stand = stand;
     this.#time = time;
     const hands: Hands = {
@@ -279,7 +283,7 @@ export class Rig {
       ...powers,
       ...more,
     );
-    expect(run, 0, "", `изменить профиль роли: ${project} ${role}? [y/N] `);
+    expectRun(run, 0, "", `изменить профиль роли: ${project} ${role}? [y/N] `);
   }
 
   /** Отметка роли настоящей строкой канала. */
@@ -292,7 +296,7 @@ export class Rig {
       "role:",
       role,
     );
-    expect(run, 0, "", "");
+    expectRun(run, 0, "", "");
   }
 
   /** Сообщение канала от агента: `post`, `report`, `question`… */
@@ -305,7 +309,7 @@ export class Rig {
       "text:",
       text,
     );
-    expect(run, 0, "", "");
+    expectRun(run, 0, "", "");
   }
 
   /** Текст файла первого сообщения роли. */

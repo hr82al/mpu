@@ -107,7 +107,12 @@ export function withStand(
   return withPolicyFile((file) => body(new Stand(file, history)));
 }
 
-export function expect(run: Run, code: number, stdout: string, stderr: string) {
+export function expectRun(
+  run: Run,
+  code: number,
+  stdout: string,
+  stderr: string,
+) {
   deepStrictEqual(
     { code: run.code, stdout: run.stdout, stderr: run.stderr },
     { code, stdout, stderr },
@@ -139,5 +144,5 @@ const SETUP_ASKED =
 
 /** T2: проект заведён человеком. */
 export async function setUp(stand: Stand) {
-  expect(await stand.human(...SETUP), 0, SETUP_TEXT, SETUP_ASKED);
+  expectRun(await stand.human(...SETUP), 0, SETUP_TEXT, SETUP_ASKED);
 }

@@ -3,6 +3,7 @@
  * который видит дверь, токен и первый кадр и отвечает кадрами сценария.
  */
 
+import { createServer } from "node:net";
 import type { TerminalIo } from "./terminal/mod.ts";
 import type { ClientEnv } from "./client.ts";
 
@@ -241,6 +242,21 @@ class Answers implements AsyncIterable<string> {
       await woken.promise;
     }
   }
+}
+
+/** Порт петли, на котором заведомо никто не слушает: занят и отпущен. */
+export async function closedPort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const closed = new Promise<void>((resolve, reject) =>
+    server.close((err) => err === undefined ? resolve() : reject(err))
+  );
+  await closed;
+  if (address === null || typeof address === "string") {
+    throw new Error(`адрес петли не порт: ${address}`);
+  }
+  return address.port;
 }
 
 /**
