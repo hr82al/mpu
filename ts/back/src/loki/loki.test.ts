@@ -1,13 +1,15 @@
 /**
  * Полная перезапись кэша `writeLokiCache` поверх настоящей SQLite-БД
- * (`docs/specs/platform/loki-http.md`, «Инварианты»). Клиент Loki и его
- * тесты — библиотека `@mpu/loki`.
+ * (`docs/specs/platform/loki-http.md`, «Инварианты»): перезапись целиком
+ * и откат обеих таблиц при сбое посреди записи. Клиент Loki и его тесты —
+ * библиотека `@mpu/loki`.
  */
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { thrown } from "@mpu/testing/thrown";
 import { plainRows } from "../testing/cache.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { writeLokiCache } from "./mod.ts";
@@ -79,5 +81,50 @@ it("writeLokiCache: полная перезапись обеих таблиц о
         ),
       ),
     ).toStrictEqual([]);
+  });
+});
+
+it("writeLokiCache: сбой вставки посреди записи — обе таблицы прежние", async () => {
+  await withBootstrappedDb((dbPath) => {
+    using db = openCacheDb(dbPath);
+    writeLokiCache(
+      db,
+      { hosts: ["sl-1"], pairs: [{ host: "sl-1", service: "api" }] },
+      1_000,
+    );
+
+    // Повтор пары нарушает `PRIMARY KEY (host, service)` второй таблицы,
+    // когда первая уже перезаписана: без отката `loki_hosts` осталась бы
+    // с новым составом, а `loki_services_by_host` — с половиной.
+    thrown(
+      () =>
+        writeLokiCache(
+          db,
+          {
+            hosts: ["wb-1", "wb-2"],
+            pairs: [
+              { host: "wb-1", service: "web" },
+              { host: "wb-1", service: "web" },
+            ],
+          },
+          2_000,
+        ),
+      Error,
+    );
+
+    expect(
+      plainRows(
+        db.query("SELECT host, discovered_at FROM loki_hosts ORDER BY host"),
+      ),
+      "loki_hosts не тронута",
+    ).toStrictEqual([{ host: "sl-1", discovered_at: 1_000 }]);
+    expect(
+      plainRows(
+        db.query(
+          "SELECT host, service, discovered_at FROM loki_services_by_host",
+        ),
+      ),
+      "loki_services_by_host не тронута",
+    ).toStrictEqual([{ host: "sl-1", service: "api", discovered_at: 1_000 }]);
   });
 });
