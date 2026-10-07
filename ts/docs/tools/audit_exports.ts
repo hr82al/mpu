@@ -8,9 +8,10 @@
  * реэкспорт-фасад выглядит потребителем.
  *
  * Скан текстовый и намеренно грубый — он даёт список кандидатов, каждый из
- * которых проверяется открытием кода. Запуск: `deno run -A docs/tools/audit_exports.ts`
+ * которых проверяется открытием кода. Запуск: `bun docs/tools/audit_exports.ts`
  * из каталога `ts/`.
  */
+import { readdirSync, readFileSync } from "node:fs";
 
 const BASE = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const SRC = `${BASE}/src`;
@@ -30,9 +31,9 @@ const DECL =
 function collectFiles(): string[] {
   const files = [`${BASE}/main.ts`];
   const walk = (dir: string) => {
-    for (const entry of Deno.readDirSync(dir)) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory) walk(path);
+      if (entry.isDirectory()) walk(path);
       else if (entry.name.endsWith(".ts")) files.push(path);
     }
   };
@@ -56,7 +57,7 @@ const files = collectFiles();
 const bodies = new Map<string, string>();
 const decls: ExportDecl[] = [];
 for (const file of files) {
-  const text = Deno.readTextFileSync(file);
+  const text = readFileSync(file, "utf8");
   bodies.set(file, withoutWiring(text));
   if (file.endsWith("_test.ts") || !file.startsWith(SRC)) continue;
   text.split("\n").forEach((line, index) => {

@@ -15,10 +15,10 @@
 
 ## CLI-контракт
 
-Задача `deno task back` из `ts/` (в `~/.local/bin` не ставится):
+Задача `bun run back` из `ts/` (в `~/.local/bin` не ставится):
 
 ```
-deno task back [--port <число>]
+bun run back [--port <число>]
 ```
 
 - слушает только `127.0.0.1`; порт по умолчанию `7338`, `--port 0` — порт

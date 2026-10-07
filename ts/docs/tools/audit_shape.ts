@@ -7,9 +7,10 @@
  *
  * Длина считается от строки объявления до закрывающей скобки на нулевой глубине —
  * счёт грубый (объектный литерал внутри тела удлиняет результат), поэтому каждый
- * адрес проверяется открытием файла. Запуск: `deno run -A docs/tools/audit_shape.ts`
+ * адрес проверяется открытием файла. Запуск: `bun docs/tools/audit_shape.ts`
  * из каталога `ts/`.
  */
+import { readdirSync, readFileSync } from "node:fs";
 
 const BASE = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const SRC = `${BASE}/src`;
@@ -22,9 +23,9 @@ const EXPORTED =
 
 /** Исходники дерева без тестов. */
 function sources(dir: string, acc: string[] = []): string[] {
-  for (const entry of Deno.readDirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory) sources(path, acc);
+    if (entry.isDirectory()) sources(path, acc);
     else if (entry.name.endsWith(".ts") && !entry.name.endsWith("_test.ts")) {
       acc.push(path);
     }
@@ -51,7 +52,7 @@ const long: string[] = [];
 const nodoc: string[] = [];
 for (const file of sources(SRC)) {
   const rel = file.replace(`${SRC}/`, "");
-  const lines = Deno.readTextFileSync(file).split("\n");
+  const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, index) => {
     if (FUNC.test(line)) {
       const len = bodyLength(lines, index);
