@@ -7,7 +7,7 @@
  * команду: аргументы, справка, строки вывода и коды выхода.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type CommandIo,

@@ -11,7 +11,7 @@
  * ответов сервера здесь не знают — только про каталог (`../kaiten/mod.ts`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
 import {
   type Checklist,

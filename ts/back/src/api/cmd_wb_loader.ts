@@ -12,7 +12,7 @@
  * загрузчик там, где просили выключить.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   type CommandIo,

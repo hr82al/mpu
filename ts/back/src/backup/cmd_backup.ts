@@ -8,7 +8,7 @@
  * (`src/sql/mod.ts`), — второй копии правил подключения не заводится.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type Command,

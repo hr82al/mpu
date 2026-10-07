@@ -9,7 +9,7 @@
  * — группа вернётся сама.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import {
   commonArgsOf,

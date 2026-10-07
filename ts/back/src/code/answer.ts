@@ -8,7 +8,7 @@
  * читаются одинаково у любого вопроса.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Analyzer, Scope } from "./analyzer.ts";
 import type { TreeMark } from "./mark.ts";
 

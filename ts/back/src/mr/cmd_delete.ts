@@ -8,7 +8,7 @@
  * умолчанию.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
 import { deleteNote } from "../gitlab/mod.ts";
 import { isYes } from "../confirm/gate.ts";

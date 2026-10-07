@@ -6,7 +6,7 @@
  * поле из него, и единственная в семействе умеет обойти кэш при чтении.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
 import { NoAccessTokenError, openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";

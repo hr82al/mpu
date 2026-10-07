@@ -8,7 +8,7 @@
  * отправка вообще нужна: `--dry-run` сеанса не открывает.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import {
   getCurrentUser,

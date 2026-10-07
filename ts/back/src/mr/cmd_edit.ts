@@ -7,7 +7,7 @@
  * вызовом ради ответа, который всё равно даст сервер.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
 import { updateNote } from "../gitlab/mod.ts";
 import { type BodyIo, commentBody } from "./body.ts";

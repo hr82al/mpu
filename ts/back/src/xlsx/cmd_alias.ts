@@ -1,6 +1,6 @@
 /** Команды `mpu xlsx alias add|ls|rm` — алиасы путей к книгам. */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { aliases, aliasPath, removeAlias, setAlias } from "../config/mod.ts";
 

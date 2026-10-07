@@ -10,7 +10,7 @@
  * Рендер чист: ни сети, ни диска, ни часов.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { TimeLog } from "../kaiten/mod.ts";
 
 /**

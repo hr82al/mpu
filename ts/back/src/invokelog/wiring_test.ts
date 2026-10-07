@@ -6,7 +6,7 @@
  */
 
 import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { runCli } from "../entrypoint/mod.ts";
 import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";

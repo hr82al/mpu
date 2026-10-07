@@ -13,7 +13,7 @@
  * важнее симметрии кодов (тот же приём, что у `mpu config --unset`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type CommandIo,

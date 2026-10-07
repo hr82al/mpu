@@ -6,7 +6,7 @@
  * листов меняется реже их содержимого.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, items } from "../command/mod.ts";
 import { housekeeping, type TabInfo } from "./cache.ts";
 import { tabsOf } from "./read.ts";

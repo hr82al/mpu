@@ -5,7 +5,7 @@
  * хранит, поэтому колонка есть только у живого списка.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type CommandIo,

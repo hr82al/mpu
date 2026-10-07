@@ -9,7 +9,7 @@
  * ради проверки значило бы лишний вызов на каждое чтение.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { type BatchIo, scriptOf } from "./batch_io.ts";
 import type { BatchOptions } from "./cmd_batch_update.ts";

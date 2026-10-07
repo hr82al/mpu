@@ -7,7 +7,7 @@
  * (`message_file.ts`), куда и как писать — каталог (`inbox.ts`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import type { PeerRef } from "./client.ts";
 import { telegramConfig } from "./config.ts";

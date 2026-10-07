@@ -8,7 +8,7 @@
  * что видит человек.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { Analyzer, Declaration, Target } from "./analyzer.ts";
 import { markLabel, type TreeMark } from "./mark.ts";

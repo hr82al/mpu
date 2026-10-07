@@ -5,7 +5,7 @@
  * восемь копий разъехались бы на первой же правке поверхности.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type Command, defineCommand } from "../command/mod.ts";
 import {
   commonArgs,

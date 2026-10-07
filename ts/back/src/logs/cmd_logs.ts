@@ -8,7 +8,7 @@
  * legacy-снимок — `snapshot.ts`, границы внешних систем — `sources.ts`.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   type CommandIo,

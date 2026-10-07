@@ -4,7 +4,7 @@
  * отметки `busy`/`idle` ставит сама роль.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   defineCommand,

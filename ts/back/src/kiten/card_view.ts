@@ -10,7 +10,7 @@
  * есть, переименование в привычный camelCase сломало бы вывод.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Card, CardFile, Comment, Member } from "../kaiten/mod.ts";
 
 /** Человек в выводе: владелец карточки и элемент `members`. */

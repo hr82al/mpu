@@ -11,7 +11,7 @@
  * `--json` его не касается вовсе, если входу не нужен резолв `REF`.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type CommandIo,

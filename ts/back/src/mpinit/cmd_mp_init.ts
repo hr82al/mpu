@@ -13,7 +13,7 @@
  * не выполняются ни одной.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { checkAnswers, Health } from "./answers.ts";
 import { reportContainers } from "./containers.ts";

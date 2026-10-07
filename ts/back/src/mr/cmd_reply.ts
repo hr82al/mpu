@@ -7,7 +7,7 @@
  * их не показывает список, и отвечать в них незачем.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
 import {
   discussions,

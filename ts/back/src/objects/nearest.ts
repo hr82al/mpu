@@ -1,4 +1,4 @@
-import { levenshteinDistance } from "@std/text/levenshtein-distance";
+import { distance } from "fastest-levenshtein";
 
 const MAX_DISTANCE = 2;
 const MAX_SHOWN = 3;
@@ -10,7 +10,7 @@ const MAX_SHOWN = 3;
  */
 export function nearest(word: string, selectors: readonly string[]): string[] {
   return selectors
-    .map((selector) => ({ selector, far: levenshteinDistance(word, selector) }))
+    .map((selector) => ({ selector, far: distance(word, selector) }))
     .filter((near) => near.far <= reach(near.selector))
     .sort((a, b) => a.far - b.far || order(a.selector, b.selector))
     .slice(0, MAX_SHOWN)

@@ -9,7 +9,7 @@
  * «Известные отклонения»).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, UsageError } from "../command/mod.ts";
 import type { Flag } from "./inner.ts";
 import {

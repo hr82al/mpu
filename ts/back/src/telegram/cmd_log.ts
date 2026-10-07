@@ -8,7 +8,7 @@
  * `search`, а текст не попадает в журнал (пометка `logsArguments`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { readAttachment } from "./attachment.ts";
 import { type BotMessage, sendBotMessage } from "./bot.ts";

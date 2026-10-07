@@ -4,7 +4,7 @@
  * держит stdio Claude Code; строкой ядра она не исполняется.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 
 const argsSchema = z.object({});

@@ -7,7 +7,7 @@
  * обычно готовится в файле, а не набирается одной строкой.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { updateDescription } from "../gitlab/mod.ts";
 import { type BodyIo, commentBody, stripAssistantFooter } from "./body.ts";

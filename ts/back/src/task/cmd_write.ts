@@ -4,7 +4,7 @@
  * объявлены «пишет только человек» — решает владелец политики, не они.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   defineCommand,

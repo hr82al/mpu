@@ -6,7 +6,7 @@
  * сессии вопрос в ряду» и снимку окна нужен его ряд вопросов.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { NOTIFICATION } from "../frames/mod.ts";
 

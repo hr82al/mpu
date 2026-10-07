@@ -9,7 +9,7 @@
  * команде.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { telegramConfig } from "./config.ts";
 import { type PlanIo, type SendArgs, sendPlan } from "./plan.ts";

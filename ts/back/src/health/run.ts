@@ -4,7 +4,7 @@
  * выхода несёт смысл: 1 ⇔ есть неожиданно не-running контейнер.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
 import { requirePortainer } from "../exec/mod.ts";
 import type { RequestTimeouts } from "../http/mod.ts";

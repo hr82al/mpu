@@ -14,7 +14,7 @@
  * команду, и делить её нечем.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CacheDb,
   type CommandIo,

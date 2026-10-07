@@ -8,7 +8,7 @@
  * вопрос «что здесь обсуждают».
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Discussion } from "../gitlab/mod.ts";
 import { renderTable } from "../ps/table.ts";
 import { locationOf } from "./location.ts";

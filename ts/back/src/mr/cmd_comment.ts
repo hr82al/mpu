@@ -9,7 +9,7 @@
  * отбивается с перечнем того, что там есть.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
 import {
   type ChangedFile,

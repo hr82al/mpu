@@ -6,7 +6,7 @@
  * прозой: описание расходится с кодом молча, в отличие от сигнатуры.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { normalizeInside } from "./address.ts";
 import { scopeText, treeMarkOf } from "./answer.ts";

@@ -8,7 +8,7 @@
  * проверялась бы без настоящего Telegram.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { parseProxy, type ProxySettings } from "./proxy.ts";
 import {

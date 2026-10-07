@@ -9,7 +9,7 @@
  * бы невнятно, а признак у нас уже есть — он сведён атомом по нотам.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type Command, defineCommand, DomainError } from "../command/mod.ts";
 import {
   discussions,

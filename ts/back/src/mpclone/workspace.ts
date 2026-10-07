@@ -4,7 +4,7 @@
  * файла корня, которые команда пишет сама, — `.gitignore` и сентинел.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { UsageError } from "../command/mod.ts";
 import type { Disk } from "./ports.ts";
 

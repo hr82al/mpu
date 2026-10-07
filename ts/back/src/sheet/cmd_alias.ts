@@ -7,7 +7,7 @@
  * командах не знает: заводить имя и пользоваться им — разные работы.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
 import { aliasRows, aliasSsId, removeAlias, setAlias } from "./registry.ts";
 import { looksLikeSpreadsheetId, spreadsheetIdOf } from "./target.ts";

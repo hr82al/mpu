@@ -4,7 +4,7 @@
  * `history clear` — режим журнала: звено пути правила со своим посевом.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   defineCommand,

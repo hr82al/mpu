@@ -10,7 +10,7 @@
  * `preserve` спеки; унифицировать их нельзя.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { periodArgs, periodFlags } from "./dates.ts";
 import {

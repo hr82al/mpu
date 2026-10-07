@@ -5,7 +5,7 @@
  * в `../dates/mod.ts`: её просит и поиск.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { today } from "../dates/mod.ts";
 import type { Flag } from "./inner.ts";
 

@@ -7,7 +7,7 @@
  * position-ключей.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { createDiscussion, mergeRequest } from "../gitlab/mod.ts";
 import { type BodyIo, commentBody } from "./body.ts";

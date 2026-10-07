@@ -3,7 +3,7 @@
  * (`docs/specs/jsdate.md`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 
 const MINUTE_MS = 60_000;

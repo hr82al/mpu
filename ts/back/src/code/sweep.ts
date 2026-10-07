@@ -15,7 +15,7 @@
  * другой поток.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { Address } from "./address.ts";
 import type { TreeMark } from "./mark.ts";

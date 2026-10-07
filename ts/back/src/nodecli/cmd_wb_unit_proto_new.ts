@@ -7,7 +7,7 @@
  * наблюдаемая форма имени подкоманды не содержит.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import {
   commonArgs,

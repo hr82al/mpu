@@ -7,7 +7,7 @@
  * inner-команда у всех трёх одна и та же.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CacheDb, type CommandIo, UsageError } from "../command/mod.ts";
 import {
   chooseTransport,

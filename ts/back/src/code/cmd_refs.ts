@@ -3,7 +3,7 @@
  * этот символ и кто читает этот модуль.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { ProjectBuildError } from "./project.ts";
 import { parseAddress } from "./address.ts";

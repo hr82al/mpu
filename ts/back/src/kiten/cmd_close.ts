@@ -11,7 +11,7 @@
  * мутации, и за то, из чего складываются строки вывода.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CommandIo,
   defineCommand,

@@ -8,7 +8,7 @@
  * Селектор идёт после имени подкоманды — раскладка соседей семейства.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type Command, defineCommand, UsageError } from "../command/mod.ts";
 import {
   commonArgs,

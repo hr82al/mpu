@@ -5,7 +5,7 @@
  * файлы.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 
 /** Путь команды: по нему ядро узнаёт строку выгрузки. */

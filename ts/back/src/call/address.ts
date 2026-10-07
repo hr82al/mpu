@@ -4,7 +4,7 @@
  * разбирает ввод в цель запроса и отказывает до чтения ключа.
  */
 
-import type { z } from "@zod/zod";
+import type { z } from "zod";
 import { UsageError } from "../command/mod.ts";
 import { type CallArgs, pathArgs } from "./args.ts";
 

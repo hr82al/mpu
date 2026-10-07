@@ -6,7 +6,7 @@
  * как ввод принят: запрещённые сочетания аргументов видны без сети.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { telegramConfig } from "./config.ts";
 import {

@@ -4,7 +4,7 @@
  * обратно — те же колонки в прежнем порядке.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Items } from "../command/mod.ts";
 import type { SqlResult } from "./run.ts";
 

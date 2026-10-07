@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   defineCommand,
   DomainError,

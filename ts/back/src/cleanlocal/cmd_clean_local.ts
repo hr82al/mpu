@@ -16,7 +16,7 @@
  * остатка.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { openPgSession } from "../sql/pg.ts";
 import type { SqlOutcome } from "../sql/render.ts";

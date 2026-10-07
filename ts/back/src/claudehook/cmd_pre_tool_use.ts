@@ -5,7 +5,7 @@
  * (`line/hook.ts`); до исполнителя из пула строка не доходит.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { PRE_TOOL_USE } from "../frames/mod.ts";
 

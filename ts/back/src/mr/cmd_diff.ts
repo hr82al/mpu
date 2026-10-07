@@ -7,7 +7,7 @@
  * старому имени выглядел бы как «в MR этого файла нет».
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError, items } from "../command/mod.ts";
 import { type ChangedFile, changedFiles } from "../gitlab/mod.ts";
 import {

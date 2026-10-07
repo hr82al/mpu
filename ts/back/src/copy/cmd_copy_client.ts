@@ -11,7 +11,7 @@
  * прежней: `DROP SCHEMA … CASCADE` необратим.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CacheDb, type CommandIo, defineCommand } from "../command/mod.ts";
 import {
   type CacheReader,

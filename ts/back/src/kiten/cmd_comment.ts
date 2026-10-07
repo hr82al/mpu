@@ -8,7 +8,7 @@
  * (`../kaiten/mod.ts`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CommandIo,
   defineCommand,

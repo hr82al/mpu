@@ -6,7 +6,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { nativeEntry } from "./native_tool.ts";
 

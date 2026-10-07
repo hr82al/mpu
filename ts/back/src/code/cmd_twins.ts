@@ -6,7 +6,7 @@
  * а когда меняют соседний код, и тело команда извлекает сама.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { parseAddress } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";

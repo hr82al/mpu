@@ -3,7 +3,7 @@
  * упомянут в документации и существует ли он в коде.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { fileInsideRepo } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";

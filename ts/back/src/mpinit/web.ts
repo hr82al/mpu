@@ -9,7 +9,7 @@
  * шаг пробой «уже как надо?», мутация только при «нет».
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type Address, Page } from "./answers.ts";
 import type { Docker } from "./docker.ts";
 import type { Step } from "./plan.ts";

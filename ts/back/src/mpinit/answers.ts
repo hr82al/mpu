@@ -7,7 +7,7 @@
  * выхода не меняется.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Docker } from "./docker.ts";
 
 /** Что нужно проверке: пробы и печать. */

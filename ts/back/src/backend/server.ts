@@ -4,7 +4,7 @@
  * решается до всего остального: путь, метод, `Origin`, токен.
  */
 
-import { Hono } from "@hono/hono";
+import { Hono } from "hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import {

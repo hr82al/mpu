@@ -14,7 +14,7 @@
  * (`kiten-time.md`, «Побочные эффекты»).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CommandIo,
   defineCommand,

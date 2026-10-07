@@ -9,7 +9,7 @@
  * ничего не знает ни про HTTP, ни про форму ответов сервера.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, record } from "../command/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import {

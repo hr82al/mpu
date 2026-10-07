@@ -8,7 +8,7 @@
  * совпадении имён.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { Analyzer } from "./analyzer.ts";
 import {

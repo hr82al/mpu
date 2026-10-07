@@ -7,7 +7,7 @@
  * `--from` отбиваются раньше обращения к БД и webapp.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CommandIo,
   defineCommand,

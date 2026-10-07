@@ -9,7 +9,7 @@
  * одинаково выглядит и для живого адреса, и для протухшего.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Place } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import {

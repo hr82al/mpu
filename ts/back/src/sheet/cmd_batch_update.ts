@@ -8,7 +8,7 @@
  * скрипта не бывает), а кэш инвалидируется только после успеха.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { type BatchIo, scriptOf } from "./batch_io.ts";
 import { housekeeping, invalidateTabs } from "./cache.ts";

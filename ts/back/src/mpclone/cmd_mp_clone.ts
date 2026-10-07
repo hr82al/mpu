@@ -10,7 +10,7 @@
  * внутри шагов.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import {
   type Clock,

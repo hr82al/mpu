@@ -12,7 +12,7 @@
  * версии: команды набирают руками каждый день.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type Command, defineCommand } from "../command/mod.ts";
 import type { Flag } from "./inner.ts";
 import {

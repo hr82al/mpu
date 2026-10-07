@@ -5,7 +5,7 @@
  * Ею же проверяется доступность MR перед долгими вызовами.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { mergeRequest } from "../gitlab/mod.ts";
 import {

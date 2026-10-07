@@ -7,7 +7,7 @@
  * MR через --mr», который здесь бессмыслен.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
 import {
   createMergeRequest,

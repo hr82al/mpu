@@ -4,7 +4,7 @@
  * двух читать, знает адрес получателя (`address.ts`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 
 /** Предел ожидания по умолчанию и наибольший, секунды. */
 export const DEFAULT_TIMEOUT_S = 60;

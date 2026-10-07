@@ -7,7 +7,7 @@
  * агенту или вставить в задачу, — и фильтры, которые складываются.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, items, UsageError } from "../command/mod.ts";
 import { discussions, mergeRequest } from "../gitlab/mod.ts";
 import {

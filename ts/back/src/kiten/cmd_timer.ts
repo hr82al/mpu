@@ -14,7 +14,7 @@
  * карточки и по ответу внешней системы, на диск не пишется ничего.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type CommandIo,
   defineCommand,

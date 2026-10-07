@@ -15,7 +15,7 @@
  * побеждает — то же решение, что у `batch-get`.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { cacheReady, cacheState, dropInfo, dropTabs } from "./cache.ts";
 import { targetOf } from "./sources.ts";

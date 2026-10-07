@@ -1,6 +1,6 @@
 /** Команда `mpu xlsx resolve` — диагностика резолва пути к книге. */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { resolvePath } from "./settings.ts";
 

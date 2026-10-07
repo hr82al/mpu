@@ -4,7 +4,7 @@
  * команды.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
 import { configValue, TASK_HISTORY } from "../config/mod.ts";
 import { UnknownKind } from "./kind.ts";

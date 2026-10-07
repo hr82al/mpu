@@ -1,6 +1,6 @@
 /** Команда `mpu xlsx ls` — список листов книги. */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { loadWorkbook } from "./book.ts";
 import { resolvePath } from "./settings.ts";

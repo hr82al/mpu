@@ -7,7 +7,7 @@
  * из самого диффа (`platform/gitlab-api.md`).
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, items } from "../command/mod.ts";
 import { type ChangedFile, changedFiles } from "../gitlab/mod.ts";
 import { renderTable } from "../ps/table.ts";

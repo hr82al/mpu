@@ -7,7 +7,7 @@
  * сколько сегодня темнеет у нас», а не «который час у солнца».
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
 import { localDate } from "../dates/mod.ts";
 import {

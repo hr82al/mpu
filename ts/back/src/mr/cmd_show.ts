@@ -6,7 +6,7 @@
  * только полный 40-hex: списком человек уже пользовался.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { discussions, matchDiscussion } from "../gitlab/mod.ts";
 import {

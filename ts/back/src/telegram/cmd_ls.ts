@@ -7,7 +7,7 @@
  * как ввод принят.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { dedupeById, dialogOf } from "./chat.ts";
 import { telegramConfig } from "./config.ts";

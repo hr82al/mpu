@@ -11,7 +11,7 @@
  * Рендер чист: ни сети, ни диска, ни часов.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import type { Checklist, ChecklistItem } from "../kaiten/mod.ts";
 
 /** Пункт чек-листа в форме вывода: ключи и их порядок — контракт `--json`. */

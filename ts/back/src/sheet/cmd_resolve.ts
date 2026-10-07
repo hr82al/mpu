@@ -7,7 +7,7 @@
  * первый запрос наружу.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
 import { housekeeping } from "./cache.ts";
 import { cacheSettings } from "./settings.ts";

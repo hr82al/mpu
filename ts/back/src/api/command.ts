@@ -9,7 +9,7 @@
  * шестьдесят команд разойдутся.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import {
   type Command,
   type CommandIo,

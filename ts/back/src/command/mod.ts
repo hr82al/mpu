@@ -10,7 +10,7 @@
  * нет — сужение делает схема.
  */
 
-import { z } from "@zod/zod";
+import { z } from "zod";
 import { type InputForm, type InputSpec, parseArgv } from "./args.ts";
 import { type ObjectSchema, readObjectSchema } from "./schema.ts";
 import { UsageError } from "./errors.ts";
