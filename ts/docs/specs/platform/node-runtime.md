@@ -101,6 +101,7 @@ E4:
 |---|---|---|
 | `@hono/node-server` | сервер Hono на `node:http` | проба: одинаково под тремя |
 | `ws` | WebSocket сервера строк | проба: одинаково под тремя |
+| `socks-proxy-agent` | прокси `socks5`/`socks5h` для Bot API (обещание `telegram-log.md`) | решение владельца 2026-10-07 |
 | `https-proxy-agent` | прокси для `node:https` | проба: одинаково под тремя; `undici` под Bun ломается |
 | `@mtcute/node`, `@mtcute/convert`, `@mtcute/markdown-parser`, `@mtcute/wasm` (npm) | MTProto | проба: соединение под тремя |
 | `proper-lockfile` | блокировка ротации журнала вызовов вместо `Deno.FsFile.lock` (flock нет в Node) | решение владельца 2026-10-07 |
