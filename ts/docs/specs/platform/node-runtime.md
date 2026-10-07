@@ -86,6 +86,16 @@ E4:
     `https-proxy-agent`, скрытый ввод (`setRawMode`) — права снимаются вместе
     с `deno compile`. После E4 `rg -n 'Deno\.' ts/` — пусто, кроме голденов
     анализатора кода.
+9b. E3 (принято хостом 2026-10-07): генератор `back/src/telegram/wasm_modules.ts`
+    — в `back/scripts` вместе со сборкой (до E4 модуль закоммичен, сверку с
+    пакетом держит `crypto.test.ts`); `--include *.wasm` и сами `.wasm` у
+    `compile:*` снимаются; `telegram/bot.test.ts` — локальный сервер на петле →
+    `serveFetch` из `back/src/testing/http.ts` (дубль остался после слияния с
+    V6). Известные отклонения пути HTTP от прежнего `fetch` (вердикт
+    preserve — голденов нет, поведение команд то же): нет `User-Agent` и
+    `accept-encoding`; текст сетевого отказа `connect ECONNREFUSED …` вместо
+    `error sending request … (os error 111)`; `NO_PROXY` без CIDR; модель
+    устройства сессии Telegram — `Node.js/…`.
 10. `bun install && bun run gate` в `ts/` → Biome, `tsc --noEmit`, Vitest под
     Bun, Node и Deno, сборка — зелёно; `deno.jsonc` и `deno.lock` удалены,
     `bun.lock` закоммичен.
