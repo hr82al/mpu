@@ -10,7 +10,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { MiroBoard, MiroError } from "./miro.ts";
 
 const dir = new URL("testdata/d2-miro/", import.meta.url);

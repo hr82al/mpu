@@ -6,11 +6,11 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { readFileSync } from "node:fs";
 import { BotFailure, HttpBotApi } from "./bot_api.ts";
 import { type Inbox, type Sender, SinceStart } from "./updates.ts";
-import { closedPort, serveFetch } from "../testing/http.ts";
+import { closedPort, serveFetch } from "@mpu/testing";
 
 const TOKEN = "8123:AAH";
 

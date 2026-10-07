@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, statSync } from "node:fs";

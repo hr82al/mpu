@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { z } from "zod";
 import {
   defineCommand,

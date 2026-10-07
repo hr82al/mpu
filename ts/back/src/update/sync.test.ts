@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { fakeTimers } from "../testing/scope.ts";
 import { plainRows } from "../testing/cache.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { openCacheDb } from "../store/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 import type { PgRow } from "./cache.ts";

@@ -7,7 +7,7 @@
  * `requireLokiAccess` и полная перезапись кэша `writeLokiCache` поверх
  * настоящей SQLite-БД.
  *
- * Фейковый сервер — общий `serveFetch` (`back/src/testing/http.ts`) на
+ * Фейковый сервер — общий `serveFetch` (`@mpu/testing`) на
  * петле.
  */
 
@@ -16,8 +16,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { plainRows } from "../testing/cache.ts";
-import { serveFetch } from "../testing/http.ts";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { serveFetch } from "@mpu/testing";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { openCacheDb } from "../store/mod.ts";
 import {
   collectLokiSeries,

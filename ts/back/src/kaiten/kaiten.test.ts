@@ -7,7 +7,7 @@
  * `requireKaitenAccess`, `retryDelayMs` и запись `writeKaitenWarmup`
  * поверх настоящей SQLite-БД (scoped-замена дорожек/колонок).
  *
- * Фейковый сервер — общий стенд `serveFetch` (`testing/http.ts`, петля,
+ * Фейковый сервер — общий стенд `serveFetch` (`@mpu/testing`, петля,
  * порт от ОС): обработчики здесь отвечают по самому запросу. Стенд модуля
  * (`startFakeKaiten`, `./testing.ts`) отдаёт ответчику только накопленные
  * разобранные запросы — перевод пятнадцати обработчиков на него вышел бы
@@ -23,9 +23,9 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { plainRows } from "../testing/cache.ts";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 import { openCacheDb } from "../store/mod.ts";
 import {
   collectKaitenWarmup,

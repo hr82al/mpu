@@ -11,7 +11,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import { renderTwins, runTwins } from "./cmd_twins.ts";
 import type { Repo } from "./workspace.ts";

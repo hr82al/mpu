@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import { resolveTarget, type TargetSources } from "./target.ts";
 

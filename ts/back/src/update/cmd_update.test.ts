@@ -10,7 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "../testing/http.ts";
+import { type FakeHttp, serveFetch } from "@mpu/testing";
 import { openCacheDb } from "../store/mod.ts";
 import type { CacheDb, CommandIo, EnvFile } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";

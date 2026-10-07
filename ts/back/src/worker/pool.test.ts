@@ -6,7 +6,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import type { CommandIo } from "../command/mod.ts";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";

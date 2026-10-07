@@ -6,7 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { type CommandIo, NO_ONE, type Prompt } from "../command/mod.ts";
 import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";

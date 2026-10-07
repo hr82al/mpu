@@ -8,8 +8,8 @@
  */
 
 import { expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "../testing/http.ts";
-import { rejected } from "../testing/thrown.ts";
+import { type FakeHttp, serveFetch } from "@mpu/testing";
+import { rejected } from "@mpu/testing/thrown";
 import { listEndpoints, type PortainerAccess, PortainerError } from "./mod.ts";
 
 // Тестовый материал, НЕ секрет: самоподписанный сертификат и приватный

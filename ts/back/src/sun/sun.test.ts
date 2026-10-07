@@ -5,7 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { sunCommand, sunOf } from "./cmd_sun.ts";
 import { duration, NoSunriseError, solarDay } from "./noaa.ts";

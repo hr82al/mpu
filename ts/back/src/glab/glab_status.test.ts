@@ -9,7 +9,7 @@
 
 import { readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { type FakeGitlab, startFakeGitlab } from "../gitlab/testing.ts";
 import type { RunGit } from "../gitlab/mod.ts";

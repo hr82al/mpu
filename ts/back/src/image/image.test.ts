@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { Image, ImageError, ImageMethod } from "./mod.ts";
 
 async function withDir(body: (file: string) => void | Promise<void>) {

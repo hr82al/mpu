@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { plainRows } from "./cache.ts";
-import { thrown } from "./thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { aliasPath, configValue, setAlias } from "../config/mod.ts";
 import { makeFakeIo } from "./mod.ts";
 

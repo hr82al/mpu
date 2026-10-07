@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { UsageError, VerbatimUsageError } from "../command/mod.ts";
 import { searchPlan } from "./search_plan.ts";
 

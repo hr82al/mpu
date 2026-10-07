@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError } from "../command/mod.ts";
 import { backoffMs, callWebapp, type WebappDeps } from "./webapp.ts";
 

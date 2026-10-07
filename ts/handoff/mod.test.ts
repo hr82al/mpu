@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rejected, thrown } from "../back/src/testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import {
   CellError,
   MARKER,

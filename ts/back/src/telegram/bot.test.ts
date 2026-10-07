@@ -13,7 +13,7 @@ import {
 } from "node:net";
 import { assert, describe, expect, it } from "vitest";
 import { DomainError } from "../command/mod.ts";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 import type { BotConfig } from "./bot_config.ts";
 import { type BotMessage, sendBotMessage } from "./bot.ts";
 

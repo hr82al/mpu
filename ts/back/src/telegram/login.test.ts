@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { NO_ONE, type Prompt } from "../command/mod.ts";
 import { configError } from "./errors.ts";
 import {

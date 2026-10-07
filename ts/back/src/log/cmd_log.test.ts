@@ -10,7 +10,7 @@
 
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import {
   DomainError,
   formatCommandError,

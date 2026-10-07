@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, expect, it, vi } from "vitest";
 import process from "node:process";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { commands, findCommand, findGroup } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import {

@@ -3,11 +3,11 @@
  * контейнеров без ведущего `/`, снимок логов уже разобранным на потоки,
  * чтение записей Loki, потоки процесса и прерываемая пауза слежения.
  *
- * Фейковый HTTP-сервер — общий стенд `serveFetch` (`testing/http.ts`).
+ * Фейковый HTTP-сервер — общий стенд `serveFetch` (`@mpu/testing`).
  */
 
 import { describe, expect, it } from "vitest";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import {
   listAllContainerNamesOverHttp,

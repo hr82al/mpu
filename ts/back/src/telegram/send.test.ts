@@ -7,7 +7,7 @@ import type { Peer } from "./peer.ts";
 import type { ClientMessage, PeerRef, TelegramClient } from "./client.ts";
 import type { RawChat } from "./chat.ts";
 import { sendMessage, type SendPlan } from "./send.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 
 /**
  * Отказ клиента в том виде, в каком его отдаёт порт сеанса: двойник порта

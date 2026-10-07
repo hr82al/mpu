@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { type GitlabAccess } from "./http.ts";
 import {
   type GitOutcome,

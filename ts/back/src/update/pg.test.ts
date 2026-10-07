@@ -12,7 +12,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import process from "node:process";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import driver from "pg";
 import {
   clientOptions,

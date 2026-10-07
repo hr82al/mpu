@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { parseProxy, type ProxySettings, proxyUrl } from "./proxy.ts";
 import { VerbatimError } from "../command/mod.ts";
 

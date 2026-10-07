@@ -5,7 +5,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import {
   asObject,
   type GitlabAccess,

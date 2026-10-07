@@ -19,7 +19,7 @@ import { VerbatimError } from "../command/mod.ts";
 import type { EnvFile } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import type { PeerRef } from "./client.ts";
 import { Inbox } from "./inbox.ts";
 import { openSession, type TelegramSession } from "./session.ts";

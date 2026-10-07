@@ -13,8 +13,8 @@ import type { Buffer } from "node:buffer";
 import { createServer, type Server } from "node:http";
 import { type AddressInfo, connect, type Socket } from "node:net";
 import { describe, expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "./testing/serve.ts";
-import { rejected } from "./testing/thrown.ts";
+import { type FakeHttp, serveFetch } from "@mpu/testing";
+import { rejected } from "@mpu/testing/thrown";
 import { HttpCallError, httpGet, httpSend } from "../index.ts";
 
 const TIMEOUTS = { headersTimeoutMs: 2000, totalTimeoutMs: 5000 };

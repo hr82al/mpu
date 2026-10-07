@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { __getWasm } from "@mtcute/wasm";
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { telegramCrypto } from "./crypto.ts";
 import { CryptoInitError } from "./errors.ts";
 import { MTCUTE_SIMD_WASM, MTCUTE_WASM } from "./wasm_modules.ts";

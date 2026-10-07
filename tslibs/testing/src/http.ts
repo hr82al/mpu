@@ -1,7 +1,8 @@
 /**
  * Подставной HTTP-сервер на петле для тестов `*.test.ts`: обработчик в
  * форме `Request → Response`, как у сервера Deno, а сервер — `node:http`
- * (`node:https` с сертификатом), одинаковый под Deno, Node и Bun.
+ * (`node:https` с сертификатом), одинаковый под тремя рантаймами (Bun, Node,
+ * Deno).
  *
  * Модуль подключают только тесты.
  */
@@ -117,31 +118,39 @@ async function answer(
     response = new Response("Internal Server Error", { status: 500 });
   }
   res.writeHead(response.status, [...response.headers].flat());
-  if (response.body !== null) {
-    // Клиент ушёл — тело отменяется, как у сервера Deno: бесконечный
-    // поток иначе читался бы вечно.
-    const reader = response.body.getReader();
-    aborted.signal.addEventListener(
-      "abort",
-      () => {
-        // Отказ отмены дописывать некому: клиент уже ушёл.
-        reader.cancel().catch((err) => console.error(err));
-      },
-      { once: true },
-    );
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(value);
-      }
-    } catch (err) {
-      // Тело оборвалось у обработчика — соединение рвётся, как у
-      // сервера Deno: клиент видит обрыв, а не тихо укороченный ответ.
-      console.error(err);
-      res.destroy();
-      return;
+  if (response.body !== null) await stream(response.body, res, aborted.signal);
+  else res.end();
+}
+
+/** Тело ответа в сокет; клиент ушёл — тело отменяется. */
+async function stream(
+  body: ReadableStream<Uint8Array>,
+  res: ServerResponse,
+  signal: AbortSignal,
+): Promise<void> {
+  // Клиент ушёл — тело отменяется, как у сервера Deno: бесконечный
+  // поток иначе читался бы вечно.
+  const reader = body.getReader();
+  signal.addEventListener(
+    "abort",
+    () => {
+      // Отказ отмены дописывать некому: клиент уже ушёл.
+      reader.cancel().catch((err) => console.error(err));
+    },
+    { once: true },
+  );
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
     }
+  } catch (err) {
+    // Тело оборвалось у обработчика — соединение рвётся, как у
+    // сервера Deno: клиент видит обрыв, а не тихо укороченный ответ.
+    console.error(err);
+    res.destroy();
+    return;
   }
   res.end();
 }

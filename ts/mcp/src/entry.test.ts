@@ -16,11 +16,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import {
-  type FakeHttp,
-  listenLoopback,
-  serveFetch,
-} from "../../back/src/testing/http.ts";
+import { type FakeHttp, listenLoopback, serveFetch } from "@mpu/testing";
 import { runMcp, type TokenFile } from "./mod.ts";
 import { MCP_TOKEN } from "./testkit.ts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";

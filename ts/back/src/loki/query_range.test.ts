@@ -3,12 +3,12 @@
  * «Побочные эффекты»): форма запроса, сборка записей из всех элементов
  * `result`, терпимость к мусору в теле и различение отказов по типу.
  *
- * Фейковый сервер — общий `serveFetch` (`back/src/testing/http.ts`).
+ * Фейковый сервер — общий `serveFetch` (`@mpu/testing`).
  */
 
 import { describe, expect, it } from "vitest";
-import { serveFetch } from "../testing/http.ts";
-import { rejected } from "../testing/thrown.ts";
+import { serveFetch } from "@mpu/testing";
+import { rejected } from "@mpu/testing/thrown";
 import { LokiError, LokiHttpError, queryRange } from "./mod.ts";
 
 /** Запрос-образец: значения проверяются на стороне сервера-фейка. */

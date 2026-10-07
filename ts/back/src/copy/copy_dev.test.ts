@@ -9,7 +9,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { SqlOutcome } from "../sql/render.ts";
 import type { SqlSession } from "../sql/session.ts";

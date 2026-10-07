@@ -5,7 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import type { Command } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import {

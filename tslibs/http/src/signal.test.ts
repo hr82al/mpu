@@ -5,8 +5,8 @@
  */
 
 import { expect, it } from "vitest";
-import { serveFetch } from "./testing/serve.ts";
-import { rejected } from "./testing/thrown.ts";
+import { serveFetch } from "@mpu/testing";
+import { rejected } from "@mpu/testing/thrown";
 import { HttpCallError, httpSend } from "../index.ts";
 
 /** Сервер, который не отвечает, пока тест его не отпустит. */

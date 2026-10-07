@@ -6,7 +6,7 @@
  * ошибок в коды выхода.
  *
  * Фейковые серверы (Portainer, Loki, Kaiten) поднимаются на петле
- * общим стендом `serveFetch` (`testing/http.ts`, порт 0).
+ * общим стендом `serveFetch` (`@mpu/testing`, порт 0).
  */
 
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type CommandIo, type EnvFile } from "../command/mod.ts";
 import { plainRows } from "../testing/cache.ts";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 import { makeFakeIo } from "../testing/mod.ts";
 import { NO_ONE } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import {
   BadFrame,
   boundedInput,

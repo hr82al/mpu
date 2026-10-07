@@ -5,7 +5,7 @@
  */
 
 import { assert, describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import {
   ASK_WORD,
   hasSeparator,

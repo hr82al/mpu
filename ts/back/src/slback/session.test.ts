@@ -7,7 +7,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, type EnvFile } from "../command/mod.ts";
 import {
   NoAccessTokenError,

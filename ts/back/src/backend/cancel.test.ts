@@ -10,7 +10,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 import type { CommandIo } from "../command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { openCacheDb } from "../store/mod.ts";

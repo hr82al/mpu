@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { DomainError, NotFoundIoError } from "../command/mod.ts";
 import {
   accessTokenPath,

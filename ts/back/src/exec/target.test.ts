@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { readFile } from "node:fs/promises";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";

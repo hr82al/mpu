@@ -9,7 +9,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { type FakeHttp, serveFetch } from "../../back/src/testing/http.ts";
+import { type FakeHttp, serveFetch } from "@mpu/testing";
 import type { CommandIo } from "../../back/src/command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../../back/src/policy/mod.ts";
 import { openCacheDb } from "../../back/src/store/mod.ts";

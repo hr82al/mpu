@@ -21,7 +21,7 @@ import {
 import { type ChannelEnv, runChannel } from "./channel/mod.ts";
 import { runClient } from "./client.ts";
 import { testEnv } from "./testkit.ts";
-import { closedPort } from "../../back/src/testing/http.ts";
+import { closedPort } from "@mpu/testing";
 
 const KEY = "/run/user/1000/cc-socks/42.sock";
 

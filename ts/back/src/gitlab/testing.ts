@@ -9,7 +9,7 @@
  * `main.ts` недостижим (тот же приём, что у `../testing/mod.ts`).
  */
 
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 
 /** Запрос, как его увидел сервер. */
 export interface CapturedRequest {

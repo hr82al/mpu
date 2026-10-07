@@ -14,8 +14,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { fakeTimers } from "../testing/scope.ts";
-import { serveFetch } from "../testing/http.ts";
-import { rejected } from "../testing/thrown.ts";
+import { serveFetch } from "@mpu/testing";
+import { rejected } from "@mpu/testing/thrown";
 import { firstLine } from "@mpu/http";
 import {
   type ContainerLogsQuery,

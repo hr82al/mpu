@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { tl } from "@mtcute/node";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { VerbatimError } from "../command/mod.ts";
 import { clientRefusal } from "./client_refusal.ts";
 import type { PeerRef } from "./client.ts";

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import type { Command, CommandIo } from "../command/mod.ts";
 import {
   formatCommandError,

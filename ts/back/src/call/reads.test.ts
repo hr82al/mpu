@@ -5,7 +5,7 @@
  */
 
 import { expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { ReadRule, READS } from "./reads.ts";
 
 it("{} — ровно один сегмент пути", () => {

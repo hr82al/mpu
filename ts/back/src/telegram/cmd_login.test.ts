@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo, promptQueue } from "../testing/mod.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { telegramLoginCommand } from "./cmd_login.ts";
 
 /** Что меняет прогон команды относительно обычного. */

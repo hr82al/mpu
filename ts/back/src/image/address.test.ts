@@ -1,7 +1,7 @@
 /** Адрес метода в `base:`/`files:` (`image-sync.md`, «Адрес метода»). */
 
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { MethodAddress, Misaddressed } from "./address.ts";
 
 describe("адрес: разбор, называние методов, адрес метода", () => {

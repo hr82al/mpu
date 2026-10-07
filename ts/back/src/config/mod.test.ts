@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { plainRows } from "../testing/cache.ts";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { type CacheDb, DomainError } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import {

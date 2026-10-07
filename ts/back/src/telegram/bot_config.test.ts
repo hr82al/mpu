@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { DomainError } from "../command/mod.ts";
 import { botConfig } from "./bot_config.ts";
 import type { EnvKeys } from "./config.ts";

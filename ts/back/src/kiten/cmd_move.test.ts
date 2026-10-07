@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import type { CacheDb, Command, CommandIo } from "../command/mod.ts";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";

@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { changedFiles, discussions, mergeRequest } from "./api.ts";
 import { type GitlabAccess, GitlabError } from "./http.ts";
 import { startFakeGitlab } from "./testing.ts";

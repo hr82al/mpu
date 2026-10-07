@@ -340,9 +340,10 @@ Claude Code, журнал вызовов, `sql-ro`, разбор кода с в�
 
 Тесты проверяют поведение и контракт, а не внутреннее устройство. Новый тест
 пишется на Vitest и только файлом `*.test.ts` (раннер выбирается именем файла,
-`platform/vitest.md`). Общие помощники тестов —
-`back/src/testing/`, по модулю на вид: стенд HTTP на петле (`http.ts`),
-пойманная ошибка (`thrown.ts`), строки SQLite и временная кэш-БД (`cache.ts`),
+`platform/vitest.md`). Помощники, общие с пакетами `tslibs/*`, — пакет
+`@mpu/testing`: стенд HTTP на петле (`@mpu/testing`) и пойманная ошибка
+(`@mpu/testing/thrown`). Помощники домена `ts/` — `back/src/testing/`, по
+модулю на вид: строки SQLite и временная кэш-БД (`cache.ts`),
 область на `describe` и поддельные часы (`scope.ts`), запуск модуля текущим
 рантаймом (`runts.ts`). Табличные тесты
 (`describe` + `it` по случаям или цикл по массиву случаев) — форма по умолчанию.
@@ -680,6 +681,9 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
   (`https-proxy-agent`, `socks-proxy-agent`) — её зависимости; их «зачем» — в
   `tslibs/http/CLAUDE.md`.
+- `@mpu/testing` (dev) — подставной HTTP-сервер и пойманная ошибка тестов:
+  библиотека `tslibs/testing`, архивом `release/`
+  (`docs/specs/platform/tslibs-testing.md`); общая с пакетами `tslibs/*`.
 - `@hono/node-server` — сервер Hono на `node:http` для `mpu-back` и `mpu-mcp`
   вместо сервера Deno (`platform/node-runtime.md`, E1): проба этапа 2 —
   одинаково под Bun, Node и Deno; зависимостей, кроме `hono` (peer), нет.

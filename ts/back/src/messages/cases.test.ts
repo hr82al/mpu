@@ -6,7 +6,7 @@
  */
 
 import { assert, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import golden from "./testdata/messages/cases.json" with { type: "json" };
 import {
   type Evaluation,

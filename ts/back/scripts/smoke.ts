@@ -51,7 +51,7 @@ import {
   runProgram,
   startProgram,
 } from "../src/subprocess/mod.ts";
-import { listenLoopback, serveFetch } from "../src/testing/http.ts";
+import { listenLoopback, serveFetch } from "@mpu/testing";
 import {
   compareColumns,
   schemaCheckPlan,

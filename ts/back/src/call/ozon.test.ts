@@ -11,7 +11,7 @@
  */
 
 import { assert, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { OpenSession } from "../sql/mod.ts";

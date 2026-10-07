@@ -23,7 +23,7 @@ import { BaseTelegramClient, TelegramClient, tl } from "@mtcute/node";
 import { __getWasm } from "@mtcute/wasm";
 import { describe, expect, it, vi } from "vitest";
 import { VerbatimError } from "../command/mod.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { openLoginClient, sharedSessionString } from "./login_client.ts";
 
 /** Синтетическая сессия: ключ нулевой, адрес — тестовый DC Telegram. */

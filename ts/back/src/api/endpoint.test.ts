@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import {
   bodyFromFields,

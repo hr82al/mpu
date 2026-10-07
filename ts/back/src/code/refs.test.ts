@@ -12,7 +12,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
 import { openFixture } from "./testing.ts";

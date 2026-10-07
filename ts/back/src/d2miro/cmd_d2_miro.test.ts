@@ -6,7 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, NotFoundIoError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { D2MiroEnv } from "./env.ts";

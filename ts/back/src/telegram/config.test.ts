@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { DomainError, VerbatimError } from "../command/mod.ts";
 import { type EnvKeys, telegramConfig } from "./config.ts";
 

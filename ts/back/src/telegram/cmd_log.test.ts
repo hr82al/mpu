@@ -7,7 +7,7 @@ import { mkdtemp, readFile, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import type { Command, CommandIo } from "../command/mod.ts";
 import {
   formatCommandError,

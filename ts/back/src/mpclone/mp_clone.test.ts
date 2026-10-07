@@ -24,7 +24,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runMpClone } from "./cmd_mp_clone.ts";

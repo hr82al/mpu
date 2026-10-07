@@ -8,7 +8,7 @@
 import { readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openTempCache } from "../testing/cache.ts";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import {
   type CacheDb,
   DomainError,

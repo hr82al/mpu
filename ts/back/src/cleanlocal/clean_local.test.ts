@@ -11,7 +11,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import { makeEnvFile } from "../env/mod.ts";
 import type { SqlOutcome } from "../sql/render.ts";

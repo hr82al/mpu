@@ -19,7 +19,8 @@
     "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
     "build": "rm -rf dist && bun build index.ts --target node --packages external --outfile dist/index.js && tsc -p tsconfig.build.json",
     "release": "bun run build && bun pm pack --destination release",
-    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run build"
+    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run build && bun run check:release",
+    "check:release": "sh -c 'd=$(mktemp -d) && bun pm pack --destination \"$d\" >/dev/null && f=$(basename \"$d\"/*.tgz) && cmp -s \"$d/$f\" \"release/$f\"; r=$?; rm -rf \"$d\"; [ $r = 0 ] || { echo \"release/$f не совпадает с исходниками — bun run release и закоммить архив\" >&2; exit 1; }'"
   },
   "dependencies": {
     "https-proxy-agent": "7.0.6",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@mpu/testing": "file:../testing/release/mpu-testing-0.1.0.tgz",
     "@types/node": "24.19.0",
     "typescript": "5.9.3",
     "vitest": "3.2.4"

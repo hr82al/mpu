@@ -11,7 +11,7 @@ import { once } from "node:events";
 import { createServer, type Socket } from "node:net";
 import { DomainError } from "../command/mod.ts";
 import { decodeFrame, OPCODE } from "./frames.ts";
-import { listenLoopback } from "../testing/http.ts";
+import { listenLoopback } from "@mpu/testing";
 import { socketOptions, streamWebSocket } from "./ws.ts";
 
 const encoder = new TextEncoder();

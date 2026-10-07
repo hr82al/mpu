@@ -6,7 +6,7 @@
  */
 
 import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError } from "../command/mod.ts";
 import {
   type EnvKeys,

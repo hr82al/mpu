@@ -9,7 +9,7 @@ import { join } from "node:path";
 import type { CommandIo } from "../command/mod.ts";
 import { writeLokiCache } from "../loki/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { serveFetch } from "../testing/http.ts";
+import { serveFetch } from "@mpu/testing";
 
 /** Ответ `query_range`: потоки с метками и парами `[ts, строка]`. */
 export function lokiBody(

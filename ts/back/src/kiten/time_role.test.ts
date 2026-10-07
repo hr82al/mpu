@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected, thrown } from "../testing/thrown.ts";
+import { rejected, thrown } from "@mpu/testing/thrown";
 import { UsageError } from "../command/mod.ts";
 import type { KaitenAccess } from "../kaiten/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";

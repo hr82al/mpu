@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { expect, it } from "vitest";
-import { listenLoopback } from "../testing/http.ts";
+import { listenLoopback } from "@mpu/testing";
 import { rulesOf } from "../line/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";

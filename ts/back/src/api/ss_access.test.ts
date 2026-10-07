@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { SlbackSession } from "../slback/mod.ts";

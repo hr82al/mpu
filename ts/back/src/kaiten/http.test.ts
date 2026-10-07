@@ -16,7 +16,7 @@
  */
 
 import { assert, describe, expect, it, vi } from "vitest";
-import { rejected } from "../testing/thrown.ts";
+import { rejected } from "@mpu/testing/thrown";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
 import {
   KAITEN_TIMEOUTS,

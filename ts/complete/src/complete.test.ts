@@ -7,7 +7,7 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { closedPort } from "../../back/src/testing/http.ts";
+import { closedPort } from "@mpu/testing";
 import {
   askBack,
   complete,

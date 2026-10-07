@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openTempCache, plainRows } from "../testing/cache.ts";
-import { thrown } from "../testing/thrown.ts";
+import { thrown } from "@mpu/testing/thrown";
 import { type CacheDb, formatCommandError } from "../command/mod.ts";
 import {
   type CacheReader,
