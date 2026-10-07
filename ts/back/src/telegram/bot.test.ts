@@ -4,9 +4,15 @@
  * тесты не ходят (`ts/CLAUDE.md`).
  */
 
-import { expect, it } from "vitest";
-import { rejected } from "../testing/thrown.ts";
-import { closedPort, serveFetch } from "../testing/http.ts";
+import { Buffer } from "node:buffer";
+import { createServer } from "node:http";
+import {
+  type AddressInfo,
+  connect,
+  createServer as createTcpServer,
+  type Socket,
+} from "node:net";
+import { assert, describe, expect, it } from "vitest";
 import { DomainError } from "../command/mod.ts";
 import type { BotConfig } from "./bot_config.ts";
 import { type BotMessage, sendBotMessage } from "./bot.ts";
@@ -27,14 +33,68 @@ function document(caption: string, name: string, body: string): BotMessage {
   };
 }
 
+/** Поднятый на петле сервер: адрес и остановка. */
+type Loopback = { base: string; stop: () => Promise<void> };
+
+/** Слушает `127.0.0.1` на свободном порту; `handler` отвечает как fetch-обработчик. */
+async function listen(
+  handler: (request: Request) => Response | Promise<Response>,
+): Promise<Loopback> {
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("error", (err) => res.writeHead(400).end(String(err)));
+    req.on("end", () => {
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(req.headers)) {
+        if (value === undefined) continue;
+        headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+      }
+      const method = req.method ?? "GET";
+      const request = new Request(
+        `http://${req.headers.host ?? "127.0.0.1"}${req.url ?? "/"}`,
+        {
+          method,
+          headers,
+          body: method === "GET" || method === "HEAD"
+            ? undefined
+            : Buffer.concat(chunks),
+        },
+      );
+      // Отказ обработчика — ответ 500, как у сервера рантайма: клиент получает
+      // ответ, а тест краснеет на нём, а не на пределе времени.
+      Promise.resolve(handler(request)).then(async (response) => {
+        res.writeHead(
+          response.status,
+          Object.fromEntries(response.headers.entries()),
+        );
+        res.end(Buffer.from(await response.arrayBuffer()));
+      }).catch((err: unknown) => {
+        res.writeHead(500).end(String(err));
+      });
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const addr = server.address();
+  assert(addr !== null && typeof addr === "object", "нет адреса сервера");
+  return {
+    base: `http://127.0.0.1:${addr.port}`,
+    stop: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => err ? reject(err) : resolve());
+        server.closeAllConnections();
+      }),
+  };
+}
+
 /** Сервер на петле: отдаёт заготовленный ответ и записывает запрос. */
 async function withServer(
   handler: (request: Request) => Response | Promise<Response>,
   run: (base: string) => Promise<void>,
 ): Promise<void> {
-  const loopback = await serveFetch(handler);
+  const loopback = await listen(handler);
   try {
-    await run(loopback.baseUrl);
+    await run(loopback.base);
   } finally {
     await loopback.stop();
   }
@@ -156,10 +216,11 @@ it("ok:true без номера сообщения — явный отказ, а
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: {} })),
     async (base) => {
-      const err = await rejected(
-        () => sendBotMessage(CONFIG, text("x"), base),
-        DomainError,
+      const err = await sendBotMessage(CONFIG, text("x"), base).then(
+        () => null,
+        (e: unknown) => e,
       );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe("telegram: bot API не сообщил номер сообщения");
     },
   );
@@ -177,10 +238,11 @@ it("ok:false — код и описание в сообщении отказа",
         { status: 400 },
       ),
     async (base) => {
-      const err = await rejected(
-        () => sendBotMessage(CONFIG, text("x"), base),
-        DomainError,
+      const err = await sendBotMessage(CONFIG, text("x"), base).then(
+        () => null,
+        (e: unknown) => e,
       );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe(
         "telegram: bot API 400 Bad Request: message is too long",
       );
@@ -200,12 +262,15 @@ it("403 — подсказка написать боту, с именем из �
         { status: 403 },
       ),
     async (base) => {
-      const err = await rejected(() =>
-        sendBotMessage(
-          { ...CONFIG, botName: "my_notes_bot" },
-          text("x"),
-          base,
-        ), DomainError);
+      const err = await sendBotMessage(
+        { ...CONFIG, botName: "my_notes_bot" },
+        text("x"),
+        base,
+      ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe(
         "telegram: bot API 403 Forbidden: bot was blocked by the user; напиши боту @my_notes_bot /start",
       );
@@ -225,10 +290,11 @@ it("chat not found — та же подсказка без имени, если 
         { status: 400 },
       ),
     async (base) => {
-      const err = await rejected(
-        () => sendBotMessage(CONFIG, text("x"), base),
-        DomainError,
+      const err = await sendBotMessage(CONFIG, text("x"), base).then(
+        () => null,
+        (e: unknown) => e,
       );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe(
         "telegram: bot API 400 Bad Request: chat not found; напиши боту /start",
       );
@@ -240,10 +306,11 @@ it("тело не разбирается как JSON — отказ, а не м�
   await withServer(
     () => new Response("<html>502</html>", { status: 502 }),
     async (base) => {
-      const err = await rejected(
-        () => sendBotMessage(CONFIG, text("x"), base),
-        DomainError,
+      const err = await sendBotMessage(CONFIG, text("x"), base).then(
+        () => null,
+        (e: unknown) => e,
       );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message.startsWith("telegram: bot API вернул не JSON")).toBe(
         true,
       );
@@ -256,11 +323,15 @@ it("тело не разбирается как JSON — отказ, а не м�
 });
 
 it("сервер недоступен — причина одной строкой", async () => {
-  const base = `http://127.0.0.1:${await closedPort()}`;
-  const err = await rejected(
-    () => sendBotMessage(CONFIG, text("x"), base),
-    DomainError,
+  // Порт заведомо закрыт: сервер поднят и сразу остановлен.
+  const loopback = await listen(() => new Response(""));
+  const base = loopback.base;
+  await loopback.stop();
+  const err = await sendBotMessage(CONFIG, text("x"), base).then(
+    () => null,
+    (e: unknown) => e,
   );
+  assert(err instanceof DomainError, "ожидался отказ DomainError");
   expect(err.message.startsWith("telegram: bot API недоступен: ")).toBe(true);
   expect(err.message.includes("\n")).toBe(false);
   // Причина отказа приходит от рантайма, и исторически в ней бывал
@@ -269,19 +340,21 @@ it("сервер недоступен — причина одной строко
   expect(err.message.includes(CONFIG.token)).toBe(false);
 });
 
-// Проброс `proxy` до клиента проверяется именно через непринятую схему:
-// на петле его не проверить — клиент Deno для loopback прокси обходит,
-// и вызов уходит напрямую, каким бы ни было значение.
+// Проброс `proxy` до транспорта проверяется через непринятую схему: отказ
+// приходит до сети и называет само значение, а не его подмену.
 it("прокси не принят клиентом — отказ называет само значение", async () => {
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
     async (base) => {
-      const err = await rejected(() =>
-        sendBotMessage(
-          { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
-          text("x"),
-          base,
-        ), DomainError);
+      const err = await sendBotMessage(
+        { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
+        text("x"),
+        base,
+      ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message.startsWith(
         "telegram: bot API недоступен: прокси не принят клиентом",
       )).toBe(true);
@@ -293,12 +366,15 @@ it("прокси не принят клиентом — без учётных д
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
     async (base) => {
-      const err = await rejected(() =>
-        sendBotMessage(
-          { ...CONFIG, proxy: "socks4://u:p'a ss@h:1" },
-          text("x"),
-          base,
-        ), DomainError);
+      const err = await sendBotMessage(
+        { ...CONFIG, proxy: "socks4://u:p'a ss@h:1" },
+        text("x"),
+        base,
+      ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(
         err.message.startsWith(
           "telegram: bot API недоступен: прокси не принят клиентом — " +
@@ -308,4 +384,121 @@ it("прокси не принят клиентом — без учётных д
       ).toBe(true);
     },
   );
+});
+
+/** Эмулятор SOCKS5 на петле: адреса CONNECT и учётка, с которой вошли. */
+interface Socks {
+  readonly url: (scheme: string, auth?: string) => string;
+  /** `хост:порт` каждого CONNECT — как его назвал клиент. */
+  readonly targets: string[];
+  readonly logins: string[];
+  readonly stop: () => Promise<void>;
+}
+
+/**
+ * SOCKS5 (RFC 1928, вход по паролю — RFC 1929) ровно в том объёме, что
+ * нужен клиенту: приветствие, при пароле — вход, CONNECT по IPv4 или
+ * имени. Соединение идёт на `127.0.0.1` того же порта, какое бы имя ни
+ * назвали: тест проверяет, что запрос прошёл через прокси, а не DNS.
+ */
+async function socksProxy(): Promise<Socks> {
+  const targets: string[] = [];
+  const logins: string[] = [];
+  const sockets = new Set<Socket>();
+  const server = createTcpServer((client) => {
+    sockets.add(client);
+    client.on("error", () => client.destroy());
+    client.once("data", (greeting: Buffer) => {
+      const methods = [...greeting.subarray(2, 2 + greeting[1])];
+      if (!methods.includes(2)) {
+        client.write(Buffer.from([5, 0]));
+        client.once("data", (request: Buffer) => open(client, request));
+        return;
+      }
+      client.write(Buffer.from([5, 2]));
+      client.once("data", (login: Buffer) => {
+        const user = login.subarray(2, 2 + login[1]);
+        const at = 2 + login[1];
+        logins.push(`${user}:${login.subarray(at + 1, at + 1 + login[at])}`);
+        client.write(Buffer.from([1, 0]));
+        client.once("data", (request: Buffer) => open(client, request));
+      });
+    });
+  });
+  function open(client: Socket, request: Buffer): void {
+    const byName = request[3] === 3;
+    const end = byName ? 5 + request[4] : 8;
+    const host = byName
+      ? request.subarray(5, end).toString()
+      : [...request.subarray(4, 8)].join(".");
+    const port = request.readUInt16BE(end);
+    targets.push(`${host}:${port}`);
+    const upstream = connect(port, "127.0.0.1", () => {
+      client.write(Buffer.from([5, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
+      upstream.pipe(client);
+      client.pipe(upstream);
+    });
+    sockets.add(upstream);
+    upstream.on("error", () => client.destroy());
+    upstream.on("close", () => client.destroy());
+  }
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: (scheme, auth) =>
+      `${scheme}://${auth === undefined ? "" : `${auth}@`}127.0.0.1:${port}`,
+    targets,
+    logins,
+    stop: () =>
+      new Promise<void>((resolve) => {
+        for (const socket of sockets) socket.destroy();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+describe("прокси socks5 — запрос Bot API доходит через него", () => {
+  // `docs/specs/telegram-log.md`, «Конфигурация»: схемы Bot API —
+  // http/https/socks5/socks5h. У `socks5` имя адреса разрешает клиент, у
+  // `socks5h` — прокси: в CONNECT уходит само имя.
+  const cases = [
+    ["socks5", "127.0.0.1", undefined],
+    ["socks5h", "localhost", undefined],
+    ["socks5", "127.0.0.1", "u:p%40ss"],
+  ] as const;
+  for (const [scheme, host, auth] of cases) {
+    const name = `${scheme}${auth === undefined ? "" : " с паролем"}`;
+    it(name, async () => {
+      const proxy = await socksProxy();
+      let seenPath = "";
+      try {
+        await withServer(
+          (request) => {
+            seenPath = new URL(request.url).pathname;
+            return new Response(
+              JSON.stringify({ ok: true, result: { message_id: 7 } }),
+            );
+          },
+          async (base) => {
+            const port = new URL(base).port;
+            const sent = await sendBotMessage(
+              { ...CONFIG, proxy: proxy.url(scheme, auth) },
+              text("через прокси"),
+              `http://${host}:${port}`,
+            );
+            expect(sent.id).toBe(7);
+            expect(proxy.targets, "CONNECT прокси").toStrictEqual([
+              `${host}:${port}`,
+            ]);
+          },
+        );
+        expect(seenPath).toBe("/bot8123:AAH/sendMessage");
+        expect(proxy.logins, "вход в прокси").toStrictEqual(
+          auth === undefined ? [] : ["u:p@ss"],
+        );
+      } finally {
+        await proxy.stop();
+      }
+    });
+  }
 });

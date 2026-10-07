@@ -21,8 +21,8 @@ export interface BotConfig {
   readonly botName?: string;
   /**
    * Прокси до `api.telegram.org`; не задан ни одним источником — поля
-   * нет. Хранится строкой-URL, а не разобранным видом: клиенту нужен
-   * именно URL (`Deno.createHttpClient`), тогда как разбор в
+   * нет. Хранится строкой-URL, а не разобранным видом: транспорту HTTP
+   * нужен именно URL (`../http/mod.ts`, `proxy`), тогда как разбор в
    * `./proxy.ts` служит транспорту MTProto и описывает другой набор
    * схем.
    */
@@ -38,9 +38,9 @@ export interface BotConfig {
 const PROXY_KEYS = ["TELEGRAM_PROXY", "HTTPS_PROXY", "https_proxy"] as const;
 
 /**
- * Схемы, которые понимает HTTP-клиент Deno. Список уже, чем у MTProto:
- * `socks4`/`socks4a` клиент отвергает («invalid proxy url»), и знать об
- * этом лучше до сети — иначе отказ пришёл бы безымянным.
+ * Схемы, которые понимает транспорт HTTP (`../http/route.ts`). Список уже,
+ * чем у MTProto: `socks4`/`socks4a` транспорт не принимает, и знать об этом
+ * лучше до сети — иначе отказ пришёл бы безымянным.
  */
 const PROXY_SCHEMES = ["http:", "https:", "socks5:", "socks5h:"] as const;
 
