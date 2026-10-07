@@ -113,6 +113,35 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 - Критерий этапа: 100 % тестов перенесены и зелёные под Vitest на Deno; под
   Bun и Node — после этапа 3 (код без `Deno.*`); время прогона «до/после».
 
+#### Раскладка порций V2–V5 (2026-10-07)
+
+Снято с `main` (`edc18b55`): 418 файлов `*_test.ts` вне `back/src/objects`, 109 029 строк. Порции не пересекаются по путям и идут параллельно в своих клонах после слияния V1.
+
+##### V2 — 90 файлов, 25996 строк
+
+`back/src/kiten` (23), `back/src/line` (30), `back/src/telegram` (37)
+
+##### V3 — 101 файлов, 26888 строк
+
+`back/src/backend` (31), `back/src/kaiten` (7), `back/src/sheet` (14), `back/src/claudehook` (15), `back/src/code` (18), `back/src/registry` (5), `back/src/api` (11)
+
+##### V4 — 85 файлов, 26324 строк
+
+`back/src/sql` (8), `back/src/botquestions` (8), `back/src/init` (4), `back/src/nodecli` (3), `cli/src` (10), `back/src/copy` (6), `supervisor/src` (7), `back/src/task` (5), `back/src/exec` (9), `back/src/search` (7), `back/src/logs` (7), `back/src/invokelog` (7), `back/src/mpinit` (4)
+
+##### V5 — 142 файлов, 29821 строк
+
+`back/src/mr` (4), `back/src/call` (5), `back/src/update` (4), `mcp/src` (12), `back/src/xlsx` (7), `back/src/mcp` (5), `back/src/d2miro` (5), `back/src/program` (3), `back/src/gitlab` (8), `back/src/worker` (5), `back/src/selector` (3), `back/src/runjs` (2), `back/src/config` (3), `back/src/frames` (4), `back/src/ssh` (2), `back/src/portainer` (3), `back/src/glab` (2), `back/src/health` (2), `back/src/mpclone` (1), `back/src/command` (2), `back/src/log` (3), `back/src/runtime` (2), `back/src/move` (1), `back/src/loki` (3), `back/src/ps` (2), `back/src/entrypoint` (2), `back/src/messages` (3), `back/src/store` (2), `back/src/slback` (3), `back/src/backup` (2), `back/src/cleanlocal` (2), `complete/src` (2), `back/src/http` (5), `back/src/env` (3), `back/src/policy` (4), `back/src/makeschema` (2), `back/src/sun` (2), `back/src/confirm` (2), `back/src/picture` (2), `back/src/image` (2), `handoff/mod_test.ts` (1), `back/scripts` (1), `back/src/jsdate` (1), `back/src/process` (1), `back/src/testing` (1), `back/src/version_test.ts` (1), `web/src` (2), `back/src/dates` (1), `back/src/access` (1), `back/src/workdir` (1)
+
+##### Общее для всех порций
+
+- Скрипт перевода и таблица утверждений — из V1 (`.tmp/design-V1.md`, скрипт перевода порции V1), без изменений правил перевода; новый вид утверждения — новая пара «зелёный / красный» в design порции.
+- Общие помощники с `@std/assert` закреплены за одной порцией каждый, остальные их не правят: `back/src/backend/testback.ts` (зовут `backend`, `line`, `worker`, `cli/src`, `complete/src`, `mcp/src`) переводит на `node:assert/strict` **V3**; `back/src/task/teststand.ts` (`call`, `task`) — **V4**. `node:assert/strict` работает под обоими раннерами, поэтому порядок слияния порций любой: старые тесты на помощнике по-прежнему зелёные.
+- `web/src/vitest_test.ts` и `web/src/tasks_test.ts` — в V5; `web/` и его собственный раннер не трогаются.
+- `back/scripts/smoke.ts` (`@std/assert`) — не тест; переводится в V5 на `node:assert/strict`.
+- V5 последней завершает этап: удаляет `@std/assert`, `@std/testing` из `deno.jsonc` и задачу `deno test` из гейта, когда `*_test.ts` не осталось.
+- Критерий каждой порции — как [S.3]/[S.4] V1: список листовых случаев до = после, `rg -c 'Deno\.test|@std/assert|@std/testing'` по путям порции пусто, гейты зелёные.
+
 ### 2. Пробы замен — сделаны 2026-10-07
 
 Лог и скрипты — `mp/tmp/stage2-probes/log.md`. Под Node 24.21, Bun 1.4.2 и
@@ -162,31 +191,28 @@ API: `kaiten`, `gitlab`, `sheet`, `dates`), затем слой платформ
 - Самоописание — то, из чего Reflect собирает справку, дополнение и схему MCP
   (этап 6).
 
-### 5. Изоляция сессий по папкам — проверить живьём
+### 5. Изоляция сессий по папкам — проба 2026-10-07
 
-Цель: в `tslibs/<домен>` — своя изолированная сессия, работает только там;
-сессиям приложений (хост mpu и прочие) код `tslibs` закрыт, доступна только
-справка. Проверки:
+Лог — `mp/tmp/iso-probe/log.md` (заготовка: хост на Bun workspaces и домен
+`tslibs/kaiten`, запуски `claude -p --settings`, песочница включена).
 
-1. Подхватывает ли сессия в `tslibs/<домен>` свой `.claude/settings.json` и
-   мешает ли ей `mpu/.claude` родителя.
-2. Где ставить запрет: `deny` в `~/.claude/settings.json` действует на все
-   сессии, включая сессию домена, — туда нельзя; кандидат — настройки
-   проекта хоста.
-3. Песочница (`sandbox.filesystem.denyRead`) закроет исходники и самому
-   `bun`/`tsc` — сборка и тесты хоста их читают. Правила (`Read(...)` в
-   `permissions.deny`) закрывают только инструмент Read, `cat` через Bash
-   проходит. Что выбираем, как закрываем дыру.
-4. Workspaces кладут ссылки на `tslibs` в `node_modules` — запрет должен
-   покрывать и путь ссылки, и реальный.
-5. Исполнитель в клоне ветки — пути `wt/mpu/<slug>/tslibs/...` тоже под
-   правилами.
-
-Предварительная оценка хоста: «агент хоста не видит код библиотек» на уровне
-файловой системы конфликтует со сборкой. Реалистичные варианты — запрет
-только инструментам агента плюс постановки, либо сборка доменов в готовые
-артефакты (бандл + `.d.ts` + справка), которые хост подключает без
-исходников. Решается пробой.
+- **Сессия домена** берёт профиль по каталогу запуска: свой
+  `tslibs/<домен>/.claude/settings.json` действует, профиль родителя — нет,
+  даже внутри одного git-репозитория.
+- **Правило `deny: Read(...)` песочница превращает в запрет файловой
+  системы**: закрытый исходник не читают ни инструмент Read, ни `cat`, ни путь
+  через ссылку workspaces в `node_modules` — и сборка хоста падает (`EACCES` на
+  `index.ts` домена). Закрыть исходники и собирать из них — несовместимо.
+- **Рабочая схема**: домен отдаёт собранный артефакт — бандл
+  (`bun build --minify`), `.d.ts`, `interface.json`/`INTERFACE.md`; `exports`
+  пакета смотрит в `dist`; хосту закрыты `src/**` и `index.ts`. Проба: хост
+  запускает приложение на `dist`, исходники — отказ. Бандл хосту читаем, но
+  сжат и без неиспользуемого — «не видеть устройства» держится сжатием и
+  правилом. Собирает `dist` сессия домена или `install.sh`.
+- Запрет в `~/.claude/settings.json` действует на все сессии, включая сессию
+  домена, — туда не класть; хосту — в профиль его проекта.
+- Побочная находка: `deny: Read(//tmp/**)` прятал сокет моста сетевого прокси
+  песочницы — сеть исполнителя не работала; снято (`dbdee860`).
 
 ### 6. Объекты без языка: Proxy, Reflect, XState
 
