@@ -18,7 +18,7 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { VERSION } from "../src/version.ts";
 import { GRAMMAR } from "../src/messages/mod.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
@@ -335,7 +335,7 @@ async function runOk(
   env: Readonly<Record<string, string>> = {},
 ): Promise<Outcome> {
   const outcome = await run(subject, args, env);
-  assertEquals(
+  assert.deepStrictEqual(
     outcome.code,
     0,
     `mpu ${args.join(" ")} завершился с ${outcome.code}: ${outcome.stderr}`,
@@ -534,7 +534,7 @@ function checks(subject: Subject): readonly Check[] {
   return [
     ["version", async () => {
       const outcome = await runOk(subject, ["version"]);
-      assertEquals(outcome.stdout.trim(), VERSION, "не та версия");
+      assert.deepStrictEqual(outcome.stdout.trim(), VERSION, "не та версия");
     }],
     // Права клиента: до этой порции их не проверял никто — собранного
     // клиента прогон не запускал вовсе (`platform/monolith-removal.md`).
@@ -555,7 +555,7 @@ function checks(subject: Subject): readonly Check[] {
     // `cli-client.md`, «Права клиента и `PATH`»).
     ["клиент стартует без PATH в окружении", async () => {
       const outcome = await run(subject, ["version"]);
-      assertEquals(outcome.stdout.trim(), VERSION, outcome.stderr);
+      assert.deepStrictEqual(outcome.stdout.trim(), VERSION, outcome.stderr);
     }],
     // Право на каталог временных файлов: дамп `copy-client`/`copy-dev`
     // пишется во временный файл, и без права бинарь падает `Requires
@@ -657,7 +657,7 @@ function checks(subject: Subject): readonly Check[] {
         const fileResult = JSON.parse(fromFile.stdout) as {
           resolved: { source: string } | null;
         };
-        assertEquals(
+        assert.deepStrictEqual(
           fileResult.resolved?.source,
           "env",
           "путь пришёл не из env-файла",
@@ -678,11 +678,11 @@ function checks(subject: Subject): readonly Check[] {
         ], {
           MPU_XLSX: book,
         });
-        assertEquals(fromProcessEnv.code, 2, fromProcessEnv.stderr);
+        assert.deepStrictEqual(fromProcessEnv.code, 2, fromProcessEnv.stderr);
         const envResult = JSON.parse(fromProcessEnv.stdout) as {
           resolved: { source: string } | null;
         };
-        assertEquals(
+        assert.deepStrictEqual(
           envResult.resolved,
           null,
           "путь резолвился из окружения процесса вопреки его исключению из чтения",
@@ -715,7 +715,7 @@ function checks(subject: Subject): readonly Check[] {
           "me",
         ]);
         await Deno.remove(envPath);
-        assertEquals(
+        assert.deepStrictEqual(
           outcome.code,
           1,
           `telegram send завершился с ${outcome.code}: ${outcome.stderr}`,
@@ -937,7 +937,7 @@ function checks(subject: Subject): readonly Check[] {
           "PG_MAIN_USER_NAME=proba\nPG_MAIN_USER_PASSWORD=proba\n",
       );
       const outcome = await run(subject, ["update"]);
-      assertEquals(outcome.code, 1, `stderr: ${outcome.stderr}`);
+      assert.deepStrictEqual(outcome.code, 1, `stderr: ${outcome.stderr}`);
       assert(
         outcome.stderr.startsWith("mpu update: main (sl-0) недоступен: "),
         `не тот отказ: ${JSON.stringify(outcome.stderr)}`,
@@ -983,9 +983,13 @@ function checks(subject: Subject): readonly Check[] {
           const outcome = await runOk(subject, ["api", "get-token"], {
             XDG_CONFIG_HOME: subject.configHome,
           });
-          assertEquals(outcome.stdout.trim(), "проба-токена", "не тот токен");
+          assert.deepStrictEqual(
+            outcome.stdout.trim(),
+            "проба-токена",
+            "не тот токен",
+          );
           // Кэш лёг рядом с кредами, из которых токен получен. Права
-          // файла проверяет юнит-тест слоя (`src/runtime/mod_test.ts`):
+          // файла проверяет юнит-тест слоя (`src/runtime/mod.test.ts`):
           // они видны и без запуска бинаря, а здесь ценно право.
           await Deno.stat(cachePath);
           // И не лёг в каталог состояния: иначе токен подменного
@@ -1080,7 +1084,7 @@ function checks(subject: Subject): readonly Check[] {
         );
         // Код ssh доносится как есть (`exec-transport.md`): 255 — это
         // он, а не наша трактовка. Без права бинарь падал бы с 1.
-        assertEquals(outcome.code, 255, "код ssh не донесён");
+        assert.deepStrictEqual(outcome.code, 255, "код ssh не донесён");
       } finally {
         await Deno.remove(`${envDir}/.env`);
       }
@@ -1140,7 +1144,7 @@ function checks(subject: Subject): readonly Check[] {
         }
         const status = await child.status;
         const out = await stdout;
-        assertEquals(status.code, 0, said);
+        assert.deepStrictEqual(status.code, 0, said);
         assert(said.includes("зарегистрирован в ядре"), said);
         assert(out.includes('"experimental":{"claude/channel":{}}'), out);
         assert(
@@ -1179,8 +1183,12 @@ function checks(subject: Subject): readonly Check[] {
           TMUX: `${socket},1,0`,
           TMUX_PANE: pane,
         });
-        assertEquals([outcome.code, outcome.stdout], [0, ""], outcome.stderr);
-        assertEquals(
+        assert.deepStrictEqual(
+          [outcome.code, outcome.stdout],
+          [0, ""],
+          outcome.stderr,
+        );
+        assert.deepStrictEqual(
           (await tmux("show-options", "-gv", "@shown")).said,
           "yes",
           "mpu-back не запускал tmux",
@@ -1217,9 +1225,9 @@ function checks(subject: Subject): readonly Check[] {
           GRAMMAR.close,
           "json",
         ]);
-        assertEquals(resolve.code, 2, resolve.stderr);
+        assert.deepStrictEqual(resolve.code, 2, resolve.stderr);
         const afterFirst = await Deno.readTextFile(logPath);
-        assertEquals(
+        assert.deepStrictEqual(
           logRecords(afterFirst),
           [`$ mpu xlsx resolve ${GRAMMAR.close} json`],
           `не одна запись вызова: ${JSON.stringify(afterFirst)}`,
@@ -1230,7 +1238,7 @@ function checks(subject: Subject): readonly Check[] {
         // только обвязка — считаем, что ровно по одной.
         await runOk(subject, ["config", GRAMMAR.close, "json"]);
         const afterSecond = await Deno.readTextFile(logPath);
-        assertEquals(
+        assert.deepStrictEqual(
           logRecords(afterSecond),
           [
             `$ mpu xlsx resolve ${GRAMMAR.close} json`,
@@ -1241,7 +1249,7 @@ function checks(subject: Subject): readonly Check[] {
         // Права — последним утверждением: их отсутствие у файловой
         // системы даёт пропуск (`modeOf`), и стоящее раньше он отменил
         // бы то, что от режима не зависит вовсе.
-        assertEquals(
+        assert.deepStrictEqual(
           (await modeOf(logPath)).toString(8),
           "600",
           "права файла журнала не 0600",
@@ -1272,8 +1280,12 @@ function checks(subject: Subject): readonly Check[] {
           "sql:",
           "SELECT 1",
         ]);
-        assertEquals(dry.stdout, "", "у --dry stdout обязан быть пуст");
-        assertEquals(
+        assert.deepStrictEqual(
+          dry.stdout,
+          "",
+          "у --dry stdout обязан быть пуст",
+        );
+        assert.deepStrictEqual(
           dry.stderr,
           "server: sl-1\npg_host: 127.0.0.1\npg_port: 1\ndatabase: wb\n" +
             "mode: read-only\nsql:\nSELECT 1\n",
@@ -1287,7 +1299,11 @@ function checks(subject: Subject): readonly Check[] {
           "sql:",
           "SELECT 1",
         ]);
-        assertEquals(live.code, 1, `не отказ БД: ${JSON.stringify(live)}`);
+        assert.deepStrictEqual(
+          live.code,
+          1,
+          `не отказ БД: ${JSON.stringify(live)}`,
+        );
         assert(
           live.stderr.startsWith("db error: "),
           `отказ не от драйвера: ${JSON.stringify(live.stderr)}`,
@@ -1342,7 +1358,7 @@ function checks(subject: Subject): readonly Check[] {
           {},
           repo,
         );
-        assertEquals(outcome.code, 0, `stderr: ${outcome.stderr}`);
+        assert.deepStrictEqual(outcome.code, 0, `stderr: ${outcome.stderr}`);
         assert(
           outcome.stdout.startsWith(
             "probe · вне git · разбор по типам — ответ полон\n",
@@ -1366,7 +1382,7 @@ function checks(subject: Subject): readonly Check[] {
           {},
           repo,
         );
-        assertEquals(twins.code, 0, `stderr: ${twins.stderr}`);
+        assert.deepStrictEqual(twins.code, 0, `stderr: ${twins.stderr}`);
         assert(
           twins.stdout.includes("побайтово: 1\n  src/a.ts:1  addOne\n"),
           `не тот раздел: ${JSON.stringify(twins.stdout)}`,
@@ -1400,7 +1416,7 @@ function checks(subject: Subject): readonly Check[] {
           {},
           repo,
         );
-        assertEquals(name.code, 0, `stderr: ${name.stderr}`);
+        assert.deepStrictEqual(name.code, 0, `stderr: ${name.stderr}`);
         // Разделы идут в порядке перечня репозиториев, а не готовности.
         assert(
           name.stdout.startsWith("probe · вне git · разбор по типам") &&
@@ -1424,7 +1440,7 @@ function checks(subject: Subject): readonly Check[] {
       seedImageMethod(subject.home);
       await Deno.mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
       const outcome = await run(subject, ["image", "sync"]);
-      assertEquals(
+      assert.deepStrictEqual(
         [outcome.code, outcome.stdout],
         [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
         `stderr: ${outcome.stderr}`,
@@ -1463,9 +1479,12 @@ function checks(subject: Subject): readonly Check[] {
       const outcome = await run(subject, ["mp-clone"], {
         PATH: "/usr/bin:/bin",
       });
-      assertEquals(outcome.code, 0, `stderr: ${outcome.stderr}`);
-      assertEquals(await Deno.readTextFile(`${root}/.mp-workspace-root`), "");
-      assertEquals(
+      assert.deepStrictEqual(outcome.code, 0, `stderr: ${outcome.stderr}`);
+      assert.deepStrictEqual(
+        await Deno.readTextFile(`${root}/.mp-workspace-root`),
+        "",
+      );
+      assert.deepStrictEqual(
         await Deno.readTextFile(`${root}/.gitignore`),
         "# Detected subrepos:\n/mp-config-local/\n/ai-tools/\n/opiu-service/\n",
       );
@@ -1477,7 +1496,7 @@ function checks(subject: Subject): readonly Check[] {
       const path = `${subject.home}/probe.mpu`;
       await Deno.writeTextFile(path, "@col print");
       const outcome = await run(subject, ["run:", path, "col:", "review"]);
-      assertEquals(
+      assert.deepStrictEqual(
         [outcome.code, outcome.stdout],
         [0, "review\n"],
         `stderr: ${outcome.stderr}`,
@@ -1493,13 +1512,17 @@ function checks(subject: Subject): readonly Check[] {
         "sql:",
         "SELECT 1",
       ]);
-      assertEquals(outcome.code, 2, `не ошибка ввода: ${outcome.stderr}`);
-      assertEquals(
+      assert.deepStrictEqual(
+        outcome.code,
+        2,
+        `не ошибка ввода: ${outcome.stderr}`,
+      );
+      assert.deepStrictEqual(
         outcome.stderr,
         "mpu sql-ro: маршрут sw выброшен: доступа к контуру " +
           "воркспейсов нет\n",
       );
-      assertEquals(outcome.stdout, "");
+      assert.deepStrictEqual(outcome.stdout, "");
     }],
     ["схема main-БД: голдены сходятся с information_schema", async () => {
       // Единственная проверка smoke, которой нужен живой стенд.
@@ -1523,14 +1546,14 @@ function checks(subject: Subject): readonly Check[] {
           const diff = compareColumns(golden.columns, live);
           // Обе стороны названы своими словами: пропавшая колонка и
           // новая — разные новости, и чинятся они по-разному.
-          assertEquals(
+          assert.deepStrictEqual(
             diff.missing,
             [],
             `${golden.table}: в базе нет колонок голдена: ${
               diff.missing.join(", ")
             }`,
           );
-          assertEquals(
+          assert.deepStrictEqual(
             diff.extra,
             [],
             `${golden.table}: в базе есть колонки сверх голдена: ${
@@ -1549,7 +1572,7 @@ function checks(subject: Subject): readonly Check[] {
         stdout: "piped",
         stderr: "piped",
       }).output();
-      assertEquals(decoder.decode(out.stdout).trim(), VERSION);
+      assert.deepStrictEqual(decoder.decode(out.stdout).trim(), VERSION);
     }],
     // Права оркестратора на кэш-БД (`deno.jsonc`, задача `task`): первый
     // шаг идёт сразу при старте и открывает журнал канала — таблицы
@@ -1566,7 +1589,7 @@ function checks(subject: Subject): readonly Check[] {
       child.kill("SIGTERM");
       const out = await child.output();
       const stdout = decoder.decode(out.stdout);
-      assertEquals(
+      assert.deepStrictEqual(
         { code: out.code, tables, stdout },
         { code: 0, tables: true, stdout: "старт\nостановка\n" },
         decoder.decode(out.stderr),
