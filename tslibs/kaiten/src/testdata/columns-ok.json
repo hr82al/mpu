@@ -1,0 +1,5 @@
+[
+  { "id": 7001, "board_id": 501, "title": "Очередь", "sort_order": 1 },
+  { "id": 7002, "board_id": 501, "title": "В работе", "sort_order": 2 },
+  { "id": 7003, "board_id": 501, "title": "Готово", "sort_order": 3 }
+]
