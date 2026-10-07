@@ -76,7 +76,6 @@
       "Read(//home/user/mr/mp/mpu/docs/**)",
       "Read(//home/user/mr/mp/mpu/py/**)",
       "Read(//home/user/tmp/**)",
-      "Read(//tmp/**)",
       "Read(//home/user/.claude/**)",
       "Read(//home/user/.config/**)",
       "Read(//home/user/.local/**)",
