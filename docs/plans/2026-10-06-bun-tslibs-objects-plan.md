@@ -139,6 +139,7 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 - Общие помощники с `@std/assert` закреплены за одной порцией каждый, остальные их не правят: `back/src/backend/testback.ts` (зовут `backend`, `line`, `worker`, `cli/src`, `complete/src`, `mcp/src`) переводит на `node:assert/strict` **V3**; `back/src/task/teststand.ts` (`call`, `task`) — **V4**. `node:assert/strict` работает под обоими раннерами, поэтому порядок слияния порций любой: старые тесты на помощнике по-прежнему зелёные.
 - `web/src/vitest_test.ts` и `web/src/tasks_test.ts` — в V5; `web/` и его собственный раннер не трогаются.
 - `back/scripts/smoke.ts` (`@std/assert`) — не тест; переводится в V5 на `node:assert/strict`.
+- `Deno.*` в файлах тестов — на `node:*` (строка таблицы перевода `platform/vitest.md`); V5 доводит так же 8 файлов `back/src/objects` из V1.
 - V5 последней завершает этап: удаляет `@std/assert`, `@std/testing` из `deno.jsonc` и задачу `deno test` из гейта, когда `*_test.ts` не осталось.
 - Критерий каждой порции — как [S.3]/[S.4] V1: список листовых случаев до = после, `rg -c 'Deno\.test|@std/assert|@std/testing'` по путям порции пусто, гейты зелёные.
 

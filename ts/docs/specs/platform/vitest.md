@@ -1,6 +1,6 @@
 # Тесты на Vitest — порция V1 (этап 1 перехода)
 
-Статус: к реализации (2026-10-07). План —
+Статус: реализовано — порция V1 (`6413859f`, `b917cfcc`); принято 2026-10-07 хостом: гейты зелёные, рецензия `.tmp/review-V1.md`, список случаев до = после (108, одно переименование). План —
 `docs/plans/2026-10-06-bun-tslibs-objects-plan.md`, этап 1. Правило —
 `CLAUDE.md` mpu, «Код без привязки к рантайму».
 
@@ -118,6 +118,7 @@ V1 — основа (зависимости, раннер, гейт) и пере
 | `FakeTime` (`@std/testing/time`) | `vi.useFakeTimers` / `vi.useRealTimers` |
 | `assertEquals` и прочие `@std/assert` | `expect` — таблица видов в `.tmp/design-V1.md` с парами [S.7] |
 | `Deno.exit` в тесте | ловит Vitest (`process.exit`); код с `Deno.exit` — после этапа 3 |
+| `Deno.*` в самом файле теста (`readTextFile`, `writeTextFile`, `makeTempDir`, `readDir`, `remove`, `env` …) | `node:fs/promises`, `node:os`, `node:path`, `process.env` — с порций V2–V5; код под тестом не трогается (этап 3). В V1 не переводились: `objects` доводит V5 |
 
 ## Вывод
 
