@@ -1,0 +1,161 @@
+/**
+ * Справки всех команд в новой форме (`platform/keys-translation.md`,
+ * «Проверка полноты и пара», «Справки»): примеры — полем `examples`, и
+ * каждый проходит строкой до исполнения без отказа; в тексте справки и в
+ * строке использования нет снятых написаний — коротких флагов, флагов
+ * формата, snake_case и прежних имён переименованных входов.
+ */
+
+import { assert, describe, expect, it } from "vitest";
+import type { Command } from "../command/mod.ts";
+import {
+  type Outcome,
+  type Report,
+  runChain,
+  type ValueEvaluation,
+} from "../objects/mod.ts";
+import { RuleBook } from "../policy/mod.ts";
+import { commands } from "../registry/mod.ts";
+import type { Line } from "./dispatch.ts";
+import { addressesOf } from "./keyed.ts";
+import { registrySeeds } from "./seeds.ts";
+import { allowEverything, withPolicyFile } from "./testconsent.ts";
+import { formatsOf, registryRoot } from "./tree.ts";
+import { isProgram, parseProgram } from "../program/mod.ts";
+import { programCommands, programRoot } from "./program.ts";
+
+/** Строка доходит до исполнения; самого исполнения нет. */
+class Captured implements Line {
+  dispatch(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+
+  listRules(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+
+  change(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+
+  consent(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+
+  streams(): boolean {
+    return false;
+  }
+
+  terminal(): boolean {
+    return false;
+  }
+
+  select(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+}
+
+/** Значения-выражения примера: проверяется запись, а не исполнение. */
+const SAMPLE_VALUES: ValueEvaluation = {
+  group: () => Promise.resolve("1"),
+  stdin: () => Promise.resolve("select 1"),
+};
+
+/** Слова примера, как их разберёт оболочка: кавычки держат пробелы. */
+function shellWords(example: string): string[] {
+  const words: string[] = [];
+  for (const match of example.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)) {
+    words.push(match[1] ?? match[2] ?? match[3]);
+  }
+  return words;
+}
+
+/** Слова строки `mpu` в примере: после `mpu`, до конца, `|` или `<`. */
+function lineOf(example: string): string[] {
+  const words = shellWords(example);
+  const start = words.indexOf("mpu") + 1;
+  // Конец строки mpu — оператор оболочки: конвейер или ввод из файла.
+  const end = words.findIndex((word, at) =>
+    at >= start && (word === "|" || word === "<")
+  );
+  return words.slice(start, end < 0 ? undefined : end);
+}
+
+/** Написания, которых в новой записи нет, — по входам команды. */
+function stale(command: Command): string[] {
+  const addresses = addressesOf(command, Object.keys(formatsOf(command.path)));
+  const words = Object.values(formatsOf(command.path)).flat()
+    .filter((word) => word.startsWith("-"));
+  for (const input of command.inputs) {
+    if (input.form.short !== undefined) words.push(`-${input.form.short}`);
+    if (input.name.includes("_")) words.push(`--${input.name}`);
+    const address = addresses.get(input.name) ?? "";
+    const dashed = input.name.replaceAll("_", "-");
+    const renamed = input.form.positional === undefined &&
+      address.endsWith(":") && !address.includes(" ") &&
+      address !== `${dashed}:`;
+    if (renamed) words.push(`--${dashed}`);
+  }
+  return words;
+}
+
+/** Слово-написание стоит в тексте отдельным словом. */
+function mentions(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[\\s(\\[/,;|'"\`])${escaped}(?=$|[\\s)\\]/,;.:|'"\`=])`)
+    .test(text);
+}
+
+describe("справки: примеры полем, без снятых написаний", () => {
+  for (const command of commands) {
+    it(command.path.join(" "), () => {
+      assert(command.examples.length > 0, "нет примеров");
+      assert(!/Примеры?:/.test(command.help), "примеры в тексте справки");
+      const addresses = addressesOf(
+        command,
+        Object.keys(formatsOf(command.path)),
+      );
+      // Прежние позиционные значения — ключи, и строка использования
+      // называет каждый: заглушка без ключа учит голому значению.
+      const unnamed = command.inputs
+        .filter((input) => input.form.positional !== undefined)
+        .map((input) => addresses.get(input.name) ?? "")
+        .filter((address) => !address.includes(" "))
+        .filter((address) => !command.usage.includes(address));
+      expect(unnamed, "позиционный вход без ключа в строке").toStrictEqual([]);
+      // Описания входов — строки раздела «Ключи» и схемы тула.
+      const fields = Object.entries(command.argsJsonSchema.properties)
+        .filter(([name]) => !(addresses.get(name) ?? "").startsWith("формат"))
+        .map(([, field]) => field.description ?? "");
+      const text = [command.summary, command.usage, command.help, ...fields]
+        .join("\n");
+      const found = stale(command).filter((word) => mentions(text, word));
+      expect(found, "снятые написания в справке").toStrictEqual([]);
+    });
+  }
+});
+
+describe("справки: каждый пример доходит до исполнения", () => {
+  for (const command of commands) {
+    for (const example of command.examples) {
+      it(example, () =>
+        withPolicyFile(async (file) => {
+          allowEverything(file);
+          using book = RuleBook.open(file, registrySeeds());
+          const words = lineOf(example);
+          const root = registryRoot(new Captured(), book);
+          // Пример-программа разбирается программой — без отказа до
+          // исполнения (`platform/evaluator.md`): `to: @all` без `--` был
+          // бы несвязанной переменной.
+          const tree = programCommands();
+          if (isProgram(words, tree)) {
+            parseProgram(words, tree, programRoot(root));
+            return;
+          }
+          const outcome = await runChain(words, root, SAMPLE_VALUES);
+          expect("exit" in outcome && outcome.exit, JSON.stringify(outcome))
+            .toBe(0);
+        }));
+    }
+  }
+});

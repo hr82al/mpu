@@ -4,7 +4,17 @@
  * подменён; «три метода» и одна синхронизация — готовыми шагами.
  */
 
-import { assertEquals } from "@std/assert";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { expect } from "vitest";
 import { Image } from "../image/mod.ts";
 import { openRegistryBook } from "./seeds.ts";
 import { imaging, withState } from "./testimage.ts";
@@ -56,9 +66,9 @@ function words(line: string): string[] {
 }
 
 export async function withSync(body: (sync: Sync) => Promise<void>) {
-  const home = await Deno.makeTempDir();
+  const home = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    await Deno.mkdir(`${home}/mr/mp/mpu`, { recursive: true });
+    await mkdir(`${home}/mr/mp/mpu`, { recursive: true });
     await withState(({ policy, image: imageFile }) =>
       withStand(async (stand) => {
         const run = async (
@@ -81,7 +91,7 @@ export async function withSync(body: (sync: Sync) => Promise<void>) {
         const three = async () => {
           for (const line of THREE) {
             const ran = await run(line);
-            assertEquals(ran.exit, 0, ran.stderr);
+            expect(ran.exit, ran.stderr).toBe(0);
           }
         };
         await body({
@@ -93,13 +103,13 @@ export async function withSync(body: (sync: Sync) => Promise<void>) {
           three,
           synced: async () => {
             await three();
-            assertEquals((await run(SYNC)).stdout, FIRST);
+            expect((await run(SYNC)).stdout).toStrictEqual(FIRST);
           },
         });
       })
     );
   } finally {
-    await Deno.remove(home, { recursive: true });
+    await rm(home, { recursive: true });
   }
 }
 
@@ -109,15 +119,17 @@ export async function tree(dir: string): Promise<Record<string, string>> {
   const walk = async (sub: string) => {
     let entries;
     try {
-      entries = await Array.fromAsync(Deno.readDir(`${dir}${sub}`));
+      entries = await readdir(`${dir}${sub}`, { withFileTypes: true });
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return;
+      if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+        return;
+      }
       throw err;
     }
     for (const entry of entries) {
       const path = `${sub}/${entry.name}`;
-      if (entry.isDirectory) await walk(path);
-      else found[path.slice(1)] = await Deno.readTextFile(`${dir}${path}`);
+      if (entry.isDirectory()) await walk(path);
+      else found[path.slice(1)] = await readFile(`${dir}${path}`, "utf8");
     }
   };
   await walk("");
@@ -141,7 +153,7 @@ export function outcome(ran: Ran): [number, string] {
 export async function snapshot(sync: Sync): Promise<unknown> {
   return {
     files: await tree(sync.dir),
-    image: await Deno.readFile(sync.imageFile),
+    image: new Uint8Array(await readFile(sync.imageFile)),
   };
 }
 
@@ -149,12 +161,12 @@ export async function snapshot(sync: Sync): Promise<unknown> {
 export async function conflicted(sync: Sync) {
   await sync.synced();
   const path = `${sync.dir}/kiten/cardsIn:.mpu`;
-  await Deno.writeTextFile(
+  await writeFile(
     path,
     CARDS_IN_FILE.replace("^мои в колонке^", "^мои карточки^"),
   );
   const redefined = await sync.run(
     "ask kiten define: cardsIn purpose: ^x^ keys: ^id колонки^ do :col kiten ls where: column is: @col done",
   );
-  assertEquals(redefined.exit, 0, redefined.stderr);
+  expect(redefined.exit, redefined.stderr).toBe(0);
 }

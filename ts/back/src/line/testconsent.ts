@@ -17,15 +17,35 @@ import {
 } from "./mod.ts";
 import { openRegistryBook } from "./seeds.ts";
 
+/** Файл правил во временном каталоге; `close` убирает каталог. */
+export interface PolicyFile {
+  /** Путь файла правил; самого файла до первой записи нет. */
+  readonly path: string;
+  /** Убирает временный каталог вместе с файлом. */
+  close(): Promise<void>;
+}
+
+/**
+ * Файл правил, живущий дольше одного вызова: набор шагов на одном файле
+ * (`beforeAll` открывает, `afterAll` закрывает).
+ */
+export async function openPolicyFile(): Promise<PolicyFile> {
+  const dir = await Deno.makeTempDir();
+  return {
+    path: `${dir}/policy.db`,
+    close: () => Deno.remove(dir, { recursive: true }),
+  };
+}
+
 /** Файл правил во временном каталоге на время `body`. */
 export async function withPolicyFile(
   body: (file: string) => Promise<void>,
 ): Promise<void> {
-  const dir = await Deno.makeTempDir();
+  const file = await openPolicyFile();
   try {
-    await body(`${dir}/policy.db`);
+    await body(file.path);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await file.close();
   }
 }
 
