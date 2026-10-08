@@ -1,0 +1,23 @@
+[
+  {
+    "status": "A",
+    "old_path": "src/module/file1.ts",
+    "new_path": "src/module/file1.ts",
+    "additions": 159,
+    "deletions": 0
+  },
+  {
+    "status": "M",
+    "old_path": "src/module/file2.ts",
+    "new_path": "src/module/file2.ts",
+    "additions": 66,
+    "deletions": 1
+  },
+  {
+    "status": "M",
+    "old_path": "src/module/file3.ts",
+    "new_path": "src/module/file3.ts",
+    "additions": 63,
+    "deletions": 4
+  }
+]
