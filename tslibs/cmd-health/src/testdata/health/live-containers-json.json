@@ -1,0 +1,30 @@
+[
+  {
+    "Id": "aaaa1111",
+    "Names": ["/mp-sl-1-cli"],
+    "Image": "registry.example/app:1.2.3",
+    "State": "running",
+    "Status": "Up 3 days"
+  },
+  {
+    "Id": "bbbb2222",
+    "Names": ["/mp-sl-1-migrations"],
+    "Image": "registry.example/app:1.2.3",
+    "State": "exited",
+    "Status": "Exited (0) 3 days ago"
+  },
+  {
+    "Id": "cccc3333",
+    "Names": ["/mp-wb-loader-app"],
+    "Image": "registry.example/loader:4.5",
+    "State": "exited",
+    "Status": "Exited (137) 2 hours ago"
+  },
+  {
+    "Id": "dddd4444",
+    "Names": ["/cadvisor"],
+    "Image": "registry.example/cadvisor:0.49",
+    "State": "running",
+    "Status": "Up 3 days"
+  }
+]
