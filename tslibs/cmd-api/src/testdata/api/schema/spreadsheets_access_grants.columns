@@ -1,0 +1,10 @@
+grant_id
+spreadsheet_id
+grantee_email
+google_sheets_role
+access_template_id
+status
+expires_at
+processing_started_at
+granted_reason
+created_at
