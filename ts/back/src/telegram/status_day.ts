@@ -3,11 +3,11 @@
  * «CLI-контракт»): окно `[00:00:00; 23:59:59]` включительно по обеим
  * границам — в секундах для журнала и в ISO UTC для запроса к Kaiten.
  *
- * Зона взята у команд учёта времени (`kiten/msk.ts`): второй её
+ * Зона взята у команд учёта времени (`@mpu/cmd-kiten`): второй её
  * экземпляр разъехался бы с первым.
  */
 
-import { MSK_OFFSET_MINUTES, mskDay } from "../kiten/msk.ts";
+import { MSK_OFFSET_MINUTES, mskDay } from "@mpu/cmd-kiten";
 
 const DAY_SECONDS = 24 * 60 * 60;
 

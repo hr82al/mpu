@@ -1,1 +1,0 @@
-ok close: поля [hypothesis, done, result]

@@ -47,10 +47,15 @@ const CARD_PATH = /^\/api\/latest\/cards\/(\d+)(\/comments)?$/;
 const PROPERTIES_PATH = "/api/latest/company/custom-properties";
 
 /**
- * Карточка и комментарии, снятые с живого Kaiten (голдены `kiten card`):
- * у карточки стенда — её `id`, `title` и `state` из списка.
+ * Карточка и комментарии, снятые с живого Kaiten (голдены `kiten card`,
+ * канал `docs/specs/fixtures/kiten-card/`: папку пакета `@mpu/cmd-kiten`
+ * `ts/` не читает): у карточки стенда — её `id`, `title` и `state` из
+ * списка.
  */
-const LIVE = new URL("../kiten/testdata/kiten-card/", import.meta.url);
+const LIVE = new URL(
+  "../../../docs/specs/fixtures/kiten-card/",
+  import.meta.url,
+);
 
 async function liveJson(name: string): Promise<unknown> {
   return JSON.parse(await readFile(new URL(name, LIVE), "utf8"));

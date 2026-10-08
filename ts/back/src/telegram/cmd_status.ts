@@ -2,7 +2,7 @@
  * Команда `mpu telegram status` (`docs/specs/telegram-status.md`):
  * дневной отчёт о моих перемещениях карточек — себе или в указанный чат.
  *
- * Здесь склейка: журнал — `kiten/card_move.ts`, живой опрос —
+ * Здесь склейка: журнал — `@mpu/cmd-kiten`, живой опрос —
  * `status_live.ts`, текст — `status_report.ts`, отправка — `send.ts`.
  * Живой клиент MTProto подгружается лениво и только тогда, когда
  * отправка вообще нужна: `--dry-run` сеанса не открывает.
@@ -20,7 +20,7 @@ import {
   listCards,
   requireKaitenAccess,
 } from "@mpu/kaiten";
-import { movesInWindow } from "../kiten/card_move.ts";
+import { movesInWindow } from "@mpu/cmd-kiten";
 import { EMPTY_TARGET, parsePeer, type Peer, sendMessage } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
 import { asCommand, inputError } from "./errors.ts";

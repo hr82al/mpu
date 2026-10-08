@@ -37,6 +37,8 @@
     "@mpu/base": "file:../tslibs/base/release/mpu-base-0.1.0.tgz",
     "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.1.0.tgz",
     "@mpu/cmd-d2miro": "file:../tslibs/cmd-d2miro/release/mpu-cmd-d2miro-0.1.0.tgz",
+    "@mpu/cmd-image": "file:../tslibs/cmd-image/release/mpu-cmd-image-0.1.0.tgz",
+    "@mpu/cmd-kiten": "file:../tslibs/cmd-kiten/release/mpu-cmd-kiten-0.1.0.tgz",
     "@mpu/cmd-mpclone": "file:../tslibs/cmd-mpclone/release/mpu-cmd-mpclone-0.1.0.tgz",
     "@mpu/cmd-sun": "file:../tslibs/cmd-sun/release/mpu-cmd-sun-0.1.0.tgz",
     "@mpu/command": "file:../tslibs/command/release/mpu-command-0.1.0.tgz",

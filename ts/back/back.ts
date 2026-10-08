@@ -6,7 +6,7 @@
 import process from "node:process";
 import { runBack } from "./src/backend/mod.ts";
 import { policyFile } from "./src/line/mod.ts";
-import { imageFile } from "./src/image/mod.ts";
+import { imageFile } from "@mpu/cmd-image";
 import { processIo, processLog } from "./src/process/mod.ts";
 import { MarkerDir, NO_MARKERS, ProcessLauncher } from "./src/worker/mod.ts";
 import {

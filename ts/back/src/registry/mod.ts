@@ -77,7 +77,7 @@ import {
   kitenTimeStatusCommand,
   kitenTimeStopCommand,
   kitenWhoamiCommand,
-} from "../kiten/mod.ts";
+} from "@mpu/cmd-kiten";
 import {
   telegramFileCommand,
   telegramLogCommand,
@@ -118,8 +118,7 @@ import {
   copySharedCommand,
 } from "../copy/mod.ts";
 import { configCommand } from "@mpu/command/config";
-import { imageSyncCommand } from "../image/cmd_sync.ts";
-import { imageExportCommand } from "../image/cmd_export.ts";
+import { imageExportCommand, imageSyncCommand } from "@mpu/cmd-image";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
 import { d2MiroCommand } from "@mpu/cmd-d2miro";

@@ -1,1 +1,0 @@
-нужно хотя бы одно из --time / --date / --role / --comment

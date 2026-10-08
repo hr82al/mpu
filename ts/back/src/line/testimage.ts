@@ -7,7 +7,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Image } from "../image/mod.ts";
+import { Image } from "@mpu/cmd-image";
 import type { ImagePorts } from "./mod.ts";
 import { runOnStand, withStand } from "./testprogram.ts";
 

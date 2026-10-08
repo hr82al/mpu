@@ -1,1 +1,0 @@
-ok: таймер запущен 19:50 МСК · https://kaiten.example.test/10000001

@@ -5,7 +5,7 @@
  */
 
 import type { HookReply } from "../claudehook/mod.ts";
-import type { ImageMethod } from "../image/mod.ts";
+import type { ImageMethod } from "@mpu/cmd-image";
 import { runChain } from "@mpu/language/objects";
 import type { RuleBook } from "@mpu/command/policy";
 import type { Commands } from "@mpu/language/program";

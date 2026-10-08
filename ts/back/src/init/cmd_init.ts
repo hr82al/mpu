@@ -53,7 +53,7 @@ import {
   type KaitenWarmup,
   WARMUP_BUDGET_MS,
   writeKaitenWarmup,
-} from "../kaiten/mod.ts";
+} from "@mpu/cmd-kiten";
 import { runTelegramLogin, type TelegramIo } from "./telegram.ts";
 
 /**

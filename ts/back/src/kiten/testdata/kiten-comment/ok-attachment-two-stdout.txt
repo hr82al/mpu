@@ -1,2 +1,0 @@
-ok: комментарий 88018158 → https://kaiten.example.test/10000001
-   вложения: probe.txt, probe2.txt

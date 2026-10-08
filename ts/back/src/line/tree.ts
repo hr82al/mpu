@@ -62,7 +62,7 @@ import {
 import { ruleMethods } from "./rules.ts";
 import { runMethod } from "./runfile.ts";
 import { imageEntries, imageKeys } from "./methods.ts";
-import type { ImageMethod, MethodSnapshot } from "../image/mod.ts";
+import type { ImageMethod, MethodSnapshot } from "@mpu/cmd-image";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
 /** Вид звена хвоста: оно же звено пути строки у правил. */

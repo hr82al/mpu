@@ -1,5 +1,0 @@
-{
-  "card_id": 10000001,
-  "timer": null,
-  "total_minutes": 240
-}

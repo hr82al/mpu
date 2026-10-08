@@ -15,7 +15,7 @@ import {
   PURPOSE,
   saidOf,
   storedName,
-} from "../image/mod.ts";
+} from "@mpu/cmd-image";
 import {
   isProtocol,
   line as lineText,

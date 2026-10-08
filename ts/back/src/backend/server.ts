@@ -26,7 +26,7 @@ import {
 } from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
-import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
+import { Image, ImageError, type ImageMethod } from "@mpu/cmd-image";
 import {
   AGENT,
   BROWSER,

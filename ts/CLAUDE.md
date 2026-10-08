@@ -671,8 +671,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   и справочников (`docs/specs/platform/tslibs-kaiten.md`); библиотека
   `tslibs/kaiten`, архивом `release/`. Фейковый Kaiten тестов — вход
   `@mpu/kaiten/testing`. Отказ селектора (`KaitenInputError`) в ошибку
-  ввода команды переводит `back/src/kiten/access.ts` (`cardIdOf`); запись
-  справочников в кэш-БД (`back/src/kaiten/warmup.ts`) остаётся в `ts/`.
+  ввода команды переводит `access.ts` (`cardIdOf`) пакета `@mpu/cmd-kiten`.
 - `@mpu/portainer` — разговор с Portainer API для `init`, `logs`, `ps`,
   `health` и адресации `exec`: environment'ы, контейнеры, снимок логов и
   разбор потока Docker (`docs/specs/platform/tslibs-ops.md`); библиотека
@@ -743,6 +742,13 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`back/src/registry/mod.ts`). Воркер разбора кода — второй вход сборки
   пакета (`dist/repo_worker.js`); `compile:back` и `compile:worker`
   встраивают его из `node_modules/@mpu/cmd-code/dist`.
+- `@mpu/cmd-kiten`, `@mpu/cmd-image` — команды `mpu kiten …` и
+  `mpu image sync|export` пакетами (`docs/specs/platform/tslibs-commands.md`,
+  D3); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра
+  `@mpu/cmd-kiten` берут `init` (прогрев справочников Kaiten с записью в
+  кэш-БД) и `telegram status` (журнал перемещений, московский день);
+  `@mpu/cmd-image` — ядро строк `back/src/line`, сервер приложения и
+  `back/back.ts` (образ `image.db`: методы пользователя, план синхронизации).
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
@@ -929,10 +935,10 @@ git commit -m "…" -- ts/              # коммит с pathspec
 
 Каталоги внешнего API Kaiten — карточки, учёт времени, справочники, транспорт
 с обеими пагинациями — библиотека `@mpu/kaiten` (`tslibs/kaiten`, порция KA1);
-в `src/kaiten/` остался прогрев справочников с записью в кэш-БД. Вызывающих
-у части вызовов каталогов ещё нет — это оговорённое спеками отступление от
-правила «код растёт из задач», поэтому неиспользуемый вызов дефектом не
-считается.
+прогрев справочников с записью в кэш-БД — в `@mpu/cmd-kiten` (порция D3).
+Вызывающих у части вызовов каталогов ещё нет — это оговорённое спеками
+отступление от правила «код растёт из задач», поэтому неиспользуемый вызов
+дефектом не считается.
 
 Вычислитель строки — `@mpu/language/program` (`tslibs/language`,
 `docs/specs/platform/evaluator.md`, порция 166). Строка с новыми словами (`.`, `:=`, `^…^`, `@x`, `rem`, блок

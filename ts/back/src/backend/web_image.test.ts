@@ -8,7 +8,7 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import { wordsOf } from "@mpu/language/frames";
-import { lineHash } from "../image/sides.ts";
+import { lineHash } from "@mpu/cmd-image";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { violations } from "./testschema.ts";
 import {

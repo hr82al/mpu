@@ -13,7 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
-import { Image, imageSyncCommand } from "../image/mod.ts";
+import { Image, imageSyncCommand } from "@mpu/cmd-image";
 import { makeFakeIo } from "@mpu/command/testing";
 import {
   CARDS_IN_FILE,

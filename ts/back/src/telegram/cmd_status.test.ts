@@ -6,7 +6,7 @@ import { fakeTimers } from "../vitest/scope.ts";
 import type { CacheDb, Command, CommandIo } from "@mpu/command";
 import { VerbatimUsageError } from "@mpu/command";
 import { startFakeKaiten } from "@mpu/kaiten/testing";
-import { recordMove } from "../kiten/card_move.ts";
+import { recordMove } from "@mpu/cmd-kiten";
 import { openCacheDb } from "@mpu/command/store";
 import { makeFakeIo } from "@mpu/command/testing";
 import { telegramStatusCommand } from "./cmd_status.ts";

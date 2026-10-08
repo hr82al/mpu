@@ -5,7 +5,7 @@
  * решение правил пути метода. Тело исполняет программа.
  */
 
-import type { ImageMethod } from "../image/mod.ts";
+import type { ImageMethod } from "@mpu/cmd-image";
 import type {
   Call,
   Description,

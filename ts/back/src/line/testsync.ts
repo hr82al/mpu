@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { Image } from "../image/mod.ts";
+import { Image } from "@mpu/cmd-image";
 import { openRegistryBook } from "./seeds.ts";
 import { imaging, withState } from "./testimage.ts";
 import { type Ran, runOnStand, withStand } from "./testprogram.ts";

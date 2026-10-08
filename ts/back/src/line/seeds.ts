@@ -11,7 +11,7 @@ import {
   PERMISSION_REQUEST,
   STOP,
 } from "@mpu/language/frames";
-import { EXPORT_PATH } from "../image/mod.ts";
+import { EXPORT_PATH } from "@mpu/cmd-image";
 import {
   ALLOW,
   ASK,

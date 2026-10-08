@@ -73,7 +73,7 @@ import { toDoor } from "./view.ts";
 import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
-import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
+import { Image, ImageError, type ImageMethod } from "@mpu/cmd-image";
 import type { Commands, MethodSource } from "@mpu/language/program";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";

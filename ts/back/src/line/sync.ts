@@ -47,7 +47,7 @@ import {
   UnreadableDir,
   WAITING,
   waitingEntry,
-} from "../image/mod.ts";
+} from "@mpu/cmd-image";
 import {
   line as lineText,
   type Outcome,
