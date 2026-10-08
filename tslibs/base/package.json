@@ -1,0 +1,43 @@
+{
+  "name": "@mpu/base",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./access": {
+      "types": "./dist/access.d.ts",
+      "default": "./dist/access.js"
+    },
+    "./dates": {
+      "types": "./dist/dates.d.ts",
+      "default": "./dist/dates.js"
+    },
+    "./oserror": {
+      "types": "./dist/oserror.d.ts",
+      "default": "./dist/oserror.js"
+    },
+    "./workdir": {
+      "types": "./dist/workdir.d.ts",
+      "default": "./dist/workdir.js"
+    }
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test:bun": "bun --bun vitest run",
+    "test:node": "node node_modules/vitest/vitest.mjs run",
+    "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
+    "build": "rm -rf dist && bun build access.ts dates.ts oserror.ts workdir.ts --target node --packages external --outdir dist && tsc -p tsconfig.build.json",
+    "release": "bun run build && bun pm pack --destination release",
+    "check:release": "bun run build && sh -c 'd=$(mktemp -d) && bun pm pack --destination \"$d\" >/dev/null && f=$(basename \"$d\"/*.tgz) && cmp -s \"$d/$f\" \"release/$f\"; r=$?; rm -rf \"$d\"; [ $r = 0 ] || { echo \"release/$f не совпадает с исходниками — bun run release и закоммить архив\" >&2; exit 1; }'",
+    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run check:release"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
