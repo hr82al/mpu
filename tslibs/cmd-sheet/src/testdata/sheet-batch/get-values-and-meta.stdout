@@ -1,0 +1,36 @@
+{
+  "spreadsheetId": "1SyntheticSpreadsheetIdForGoldens0000000000",
+  "valueRanges": [
+    {
+      "range": "Sheet1!A1:B2",
+      "majorDimension": "ROWS",
+      "values": [
+        [
+          "привет",
+          42
+        ],
+        [
+          "",
+          "=B1*2"
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "sheets": [
+      {
+        "title": "Sheet1",
+        "properties": {
+          "gridProperties": {
+            "rowCount": 1000,
+            "columnCount": 26
+          },
+          "sheetType": "GRID",
+          "title": "Sheet1",
+          "index": 0,
+          "sheetId": 0
+        }
+      }
+    ]
+  }
+}

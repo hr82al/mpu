@@ -1,0 +1,292 @@
+/** Команда `mpu xlsx get` — значения диапазонов книги. */
+
+import { z } from "zod";
+import {
+  type CommandIo,
+  defineCommand,
+  DomainError,
+  NotFoundIoError,
+  readTextStdin,
+  UsageError,
+} from "@mpu/command";
+import { loadWorkbook } from "./book.ts";
+import { resolvePath } from "./settings.ts";
+import { pathNotSetError } from "./resolve.ts";
+import {
+  type AreaRef,
+  cellName,
+  parseRangeToken,
+  prefixRangeToken,
+  resolveArea,
+} from "./range.ts";
+import { cellKey, findSheet, type Workbook } from "./workbook.ts";
+import { type OutputCell, renderGetRaw, renderGetTsv } from "./render.ts";
+
+const RANGES_HINT =
+  "mpu xlsx get range: ДИАПАЗОН... [from: FILE] [sheet: ЛИСТ]";
+
+const argsSchema = z
+  .object({
+    ranges: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
+      ),
+    file: z
+      .string()
+      .optional()
+      .describe(
+        "путь или алиас .xlsx; без ключа: MPU_XLSX (env-файл), " +
+          "config xlsx.default",
+      ),
+    sheet: z
+      .string()
+      .optional()
+      .describe("префиксует диапазоны без «!»; без диапазонов — весь лист"),
+    from: z
+      .array(z.string())
+      .default([])
+      .describe("файл с диапазонами построчно; ключ повторяется; «-» — stdin"),
+    render: z
+      .enum(["both", "values", "formulas"], {
+        error: (issue) => `invalid render: value "${String(issue.input)}"`,
+      })
+      .default("both")
+      .describe("что попадает в ячейку результата"),
+    raw: z
+      .boolean()
+      .default(false)
+      .describe("формат raw: голые значения без шапки"),
+    tsv: z
+      .boolean()
+      .default(false)
+      .describe("формат tsv: таблица с шапкой range/value"),
+  })
+  .refine((args) => !(args.raw && args.tsv), {
+    error: "only one format: raw or tsv",
+  });
+
+const cellSchema = z.object({
+  range: z.string(),
+  /** Отсутствует в режиме `--render formulas`. */
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+  /** Есть ⇔ у ячейки есть формула; в режиме `values` не выводится. */
+  formula: z.string().optional(),
+});
+
+const resultSchema = z.object({
+  /** Абсолютный путь книги, из которой прочитаны ячейки. */
+  file: z.string(),
+  cells: z.array(cellSchema),
+});
+
+export const getCommand = defineCommand({
+  path: ["xlsx", "get"],
+  keys: {
+    range: {
+      input: "ranges",
+      why: "вход-список: ключ в единственном числе, повторяется",
+    },
+  },
+  summary: "значения диапазонов книги",
+  usage:
+    "mpu xlsx get [range: ДИАПАЗОН]... [file: FILE] [sheet: ЛИСТ] " +
+    "[from: FROM] [render: both|values|formulas] [end raw|tsv|json]",
+  help: `Звать, когда нужны значения или формулы ячеек локальной книги
+xlsx — присланной клиентом выгрузки или своей копии: ответ точный, со
+ссылкой на каждую ячейку, без открытия файла глазами.
+
+range: повторяется. Диапазоны: 'Лист!A1', 'Лист!A1:C3', открытые 'Лист!A:A',
+'Лист!1:5', 'Лист!A5:A' (клэмп к данным; заданная граница не
+уменьшается), голое имя листа — весь лист. Имя с пробелом/'/! — в
+одинарных кавычках, кавычка внутри удваивается.
+
+Источники складываются: range: + from: (файл построчно, «-» —
+stdin; строка с # — комментарий, пустые пропускаются). Дубликаты
+убираются, порядок первого вхождения сохраняется.
+
+Вывод по умолчанию — JSON (indent 2, без финального \\n): file и
+cells[{range, value, formula}]; formula только у реальных формул,
+пустые ячейки включены (value null). end tsv: шапка range/value/formula,
+экранирование \\ \\n \\r \\t, bool → True/False, null — пусто. end raw:
+одна ячейка — голое значение без \\n; несколько — строка на ячейку.
+
+Exit: 0 — успех (пустой результат не ошибка); 2 — ошибка ввода;
+1 — файл не найден / не xlsx / лист не найден.`,
+  examples: [
+    "mpu xlsx get range: Данные!A1:C3 file: report.xlsx",
+    "mpu xlsx get range: A1:C3 sheet: Данные end tsv",
+  ],
+  policy: "ro",
+  argsSchema,
+  formats: { raw: ["--raw"], tsv: ["--tsv"] },
+  forms: {
+    ranges: { positional: "rest" },
+    file: { short: "f" },
+    sheet: { short: "n" },
+  },
+  resultSchema,
+  run: async (args, io) => {
+    // Диапазоны разбираются до открытия книги (инвариант спеки), потому
+    // сначала весь ввод, и только потом путь и файл.
+    const fromTokens = await fromFileTokens(args.from, io);
+    const tokens = dedupe(
+      prefixAll([...args.ranges, ...fromTokens], args.sheet),
+    );
+    const targets = bindTargets(tokens, args.sheet);
+    const report = await resolvePath(io, args.file);
+    if (report.resolved === null) throw pathNotSetError();
+    const workbook = await loadWorkbook(io, report.resolved.path);
+    return {
+      file: report.resolved.path,
+      cells: collectCells(workbook, targets).map((cell) =>
+        project(cell, args.render),
+      ),
+    };
+  },
+  render: (result, args) => {
+    if (args.raw) return renderGetRaw(result.cells, args.render);
+    if (args.tsv) return renderGetTsv(result.cells, args.render);
+    // Форма по умолчанию — сам результат как JSON (контракт спеки).
+    return JSON.stringify(result, null, 2);
+  },
+});
+
+/** Оставляет в ячейке то, что просит `--render`; порядок ключей — спеки. */
+function project(cell: OutputCell, mode: RenderChoice): OutputCell {
+  switch (mode) {
+    case "values":
+      return { range: cell.range, value: cell.value };
+    case "formulas":
+      return cell.formula === undefined
+        ? { range: cell.range }
+        : { range: cell.range, formula: cell.formula };
+    case "both":
+      return cell.formula === undefined
+        ? { range: cell.range, value: cell.value }
+        : { range: cell.range, value: cell.value, formula: cell.formula };
+    default:
+      return unreachable(mode);
+  }
+}
+
+function unreachable(mode: never): never {
+  throw new TypeError(`неизвестный режим --render: ${String(mode)}`);
+}
+
+type RenderChoice = z.infer<typeof argsSchema>["render"];
+
+/** Срез порта: чтение файлов со списком диапазонов, `-` — stdin. */
+type FromFileIo = Pick<CommandIo, "readTextFile" | "readStdin">;
+
+/** Диапазоны из файлов `--from`: построчно, `#` — комментарий. */
+async function fromFileTokens(
+  files: readonly string[],
+  io: FromFileIo,
+): Promise<string[]> {
+  const tokens: string[] = [];
+  for (const file of files) {
+    let text: string;
+    try {
+      text =
+        file === "-" ? await readTextStdin(io) : await io.readTextFile(file);
+    } catch (err) {
+      // Отказ строки (`stdin` уже прочитан ключом) — её слово, не сбой файла.
+      if (err instanceof UsageError) throw err;
+      if (err instanceof NotFoundIoError) {
+        throw new DomainError(`ranges file not found: "${file}"`, {
+          cause: err,
+        });
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new DomainError(`cannot read ranges file "${file}": ${reason}`, {
+        cause: err,
+      });
+    }
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed === "" || trimmed.startsWith("#")) continue;
+      tokens.push(trimmed);
+    }
+  }
+  return tokens;
+}
+
+function prefixAll(
+  tokens: readonly string[],
+  sheetFlag: string | undefined,
+): readonly string[] {
+  if (sheetFlag === undefined) return tokens;
+  return tokens.map((token) => prefixRangeToken(token, sheetFlag));
+}
+
+function dedupe(tokens: readonly string[]): readonly string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of tokens) {
+    if (seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+  }
+  return out;
+}
+
+interface BoundTarget {
+  readonly sheet: string;
+  readonly area: AreaRef;
+}
+
+/** Разбирает токены; диапазон без листа — ошибка с подсказкой. */
+function bindTargets(
+  tokens: readonly string[],
+  sheetFlag: string | undefined,
+): readonly BoundTarget[] {
+  if (tokens.length === 0) {
+    if (sheetFlag !== undefined) return [{ sheet: sheetFlag, area: {} }];
+    throw new UsageError("no ranges provided", { hint: RANGES_HINT });
+  }
+  return tokens.map((token) => {
+    const target = parseRangeToken(token);
+    if (target.kind === "wholeSheet") {
+      return { sheet: target.sheet, area: {} };
+    }
+    if (target.sheet === undefined) {
+      throw new UsageError(`range "${token}" has no sheet name`, {
+        hint: `--sheet <имя листа> или форма Лист!${token}`,
+      });
+    }
+    return { sheet: target.sheet, area: target.area };
+  });
+}
+
+/** Плотный прямоугольник каждого диапазона, порядок построчный. */
+function collectCells(
+  workbook: Workbook,
+  targets: readonly BoundTarget[],
+): OutputCell[] {
+  const cells: OutputCell[] = [];
+  for (const target of targets) {
+    const sheet = findSheet(workbook, target.sheet);
+    if (sheet === undefined) {
+      const titles = workbook.sheets.map((s) => s.title).join(", ");
+      throw new DomainError(
+        `sheet "${target.sheet}" not found. Available: ${titles}`,
+      );
+    }
+    const span = resolveArea(target.area, sheet.rows, sheet.cols);
+    if (span === null) continue;
+    for (let row = span.startRow; row <= span.endRow; row++) {
+      for (let col = span.startCol; col <= span.endCol; col++) {
+        const cell = sheet.cells.get(cellKey(col, row));
+        const range = `${sheet.title}!${cellName(col, row)}`;
+        cells.push(
+          cell?.formula === undefined
+            ? { range, value: cell?.value ?? null }
+            : { range, value: cell.value, formula: cell.formula },
+        );
+      }
+    }
+  }
+  return cells;
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@mpu/cmd-sheet",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test:bun": "bun --bun vitest run",
+    "test:node": "node node_modules/vitest/vitest.mjs run",
+    "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
+    "build": "rm -rf dist && bun build index.ts --target node --packages external --splitting --chunk-naming 'chunk-[hash].[ext]' --outdir dist && tsc -p tsconfig.build.json",
+    "release": "bun run build && bun pm pack --destination release",
+    "check:release": "bun run build && sh -c 'd=$(mktemp -d) && bun pm pack --destination \"$d\" >/dev/null && f=$(basename \"$d\"/*.tgz) && cmp -s \"$d/$f\" \"release/$f\"; r=$?; rm -rf \"$d\"; [ $r = 0 ] || { echo \"release/$f не совпадает с исходниками — bun run release и закоммить архив\" >&2; exit 1; }'",
+    "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run check:release"
+  },
+  "peerDependencies": {
+    "@mpu/command": "0.3.0",
+    "@mpu/http": "0.1.0",
+    "zod": "4.4.3"
+  },
+  "peerDependenciesMeta": {
+    "@mpu/command": {
+      "optional": true
+    },
+    "@mpu/http": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@mpu/base": "file:../base/release/mpu-base-0.1.0.tgz",
+    "@mpu/command": "file:../command/release/mpu-command-0.3.0.tgz",
+    "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",
+    "@mpu/language": "file:../language/release/mpu-language-0.1.0.tgz",
+    "@mpu/testing": "file:../testing/release/mpu-testing-0.2.0.tgz",
+    "@types/node": "24.19.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "zod": "4.4.3"
+  }
+}
