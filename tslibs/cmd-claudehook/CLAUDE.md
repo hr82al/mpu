@@ -7,8 +7,12 @@ permission-request|stop|elicitation`) и канал `mpu claude-channel`: соб
 берёт команды, ядро строк (`line`) — ответы хуков и разбор вызова тула,
 сервер ядра (`backend`) — столы вопросов, сеансы, окна tmux и транскрипты;
 ставит пакет архивом из `release/`. Экземпляры столов и сеансов и их время
-жизни — у потребителя, пакет отдаёт устройство. Хуки вызывают бинарь `mpu`;
-тестов со стендом приложения у пакета нет — все тесты в пакете.
+жизни — у потребителя, пакет отдаёт устройство. Хуки вызывают бинарь `mpu`.
+Свои тесты каталога целиком переехали в пакет: стенда приложения ни один
+из них не брал. Поверх пакета на стенде приложения его сторожат тесты
+`ts/` — `back/src/backend/{permission,session_events,channel,ask_chat,
+confirm}.test.ts` и `cli/src/{permission,elicitation,stop,channel}.test.ts`
+(живые payload'ы — из канала `ts/docs/specs/fixtures/`).
 
 Спеки — в `ts/docs/specs/` mpu (сессии пакета не видны): порция
 `platform/tslibs-commands.md` (D8), договор пакета `platform/tslibs-package.md`;

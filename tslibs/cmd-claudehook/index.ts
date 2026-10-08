@@ -1,17 +1,28 @@
 /**
  * Адаптеры хуков Claude Code (`docs/specs/claude-hook-notification.md`,
  * `docs/specs/claude-hook-pre-tool-use.md`,
- * `docs/specs/claude-hook-permission-request.md`): событие приходит
- * JSON-объектом на stdin.
+ * `docs/specs/claude-hook-permission-request.md`,
+ * `docs/specs/claude-hook-stop.md`,
+ * `docs/specs/claude-hook-elicitation.md`) и канал Claude Code
+ * (`docs/specs/claude-channel.md`): событие приходит JSON-объектом на
+ * stdin.
  *
  * `notification` — команда реестра целиком: разбор конверта и сборка
  * текста остаются внутренностями. `pre-tool-use` и `permission-request`
- * исполняет ядро (`line/hook.ts`), поэтому наружу отданы разбор
+ * исполняет ядро строк потребителя, поэтому наружу отданы разбор
  * payload'а (`toolCallOf`), стол вопроса владельцу (`PermissionDesk`) и
  * ответы хуков с причинами. `stop` — тоже ядро: стол вопросов «ждёт
  * ввода» (`StopDesk`) держит их дольше строки хука. `elicitation` — ядро:
- * форма MCP-сервера владельцу (`ElicitationDesk`,
- * `docs/specs/claude-hook-elicitation.md`).
+ * форма MCP-сервера владельцу (`ElicitationDesk`). Уведомления —
+ * `NotifyDesk`.
+ *
+ * Сервер потребителя держит на весь процесс сеансы Claude Code
+ * (`Sessions`, ключ — `sessionKeyOf`) и их каналы (`WireLink`), окна tmux
+ * (`Windows`) и транскрипты (`Transcripts`): пакет отдаёт устройство,
+ * экземпляры и их время жизни — у потребителя. У каждого стола есть
+ * стол без бота (`NO_DESK`, `NO_STOP_DESK`, `NO_NOTIFY_DESK`,
+ * `NO_ELICITATION_DESK`: отказ «бот не настроен»), у окон — `NO_WINDOWS`
+ * (подписи не бывает).
  */
 
 export { claudeHookNotificationCommand } from "./src/cmd_notification.ts";
