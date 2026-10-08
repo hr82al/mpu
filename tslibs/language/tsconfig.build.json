@@ -1,0 +1,21 @@
+{
+  // Объявления типов поверхности: только графы шести входов, без тестов.
+  // Пути в `.d.ts` остаются с `.ts` — `tsc` потребителя находит по ним
+  // соседние `.d.ts`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": [],
+  "files": [
+    "frames.ts",
+    "messages.ts",
+    "picture.ts",
+    "objects.ts",
+    "program.ts",
+    "testing.ts"
+  ]
+}

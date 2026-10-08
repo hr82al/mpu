@@ -1,0 +1,160 @@
+/**
+ * Все случаи эталона `cases.json` (`docs/specs/platform/messages.md`).
+ * Разбор идёт шагами: каждому шагу отдаётся описание только его
+ * приёмника — `receivers[i]` для шага `i`, как это сделает исполнитель
+ * цепочки, узнающий следующий приёмник лишь после сообщения.
+ *
+ * Копию `testdata/` с каналом спецификаций сверяет `ts/` — канал вне папки
+ * пакета (`ts/back/src/language/messages_fixtures.test.ts`).
+ */
+
+import { assert, describe, expect, it } from "vitest";
+import { rejected } from "@mpu/testing/thrown";
+import golden from "./testdata/messages/cases.json" with { type: "json" };
+import {
+  type Evaluation,
+  GRAMMAR,
+  type KeyKind,
+  type Message,
+  MessageParseError,
+  readMessage,
+  type ReceiverDescription,
+  resolvedMessage,
+} from "./mod.ts";
+
+interface RawReceiver {
+  readonly unary: readonly string[];
+  readonly keyword: readonly {
+    // Импорт JSON дополняет члены объединения ключами `?: undefined`.
+    readonly keys: Readonly<Record<string, string | undefined>>;
+    readonly required: readonly string[];
+  }[];
+  readonly tail?: string;
+  readonly foreign?: boolean;
+  readonly flags?: readonly string[];
+  readonly values?: boolean;
+}
+
+function kindOf(text: string | undefined): KeyKind {
+  if (text === "value" || text === "flag" || text === "list") return text;
+  throw new Error(`в эталоне неизвестный вид ключа: ${text}`);
+}
+
+function described(raw: RawReceiver): ReceiverDescription {
+  return {
+    unary: raw.unary,
+    tail: raw.tail,
+    ...(raw.foreign === true ? { foreign: true } : {}),
+    ...(raw.flags === undefined ? {} : { flags: raw.flags }),
+    ...(raw.values === true ? { values: true } : {}),
+    keyword: raw.keyword.map((method) => ({
+      keys: Object.fromEntries(
+        Object.entries(method.keys).map(([key, kind]) => [key, kindOf(kind)]),
+      ),
+      required: method.required,
+    })),
+  };
+}
+
+/**
+ * Слова грамматики в эталоне — метками: эталон не зависит от того, как
+ * они пишутся (`platform/line-grammar.md` [D.1]).
+ */
+const MARKS: Readonly<Record<string, string>> = {
+  $open: GRAMMAR.open,
+  $close: GRAMMAR.close,
+  $literal: GRAMMAR.literal,
+  $done: GRAMMAR.blockEnd,
+  $rem: GRAMMAR.comment,
+  $separator: GRAMMAR.separator,
+  $assign: GRAMMAR.assign,
+};
+
+function word(text: string): string {
+  return MARKS[text] ?? text;
+}
+
+/** Эталон со словами грамматики вместо меток. */
+function unmarked(value: unknown): unknown {
+  if (typeof value === "string") return value.split(" ").map(word).join(" ");
+  if (Array.isArray(value)) return value.map(unmarked);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, unmarked(item)]),
+  );
+}
+
+const receivers = new Map<string, ReceiverDescription>(
+  Object.entries(golden.receivers).map(([name, raw]) => [name, described(raw)]),
+);
+
+function receiverFor(
+  names: readonly string[],
+  step: number,
+): ReceiverDescription {
+  if (step >= names.length) {
+    throw new Error(`в эталоне нет приёмника для шага ${step}`);
+  }
+  const receiver = receivers.get(names[step]);
+  if (receiver === undefined) {
+    throw new Error(`в эталоне нет описания приёмника ${names[step]}`);
+  }
+  return receiver;
+}
+
+/** Выражения значений видны метками: группа — «do … end», ввод — «stdin». */
+const SHOWN: Evaluation = {
+  group: (words) =>
+    Promise.resolve(`« ${[GRAMMAR.open, ...words, GRAMMAR.close].join(" ")} »`),
+  stdin: () => Promise.resolve(`« ${GRAMMAR.stdin} »`),
+};
+
+/**
+ * Разбирает строку шаг за шагом, пока не кончатся слова; значения
+ * сообщений — с метками выражений.
+ */
+async function readChain(
+  words: readonly string[],
+  names: readonly string[],
+): Promise<Message[]> {
+  const messages: Message[] = [];
+  let rest = words;
+  do {
+    const step = readMessage(rest, receiverFor(names, messages.length));
+    // Неявное закрытие ставит слово в начало остатка — его не считаем.
+    const left =
+      step.rest[0] === GRAMMAR.close && rest[0] !== GRAMMAR.close
+        ? step.rest.length - 1
+        : step.rest.length;
+    assert(
+      rest.length === 0 || left < rest.length,
+      `шаг ${messages.length} не забрал ни одного слова`,
+    );
+    messages.push(await resolvedMessage(step.message, SHOWN));
+    rest = step.rest;
+  } while (rest.length > 0);
+  return messages;
+}
+
+it("в эталоне 76 случаев", () => {
+  expect(golden.cases.length).toBe(76);
+});
+
+describe("случаи эталона разбора сообщений", () => {
+  for (const c of golden.cases) {
+    it(c.name, async () => {
+      const words = c.words.map(word);
+      if ("error" in c) {
+        const err = await rejected(
+          () => readChain(words, c.receivers),
+          MessageParseError,
+        );
+        expect(err.message).toStrictEqual(unmarked(c.error));
+        return;
+      }
+      expect(await readChain(words, c.receivers)).toStrictEqual(
+        unmarked(c.messages),
+      );
+    });
+  }
+});

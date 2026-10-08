@@ -1,0 +1,217 @@
+/**
+ * Вызов метода образа в программе (`platform/image.md`, «Вызов и
+ * отражение»): сначала согласие ядра строкой вызова со значениями, затем
+ * тело блоком со значениями-объектами.
+ */
+
+import { expect, it } from "vitest";
+import { collectionOf, type Data, dataOf } from "../objects/mod.ts";
+import {
+  type CommandNode,
+  type Commands,
+  Every,
+  LENIENT_ROOT,
+  type LineReply,
+  type MethodSource,
+  parseProgram,
+  type ProgramEnd,
+  runProgram,
+  TYPED,
+} from "./mod.ts";
+
+const ROWS = [
+  { id: 11, title: "один", column: "review" },
+  { id: 12, title: "два", column: "queue" },
+  { id: 13, title: "три", column: "review" },
+];
+
+function method(receiver: string, name: string, source: string): MethodSource {
+  return { receiver: receiver.split(" "), name, source: source.split(" ") };
+}
+
+const METHODS: readonly MethodSource[] = [
+  method("kiten", "cardsIn:", "do :col kiten ls where: column is: @col done"),
+  method("kiten", "mine", "do kiten ls done"),
+  method("kiten", "next:", "do :n @n plus: 1 done"),
+  method("kiten", "sum:with:", "do :a :b @a plus: @b done"),
+  method(
+    "kiten",
+    "down:",
+    "do :n @n less: 1 ifTrue: do 0 done ifFalse: do kiten down: do @n minus: 1 end done done",
+  ),
+  method("kiten ls", "first:", "do :n kiten ls done"),
+  method("kiten", "keep:", "do :n y := @n done"),
+  method("kiten", "bad:", "do :n @n titel done"),
+];
+
+function node(
+  leaf: boolean,
+  path: string,
+  messages: readonly string[] = [],
+): CommandNode {
+  const own = METHODS.filter((one) => one.receiver.join(" ") === path);
+  return {
+    leaf,
+    keys: new Map(),
+    messages,
+    formats: leaf ? ["json"] : [],
+    fromFile: new Map(),
+    texts: new Set(),
+    links: leaf ? [...path.split(" "), "<args>"] : path.split(" "),
+    methods: new Map(own.map((one) => [firstWord(one.name), one])),
+  };
+}
+
+function firstWord(name: string): string {
+  const colon = name.indexOf(":");
+  return colon < 0 ? name : name.slice(0, colon + 1);
+}
+
+const NODES: ReadonlyMap<string, CommandNode> = new Map([
+  ["kiten", node(false, "kiten", ["ls"])],
+  ["kiten ls", node(true, "kiten ls")],
+]);
+
+const COMMANDS: Commands = {
+  node: (path) => NODES.get(path.join(" ")),
+  view: (_path, result) => ({
+    data: (): Data =>
+      collectionOf((result as { rows: unknown[] }).rows, {
+        text: (items) =>
+          items
+            .map((item) => `${(item.data() as { title: string }).title}\n`)
+            .join(""),
+      }),
+    formats: () => ["json"],
+    format: () => "",
+  }),
+};
+
+/** Ядро: `kiten ls` — три карточки; согласие — ничего; `refuse` — код. */
+function core(lines: string[][], refuse: number) {
+  return (words: readonly string[]): Promise<LineReply> => {
+    lines.push([...words]);
+    if (words[0] === "kiten" && words[1] === "ls" && words.length === 2) {
+      return Promise.resolve({
+        data: { rows: ROWS },
+        command: { path: ["kiten", "ls"], argv: [] },
+        shown: "",
+      });
+    }
+    if (refuse !== 0) return Promise.resolve({ exit: refuse });
+    return Promise.resolve({ data: dataOf(""), command: null, shown: "" });
+  };
+}
+
+interface Ran {
+  readonly out: string;
+  readonly end: ProgramEnd;
+  readonly lines: string[][];
+}
+
+async function run(line: string, refuse = 0): Promise<Ran> {
+  const lines: string[][] = [];
+  let out = "";
+  const end = await runProgram(line.split(" "), {
+    commands: COMMANDS,
+    core: core(lines, refuse),
+    print: (text) => (out += text),
+    signal: new AbortController().signal,
+    pace: new Every(20, () => performance.now()),
+    naming: TYPED,
+  });
+  return { out, end, lines };
+}
+
+it("вызов метода: согласие ядра, затем тело со значением", async () => {
+  const ran = await run("kiten cardsIn: review end size");
+  expect(ran.out).toBe("2\n");
+  expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+  expect(ran.lines).toStrictEqual([
+    ["kiten", "cardsIn:", "review"],
+    ["kiten", "ls"],
+  ]);
+});
+
+it("унарный метод и метод у команды", async () => {
+  expect((await run("kiten mine size")).out).toBe("3\n");
+  const ran = await run("kiten ls first: 2 end size");
+  expect(ran.out).toBe("3\n");
+  expect(ran.lines[0]).toStrictEqual(["kiten", "ls", "first:", "2"]);
+});
+
+it("значение — объект программы: число остаётся числом", async () => {
+  const ran = await run("x := 5 . kiten next: @x");
+  expect(ran.out).toBe("6\n");
+  expect(ran.lines).toStrictEqual([["kiten", "next:", "5"]]);
+});
+
+it("тело метода — своя область: переменная вызывающего цела", async () => {
+  const ran = await run("y := 5 . kiten keep: 1 . y");
+  expect(ran.out).toBe("5\n");
+});
+
+it("имя из двух частей — два значения по порядку", async () => {
+  const two = await run("kiten sum: 2 with: 3");
+  expect(two.out).toBe("5\n");
+  expect(two.lines).toStrictEqual([["kiten", "sum:", "2", "with:", "3"]]);
+});
+
+it("отказ согласия — тело не исполняется, код подстроки наружу", async () => {
+  const denied = await run("kiten cardsIn: review", 1);
+  expect(denied.lines).toStrictEqual([["kiten", "cardsIn:", "review"]]);
+  expect(denied.end).toStrictEqual({ exit: 1, refusal: null });
+  const redirected = await run("kiten cardsIn: review", 2);
+  expect(redirected.end).toStrictEqual({ exit: 2, refusal: null });
+});
+
+it("метод зовёт сам себя: согласие на каждый вызов", async () => {
+  const ran = await run("kiten down: 3");
+  expect(ran.out).toBe("0\n");
+  expect(ran.lines.map((line) => line.join(" "))).toStrictEqual([
+    "kiten down: 3",
+    "kiten down: 2",
+    "kiten down: 1",
+    "kiten down: 0",
+  ]);
+});
+
+it("вызов без второй части имени — отказ до исполнения", async () => {
+  const ran = await run("kiten sum: 2");
+  expect(ran.end.exit).toBe(2);
+  expect(ran.lines).toStrictEqual([]);
+  expect(ran.end.refusal?.text).toBe(
+    "выражение 1: метод sum:with: ждёт ключ with:",
+  );
+});
+
+it("обход: вызов метода и команды его тела, рекурсия — один раз", () => {
+  const found: string[] = [];
+  const program = parseProgram(
+    "kiten cardsIn: x . kiten down: 2".split(" "),
+    COMMANDS,
+    LENIENT_ROOT,
+  );
+  program.reach({ command: (_path, links) => found.push(links.join(" ")) });
+  expect(found).toStrictEqual([
+    "kiten cardsIn:",
+    "kiten ls <args>",
+    "kiten down:",
+    "kiten down:",
+  ]);
+});
+
+it("значение-коллекция: в строке вызова — её строчный вид", async () => {
+  const ran = await run("x := kiten ls . kiten keep: @x . 1");
+  expect(ran.end).toStrictEqual({ exit: 0, refusal: null });
+  // Строчный вид коллекции — её данные JSON одним словом.
+  expect(ran.lines[1]).toStrictEqual(["kiten", "keep:", JSON.stringify(ROWS)]);
+});
+
+it("отказ внутри тела — с местом вызова", async () => {
+  const ran = await run("kiten bad: 1");
+  expect(ran.end.exit).toBe(1);
+  expect(ran.end.refusal?.text).toBe(
+    "выражение 1, блок bad:: число не понимает titel",
+  );
+});
