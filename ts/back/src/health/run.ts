@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import { type CommandIo, DomainError, UsageError } from "@mpu/command";
-import { requirePortainer } from "../exec/mod.ts";
+import { requirePortainer } from "@mpu/cmd-exec";
 import type { RequestTimeouts } from "@mpu/http";
 import {
   demuxDockerStream,

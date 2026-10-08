@@ -9,7 +9,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { Command, InputSpec } from "@mpu/command";
-import { shellCommand } from "../exec/mod.ts";
+import { shellCommand } from "@mpu/exec";
 import { GRAMMAR } from "@mpu/language/messages";
 import { type Outcome, type Report, runChain } from "@mpu/language/objects";
 import { RuleBook } from "@mpu/command/policy";
@@ -298,14 +298,16 @@ async function argvOf(file: string, words: readonly string[]) {
 describe("напечатанные строки вставляются: тот же вход ssh", () => {
   const ssh = commands.find((one) => one.path.join(" ") === "ssh");
   if (ssh === undefined) throw new Error("нет ssh");
+  // Голдены печати — из канала спецификаций: копии живут в пакетах
+  // `@mpu/cmd-nodecli`, `@mpu/cmd-runjs`, а их папки `ts/` не читает.
   const cases = [
     [
-      "../nodecli/testdata/portainer-wrappers/process-dev-print.stdout.txt",
+      "../../../docs/specs/fixtures/portainer-wrappers/process-dev-print.stdout.txt",
       "dev:1",
       "node cli service:dataProcessor process --client-id 777 --dataset wb_unit",
     ],
     [
-      "../runjs/testdata/run-js/dry-run-stdout.txt",
+      "../../../docs/specs/fixtures/run-js/dry-run-stdout.txt",
       "sl-0",
       "node --input-type=module -",
     ],

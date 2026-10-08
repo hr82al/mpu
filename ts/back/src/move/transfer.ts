@@ -17,15 +17,17 @@ import {
   ambiguous,
   chooseTransport,
   containerLocations,
+  runOverPortainer,
+} from "@mpu/cmd-exec";
+import {
   type HttpCall,
   type OpenChannel,
-  runOverPortainer,
   runOverSsh,
   type RunProcess,
-} from "../exec/mod.ts";
+} from "@mpu/exec";
 import type { CacheReader } from "@mpu/command/selector";
-import type { ExecPlace } from "../exec/mod.ts";
-import { innerTokens } from "../nodecli/inner.ts";
+import type { ExecPlace } from "@mpu/cmd-exec";
+import { innerTokens } from "@mpu/cmd-nodecli";
 
 /** Контейнер, где живёт cli переносов. */
 export const TRANSFER_CONTAINER = "mp-dt-cli";

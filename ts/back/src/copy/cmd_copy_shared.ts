@@ -21,7 +21,7 @@ import {
   UsageError,
 } from "@mpu/command";
 import { type CacheReader, resolveSelector } from "@mpu/command/selector";
-import { shellCommand } from "../exec/mod.ts";
+import { shellCommand } from "@mpu/exec";
 import { runProgram } from "@mpu/subprocess";
 
 const argsSchema = z.object({

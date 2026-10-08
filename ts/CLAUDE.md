@@ -710,7 +710,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `ssh` с `docker exec`, одна shell-строка на оба пути
   (`docs/specs/platform/tslibs-exec.md`); библиотека `tslibs/exec`, архивом
   `release/`. Выбор цели (селектор, кэш контейнеров, env-файл) и перевод
-  `ExecError` в `DomainError` (`back/src/exec/remote.ts`) остаются в `ts/`.
+  `ExecError` в `DomainError` — пакет `@mpu/cmd-exec` (ниже).
 - `@mpu/command` — слой команд: контракт команды и порт io (`@mpu/command`),
   env-файл (`/env`), ворота `mpu confirm` (`/confirm`), `mpu jsdate`
   (`/jsdate`), резолв селектора (`/selector`), кэш-БД (`/store`),
@@ -766,6 +766,16 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   объектом `Publication`. Тесты со стендом приложения —
   `back/src/entrypoint/{sql,update}_wiring.test.ts`,
   `back/src/line/logs_collection.test.ts`, `back/src/registry/mcp*.test.ts`.
+- `@mpu/cmd-exec`, `@mpu/cmd-ps`, `@mpu/cmd-ssh`, `@mpu/cmd-runjs`,
+  `@mpu/cmd-makeschema`, `@mpu/cmd-nodecli`, `@mpu/cmd-mpinit` — команды
+  удалённого исполнения пакетами (`docs/specs/platform/tslibs-commands.md`,
+  D4); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`.
+  `@mpu/cmd-exec` — выбор цели без команд (место по селектору и кэшу
+  контейнеров, транспорт по env-файлу, Portainer с переводом отказа в ошибку
+  команды); его берут пакеты `ps`, `ssh`, `run-js`, обёрток sl-back CLI и в
+  `ts/` — `health`, `move-client`. Сам транспорт — `@mpu/exec` (выше). Кроме
+  реестра `@mpu/cmd-ps` берут `health` и `mr` (таблица колонок),
+  `@mpu/cmd-nodecli` — `move-client` (сборка inner-команды).
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

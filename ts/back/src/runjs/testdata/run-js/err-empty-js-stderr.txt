@@ -1,1 +1,0 @@
-mpu run-js: пустой JS

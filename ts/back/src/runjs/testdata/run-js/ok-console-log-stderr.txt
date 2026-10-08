@@ -1,2 +1,0 @@
-# mpu run-js: targets = [sl-0]
-# target=sl-0

@@ -39,13 +39,13 @@ import {
   wbSaveExpensesCommand,
   wbUnitCalcCommand,
   wbUnitProtoNewCommand,
-} from "../nodecli/mod.ts";
+} from "@mpu/cmd-nodecli";
 import { logCommand } from "@mpu/cmd-log";
-import { psCommand } from "../ps/mod.ts";
+import { psCommand } from "@mpu/cmd-ps";
 import { searchCommand } from "../search/mod.ts";
-import { runJsCommand } from "../runjs/mod.ts";
+import { runJsCommand } from "@mpu/cmd-runjs";
 import { jsdateCommand } from "@mpu/command/jsdate";
-import { sshCommand } from "../ssh/mod.ts";
+import { sshCommand } from "@mpu/cmd-ssh";
 import { logsCommand } from "@mpu/cmd-logs";
 import {
   kitenArtefactRmCommand,
@@ -96,7 +96,7 @@ import {
   claudeHookStopCommand,
 } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
-import { makeSchemaCommand } from "../makeschema/mod.ts";
+import { makeSchemaCommand } from "@mpu/cmd-makeschema";
 import {
   sheetAliasAddCommand,
   sheetAliasLsCommand,
@@ -130,7 +130,7 @@ import {
 } from "@mpu/cmd-code";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpCloneCommand } from "@mpu/cmd-mpclone";
-import { mpInitCommand } from "../mpinit/mod.ts";
+import { mpInitCommand } from "@mpu/cmd-mpinit";
 import {
   mrCommentCommand,
   mrCommentsCommand,

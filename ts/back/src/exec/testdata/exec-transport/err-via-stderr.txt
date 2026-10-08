@@ -1,1 +1,0 @@
-mpu ssh: --via должен быть ssh|portainer, получено 'portainerr'
