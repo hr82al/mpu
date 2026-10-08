@@ -7,7 +7,7 @@
       "devDependencies": {
         "@biomejs/biome": "2.5.15",
         "@mpu/base": "file:../base/release/mpu-base-0.1.0.tgz",
-        "@mpu/cmd-mr": "file:../cmd-mr/release/mpu-cmd-mr-0.1.0.tgz",
+        "@mpu/cmd-mr": "file:../cmd-mr/release/mpu-cmd-mr-0.2.0.tgz",
         "@mpu/command": "file:../command/release/mpu-command-0.3.0.tgz",
         "@mpu/gitlab": "file:../gitlab/release/mpu-gitlab-0.1.0.tgz",
         "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",
@@ -20,7 +20,7 @@
         "zod": "4.4.3",
       },
       "peerDependencies": {
-        "@mpu/cmd-mr": "0.1.0",
+        "@mpu/cmd-mr": "0.2.0",
         "@mpu/command": "0.3.0",
         "@mpu/gitlab": "0.1.0",
         "zod": "4.4.3",
@@ -107,7 +107,7 @@
 
     "@mpu/base": ["@mpu/base@../base/release/mpu-base-0.1.0.tgz", {}, "sha512-MmdyhhFlR8KouPxnui6azLCNcbkMRMeGkc+Xdh86biutBwhhZu1AavdQ7gBfIUBnR21TxLrkwlEVX1lf7ghxPg=="],
 
-    "@mpu/cmd-mr": ["@mpu/cmd-mr@../cmd-mr/release/mpu-cmd-mr-0.1.0.tgz", { "peerDependencies": { "@mpu/command": "0.3.0", "@mpu/gitlab": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command", "@mpu/gitlab"] }, "sha512-h+4SGQOKgxrR92+Q+rNLR+9AzQkUF1Izly57oRzq8tnCDEKCITF/kMDx7aXhOP+yNRpYAemBv/V2pswDysmqEQ=="],
+    "@mpu/cmd-mr": ["@mpu/cmd-mr@../cmd-mr/release/mpu-cmd-mr-0.2.0.tgz", { "peerDependencies": { "@mpu/command": "0.3.0", "@mpu/gitlab": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command", "@mpu/gitlab"] }, "sha512-f8Oui5tBsgn6Eq6OuSZPPjKTJOpK7PYv+d7a7wk00OPiX/bLw5Ranc2sIpkfQbxlqjEKdjCMudnbZs1RVcriyw=="],
 
     "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-msup9D6vJlnJTW5jqK28xmPCMzaKpl92cAacA4/sd5OE/iwJdb/bs9Y5d9kP0oCWPPtSkXsGKBD/sMMcesE/0g=="],
 

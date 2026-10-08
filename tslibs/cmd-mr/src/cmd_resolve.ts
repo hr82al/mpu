@@ -22,7 +22,7 @@ import {
   mrAddress,
   type MrIo,
   type MrOptions,
-} from "./common.ts";
+} from "./access.ts";
 
 const argsSchema = z.object({
   discussion: z

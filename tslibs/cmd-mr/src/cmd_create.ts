@@ -22,7 +22,7 @@ import {
   gitlabAccess,
   type MrIo,
   type MrOptions,
-} from "./common.ts";
+} from "./access.ts";
 
 const argsSchema = z.object({
   title: z.string({ error: "нужен title:" }).describe("заголовок MR"),

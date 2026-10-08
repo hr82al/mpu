@@ -24,4 +24,4 @@ export { mrReplyCommand } from "./src/cmd_reply.ts";
 export { mrResolveCommand, mrUnresolveCommand } from "./src/cmd_resolve.ts";
 export { mrShowCommand } from "./src/cmd_show.ts";
 export { mrViewCommand } from "./src/cmd_view.ts";
-export { asCommandError, gitlabAccess, type MrIo } from "./src/common.ts";
+export { asCommandError, gitlabAccess, type MrIo } from "./src/access.ts";

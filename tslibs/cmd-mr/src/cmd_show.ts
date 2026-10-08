@@ -15,7 +15,7 @@ import {
   mrAddress,
   type MrIo,
   type MrOptions,
-} from "./common.ts";
+} from "./access.ts";
 import {
   noteHeadline,
   statusWord,

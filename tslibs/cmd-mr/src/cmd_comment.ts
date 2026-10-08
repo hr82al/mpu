@@ -29,7 +29,7 @@ import {
   mrAddress,
   type MrIo,
   type MrOptions,
-} from "./common.ts";
+} from "./access.ts";
 
 /** Сколько путей называет отказ «файл не изменён» (спека). */
 const PATHS_SHOWN = 20;

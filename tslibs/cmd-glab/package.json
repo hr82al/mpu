@@ -23,7 +23,7 @@
     "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run check:release"
   },
   "peerDependencies": {
-    "@mpu/cmd-mr": "0.1.0",
+    "@mpu/cmd-mr": "0.2.0",
     "@mpu/command": "0.3.0",
     "@mpu/gitlab": "0.1.0",
     "zod": "4.4.3"
@@ -42,7 +42,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@mpu/base": "file:../base/release/mpu-base-0.1.0.tgz",
-    "@mpu/cmd-mr": "file:../cmd-mr/release/mpu-cmd-mr-0.1.0.tgz",
+    "@mpu/cmd-mr": "file:../cmd-mr/release/mpu-cmd-mr-0.2.0.tgz",
     "@mpu/command": "file:../command/release/mpu-command-0.3.0.tgz",
     "@mpu/gitlab": "file:../gitlab/release/mpu-gitlab-0.1.0.tgz",
     "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",

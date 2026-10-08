@@ -16,7 +16,7 @@ import {
   mrAddress,
   type MrIo,
   type MrOptions,
-} from "./common.ts";
+} from "./access.ts";
 import { mrHeadline } from "./cmd_view.ts";
 import {
   filterDiscussions,
