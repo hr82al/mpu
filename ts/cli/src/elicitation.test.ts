@@ -40,7 +40,7 @@ async function gitlabForm(): Promise<string> {
   const live = JSON.parse(
     await readFile(
       new URL(
-        "../../back/src/claudehook/testdata/elicitation/live-elicitation-mpu.json",
+        "../../docs/specs/fixtures/telegram-relay/r3/live-elicitation-mpu.json",
         import.meta.url,
       ),
       "utf8",

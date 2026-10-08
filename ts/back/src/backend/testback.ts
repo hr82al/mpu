@@ -15,7 +15,7 @@ import type { InvokeLog } from "@mpu/invokelog";
 import { makeFakeIo } from "@mpu/command/testing";
 import { secretText } from "../runtime/mod.ts";
 import { NO_BOT, type OwnerQuestions } from "@mpu/cmd-botquestions";
-import { NO_WINDOWS, type Windows } from "../claudehook/mod.ts";
+import { NO_WINDOWS, type Windows } from "@mpu/cmd-claudehook";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
 import { WebAccess } from "./web.ts";
 import { type Launcher, MarkerDir, MemoryLauncher } from "../worker/mod.ts";

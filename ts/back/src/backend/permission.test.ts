@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
 import { PERMISSION_REQUEST } from "@mpu/language/frames";
 import { FakeBot, fakeQuestions } from "@mpu/cmd-botquestions/testing";
-import { Windows } from "../claudehook/mod.ts";
+import { Windows } from "@mpu/cmd-claudehook";
 import { Client, type TestBack, withBack, within } from "./testback.ts";
 
 /** Payload права из живого голдена; транскрипта нет. */
@@ -16,7 +16,7 @@ async function bashPayload(): Promise<string> {
   const live = JSON.parse(
     await readFile(
       new URL(
-        "../claudehook/testdata/permission-request/live-permission-bash.json",
+        "../../../docs/specs/fixtures/telegram-relay/hook/live-permission-bash.json",
         import.meta.url,
       ),
       "utf8",

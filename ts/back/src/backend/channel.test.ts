@@ -84,7 +84,10 @@ class Channel {
 async function stopLine(back: TestBack, message: string): Promise<Client> {
   const live = JSON.parse(
     await readFile(
-      new URL("../claudehook/testdata/stop/live-stop.json", import.meta.url),
+      new URL(
+        "../../../docs/specs/fixtures/telegram-relay/r2/live-stop.json",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );

@@ -76,7 +76,7 @@ import {
   StopDesk,
   Transcripts,
   Windows,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import { ChannelConnection } from "./channel.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };

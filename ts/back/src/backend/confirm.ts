@@ -20,7 +20,7 @@ import {
   type Sessions,
   TERMINAL,
   type Windows,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import type { AskKind, ServerFrame } from "@mpu/language/frames";
 import { type Line, NO_RIVAL, type Rival, type Rivalry } from "./line.ts";
 import type { Asking } from "./prompt.ts";

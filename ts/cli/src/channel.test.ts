@@ -197,7 +197,7 @@ async function stop(back: TestBack, message: string): Promise<void> {
   const live = JSON.parse(
     await readFile(
       new URL(
-        "../../back/src/claudehook/testdata/stop/live-stop.json",
+        "../../docs/specs/fixtures/telegram-relay/r2/live-stop.json",
         import.meta.url,
       ),
       "utf8",

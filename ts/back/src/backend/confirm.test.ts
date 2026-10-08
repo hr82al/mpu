@@ -11,7 +11,7 @@ import {
   sessionKeyOf,
   Sessions,
   Windows,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import { type AskKind, SESSION_ENV } from "@mpu/language/frames";
 import { ChatConfirms } from "./confirm.ts";
 

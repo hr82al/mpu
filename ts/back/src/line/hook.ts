@@ -30,7 +30,7 @@ import {
   toolCallOf,
   Undecided,
   unparsedLine,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import {
   line as lineText,
   type Method,
@@ -83,13 +83,13 @@ export type HookAnswer = (text: string) => Promise<HookReply>;
  * каждом звене от сервера до маршрута.
  */
 export interface OwnerHooks {
-  /** `permission-request` (`claudehook/desk.ts`). */
+  /** `permission-request` (`@mpu/cmd-claudehook`, `desk.ts`). */
   permission(text: string): Promise<HookReply>;
-  /** `stop` (`claudehook/stop_desk.ts`). */
+  /** `stop` (`@mpu/cmd-claudehook`, `stop_desk.ts`). */
   stop(text: string): Promise<HookReply>;
-  /** `notification` (`claudehook/notify_desk.ts`). */
+  /** `notification` (`@mpu/cmd-claudehook`, `notify_desk.ts`). */
   notification(text: string): Promise<HookReply>;
-  /** `elicitation` (`claudehook/elicitation_desk.ts`). */
+  /** `elicitation` (`@mpu/cmd-claudehook`, `elicitation_desk.ts`). */
   elicitation(text: string): Promise<HookReply>;
 }
 

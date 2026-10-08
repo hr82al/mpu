@@ -5,7 +5,7 @@
  * сессия теряет канал (её «ждёт ввода» — «сессия закрыта»).
  */
 
-import { type Session, type Sessions, WireLink } from "../claudehook/mod.ts";
+import { type Session, type Sessions, WireLink } from "@mpu/cmd-claudehook";
 import { helloKeyOf, READY_FRAME } from "@mpu/language/frames";
 
 /** Что соединение делает с кадром и с закрытием — по своему состоянию. */

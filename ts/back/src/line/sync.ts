@@ -66,7 +66,7 @@ import {
   type RuleBook,
   RulePath,
 } from "@mpu/command/policy";
-import { atExecution } from "../claudehook/mod.ts";
+import { atExecution } from "@mpu/cmd-claudehook";
 import { IMAGE_DIR } from "./imagedir.ts";
 import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import { programCommands } from "./program.ts";

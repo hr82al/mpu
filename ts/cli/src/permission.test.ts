@@ -41,7 +41,7 @@ async function bashPayload(): Promise<string> {
   const live = JSON.parse(
     await readFile(
       new URL(
-        "../../back/src/claudehook/testdata/permission-request/live-permission-bash.json",
+        "../../docs/specs/fixtures/telegram-relay/hook/live-permission-bash.json",
         import.meta.url,
       ),
       "utf8",

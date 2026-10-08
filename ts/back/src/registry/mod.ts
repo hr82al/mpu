@@ -94,7 +94,7 @@ import {
   claudeHookPermissionRequestCommand,
   claudeHookPreToolUseCommand,
   claudeHookStopCommand,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import { backupCommands } from "@mpu/cmd-backup";
 import { makeSchemaCommand } from "@mpu/cmd-makeschema";
 import {
@@ -123,7 +123,7 @@ import {
 } from "@mpu/cmd-copy";
 import { ConfigRegistry, configCommand } from "@mpu/command/config";
 import { imageExportCommand, imageSyncCommand } from "@mpu/cmd-image";
-import { glabStatusCommand } from "../glab/mod.ts";
+import { glabStatusCommand } from "@mpu/cmd-glab";
 import { apiCommands } from "@mpu/cmd-api";
 import { d2MiroCommand } from "@mpu/cmd-d2miro";
 import {
@@ -150,7 +150,7 @@ import {
   mrShowCommand,
   mrUnresolveCommand,
   mrViewCommand,
-} from "../mr/mod.ts";
+} from "@mpu/cmd-mr";
 import { confirmCommand } from "@mpu/command/confirm";
 import { sunCommand } from "@mpu/cmd-sun";
 import { TASK_HISTORY, TASK_MAX_BUSY, taskCommands } from "@mpu/cmd-task";

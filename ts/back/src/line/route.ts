@@ -5,7 +5,7 @@
  * (`claude-hook-pre-tool-use.md`, «Как находится решение»).
  */
 
-import { atExecution, type HookReply } from "../claudehook/mod.ts";
+import { atExecution, type HookReply } from "@mpu/cmd-claudehook";
 import type { ImageMethod } from "@mpu/cmd-image";
 import { type Commands, isProgram } from "@mpu/language/program";
 import { type ImageContext, imageLineOf } from "./define.ts";

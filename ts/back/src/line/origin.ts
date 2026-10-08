@@ -5,7 +5,7 @@
  * её командам и какие у программы параметры.
  */
 
-import { type HookReply, programUnseen } from "../claudehook/mod.ts";
+import { type HookReply, programUnseen } from "@mpu/cmd-claudehook";
 import type { CommandIo } from "@mpu/command";
 import { isBareLine, wordsOf } from "@mpu/language/frames";
 import { ASK_WORD, GRAMMAR } from "@mpu/language/messages";

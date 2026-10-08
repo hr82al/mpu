@@ -12,7 +12,7 @@ import {
   NO_ELICITATION_DESK,
   NO_NOTIFY_DESK,
   NO_STOP_DESK,
-} from "../claudehook/mod.ts";
+} from "@mpu/cmd-claudehook";
 import {
   consentAt,
   type Delivery,

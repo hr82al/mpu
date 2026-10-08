@@ -10,7 +10,7 @@ import {
   fakeQuestions,
   pressUpdate,
 } from "@mpu/cmd-botquestions/testing";
-import { Windows } from "../claudehook/mod.ts";
+import { Windows } from "@mpu/cmd-claudehook";
 import type { CommandIo } from "@mpu/command";
 import { ALLOW, ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import { violations } from "./testschema.ts";

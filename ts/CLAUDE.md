@@ -734,9 +734,10 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `platform/gitlab-api.md`); библиотека `tslibs/gitlab`, архивом `release/`.
   Фейковый GitLab тестов — вход `@mpu/gitlab/testing`. Отказы пакета
   (`GitlabError`, `MrRefError`, `DiscussionRefError`) в ошибки команды с
-  подсказками переводит `back/src/mr/common.ts` (`asCommandError`), селектор
-  `glab-status` (`MrRefError` → `UsageError`) — `back/src/glab/cmd_glab_status.ts`;
-  env-файл (`GLAB_TOKEN`, `GITLAB_BASE_URL`) читается в `mr/common.ts`.
+  подсказками переводит `asCommandError` пакета `@mpu/cmd-mr`, селектор
+  `glab-status` (`MrRefError` → `UsageError`) — пакет `@mpu/cmd-glab`;
+  env-файл (`GLAB_TOKEN`, `GITLAB_BASE_URL`) читает `gitlabAccess`
+  `@mpu/cmd-mr`.
 - `@mpu/cmd-code`, `@mpu/cmd-d2miro`, `@mpu/cmd-mpclone`, `@mpu/cmd-sun` —
   команды `mpu code …`, `d2-miro`, `mp-clone`, `sun` пакетами
   (`docs/specs/platform/tslibs-commands.md`, D1); библиотеки
@@ -811,15 +812,31 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`docs/specs/platform/tslibs-commands.md`, D7); библиотеки
   `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра: службу
   вопросов `@mpu/cmd-botquestions` на весь процесс создаёт и держит сервер
-  ядра (`backend/entry.ts`), формы задают `backend` и `claudehook`;
+  ядра (`backend/entry.ts`), формы задают `backend` и
+  `@mpu/cmd-claudehook`;
   конфигурацию бота `@mpu/cmd-botquestions` берёт из `@mpu/cmd-telegram`,
   шаг входа — `@mpu/cmd-init`. Стенды для тестов `ts/` — входы
   `@mpu/cmd-telegram/testing` (картинки P1–P20: `backend`, `line`, `mcp/`),
-  `@mpu/cmd-botquestions/testing` (поддельный бот: `backend`, `claudehook`,
-  `cli/`, `mcp/`), `@mpu/cmd-init/testing` (источники `init` на петле).
+  `@mpu/cmd-botquestions/testing` (поддельный бот: `backend`, `cli/`,
+  `mcp/`), `@mpu/cmd-init/testing` (источники `init` на петле).
   Тесты со стендом приложения — `back/src/entrypoint/telegram/` (`runCli`,
   настоящий порт файлов), `back/src/entrypoint/init/cmd_init.test.ts`
   (эталоны — канал `docs/specs/fixtures/init/`).
+- `@mpu/cmd-mr`, `@mpu/cmd-glab`, `@mpu/cmd-claudehook` — семейство
+  `mpu mr …`, `glab-status`, хуки Claude Code (`claude-hook …`) и канал
+  `claude-channel` пакетами (`docs/specs/platform/tslibs-commands.md`, D8);
+  библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра:
+  доступ к GitLab и перевод отказов `@mpu/cmd-mr` берёт `@mpu/cmd-glab`;
+  ответы хуков и разбор вызова тула `@mpu/cmd-claudehook` — ядро строк
+  (`line/hook.ts` и соседи), столы вопросов, сеансы, окна tmux и
+  транскрипты — сервер ядра (`backend/server.ts`: экземпляры на весь
+  процесс создаёт и держит он). Свои тесты каталогов целиком переехали в
+  пакеты: стенда приложения ни один из них не брал. Поверх
+  `@mpu/cmd-claudehook` на стенде приложения его сторожат
+  `back/src/backend/{permission,session_events,channel,ask_chat,
+  confirm}.test.ts` и `cli/src/{permission,elicitation,stop,channel}.test.ts`;
+  живые payload'ы хуков они берут из канала `docs/specs/fixtures/`
+  (`telegram-relay/`, `claude-hook-notification/`).
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

@@ -4,7 +4,7 @@
  * цепочка, на месте сессии — проба.
  */
 
-import type { HookReply } from "../claudehook/mod.ts";
+import type { HookReply } from "@mpu/cmd-claudehook";
 import type { ImageMethod } from "@mpu/cmd-image";
 import { runChain } from "@mpu/language/objects";
 import type { RuleBook } from "@mpu/command/policy";

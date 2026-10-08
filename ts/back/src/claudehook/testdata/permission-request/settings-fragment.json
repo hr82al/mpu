@@ -1,1 +1,0 @@
-{"hooks":{"PermissionRequest":[{"matcher":"","hooks":[{"type":"command","command":"mpu claude-hook permission-request","timeout":3600}]}]}}

@@ -135,7 +135,7 @@ async function serve(
   return { url: found[0], [Symbol.asyncDispose]: stop };
 }
 
-/** Программа tmux ядра: путь — как в коде (`claudehook`). */
+/** Программа tmux ядра: путь — как в коде (`@mpu/cmd-claudehook`). */
 const TMUX_BIN = "/usr/bin/tmux";
 
 /**

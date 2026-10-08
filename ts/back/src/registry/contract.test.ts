@@ -1294,15 +1294,17 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {},
   },
   {
-    // Строку исполняет ядро (`line/hook.ts`, `claudehook/desk.ts`): у
-    // самой команды реестра исполнения нет, обход получает отказ.
+    // Строку исполняет ядро (`line/hook.ts`, `@mpu/cmd-claudehook`
+    // `desk.ts`): у самой команды реестра исполнения нет, обход получает
+    // отказ.
     path: "claude-hook permission-request",
     argv: [],
     sampleResult: {},
   },
   {
-    // Строку исполняет ядро (`line/hook.ts`, `claudehook/stop_desk.ts`):
-    // у самой команды реестра исполнения нет, обход получает отказ.
+    // Строку исполняет ядро (`line/hook.ts`, `@mpu/cmd-claudehook`
+    // `stop_desk.ts`): у самой команды реестра исполнения нет, обход
+    // получает отказ.
     path: "claude-hook stop",
     argv: [],
     sampleResult: {},
@@ -1315,9 +1317,9 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {},
   },
   {
-    // Строку исполняет ядро (`line/hook.ts`,
-    // `claudehook/elicitation_desk.ts`): у самой команды реестра исполнения
-    // нет, обход получает отказ.
+    // Строку исполняет ядро (`line/hook.ts`, `@mpu/cmd-claudehook`
+    // `elicitation_desk.ts`): у самой команды реестра исполнения нет,
+    // обход получает отказ.
     path: "claude-hook elicitation",
     argv: [],
     sampleResult: {},

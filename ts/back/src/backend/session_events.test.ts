@@ -46,10 +46,11 @@ async function stillPending(bot: FakeBot, asked: Client): Promise<void> {
   expect(edited(bot, 1546, TERMINAL_LINE)).toBe(false);
 }
 
-async function testdata(path: string): Promise<Record<string, unknown>> {
+/** Эталон канала `docs/specs/fixtures/` по пути от его корня. */
+async function fixture(path: string): Promise<Record<string, unknown>> {
   return JSON.parse(
     await readFile(
-      new URL(`../claudehook/testdata/${path}`, import.meta.url),
+      new URL(`../../../docs/specs/fixtures/${path}`, import.meta.url),
       "utf8",
     ),
   );
@@ -59,7 +60,7 @@ async function testdata(path: string): Promise<Record<string, unknown>> {
 async function permission(
   over: Readonly<Record<string, unknown>> = {},
 ): Promise<string> {
-  const live = await testdata("permission-request/live-permission-bash.json");
+  const live = await fixture("telegram-relay/hook/live-permission-bash.json");
   return JSON.stringify({
     ...live,
     transcript_path: "/нет/транскрипта",
@@ -83,7 +84,7 @@ async function notification(type: string): Promise<string> {
     );
   }
   return JSON.stringify({
-    ...(await testdata(
+    ...(await fixture(
       "claude-hook-notification/live-payload-idle-prompt.json",
     )),
     notification_type: type,
@@ -146,7 +147,7 @@ it("R3c-1: форма Elicitation сессии K снимает её право;
         back,
         ELICITATION.words,
         JSON.stringify(
-          await testdata("elicitation/live-elicitation-fields.json"),
+          await fixture("telegram-relay/r3/live-elicitation-fields.json"),
         ),
         SESSION_K,
       );
@@ -177,7 +178,7 @@ it("R3c-2: Stop сессии K снимает её право", async () => {
         back,
         STOP.words,
         JSON.stringify({
-          ...(await testdata("stop/live-stop.json")),
+          ...(await fixture("telegram-relay/r2/live-stop.json")),
           transcript_path: "/нет/транскрипта",
         }),
         SESSION_K,
@@ -267,7 +268,7 @@ it("R3c-5: событие сессии L не трогает право сесс
         back,
         STOP.words,
         JSON.stringify({
-          ...(await testdata("stop/live-stop.json")),
+          ...(await fixture("telegram-relay/r2/live-stop.json")),
           transcript_path: "/нет/транскрипта",
         }),
         SESSION_L,
@@ -303,7 +304,7 @@ it("R3c-5: форма сессии K в ряду — событие сессии
         back,
         ELICITATION.words,
         JSON.stringify({
-          ...(await testdata("elicitation/live-elicitation-mpu.json")),
+          ...(await fixture("telegram-relay/r3/live-elicitation-mpu.json")),
           mcp_server_name: "gitlab",
           message: "Удалить ветку?",
         }),
@@ -314,7 +315,7 @@ it("R3c-5: форма сессии K в ряду — событие сессии
         back,
         STOP.words,
         JSON.stringify({
-          ...(await testdata("stop/live-stop.json")),
+          ...(await fixture("telegram-relay/r2/live-stop.json")),
           transcript_path: "/нет/транскрипта",
         }),
         SESSION_K,

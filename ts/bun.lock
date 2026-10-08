@@ -10,13 +10,15 @@
         "@mpu/base": "file:../tslibs/base/release/mpu-base-0.1.0.tgz",
         "@mpu/cmd-api": "file:../tslibs/cmd-api/release/mpu-cmd-api-0.1.0.tgz",
         "@mpu/cmd-backup": "file:../tslibs/cmd-backup/release/mpu-cmd-backup-0.1.0.tgz",
-        "@mpu/cmd-botquestions": "file:../tslibs/cmd-botquestions/release/mpu-cmd-botquestions-0.1.0.tgz",
+        "@mpu/cmd-botquestions": "file:../tslibs/cmd-botquestions/release/mpu-cmd-botquestions-0.2.0.tgz",
         "@mpu/cmd-call": "file:../tslibs/cmd-call/release/mpu-cmd-call-0.1.0.tgz",
+        "@mpu/cmd-claudehook": "file:../tslibs/cmd-claudehook/release/mpu-cmd-claudehook-0.2.0.tgz",
         "@mpu/cmd-cleanlocal": "file:../tslibs/cmd-cleanlocal/release/mpu-cmd-cleanlocal-0.1.0.tgz",
         "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.1.0.tgz",
         "@mpu/cmd-copy": "file:../tslibs/cmd-copy/release/mpu-cmd-copy-0.1.0.tgz",
         "@mpu/cmd-d2miro": "file:../tslibs/cmd-d2miro/release/mpu-cmd-d2miro-0.1.0.tgz",
         "@mpu/cmd-exec": "file:../tslibs/cmd-exec/release/mpu-cmd-exec-0.1.0.tgz",
+        "@mpu/cmd-glab": "file:../tslibs/cmd-glab/release/mpu-cmd-glab-0.2.0.tgz",
         "@mpu/cmd-health": "file:../tslibs/cmd-health/release/mpu-cmd-health-0.1.0.tgz",
         "@mpu/cmd-image": "file:../tslibs/cmd-image/release/mpu-cmd-image-0.1.0.tgz",
         "@mpu/cmd-init": "file:../tslibs/cmd-init/release/mpu-cmd-init-0.1.0.tgz",
@@ -28,6 +30,7 @@
         "@mpu/cmd-move": "file:../tslibs/cmd-move/release/mpu-cmd-move-0.1.0.tgz",
         "@mpu/cmd-mpclone": "file:../tslibs/cmd-mpclone/release/mpu-cmd-mpclone-0.1.0.tgz",
         "@mpu/cmd-mpinit": "file:../tslibs/cmd-mpinit/release/mpu-cmd-mpinit-0.1.0.tgz",
+        "@mpu/cmd-mr": "file:../tslibs/cmd-mr/release/mpu-cmd-mr-0.2.0.tgz",
         "@mpu/cmd-nodecli": "file:../tslibs/cmd-nodecli/release/mpu-cmd-nodecli-0.1.0.tgz",
         "@mpu/cmd-ps": "file:../tslibs/cmd-ps/release/mpu-cmd-ps-0.2.0.tgz",
         "@mpu/cmd-runjs": "file:../tslibs/cmd-runjs/release/mpu-cmd-runjs-0.1.0.tgz",
@@ -225,9 +228,11 @@
 
     "@mpu/cmd-backup": ["@mpu/cmd-backup@../tslibs/cmd-backup/release/mpu-cmd-backup-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/cmd-sql": "0.1.0", "@mpu/command": "0.2.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/cmd-sql", "@mpu/command"] }, "sha512-HWbIZCMooJ3KqOrfwduo5QxDPw1N6bZWoeNngno7vmnuU3nXbq8i7LgvdBH5teB3sNNd8d9zKsna5MRdDTegpw=="],
 
-    "@mpu/cmd-botquestions": ["@mpu/cmd-botquestions@../tslibs/cmd-botquestions/release/mpu-cmd-botquestions-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-telegram": "0.1.0", "@mpu/command": "0.3.0", "@mpu/telegram": "0.1.0" }, "optionalPeers": ["@mpu/cmd-telegram", "@mpu/command", "@mpu/telegram"] }, "sha512-c4+xklqbkxlJ6M34oXyZR3CAr7ychx2TAg3ZUhzfvkfOdkGAO+q6u4CphYNeaP83sH5+GsqeuSBMGitYazrJ8g=="],
+    "@mpu/cmd-botquestions": ["@mpu/cmd-botquestions@../tslibs/cmd-botquestions/release/mpu-cmd-botquestions-0.2.0.tgz", { "peerDependencies": { "@mpu/cmd-telegram": "0.1.0", "@mpu/command": "0.3.0", "@mpu/telegram": "0.1.0" }, "optionalPeers": ["@mpu/cmd-telegram", "@mpu/command", "@mpu/telegram"] }, "sha512-HeFexM7Qu2Tn4hOmmIItAJSECOJEFbHangscHhx4yiwZzYrWmIBDp+c2j21ehPJ7BNoAYOCtAZ5JY7ImUWF3eg=="],
 
     "@mpu/cmd-call": ["@mpu/cmd-call@../tslibs/cmd-call/release/mpu-cmd-call-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-sql": "0.1.0", "@mpu/command": "0.2.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-sql", "@mpu/command", "@mpu/language"] }, "sha512-6GvCTX2VFPW19jd5rpiFXVXjiQ9hyLPLKaZRpCUETdBm7EnBsyN+zwwwjhXECQBD9Qm0+VsGgs8iYLPbzcs3kQ=="],
+
+    "@mpu/cmd-claudehook": ["@mpu/cmd-claudehook@../tslibs/cmd-claudehook/release/mpu-cmd-claudehook-0.2.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/cmd-botquestions": "0.2.0", "@mpu/command": "0.3.0", "@mpu/language": "0.1.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/cmd-botquestions", "@mpu/command", "@mpu/language", "@mpu/subprocess"] }, "sha512-1n/wTK7oVS2TcCgbulwVyoROlk/9hC7IJuXDtoW1UMPCAlfTQC8bIdqC5C/nWDk9YItxvpjxJy0QDpDaljD+pA=="],
 
     "@mpu/cmd-cleanlocal": ["@mpu/cmd-cleanlocal@../tslibs/cmd-cleanlocal/release/mpu-cmd-cleanlocal-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-copy": "0.1.0", "@mpu/cmd-sql": "0.1.0", "@mpu/command": "0.2.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-copy", "@mpu/cmd-sql", "@mpu/command"] }, "sha512-NPafBBNQncPjjSG/PI6flWXeBf/7ajqSjg7v3R7hBCbMuQmtv8zlqhPxRonLKe4ED7JecLdx+KCPYNyhoizQjA=="],
 
@@ -238,6 +243,8 @@
     "@mpu/cmd-d2miro": ["@mpu/cmd-d2miro@../tslibs/cmd-d2miro/release/mpu-cmd-d2miro-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/subprocess"] }, "sha512-ehBCvzj06+a3QVKnIlZSCi03dEQhJJKd6ahkMiQwN+iOtbG9z3tNgl5gp9Cj3jc89MKjLVCdSMwuFaeq8pWQmQ=="],
 
     "@mpu/cmd-exec": ["@mpu/cmd-exec@../tslibs/cmd-exec/release/mpu-cmd-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "@mpu/portainer": "0.1.0" }, "optionalPeers": ["@mpu/command", "@mpu/exec", "@mpu/portainer"] }, "sha512-51xe5SMJgz3iQ8k2l9Yukrfla75PVntLROEVcI8cldTayp7hQgiXXSrfY7QQuwIMZSxqm12PGWikUKuqLffF5A=="],
+
+    "@mpu/cmd-glab": ["@mpu/cmd-glab@../tslibs/cmd-glab/release/mpu-cmd-glab-0.2.0.tgz", { "peerDependencies": { "@mpu/cmd-mr": "0.2.0", "@mpu/command": "0.3.0", "@mpu/gitlab": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-mr", "@mpu/command", "@mpu/gitlab"] }, "sha512-r6ofCTuNBIg+fxIvgxNKa7TDuHDVPdFI+EGmCVnKZU3Qh6fyYdgYI9Qn+DCD9XY9YWSKl8ik0TBZj7BQkxpMPw=="],
 
     "@mpu/cmd-health": ["@mpu/cmd-health@../tslibs/cmd-health/release/mpu-cmd-health-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-exec": "0.1.0", "@mpu/command": "0.3.0", "@mpu/portainer": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-exec", "@mpu/command", "@mpu/portainer"] }, "sha512-q/JhCDdR9hpH3op/3xzdNPo6tC5YPMnKUxnY3/SvXQa2hbnSuuLV7Dt1jNp/CCF4LgqF+jqPU+eRQW0ougjsbQ=="],
 
@@ -260,6 +267,8 @@
     "@mpu/cmd-mpclone": ["@mpu/cmd-mpclone@../tslibs/cmd-mpclone/release/mpu-cmd-mpclone-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/subprocess"] }, "sha512-b2yiyFTYqenPZLGNxOlOvyLEZLBCI4gulmXut5Q2av3r1Xlvx5dHVBnTljBzljzMYoyo8XNfzyjGflyE5EwyBA=="],
 
     "@mpu/cmd-mpinit": ["@mpu/cmd-mpinit@../tslibs/cmd-mpinit/release/mpu-cmd-mpinit-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/exec", "@mpu/subprocess"] }, "sha512-vFWXOrXHHwAOBtiT9b4Atn7Moo4+Kh+EkxfN8WKnOHXvJt9rCdphzUOX22lY5VmYFwcVK1th+J4skrJhRofthA=="],
+
+    "@mpu/cmd-mr": ["@mpu/cmd-mr@../tslibs/cmd-mr/release/mpu-cmd-mr-0.2.0.tgz", { "peerDependencies": { "@mpu/command": "0.3.0", "@mpu/gitlab": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command", "@mpu/gitlab"] }, "sha512-f8Oui5tBsgn6Eq6OuSZPPjKTJOpK7PYv+d7a7wk00OPiX/bLw5Ranc2sIpkfQbxlqjEKdjCMudnbZs1RVcriyw=="],
 
     "@mpu/cmd-nodecli": ["@mpu/cmd-nodecli@../tslibs/cmd-nodecli/release/mpu-cmd-nodecli-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/cmd-exec": "0.1.0", "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/cmd-exec", "@mpu/command", "@mpu/exec"] }, "sha512-EJ8pz5LOrzOqNpK0SHCdmFXnzzGeD+SjFm1E6Bp/BCwK8FECtJBVKksm8dKHXL8jpiH1vUH9tUYGhrReODzPjg=="],
 

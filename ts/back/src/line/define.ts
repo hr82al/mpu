@@ -43,7 +43,7 @@ import {
   type Root,
 } from "@mpu/language/program";
 import type { CommandIo } from "@mpu/command";
-import { atExecution, type HookReply } from "../claudehook/mod.ts";
+import { atExecution, type HookReply } from "@mpu/cmd-claudehook";
 import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";
 import { registryNodes, type TreeNode } from "./tree.ts";
