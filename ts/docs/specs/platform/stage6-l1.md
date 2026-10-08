@@ -1,0 +1,128 @@
+# Порция L1 — снять язык программ и образ
+
+Статус: к реализации (2026-10-08). План — `docs/plans/2026-10-08-tslibs-full-slicing.md`
+(этап 6); решения владельца D4, D5 (2026-10-07) и 2026-10-08 («входы программы
+уходят с языком, один отказ»). Карта кода снята с `main` `d5fbcc85` (ниже —
+«Граница»).
+
+## Кто и зачем
+
+Строка `mpu` — одна команда: путь → варианты → ключи → `end` → сообщения
+результату, `ask` первым словом, группа значения `do … end`, `--`, `stdin`.
+Язык программ поверх неё (переменные, блоки, тексты, несколько команд в
+строке) и образ (методы пользователя) снимаются: в журнале за 30 дней они
+встречались только в пробах приёмки. Последовательности команд — дело шелла и
+сценариев `mpu-flow`.
+
+## Прежние формы и один отказ (D5)
+
+Строка, в которой есть хотя бы одна прежняя форма, не исполняется ничем —
+ни частично, ни «с первой команды»:
+
+| Форма | Признак (слово строки вне `--` и вне группы значения `do … end`) |
+|---|---|
+| разделитель | слово `.` |
+| присваивание | слово `:=` |
+| блок | слово `done`; `do` с параметром блока (`do :x`) |
+| текст | слово, начинающееся с `^` |
+| переменная | слово, начинающееся с `@`, на месте получателя или значения ключа |
+| комментарий | слово `rem` |
+| число первым словом | `2 plus: 2` |
+| образ | `<путь> define:`, `<путь> forget:` (корневой `forget:` правил политики — не образ, остаётся), `image …` (`sync`, `export`) |
+| файл программы | `run:` |
+| программа на stdin | голый `mpu` / `mpu ask` без слов, у которого stdin — не пустой |
+
+Отказ один, код 2, без исполнения и без вопроса `ask`:
+
+```
+mpu: <прежняя форма> — не команда mpu: одна строка — одна команда
+(путь → варианты → ключи → end → формат); несколько команд — отдельными
+вызовами mpu или сценарием mpu-flow; справка — mpu help
+```
+
+`<прежняя форма>` — само найденное слово (первое по строке), в кавычках, если
+в нём пробел. Объект отказа (`platform/refusal-object.md`):
+`{reason: "не команда mpu", hint: "одна строка — одна команда …", candidates: []}`.
+Текст — «ошибка и как исправить», без слов «снято», «устарело», «больше нет»
+и без истории (D5).
+
+Подсказка про `body: @req.json` → `body-file:` в `keys.ts` — не язык (ключ
+файла), остаётся, со своим текстом.
+
+## Граница (снято с `main` `d5fbcc85`)
+
+Остаётся: `@mpu/language/frames`, `/messages` (кроме слов языка в `GRAMMAR`),
+`/objects` (цепочка, `Shape`, отказы, справка, дополнение), `/picture`.
+
+Уходит:
+
+- `@mpu/language/program` целиком (`tslibs/language/src/program/*`, вход
+  `./program`, `program.ts`) — новая версия пакета (договор [S.8]); слова
+  `blockEnd`, `comment`, `separator`, `assign`, `quote`, `variable`,
+  `parameter`, `run` из `GRAMMAR`; `separated()` в `objects/refusal.ts`
+  («; . — отдельным словом»).
+- `ts/back/src/line`: маршрут `PROGRAM` (`route.ts`), `program.ts`,
+  `runfile.ts`, `define.ts`, `sync.ts`, `imagedir.ts`, `methods.ts`, части
+  `mod.ts`/`origin.ts`/`ahead.ts`/`tree.ts`/`consulting.ts`, работающие с
+  программой и образом (обход `Ahead` для программы; `entryOf` для двери
+  `ask` остаётся); `programHelp()` из корневой справки; `run:` из корня.
+- Протокол ядро ↔ исполнитель: кадр `evaluate`, `Evaluation`,
+  `ports.evaluator`, `IN_PLACE_PROGRAMS` (`worker/*`).
+- Образ: пакет `@mpu/cmd-image`, `image.db` (`back.ts`, `backend/entry.ts`,
+  `backend/server.ts` — `#image`, снимок без поля `image`), ключ `image.dir`
+  реестра `config`, сид `allow` для `image export`, группа `image` реестра,
+  каталог `mpu/image/`, страница web «Образ» (`Image.tsx`, `MethodPanel.tsx`,
+  поле `image` в `api.ts`, `tree.ts`, `report.ts`, `Rules.tsx`), служба и
+  таймер `mpu-image-export` и их шаги в `install.sh` (установка сносит ранее
+  поставленные единицы).
+- Хуки: `programUnseen` в `@mpu/cmd-claudehook` и ветки `atExecution` для
+  программ, образа и `sync` — новая версия пакета.
+- Спеки (удалить): `platform/image.md`, `image-sync.md`, `image-export.md`,
+  `web-image.md`, `platform/evaluator.md`, `platform/program-input.md`;
+  править: `ask-composite.md`, `at-word-literal.md`, `stdin-on-request.md`,
+  `refusal-object.md`, `config.md` (`image.dir`), `policy.md`, `ask-door.md`,
+  `picture-frame.md`, `web.md`, `tslibs-n2.md`, `tslibs-commands.md`,
+  `line-executor.md` (кадр `evaluate`). Спеки правит хост; исполнитель
+  перечисляет нужные правки в отчёте с номерами строк.
+- Фикстуры: `fixtures/evaluator/`, `image/`, `image-export/`, `image-sync/`,
+  `web/*-image.json`; восемь программных случаев `ask-door/composite-*.json`
+  (остаётся `composite-allow-end.json`); в `claude-hook-pre-tool-use/cases.json`
+  случаи S17a, S17c–e, E5, E8, E12, E16 — переписать: прежняя форма → «нет
+  решения» хука (строка не исполнится, отказ даёт сама `mpu`).
+
+## Сценарии [S.n]
+
+1. `mpu x := 5`, `mpu kiten ls . kiten whoami`, `mpu ^привет^ print`,
+   `mpu @x print`, `mpu rem что-то`, `mpu 2 plus: 2`, `mpu kiten define: x`,
+   `mpu image sync dry`, `mpu run: a.mpu`, `printf 'kiten ls' | mpu` → каждый:
+   отказ из раздела выше (с найденным словом), код 2, ничего не исполнено,
+   журнал вызовов — одна запись с отказом.
+2. Строки грамматики — без изменений: `mpu kiten ls`, `mpu ask sql target: …
+   sql: "…"`, `mpu kiten card id: 1 end json`, группа `do … end`, `--`, `stdin`,
+   `mpu forget: …` (правила политики) — голдены `messages`, `objects`, команд —
+   побайтно прежние.
+3. `mpu help` — без абзаца о программе; `mpu describe`/справки команд — без
+   `run:`, `define:`, `image`; дополнение `mpu-complete` не предлагает их.
+4. `@mpu/language` новой версии без входа `./program`; `rg -n "program" tslibs/language/index.ts tslibs/language/package.json` — нет входа; пакет `cmd-image` удалён, `ts/package.json` без него; свежая установка с пустым кэшем Bun проходит.
+5. web: нет страницы «Образ» и поля `image`; `web:test` зелёный.
+6. `install.sh` на машине, где стоят `mpu-image-export.{service,timer}`,
+   выключает и удаляет их; повторная установка — без изменений.
+7. Хук `pre-tool-use`: прежняя форма → «нет решения» (Claude Code спрашивает
+   как обычно); `mpu kiten ls` — прежний ответ.
+8. Списки случаев: ушедшие (язык, образ, программа, `run:`) — поимённо в
+   отчёте с числом; остальные — до = после, строка в строку; гейты `ts/` и
+   пакетов `language`, `claudehook` (и удаление `cmd-image`) зелёные.
+9. Живьём (хост после установки): 5 прежних форм → отказ; `mpu kiten ls`,
+   `mpu help`, web без «Образа».
+
+## Инварианты
+
+- Ни одна прежняя форма не исполняет ни одной команды.
+- Грамматика строки и её голдены не меняются.
+
+## Пункты чек-листа
+
+`design.md`: 1 примитивы — одна команда на строку; 2 особые случаи — одна
+проверка прежних форм на входе, без веток в исполнении; 7 основание
+проверкой — [S.1], [S.2], [S.8]. `design-mpu.md`: 4 один источник — один текст
+отказа; прочее — ничего.
