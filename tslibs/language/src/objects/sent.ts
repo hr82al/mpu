@@ -86,11 +86,6 @@ class KeywordSent implements Named {
   }
 }
 
-/** Унарное сообщение из готового слова: его шлёт вычислитель программы. */
-export function unarySent(word: string): Named {
-  return new UnarySent(word);
-}
-
 /** Ключевое сообщение из готовых значений: остаток, отделённый получателем. */
 export function keywordSent(args: Args): Named {
   return new KeywordSent(args);

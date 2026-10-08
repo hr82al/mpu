@@ -14,7 +14,7 @@ import type { PictureData } from "@mpu/language/frames";
 import { asInbox, PICTURE_CHAT, savedOnStand } from "@mpu/cmd-telegram/testing";
 import { LastResults, type Memory, NO_CALLER } from "./it.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
-import { type Ran, runOnStand, unmarked, withStand } from "./testprogram.ts";
+import { type Ran, runOnStand, unmarked, withStand } from "./testline.ts";
 
 /** stdout `telegram file` для сообщения 43 (`S43`). */
 const S43 =

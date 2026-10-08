@@ -47,7 +47,7 @@ const LINE_TEXT: InputText = { of: (bytes) => new TextDecoder().decode(bytes) };
  * (`platform/stage6-l1.md`); байты не в UTF-8 отвергаются до сервера, BOM
  * уходит как есть — его снимают слова.
  */
-const PROGRAM_TEXT: InputText = {
+const BARE_TEXT: InputText = {
   of(bytes) {
     try {
       return utf8Of(bytes);
@@ -96,6 +96,6 @@ export function clientInput(
   words: readonly string[],
 ): ClientInput {
   if (facts.stdinIsTerminal()) return TERMINAL_INPUT;
-  const text = isBareLine(words) ? PROGRAM_TEXT : LINE_TEXT;
+  const text = isBareLine(words) ? BARE_TEXT : LINE_TEXT;
   return new PipedInput(() => facts.stdin(), text);
 }

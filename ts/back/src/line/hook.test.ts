@@ -33,7 +33,7 @@ import type { Memory } from "./it.ts";
 import { lineEntry, rulesOf } from "./mod.ts";
 import { openRegistryBook, registrySeeds } from "./seeds.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
-import { type Ran, runOnStand, type Stand, withStand } from "./testprogram.ts";
+import { type Ran, runOnStand, type Stand, withStand } from "./testline.ts";
 
 /** Файл-фикстура: посев виден, правила — ровно `rules`. */
 interface RuleSet {

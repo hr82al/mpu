@@ -1,7 +1,7 @@
 /**
  * Случаи `ask` в составной строке для голденов
  * `testdata/ask-door/composite-*.json` (`platform/ask-composite.md`,
- * «Golden-примеры»): строка на стенде программы с правилами таблицы спеки —
+ * «Golden-примеры»): строка на стенде строки с правилами таблицы спеки —
  * `kiten ls` allow, `kiten comment` ask, `sql` deny.
  */
 
@@ -15,7 +15,7 @@ import {
   runOnStand,
   unmarked,
   withStand,
-} from "./testprogram.ts";
+} from "./testline.ts";
 
 /** Что задаёт случай: строка с метками и обстоятельства. */
 export interface CompositeInput {

@@ -8,7 +8,7 @@ import { expect, it } from "vitest";
 import { GRAMMAR } from "@mpu/language/messages";
 import { LastResults } from "./it.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
-import { runOnStand, unmarked, withStand } from "./testprogram.ts";
+import { runOnStand, unmarked, withStand } from "./testline.ts";
 
 const { close: END } = GRAMMAR;
 

@@ -134,7 +134,7 @@
 
     "@mpu/kaiten": ["@mpu/kaiten@../kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
 
-    "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.2.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-Zx8mKbLlNcGiZhRi0Lh4A6Q3CUZZbkqnqzIAvk4IIFuG8mOGANoSMmqudjYdbQ2SfdkuXyJQelggCj+cJlY0GA=="],
+    "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.2.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-P5sFaZE4UM9QirRVMWUX70IxjXoqunuWBHacbSpzxUIiSl1Vw224WmbgY5vg5xBTEJJzumpIHHlQSPgZ/FWzpg=="],
 
     "@mpu/subprocess": ["@mpu/subprocess@../subprocess/release/mpu-subprocess-0.1.0.tgz", {}, "sha512-rNTQg5er9saOribajHJZub0XtW6EZvGME/DexKKVGGCCUcoN9d6XPucsjF7BfcxjgMnwlzGCjegB5odsEvJkHg=="],
 

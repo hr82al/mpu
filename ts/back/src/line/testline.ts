@@ -176,7 +176,7 @@ export interface Ran {
   readonly pictures: readonly PictureData[];
   /** Отметки `native` записи самой строки. */
   readonly native: readonly string[];
-  /** Записи, начатые строкой в журнале (подстроки программы). */
+  /** Записи, начатые строкой в журнале сверх своей (вложенные строки). */
   readonly records: readonly JournalRecord[];
 }
 

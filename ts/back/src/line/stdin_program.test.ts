@@ -11,7 +11,7 @@ import { ASK, DENY, Human, RuleBook, RulePath } from "@mpu/command/policy";
 import type { ChannelOf } from "./mod.ts";
 import { within } from "../backend/testback.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
-import { type Ran, runOnStand, type Stand, withStand } from "./testprogram.ts";
+import { type Ran, runOnStand, type Stand, withStand } from "./testline.ts";
 
 const BOM = [0xef, 0xbb, 0xbf];
 

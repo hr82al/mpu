@@ -84,18 +84,19 @@ export const DOOR: View = {
   },
 };
 
-/** Вход строки: слова, которыми он начинает подстроки (группы значений). */
+/** Вход строки: дверь и слова строки за ней. */
 export interface Entry {
-  readonly words: readonly string[];
+  /** Слова двери: ими начинаются подстроки (группы значений). */
+  readonly door: readonly string[];
+  /** Слова строки без двери. */
+  readonly said: readonly string[];
 }
 
-/** Через дверь: подстроки — той же дверью. */
-const THROUGH_DOOR: Entry = { words: [ASK_WORD] };
+/** Слова двери `ask`. */
+const DOOR_WORDS: readonly string[] = [ASK_WORD];
 
-/** Без двери. */
-const OUTSIDE: Entry = { words: [] };
-
-/** Вход строки по её первому слову. */
+/** Вход строки по её первому слову: через дверь или без неё. */
 export function entryOf(words: readonly string[]): Entry {
-  return words[0] === ASK_WORD ? THROUGH_DOOR : OUTSIDE;
+  const door = words[0] === ASK_WORD ? DOOR_WORDS : [];
+  return { door, said: words.slice(door.length) };
 }

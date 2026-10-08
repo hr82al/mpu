@@ -108,8 +108,8 @@ export function hasSeparator(word: string): boolean {
 }
 
 /**
- * Строка без слов — пусто или одно `ask`: при вводе из пайпа программа —
- * сам ввод (`stdin-on-request.md`, «Строка без слов»).
+ * Строка без слов — пусто или одно `ask`: слова во вводе из пайпа у неё —
+ * прежняя форма (`platform/stage6-l1.md`).
  */
 export function isBareLine(words: readonly string[]): boolean {
   if (words.length === 0) return true;

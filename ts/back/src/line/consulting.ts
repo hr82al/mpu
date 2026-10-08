@@ -46,12 +46,10 @@ export class LineConsulting implements Consulting {
   reply(words: readonly string[]): Promise<HookReply> {
     const { readStdin, owner } = this.#parts;
     const walked = walkedWords(words);
-    const door = entryOf(walked).words.length;
+    const { said } = entryOf(walked);
     const hook = { readStdin, consulting: this, owner };
-    return formerOf(words, walked.slice(door)).consult(() =>
-      hookLineOf(walked.slice(door), hook).consult(() =>
-        this.#probed(words, walked),
-      ),
+    return formerOf(words, said).consult(() =>
+      hookLineOf(said, hook).consult(() => this.#probed(words, walked)),
     );
   }
 

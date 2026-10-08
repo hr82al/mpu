@@ -76,14 +76,12 @@ export {
   NO_HINT,
   NO_REMEDY,
   ROOT_TEXT,
-  substituted,
-  substitutedAloud,
   throughGate,
   wholeLine,
 } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { GroupExit, runChain } from "./chain.ts";
-export { keywordSent, unarySent } from "./sent.ts";
+export { keywordSent } from "./sent.ts";
 export { ended, jsonText } from "./result.ts";
 export { nearest } from "./nearest.ts";
 export {

@@ -15,6 +15,7 @@ import {
 } from "@mpu/cmd-claudehook";
 import {
   consentAt,
+  type InvokeJournal,
   type Invoker,
   type Output,
   PRINT,
@@ -42,12 +43,13 @@ import { printed, type Speech } from "./printed.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
-import { entryOf, toDoor } from "./view.ts";
+import { type Entry, entryOf, toDoor } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
-import { hookLineOf, type OwnerHooks } from "./hook.ts";
+import { type HookPorts, hookLineOf, type OwnerHooks } from "./hook.ts";
+import type { Targets } from "./keyed.ts";
 import { formerOf } from "./former.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -215,131 +217,158 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return 1;
     }
     using _book = book;
-    const pictures = ports.pictures ?? UNSEEN;
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
-    const typedEntry = entryOf(walked);
+    const entry = entryOf(walked);
     // Прежняя форма отказывает раньше всего, что строка читает сама:
     // ввода и маршрута (`platform/stage6-l1.md`).
-    const door = typedEntry.words;
-    const said = walked.slice(door.length);
-    return await formerOf(argv, said).settle(
+    const line = { ports, argv, walked, entry, io, output, journal, book };
+    return await formerOf(argv, entry.said).settle(
       { io, speech, journal },
-      async () => {
-        // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
-        const stdin = new StdinOnce(io);
-        const lineIo: CommandIo = {
-          ...io,
-          readStdin: () => stdin.forCommand(),
-        };
-        const channel = ports.channel(io, output);
-        const parts = {
-          own: [
-            ...ports.rootMethods.map(rootMethod),
-            itMethod(ports.memory, output.stderr),
-          ],
-          targets: (like: string) => {
-            using db = io.openCacheDb();
-            return Promise.resolve(targetValues(db, like));
-          },
-        };
-        /**
-         * Строка `words` с выводом `out`: её собственная сессия; результат
-         * команды запоминает `memory`.
-         */
-        const sessionOf = (
-          words: readonly string[],
-          out: Speech,
-          memory: Memory,
-        ) =>
-          new Session({
-            book,
-            channel,
-            output: out,
-            dispatch: (view, order, delivery) =>
-              ports.execute(() =>
-                runLine(
-                  order.argv(view.executed(words)),
-                  lineIo,
-                  out,
-                  journal,
-                  picturing(remembering(delivery ?? PRINT, memory), pictures),
-                  ports.invoker,
-                ),
-              ),
-            streams: (view, order) => streams(order.argv(view.executed(words))),
-            consent: (view, order) =>
-              consentAt(order.argv(view.executed(words))),
-            terminal: io.stdinIsTerminal(),
-            redirect: () => toDoor(),
-          });
-        const values: LineValues = new LineValues(async (words) => {
-          const texts: string[] = [];
-          const captured: Speech = {
-            stdout: (text) => void texts.push(text),
-            stderr: speech.stderr,
-            refusal: speech.refusal,
-          };
-          const group = [...door, ...words];
-          // Результат группы — значение ключа, а не результат строки.
-          const root = registryRoot(
-            sessionOf(group, captured, NO_CALLER),
-            book,
-            parts,
-          );
-          const outcome = await runChain(group, root, values);
-          return { outcome, printed: texts.join("") };
-        }, stdin);
-        /** Корень строки, чью сессию `wrap` может подменить. */
-        const rootOf = (wrap: (session: Line) => Line) =>
-          registryRoot(wrap(sessionOf(argv, speech, ports.memory)), book, {
-            ...parts,
-            stripped: strippedOf(argv),
-          });
-        const root = rootOf((session) => session);
-        /**
-         * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
-         * — с окружением клиента и сигналом обрыва строки.
-         */
-        const asking = ports.owner ?? UNASKED;
-        const owner: OwnerHooks = {
-          permission: (text) => asking.permission(text, lineIo.signal),
-          stop: (text) => asking.stop(text),
-          notification: (text) => asking.notification(text),
-          elicitation: (text) => asking.elicitation(text, lineIo.signal),
-        };
-        const hook = {
-          readStdin: lineIo.readStdin,
-          owner,
-          consulting: new LineConsulting({
-            book,
-            rootMethods: ports.rootMethods,
-            targets: parts.targets,
-            readStdin: lineIo.readStdin,
-            owner,
-          }),
-        };
-        const context = {
-          speech,
-          walk: async (
-            wrap: (session: Line, words: readonly string[]) => Line,
-          ) =>
-            printed(
-              await runChain(
-                walked,
-                rootOf((session) => wrap(session, argv)),
-                values,
-              ),
-              speech,
-            ),
-        };
-        return await hookLineOf(said, hook).settle(context, () =>
-          runChain(walked, root, values).then((outcome) =>
-            printed(outcome, speech),
-          ),
-        );
-      },
+      () => admittedLine(line, speech),
     );
   };
+}
+
+/** Строка, прошедшая проверку прежних форм: чем её вести дальше. */
+interface AdmittedLine {
+  readonly ports: LinePorts;
+  readonly argv: readonly string[];
+  /** Слова строки без `--json`, с дверью. */
+  readonly walked: readonly string[];
+  readonly entry: Entry;
+  readonly io: CommandIo;
+  readonly output: Output;
+  readonly journal: InvokeJournal;
+  readonly book: RuleBook;
+}
+
+/** Строка `words` с выводом `out` и памятью результата `memory`. */
+type SessionOf = (
+  words: readonly string[],
+  out: Speech,
+  memory: Memory,
+) => Session;
+
+/**
+ * Строка без прежней формы: строка-хук или обычная цепочка по дереву с
+ * группами значений той же дверью.
+ */
+async function admittedLine(
+  line: AdmittedLine,
+  speech: Speech,
+): Promise<number> {
+  const { ports, argv, walked, io, output, book } = line;
+  // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
+  const stdin = new StdinOnce(io);
+  const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
+  const parts = rootParts(ports, io, output);
+  const sessionOf = sessionsOf(line, lineIo);
+  const values: LineValues = new LineValues(async (words) => {
+    const texts: string[] = [];
+    const captured: Speech = { ...speech, stdout: (t) => void texts.push(t) };
+    const group = [...line.entry.door, ...words];
+    // Результат группы — значение ключа, а не результат строки.
+    const root = registryRoot(
+      sessionOf(group, captured, NO_CALLER),
+      book,
+      parts,
+    );
+    const outcome = await runChain(group, root, values);
+    return { outcome, printed: texts.join("") };
+  }, stdin);
+  /** Корень строки, чью сессию `wrap` может подменить. */
+  const rootOf = (wrap: (session: Line) => Line) =>
+    registryRoot(wrap(sessionOf(argv, speech, ports.memory)), book, {
+      ...parts,
+      stripped: strippedOf(argv),
+    });
+  const walk = async (
+    wrap: (session: Line, words: readonly string[]) => Line,
+  ) =>
+    printed(
+      await runChain(
+        walked,
+        rootOf((session) => wrap(session, argv)),
+        values,
+      ),
+      speech,
+    );
+  const hook = hookPorts(ports, lineIo, book, parts.targets);
+  return await hookLineOf(line.entry.said, hook).settle({ speech, walk }, () =>
+    walk((session) => session),
+  );
+}
+
+/** Методы корня строки и значения ключа `target:` из кэш-БД. */
+function rootParts(ports: LinePorts, io: CommandIo, output: Output) {
+  return {
+    own: [
+      ...ports.rootMethods.map(rootMethod),
+      itMethod(ports.memory, output.stderr),
+    ],
+    targets: (like: string) => {
+      using db = io.openCacheDb();
+      return Promise.resolve(targetValues(db, like));
+    },
+  };
+}
+
+/**
+ * Сессии строки: результат команды запоминает `memory`, картинки — к
+ * двери, исполнение — местом, которое дала точка входа.
+ */
+function sessionsOf(line: AdmittedLine, lineIo: CommandIo): SessionOf {
+  const { ports, io, output, journal, book } = line;
+  const channel = ports.channel(io, output);
+  const pictures = ports.pictures ?? UNSEEN;
+  return (words, out, memory) =>
+    new Session({
+      book,
+      channel,
+      output: out,
+      dispatch: (view, order, delivery) =>
+        ports.execute(() =>
+          runLine(
+            order.argv(view.executed(words)),
+            lineIo,
+            out,
+            journal,
+            picturing(remembering(delivery ?? PRINT, memory), pictures),
+            ports.invoker,
+          ),
+        ),
+      streams: (view, order) => streams(order.argv(view.executed(words))),
+      consent: (view, order) => consentAt(order.argv(view.executed(words))),
+      terminal: io.stdinIsTerminal(),
+      redirect: () => toDoor(),
+    });
+}
+
+/**
+ * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
+ * — с окружением клиента и сигналом обрыва строки.
+ */
+function hookPorts(
+  ports: LinePorts,
+  lineIo: CommandIo,
+  book: RuleBook,
+  targets: Targets,
+): HookPorts {
+  const asking = ports.owner ?? UNASKED;
+  const owner: OwnerHooks = {
+    permission: (text) => asking.permission(text, lineIo.signal),
+    stop: (text) => asking.stop(text),
+    notification: (text) => asking.notification(text),
+    elicitation: (text) => asking.elicitation(text, lineIo.signal),
+  };
+  const consulting = new LineConsulting({
+    book,
+    rootMethods: ports.rootMethods,
+    targets,
+    readStdin: lineIo.readStdin,
+    owner,
+  });
+  return { readStdin: lineIo.readStdin, owner, consulting };
 }

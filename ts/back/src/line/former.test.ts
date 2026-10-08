@@ -17,7 +17,7 @@ import { makeInvokeLog } from "@mpu/invokelog";
 import { runJournaled } from "../process/mod.ts";
 import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
-import { runOnStand, withStand } from "./testprogram.ts";
+import { runOnStand, withStand } from "./testline.ts";
 
 /** Совет отказа — после найденного слова; один на все прежние формы. */
 const ADVICE =
@@ -137,6 +137,8 @@ const FORMER: readonly {
   { argv: ["kiten", "ls", "each:", "do", ":c", "it", "done"], word: '"do :c"' },
   { argv: ["kiten", "forget:", "x"], word: "forget:" },
   { argv: ["kiten", "card", "id:", "@c"], word: "@c" },
+  { argv: ["kiten", "card", "--id", "@c"], word: "@c" },
+  { argv: ["kiten", "comment", "id:", "5", "--", "text:", "."], word: "." },
   { argv: ["kiten", "ls", "done"], word: "done" },
   { argv: ["kiten", "comment", "id:", "5", "text:", "^итог^"], word: "^итог^" },
 ];
@@ -176,7 +178,9 @@ const PLAIN: readonly (readonly string[])[] = [
   ["kiten", "card", "id:", "do", "it", ".", "end", "help"],
   ["forget:", "kiten"],
   ["log", "run:", "20260801-120000.000-1003"],
+  ["kiten", "ls", "@x"],
   ["api", "get-ss-values", "id:", "ss1", "body:", "@req.json"],
+  ["api", "get-ss-values", "id:", "ss1", "--body", "@req.json"],
   ["help"],
 ];
 

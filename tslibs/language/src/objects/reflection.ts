@@ -281,7 +281,7 @@ export function messageOf<S>(method: Method<S>): MessageLine {
 
 /**
  * Протокол, который понимает любой объект, сообщениями по алфавиту — для
- * снимка дерева (`web-image.md`, «протокол корня»).
+ * снимка дерева (`web.md`).
  */
 export function protocolMessages(): MessageLine[] {
   return sorted([

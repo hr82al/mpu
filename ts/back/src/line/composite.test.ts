@@ -13,7 +13,7 @@ import {
   runComposite,
 } from "./testcomposite.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
-import { runOnStand, type Stand, unmarked, withStand } from "./testprogram.ts";
+import { runOnStand, type Stand, unmarked, withStand } from "./testline.ts";
 
 /** Строка с метками — словами строки. */
 function words(line: string): string[] {

@@ -167,9 +167,8 @@ const FORMER_EXAMPLES: ReadonlySet<string> = new Set([
 
 /** Пример — не прежняя форма: её строка отказала бы до маршрута. */
 async function isFormer(words: readonly string[]): Promise<boolean> {
-  const said = words.slice(entryOf(words).words.length);
   const passed = new Undecided("пример дошёл до маршрута");
-  const reply = await formerOf(words, said).consult(() =>
+  const reply = await formerOf(words, entryOf(words).said).consult(() =>
     Promise.resolve(passed),
   );
   return reply !== passed;

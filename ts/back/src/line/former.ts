@@ -213,9 +213,10 @@ function leafOf(said: readonly string[]): LeafKeys {
   return NO_LEAF;
 }
 
-/** Слово — ключ ключевого сообщения: `id:`. */
-function isKey(word: string | undefined): boolean {
-  return word !== undefined && word.length > 1 && word.endsWith(":");
+/** Слово — ключ: `id:` или `--id` (сам `--` — знак литерала). */
+function isKey(word: string): boolean {
+  if (word.endsWith(":")) return word.length > 1;
+  return word.startsWith("--") && word.length > 2;
 }
 
 /** Параметр блока: `:x` сразу за `do`. */
@@ -244,11 +245,14 @@ function closingOf(said: readonly string[], open: number): number {
   return -1;
 }
 
-/** Слово `word` на месте `at` за словом `before` — прежняя форма. */
+/**
+ * Слово `word` на месте `at` — прежняя форма; `key` — ключ, чьё значение
+ * это слово (нет — `undefined`).
+ */
 function marks(
   word: string,
   at: number,
-  before: string | undefined,
+  key: string | undefined,
   leaf: LeafKeys,
 ): boolean {
   if (WHOLE.has(word) || word.startsWith(QUOTE)) return true;
@@ -256,7 +260,7 @@ function marks(
   if (!word.startsWith(VARIABLE)) return false;
   // Переменная — на месте получателя или значения ключа; `@путь` у
   // ключа файла — его подсказка, не язык.
-  return at === 0 || (isKey(before) && !leaf.readsFile(before));
+  return at === 0 || (key !== undefined && !leaf.readsFile(key));
 }
 
 /** Первая прежняя форма в словах строки; нет — `ADMITTED`. */
@@ -266,8 +270,13 @@ function formerIn(said: readonly string[]): Former {
     return new FormerForm(first, said);
   }
   const leaf = leafOf(said);
+  // Ключ, чьё значение — следующее слово; слово за `--` и группа ключом
+  // не бывают.
+  let key: string | undefined;
   for (let at = 0; at < said.length; at++) {
     const word = said[at];
+    const valueOf = key;
+    key = undefined;
     if (word === GRAMMAR.literal) {
       at++;
       continue;
@@ -278,9 +287,9 @@ function formerIn(said: readonly string[]): Former {
       at = Math.max(at, closingOf(said, at));
       continue;
     }
-    const before = said[at - 1];
-    if (leaf.asIs(before, word)) continue;
-    if (marks(word, at, before, leaf)) return new FormerForm(word, said);
+    if (leaf.asIs(valueOf, word)) continue;
+    if (marks(word, at, valueOf, leaf)) return new FormerForm(word, said);
+    if (isKey(word)) key = word;
   }
   return ADMITTED;
 }

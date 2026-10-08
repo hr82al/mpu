@@ -8196,11 +8196,6 @@
           "purpose": "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии."
         },
         {
-          "selector": "cardsIn:",
-          "kind": "keyword",
-          "purpose": "образ: мои в колонке"
-        },
-        {
           "selector": "checklist",
           "kind": "unary",
           "purpose": "чек-листы карточки: ls | add | check | uncheck"
@@ -8236,11 +8231,6 @@
           "purpose": "Список карточек Kaiten, где я участник."
         },
         {
-          "selector": "mine",
-          "kind": "unary",
-          "purpose": "образ: мои"
-        },
-        {
           "selector": "move",
           "kind": "unary",
           "purpose": "Перенести карточку Kaiten по осям доска / дорожка / колонка."
@@ -8259,11 +8249,6 @@
           "selector": "roles",
           "kind": "unary",
           "purpose": "Роли компании — типы работ учёта времени."
-        },
-        {
-          "selector": "shipped",
-          "kind": "unary",
-          "purpose": "образ: готово"
         },
         {
           "selector": "spaces",
