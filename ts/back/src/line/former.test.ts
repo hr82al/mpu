@@ -138,6 +138,7 @@ const FORMER: readonly {
   { argv: ["kiten", "forget:", "x"], word: "forget:" },
   { argv: ["kiten", "card", "id:", "@c"], word: "@c" },
   { argv: ["kiten", "card", "--id", "@c"], word: "@c" },
+  { argv: ["nosuch", "id:", "@c"], word: "@c" },
   { argv: ["kiten", "comment", "id:", "5", "--", "text:", "."], word: "." },
   { argv: ["kiten", "ls", "done"], word: "done" },
   { argv: ["kiten", "comment", "id:", "5", "text:", "^итог^"], word: "^итог^" },

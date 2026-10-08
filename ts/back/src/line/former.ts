@@ -178,7 +178,7 @@ class Leaf implements LeafKeys {
     const addresses = addressesOf(command, formats);
     this.#files = new Set(
       Object.keys(command.fromFile).map((input) =>
-        keyName(addresses.get(input) ?? input),
+        fileKeyOf(addresses.get(input), input),
       ),
     );
   }
@@ -197,11 +197,18 @@ class Leaf implements LeafKeys {
   }
 }
 
-/** Имя ключа по его слову: `text:` и `--text` → `text`. */
-function keyName(word: string): string {
-  if (word.endsWith(":")) return word.slice(0, -1);
-  if (word.startsWith("--")) return word.slice(2);
-  return word;
+/**
+ * Имя ключа входа `input`, чей файл читается своим ключом: из адреса
+ * `body:`; вход без адреса-ключа — его имя.
+ */
+function fileKeyOf(address: string | undefined, input: string): string {
+  if (address === undefined || !address.endsWith(":")) return input;
+  return address.slice(0, -1);
+}
+
+/** Имя ключа по слову-ключу (`isKey`): `text:` и `--text` → `text`. */
+function keyName(key: string): string {
+  return key.endsWith(":") ? key.slice(0, -1) : key.slice(2);
 }
 
 /** Лист реестра, которым начата строка; не начата — `NO_LEAF`. */
