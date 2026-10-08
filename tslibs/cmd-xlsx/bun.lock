@@ -99,7 +99,7 @@
 
     "@mpu/base": ["@mpu/base@../base/release/mpu-base-0.1.0.tgz", {}, "sha512-MmdyhhFlR8KouPxnui6azLCNcbkMRMeGkc+Xdh86biutBwhhZu1AavdQ7gBfIUBnR21TxLrkwlEVX1lf7ghxPg=="],
 
-    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-iT2GI5KWelHgGKNz2v94qdFmHvu7D62Hm0vULtxWPtaPpK3deZCBcAMhZgMNDksL5jQz0CenqKZkOqOMRGLWhw=="],
+    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-msup9D6vJlnJTW5jqK28xmPCMzaKpl92cAacA4/sd5OE/iwJdb/bs9Y5d9kP0oCWPPtSkXsGKBD/sMMcesE/0g=="],
 
     "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.1.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-+wbWMJ4qyCFxFKHIAyzzIw1MbsYnT9JQH7/yIWMw3VJuUz7t0J31AFEjlU/Z81jPAtZgIzJbd86l72dddAtmgA=="],
 

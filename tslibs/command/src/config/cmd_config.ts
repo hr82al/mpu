@@ -68,13 +68,6 @@ type ConfigEntry = z.infer<typeof entrySchema>;
  */
 export type ConfigIo = Pick<CommandIo, "openCacheDb" | "env">;
 
-/** Отказ на имя вне реестра: закрытый список — часть контракта. */
-function unknownKey(registry: ConfigRegistry, name: string): UsageError {
-  return new UsageError(`unknown config key: "${name}"`, {
-    hint: `допустимые ключи: ${registry.names()}`,
-  });
-}
-
 /** Действующее значение ключа: запись хранилища, иначе умолчание. */
 function entryOf(
   entry: ConfigKey,
@@ -167,10 +160,7 @@ function configResult(
   if (args.unset && args.key === undefined) {
     throw new UsageError("unset требует ключ key:");
   }
-  const entry = args.key === undefined ? undefined : registry.find(args.key);
-  if (args.key !== undefined && entry === undefined) {
-    throw unknownKey(registry, args.key);
-  }
+  const entry = args.key === undefined ? undefined : registry.key(args.key);
   if (entry !== undefined && args.value !== undefined) {
     if (args.unset) {
       // Молча проглотить значение нельзя: оператор просил два разных
@@ -264,7 +254,7 @@ export function renderConfig(
   // строкового пустой вывод означает «не задано», и на это опираются
   // скрипты (`[ -z "$(mpu config sheet.default)" ]`, контракт спеки).
   if (entry.source === "config") return `${entry.value}\n`;
-  return registry.find(entry.key)?.type === "int" ? `${entry.value}\n` : "";
+  return registry.key(entry.key).type === "int" ? `${entry.value}\n` : "";
 }
 
 /**

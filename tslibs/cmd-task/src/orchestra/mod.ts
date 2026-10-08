@@ -4,7 +4,7 @@
  */
 
 export type { Hands } from "./ports.ts";
-export { runSteps, STEP_MS, SYSTEM_CLOCK } from "./run.ts";
+export { runSteps, SYSTEM_CLOCK } from "./run.ts";
 export { Orchestra } from "./orchestra.ts";
 export {
   SYSTEM_LETTERS,

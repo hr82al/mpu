@@ -114,7 +114,7 @@
 
     "@mpu/cmd-update": ["@mpu/cmd-update@../cmd-update/release/mpu-cmd-update-0.1.0.tgz", { "dependencies": { "pg": "8.22.0" }, "peerDependencies": { "@mpu/cmd-logs": "0.1.0", "@mpu/command": "0.1.0", "@mpu/http": "0.1.0", "@mpu/loki": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-logs", "@mpu/command", "@mpu/http", "@mpu/loki"] }, "sha512-mIWj69VZRwcOoaFVxUWKuaMymA6kCMiJBkHSTV55UHPdltR8rP4s13dRuHdriDxg7Ycf43HaooEJ/aHJmhvghQ=="],
 
-    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-iT2GI5KWelHgGKNz2v94qdFmHvu7D62Hm0vULtxWPtaPpK3deZCBcAMhZgMNDksL5jQz0CenqKZkOqOMRGLWhw=="],
+    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-msup9D6vJlnJTW5jqK28xmPCMzaKpl92cAacA4/sd5OE/iwJdb/bs9Y5d9kP0oCWPPtSkXsGKBD/sMMcesE/0g=="],
 
     "@mpu/http": ["@mpu/http@../http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-UQJVeD/OBMke5ILXb6/8fxX3n6UU+xSw85QpQyp/LeHA0/OQd8YqM3byoGjUMzL5Ip1f0HfAAL6JB9YIDGJVhA=="],
 

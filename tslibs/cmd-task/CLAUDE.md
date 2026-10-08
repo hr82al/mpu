@@ -97,7 +97,8 @@ bun run check:release             # сборка и упаковка = архи�
 - `@mpu/base` (архивом) — ошибка ОС (`/oserror`).
 - `@mpu/subprocess` (архивом) — запуск `tmux` и `notify-send` портами
   оркестратора.
-- `@mpu/testing` (dev, архивом) — области `describe` и поддельные часы (`@mpu/testing/vitest`).
+- `@mpu/testing` (dev, архивом) — поддельные часы
+  (`@mpu/testing/vitest`, `fakeTimers`).
 - Прочие `@mpu/*` в `devDependencies` — необязательные peer'ы пакетов выше,
   нужные тестам для загрузки; поверхность пакета их не называет.
 - `vitest` 3.2.4 — тесты под тремя рантаймами; `@biomejs/biome` — формат и

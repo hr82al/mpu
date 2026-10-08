@@ -6,5 +6,14 @@
  * приложения.
  */
 
-export * from "./src/orchestra/mod.ts";
+export {
+  type Hands,
+  Orchestra,
+  runSteps,
+  SYSTEM_CLOCK,
+  SYSTEM_LETTERS,
+  SYSTEM_RUN,
+  SystemNotices,
+  TmuxWindows,
+} from "./src/orchestra/mod.ts";
 export type { Place, Windows } from "./src/orchestra/ports.ts";
