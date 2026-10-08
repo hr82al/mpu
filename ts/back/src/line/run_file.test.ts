@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
 import { type CommandIo, DomainError } from "@mpu/command";
-import { makeInvokeLog } from "../invokelog/mod.ts";
+import { makeInvokeLog } from "@mpu/invokelog";
 import {
   ASK,
   DENY,

@@ -17,7 +17,7 @@ import {
   UsageError,
 } from "@mpu/command";
 import { windowStart } from "@mpu/base/dates";
-import { DEFAULT_KEEP } from "../invokelog/mod.ts";
+import { DEFAULT_KEEP } from "@mpu/invokelog";
 import { type LogRecord, parseRecords } from "./parse.ts";
 import { recordOfRun, selectRecords } from "./select.ts";
 

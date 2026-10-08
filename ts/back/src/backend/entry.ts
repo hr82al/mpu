@@ -6,7 +6,7 @@
 
 import type { CommandIo } from "@mpu/command";
 import type { Output } from "../entrypoint/mod.ts";
-import type { InvokeLog } from "../invokelog/mod.ts";
+import type { InvokeLog } from "@mpu/invokelog";
 import { ensureAccessToken } from "../mcp/mod.ts";
 import { ownerQuestions } from "../botquestions/mod.ts";
 import { VERSION } from "../version.ts";

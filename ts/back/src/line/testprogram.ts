@@ -16,7 +16,7 @@ import {
   type InvokeCommand,
   type InvokeLog,
   NO_INVOKE_LOG,
-} from "../invokelog/mod.ts";
+} from "@mpu/invokelog";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { GRAMMAR } from "@mpu/language/messages";
 import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";

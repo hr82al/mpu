@@ -759,11 +759,14 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   пакет не несёт: нужную часть поверхности объявляет потребитель
   (`back/src/backend/loopback.ts`), как у `pg`. Зависимостей нет.
 
-- `proper-lockfile` — лок ротации журнала вызовов (`back/src/invokelog/file.ts`)
-  вместо flock Deno: у `node:fs` flock нет (`platform/node-runtime.md`, [S.7],
-  решение владельца 2026-10-07). Своих типов не несёт — поверхность объявляет
-  потребитель. Грузится лениво: его `graceful-fs` при загрузке подменяет
-  `fs.close`.
+- `@mpu/invokelog` — журнал вызовов: запись на исполнение команды, маска
+  секретов, формат записи, ключи `MPU_LOG_*`, дозапись и ротация под локом
+  (`docs/specs/platform/tslibs-n4.md`, поведение — `platform/invoke-log.md`);
+  библиотека `tslibs/invokelog`, архивом `release/`. Лок ротации
+  (`proper-lockfile`) — её зависимость, «зачем» — в
+  `tslibs/invokelog/CLAUDE.md`. Проводка журнала в точки входа
+  (`back/src/invokelog/wiring.test.ts` — тест на стенде приложения) и
+  чтение журнала (`mpu log`) остаются в `ts/`.
 - `pg` — единственный клиент PostgreSQL: `mpu sql-ro` (`docs/specs/sql-ro.md`) и
   `mpu update`. Выбран живой проверкой на PostgreSQL 16: текст пользователя
   уходит серверу одним вызовом, расширенный протокол запрещает
@@ -912,7 +915,7 @@ git commit -m "…" -- ts/              # коммит с pathspec
 
 Каркас собран целиком: реестр команд (`src/registry/`,
 `docs/specs/platform/registry.md`), MCP-сервер с профилями `ro`/`rw`
-(`src/mcp/`), журнал вызовов (`src/invokelog/`), локальный конфиг и
+(`src/mcp/`), журнал вызовов (`@mpu/invokelog`), локальный конфиг и
 кэш-БД (`@mpu/command/config`, `@mpu/command/store`). Точка входа —
 `src/entrypoint/`.
 

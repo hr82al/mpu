@@ -17,7 +17,7 @@ import {
 import type { Command, CommandIo } from "@mpu/command";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
-import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
+import { NO_INVOKE_LOG } from "@mpu/invokelog";
 import { makeFakeIo } from "@mpu/command/testing";
 
 /** Фикстура спеки: класс, запрос и ожидаемый ответ. */

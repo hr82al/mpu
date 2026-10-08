@@ -7,7 +7,7 @@
 import { deepStrictEqual } from "node:assert/strict";
 import type { CacheDb, CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
+import { NO_INVOKE_LOG } from "@mpu/invokelog";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
 import { fakeConfigDb, makeFakeIo } from "@mpu/command/testing";

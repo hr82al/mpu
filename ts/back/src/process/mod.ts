@@ -13,7 +13,7 @@ import {
   type InvokeRecording,
   makeInvokeLog,
   NO_INVOKE_LOG,
-} from "../invokelog/mod.ts";
+} from "@mpu/invokelog";
 import {
   defaultCredsDir,
   defaultInvokeLogPath,

@@ -8,7 +8,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
 import { Image } from "../image/mod.ts";
-import { makeInvokeLog } from "../invokelog/mod.ts";
+import { makeInvokeLog } from "@mpu/invokelog";
 import { runLog } from "../log/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { ALLOW, DENY, RuleBook, RulePath } from "@mpu/command/policy";

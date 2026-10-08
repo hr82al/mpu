@@ -31,7 +31,7 @@ import {
   type RpcMessage,
   SUPPORTED_VERSIONS,
 } from "./jsonrpc.ts";
-import type { InvokeLog, InvokeRecording } from "../invokelog/mod.ts";
+import type { InvokeLog, InvokeRecording } from "@mpu/invokelog";
 import {
   findTool,
   type Profile,

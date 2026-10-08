@@ -5,7 +5,7 @@
  */
 
 import { expect, it } from "vitest";
-import type { InvokeCommand, InvokeLog } from "../invokelog/mod.ts";
+import type { InvokeCommand, InvokeLog } from "@mpu/invokelog";
 import { makeFakeIo } from "@mpu/command/testing";
 import { type CliEntry, runJournaled } from "./mod.ts";
 

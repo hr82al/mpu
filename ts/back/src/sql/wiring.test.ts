@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
-import { NO_INVOKE_LOG, type OutputPolicy } from "../invokelog/mod.ts";
+import { NO_INVOKE_LOG, type OutputPolicy } from "@mpu/invokelog";
 import { type CommandIo, DomainError } from "@mpu/command";
 import { openCacheDb } from "@mpu/command/store";
 

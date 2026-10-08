@@ -16,6 +16,7 @@
         "@mpu/exec": "file:../tslibs/exec/release/mpu-exec-0.1.0.tgz",
         "@mpu/gitlab": "file:../tslibs/gitlab/release/mpu-gitlab-0.1.0.tgz",
         "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
+        "@mpu/invokelog": "file:../tslibs/invokelog/release/mpu-invokelog-0.1.0.tgz",
         "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
         "@mpu/language": "file:../tslibs/language/release/mpu-language-0.1.0.tgz",
         "@mpu/loki": "file:../tslibs/loki/release/mpu-loki-0.1.0.tgz",
@@ -27,7 +28,6 @@
         "@tanstack/react-router": "1.170.38",
         "hono": "4.12.33",
         "pg": "8.22.0",
-        "proper-lockfile": "4.1.2",
         "react": "19.2.0",
         "react-dom": "19.2.0",
         "typescript": "5.9.3",
@@ -209,6 +209,8 @@
     "@mpu/gitlab": ["@mpu/gitlab@../tslibs/gitlab/release/mpu-gitlab-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/http": "0.1.0", "@mpu/subprocess": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/base", "@mpu/http", "@mpu/subprocess", "@mpu/testing"] }, "sha512-x/nR2bYWYQRKiaHi6Iuf3HYtx9QuZ6zNF9rrZmb4OOAFoLzSMDlOovhpfkUO/h5C7dr9kWe9LM9rjloHgqOxCA=="],
 
     "@mpu/http": ["@mpu/http@../tslibs/http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-UQJVeD/OBMke5ILXb6/8fxX3n6UU+xSw85QpQyp/LeHA0/OQd8YqM3byoGjUMzL5Ip1f0HfAAL6JB9YIDGJVhA=="],
+
+    "@mpu/invokelog": ["@mpu/invokelog@../tslibs/invokelog/release/mpu-invokelog-0.1.0.tgz", { "dependencies": { "proper-lockfile": "4.1.2" }, "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0" }, "optionalPeers": ["@mpu/base", "@mpu/command"] }, "sha512-K0yGfLC81dPsB8gHcM+we0ecsCAEHaZDg1dHb0FmJPUA6ZIenW3LZS7X/h4Jq9JfOIubzccOnd2lX+rthr/P9g=="],
 
     "@mpu/kaiten": ["@mpu/kaiten@../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
 

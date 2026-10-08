@@ -26,7 +26,7 @@ import {
   RulePath,
   type Verdict,
 } from "@mpu/command/policy";
-import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
+import { NO_INVOKE_LOG } from "@mpu/invokelog";
 import { openCacheDb } from "@mpu/command/store";
 import { makeFakeIo } from "@mpu/command/testing";
 import type { Memory } from "./it.ts";

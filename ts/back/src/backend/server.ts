@@ -13,7 +13,7 @@ import {
   type InvokeLog,
   type InvokeRecording,
   NO_INVOKE_LOG,
-} from "../invokelog/mod.ts";
+} from "@mpu/invokelog";
 import {
   LastResults,
   lineEntry,

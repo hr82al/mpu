@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import type { CommandIo } from "@mpu/command";
-import type { InvokeLog } from "../invokelog/mod.ts";
+import type { InvokeLog } from "@mpu/invokelog";
 import { makeFakeIo } from "@mpu/command/testing";
 import { secretText } from "../runtime/mod.ts";
 import { NO_BOT, type OwnerQuestions } from "../botquestions/mod.ts";

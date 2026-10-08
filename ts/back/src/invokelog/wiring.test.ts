@@ -1,8 +1,9 @@
 /**
  * Вплетение журнала в обе точки входа (`platform/invoke-log.md`):
  * CLI-вызов и вызов тула MCP-сервером. Проверяется не формат записи (он
- * закреплён рядом, `record_test.ts`), а то, у каких вызовов запись
- * появляется и что в неё попадает.
+ * закреплён в пакете `@mpu/invokelog`, `src/record.test.ts`), а то, у
+ * каких вызовов запись появляется и что в неё попадает. Тест остался в
+ * `ts/`: ему нужен стенд приложения — точка входа, MCP-сервер, реестр.
  */
 
 import { describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ import { nativeEntry } from "../mcp/native_tool.ts";
 import { type Command, defineCommand, DomainError, NO_ONE } from "@mpu/command";
 import { commands } from "../registry/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
-import { type InvokeLog, makeInvokeLog } from "./mod.ts";
+import { type InvokeLog, makeInvokeLog } from "@mpu/invokelog";
 
 /** Стенд: журнал поверх временного файла и вывод, который он копирует. */
 interface Stand {

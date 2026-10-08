@@ -10,7 +10,7 @@
  */
 
 import type { CommandIo, Policy } from "@mpu/command";
-import type { OutputPolicy } from "../invokelog/mod.ts";
+import type { OutputPolicy } from "@mpu/invokelog";
 
 /** Профиль сервера: путь `/ro` или `/rw`. */
 export type Profile = "ro" | "rw";
