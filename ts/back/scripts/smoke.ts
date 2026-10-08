@@ -1404,18 +1404,20 @@ function checks(subject: Subject): readonly Check[] {
         );
       },
     ],
-    // Файл программы `run:` читает ядро (`program-input.md`, «держится
-    // на»), ключ вызова — параметр.
+    // Прежнюю форму строки отказывает собранное ядро, ничего не исполняя
+    // (`platform/stage6-l1.md`): файла `run:` оно не читает.
     [
-      "run: файл программы читается ядром",
+      "прежняя форма: отказ ядра до исполнения",
       async () => {
-        const path = `${subject.home}/probe.mpu`;
-        await writeFile(path, "@col print");
-        const outcome = await run(subject, ["run:", path, "col:", "review"]);
+        const outcome = await run(subject, ["run:", "probe.mpu"]);
         assert.deepStrictEqual(
           [outcome.code, outcome.stdout],
-          [0, "review\n"],
+          [2, ""],
           `stderr: ${outcome.stderr}`,
+        );
+        assert.ok(
+          outcome.stderr.startsWith("mpu: run: — не команда mpu: "),
+          outcome.stderr,
         );
       },
     ],

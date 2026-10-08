@@ -15,8 +15,6 @@ import {
 } from "@mpu/cmd-claudehook";
 import {
   consentAt,
-  type Delivery,
-  type InvokeJournal,
   type Invoker,
   type Output,
   PRINT,
@@ -25,56 +23,30 @@ import {
 } from "../entrypoint/mod.ts";
 import type { RefusalData } from "@mpu/language/frames";
 import { UNNAMED_REFUSAL } from "@mpu/language/messages";
+import { plainRefusal, runChain } from "@mpu/language/objects";
 import {
-  type Outcome,
-  plainRefusal,
-  type Report,
-  runChain,
-} from "@mpu/language/objects";
-import {
-  type Address,
   type Channel,
   Human,
   NOBODY,
   PolicyError,
-  RuleBook,
+  type RuleBook,
   type RuleEntry,
-  type Ruling,
 } from "@mpu/command/policy";
-import { type CliEntry, runJournaled } from "../process/mod.ts";
-import {
-  type LineReply,
-  ParamRefusal,
-  parseProgram,
-  Placed,
-  type Root,
-} from "@mpu/language/program";
-import {
-  Capture,
-  type Evaluator,
-  programCommands,
-  programPolicy,
-  programRoot,
-} from "./program.ts";
+import type { CliEntry } from "../process/mod.ts";
+import { programCommands, programPolicy, programRoot } from "./program.ts";
 import { strippedOf, walkedWords } from "./walked.ts";
 import { openRegistryBook } from "./seeds.ts";
 import { targetValues } from "@mpu/command/selector";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { type Pictures, picturing } from "./pictured.ts";
 import { printed, type Speech } from "./printed.ts";
-import { aheadRuling } from "./owner.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
-import { LineValues } from "./value.ts";
-import { type Origin, sourceOf } from "./origin.ts";
-import type { ProgramFiles } from "./runfile.ts";
-export { type ProgramFiles, programFiles } from "./runfile.ts";
-import { toDoor } from "./view.ts";
-import { Ahead, entryOf, redirected } from "./ahead.ts";
+import { LineValues, StdinOnce } from "./value.ts";
+import { entryOf, toDoor } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import { Image, ImageError, type ImageMethod } from "@mpu/cmd-image";
-import type { Commands, MethodSource } from "@mpu/language/program";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
 import type { OwnerHooks } from "./hook.ts";
@@ -82,11 +54,6 @@ import { routeOf } from "./route.ts";
 import { formerOf } from "./former.ts";
 
 export type { RootMethod } from "./rules.ts";
-export {
-  type Evaluator,
-  IN_PLACE_PROGRAMS,
-  programCommands,
-} from "./program.ts";
 export { LastResults, type Memory, NO_CALLER } from "./it.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
@@ -176,11 +143,6 @@ export interface LinePorts {
    * (`platform/refusal-object.md`); у прямого вызова объект не нужен.
    */
   readonly refusal: (data: RefusalData) => void;
-  /**
-   * Где исполняется программа (`platform/evaluator.md`): у сервера строк
-   * — исполнитель вне предела пула, у прочих — `IN_PLACE_PROGRAMS`.
-   */
-  readonly evaluator: Evaluator;
   /** Образ строки (`platform/image.md`); нет — образ пуст, писать некуда. */
   readonly image?: ImagePorts;
   /**
@@ -188,11 +150,6 @@ export interface LinePorts {
    * отдаёт дверь перед `exit`. Нет — картинки читать некому.
    */
   readonly pictures?: Pictures;
-  /**
-   * Файлы программ `run:` и каталоги настроек окружения сервера строк
-   * (`platform/program-input.md`, «Файл программы»).
-   */
-  readonly files: ProgramFiles;
   /** Вопросы владельцу строк-хуков. Нет — бот не настроен. */
   readonly owner?: OwnerAsking;
 }
@@ -216,18 +173,6 @@ function noImage(): ImagePorts {
     now: () => new Date(),
     changed: () => Promise.resolve(),
   };
-}
-
-/**
- * Как исполняется команда строки: чья запись журнала, в какой очереди и
- * куда уходит результат, если строка не выбрала доставку сама.
- */
-interface Running {
-  readonly journal: InvokeJournal;
-  readonly execute: (run: () => Promise<number>) => Promise<number>;
-  readonly delivery: Delivery;
-  /** Строка `ask` без двери: куда её отослать. */
-  readonly redirect: (report: Report) => Promise<Outcome>;
 }
 
 /** Картинки строки читать некому: у двери нет кадра для них. */
@@ -315,22 +260,14 @@ export function lineEntry(ports: LinePorts): CliEntry {
     // значений идут той же дверью (`platform/value-expression.md`).
     const typedEntry = entryOf(walked);
     // Прежняя форма отказывает раньше всего, что строка читает сама:
-    // файла `run:`, ввода, маршрута (`platform/stage6-l1.md`).
-    const typed = walked.slice(typedEntry.words.length);
-    return await formerOf(argv, typed).settle(
+    // ввода и маршрута (`platform/stage6-l1.md`).
+    const door = typedEntry.words;
+    const said = walked.slice(door.length);
+    return await formerOf(argv, said).settle(
       { io, speech, journal },
       async () => {
-        const origin = await sourceOf(
-          argv,
-          walked,
-          typedEntry.words.length,
-        ).origin(io, ports.files);
-        // Дверь объявляет строка или текст её файла (`ask` первым словом).
-        const entry = origin.entry(typedEntry);
-        const door = entry.words;
-        const said = origin.words;
         // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
-        const stdin = origin.stdin(io);
+        const stdin = new StdinOnce(io);
         const lineIo: CommandIo = {
           ...io,
           readStdin: () => stdin.forCommand(),
@@ -347,39 +284,27 @@ export function lineEntry(ports: LinePorts): CliEntry {
           },
           image: methods,
         };
-        /** Как исполняется команда самой строки: её журнал, очередь, печать. */
-        const own: Running = {
-          journal,
-          execute: ports.execute,
-          delivery: PRINT,
-          redirect: () => toDoor(),
-        };
         /**
          * Строка `words` с выводом `out`: её собственная сессия; результат
-         * команды запоминает `memory`, исполняется она так, как велит
-         * `running`.
+         * команды запоминает `memory`.
          */
         const sessionOf = (
           words: readonly string[],
           out: Speech,
           memory: Memory,
-          running: Running = own,
         ) =>
           new Session({
             book,
             channel,
             output: out,
             dispatch: (view, order, delivery) =>
-              running.execute(() =>
+              ports.execute(() =>
                 runLine(
                   order.argv(view.executed(words)),
                   lineIo,
                   out,
-                  running.journal,
-                  picturing(
-                    remembering(delivery ?? running.delivery, memory),
-                    pictures,
-                  ),
+                  journal,
+                  picturing(remembering(delivery ?? PRINT, memory), pictures),
                   ports.invoker,
                 ),
               ),
@@ -387,7 +312,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             consent: (view, order) =>
               consentAt(order.argv(view.executed(words))),
             terminal: io.stdinIsTerminal(),
-            redirect: running.redirect,
+            redirect: () => toDoor(),
           });
         const values: LineValues = new LineValues(async (words) => {
           const texts: string[] = [];
@@ -413,45 +338,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
             stripped: strippedOf(argv),
           });
         const root = rootOf((session) => session);
-        /**
-         * Команда программы — отдельной строкой той же дверью: правила в
-         * момент отправки, своя запись журнала, `it`; место в очереди строк
-         * у неё то же, что у программы.
-         */
-        const core = async (words: readonly string[]): Promise<LineReply> => {
-          const line = [...door, ...words];
-          const capture = new Capture();
-          let reply: LineReply = { exit: 1 };
-          await runJournaled(
-            line,
-            async (sub, _io, out, subJournal) => {
-              const texts: string[] = [];
-              const heard: Speech = {
-                stdout: (text) => void texts.push(text),
-                stderr: out.stderr,
-                refusal: speech.refusal,
-              };
-              const running = {
-                journal: subJournal,
-                execute: immediately,
-                delivery: capture,
-                redirect: redirected(origin, heard),
-              };
-              const subRoot = registryRoot(
-                sessionOf(sub, heard, ports.memory, running),
-                book,
-                parts,
-              );
-              const code = printed(await runChain(sub, subRoot, values), heard);
-              reply = capture.reply(code, texts.join(""));
-              return code;
-            },
-            lineIo,
-            journal.log,
-            output,
-          );
-          return reply;
-        };
         const commands = programCommands(sources);
         /**
          * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
@@ -469,7 +355,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
           owner,
           consulting: new LineConsulting({
             book,
-            commands,
             methods,
             rootMethods: ports.rootMethods,
             targets: parts.targets,
@@ -479,7 +364,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         };
         const context = {
           said,
-          view: entry.view,
+          view: typedEntry.view,
           book,
           channel,
           speech,
@@ -504,100 +389,12 @@ export function lineEntry(ports: LinePorts): CliEntry {
               speech,
             ),
         };
-        const program = () =>
-          runProgramLine(origin, context.root, {
-            ports,
-            speech,
-            io: lineIo,
-            journal,
-            core,
-            decide: (links) => aheadRuling(book, links),
-            ahead: entry.ahead,
-            commands,
-            sources,
-          });
-        return await origin.route(
-          program,
-          () =>
-            routeOf(said, { commands, methods, hook }).settle(context, {
-              chain: async () =>
-                printed(await runChain(walked, root, values), speech),
-              program,
-            }),
-          speech,
+        return await routeOf(said, hook).settle(context, () =>
+          runChain(walked, root, values).then((outcome) =>
+            printed(outcome, speech),
+          ),
         );
       },
     );
   };
-}
-
-/** Что нужно строке-программе в ядре. */
-interface ProgramLine {
-  readonly ports: LinePorts;
-  readonly speech: Speech;
-  readonly io: CommandIo;
-  readonly journal: InvokeJournal;
-  readonly core: (words: readonly string[]) => Promise<LineReply>;
-  /** Решение правил для звеньев пути — обходу до исполнения. */
-  readonly decide: (links: readonly string[]) => Ruling;
-  /** Адрес обхода: в двери или без неё. */
-  readonly ahead: Address;
-  /** Дерево команд с методами образа — для разбора. */
-  readonly commands: Commands;
-  /** Методы образа — исполнителю программы. */
-  readonly sources: readonly MethodSource[];
-}
-
-/**
- * Строка-программа: отказы до исполнения — здесь (разбор — код 2, обход
- * достижимых команд правилами — `platform/ask-composite.md`); исполнение —
- * месту исполнения программ, в очереди строк одним местом.
- */
-async function runProgramLine(
-  origin: Origin,
-  root: Root,
-  line: ProgramLine,
-): Promise<number> {
-  const words = origin.words;
-  let program;
-  try {
-    program = parseProgram(words, line.commands, root, origin.params);
-  } catch (err) {
-    if (err instanceof ParamRefusal) {
-      err.refused.tell(line.speech);
-      return 2;
-    }
-    if (!(err instanceof Placed)) throw err;
-    origin.naming.refused(words, err).tell(line.speech);
-    return 2;
-  }
-  const ahead = new Ahead(origin);
-  program.reach(ahead);
-  const finding = await ahead.verdict(line.decide, line.ahead);
-  return await finding.settle(line.speech, () => runEvaluated(origin, line));
-}
-
-/** Программа, прошедшая проверки: запись журнала и исполнение. */
-async function runEvaluated(
-  origin: Origin,
-  line: ProgramLine,
-): Promise<number> {
-  line.journal.nativeCall(programPolicy(origin.words));
-  return await line.ports.execute(async () => {
-    const end = await line.ports.evaluator.evaluate(
-      origin.words,
-      origin.naming,
-      origin.params,
-      line.io,
-      line.speech,
-      line.core,
-      line.journal,
-      line.sources,
-    );
-    if (end.refusal !== null) {
-      line.speech.refusal(end.refusal);
-      line.speech.stderr(`${end.refusal.text}\n`);
-    }
-    return end.exit;
-  });
 }

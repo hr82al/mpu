@@ -48,7 +48,7 @@ interface Run {
 
 /**
  * Ввода нет — как у кадра без `stdin`: строка без слов (`ask`) его
- * читает и получает пустое (`platform/program-input.md`).
+ * читает и получает пустое (`platform/stage6-l1.md`).
  */
 const NO_INPUT = () => Promise.resolve(new Uint8Array());
 

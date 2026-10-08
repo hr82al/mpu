@@ -87,23 +87,6 @@ export class StdinOnce implements LineStdin {
   }
 }
 
-/** Вид отказа: ввод строки — её программа (`platform/program-input.md`). */
-const INPUT_BUSY = "ввод занят программой";
-
-const BUSY_TEXT = `${INPUT_BUSY} — программу передай файлом: mpu ${GRAMMAR.run} <файл.mpu>`;
-
-/**
- * Ввод строки занят её программой (программа из stdin): любое чтение —
- * отказ значения тем же путём, что «stdin уже прочитан», — при обходе
- * строки, до вопроса двери; код 2. Своей памяти нет.
- */
-export const BUSY_INPUT: LineStdin = {
-  take: () => Promise.reject(new Refusal(BUSY_TEXT, { reason: INPUT_BUSY })),
-  forCommand: () => {
-    throw new UsageError(BUSY_TEXT);
-  },
-};
-
 /** Вид данных для отказа «не скаляр»: список или запись (спека). */
 function kindName(data: unknown): string {
   return Array.isArray(data) ? "список" : "запись";

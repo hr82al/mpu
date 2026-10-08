@@ -18,7 +18,6 @@ import {
   LastResults,
   lineEntry,
   policyTree,
-  programFiles,
   protocolMessages,
   registryNodes,
   rulesOf,
@@ -865,7 +864,6 @@ class Back {
     const memory = this.#results.of(await naming.of(request.caller));
     const gallery = new Gallery(this.#options.pictureLimit ?? PICTURE_LIMIT);
     const entry = lineEntry({
-      files: programFiles(this.#options.io.env),
       rootMethods: door.rootMethods({
         web: this.#options.web,
         origin: this.#origin,
@@ -874,7 +872,6 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
       invoker: this.#workers,
-      evaluator: this.#workers,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
       pictures: gallery,

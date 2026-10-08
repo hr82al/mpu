@@ -6,15 +6,7 @@
  */
 
 import type { Command, CommandIo } from "@mpu/command";
-import type { InvokeJournal, Invoker, Output } from "../entrypoint/mod.ts";
-import type { Evaluator } from "../line/mod.ts";
-import type {
-  LineReply,
-  MethodSource,
-  Naming,
-  Params,
-  ProgramEnd,
-} from "@mpu/language/program";
+import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
 import { unlaunched } from "./death.ts";
 import type { Launcher } from "./launch.ts";
 import { LineWorker, type WorkerParts } from "./lineworker.ts";
@@ -37,7 +29,7 @@ interface Turn {
 }
 
 /** Пул исполнителей: выдаёт исполнителя строке и доливает простаивающих. */
-export class Workers implements Invoker, Evaluator {
+export class Workers implements Invoker {
   readonly #parts: PoolParts;
   readonly #idle: LineWorker[] = [];
   readonly #living = new Set<LineWorker>();
@@ -76,37 +68,6 @@ export class Workers implements Invoker, Evaluator {
     await this.#turn(io.signal);
     const worker = this.#take();
     return await worker.run(command, args, io, journal);
-  }
-
-  /**
-   * Исполняет программу на исполнителе вне предела занятых
-   * (`platform/evaluator.md`, «Где исполняется»): её команды сами займут
-   * места — иначе при пределе 1 программа ждала бы места, занятого ею
-   * же.
-   *
-   * @throws VerbatimError — исполнитель не запустился
-   */
-  async evaluate(
-    words: readonly string[],
-    naming: Naming,
-    params: Params,
-    io: CommandIo,
-    output: Output,
-    core: (words: readonly string[]) => Promise<LineReply>,
-    journal: InvokeJournal,
-    methods: readonly MethodSource[],
-  ): Promise<ProgramEnd> {
-    const worker = this.#outside();
-    return await worker.evaluate(
-      words,
-      naming,
-      params,
-      io,
-      output,
-      core,
-      journal,
-      methods,
-    );
   }
 
   /** Остановка ядра: простаивающим — конец stdin, занятым — `stop`. */
@@ -156,18 +117,6 @@ export class Workers implements Invoker, Evaluator {
     }
     this.#fill();
     worker.exited().then(() => this.#release());
-    return worker;
-  }
-
-  /** Исполнитель мимо предела: простаивающий либо новый; долив — сразу. */
-  #outside(): LineWorker {
-    let worker: LineWorker;
-    try {
-      worker = this.#idle.shift() ?? this.#launched();
-    } catch (err) {
-      throw unlaunched(err);
-    }
-    this.#fill();
     return worker;
   }
 

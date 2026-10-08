@@ -46,7 +46,6 @@ import {
   type RuleBook,
   type Ruling,
 } from "@mpu/command/policy";
-import { entryOf } from "./ahead.ts";
 import type { ImageContext, ImageLine } from "./define.ts";
 import type { Line } from "./dispatch.ts";
 import { itMethod, NO_CALLER } from "./it.ts";
@@ -54,7 +53,7 @@ import type { Order } from "./order.ts";
 import { printed, type Speech } from "./printed.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { ARGS } from "./tree.ts";
-import type { View } from "./view.ts";
+import { NORMAL, type View } from "./view.ts";
 
 /** Путь корня в причине: наследуемое правило пути не имеет. */
 const ROOT_RULE = "*";
@@ -348,7 +347,7 @@ class Consultation implements Line, Speech {
     const reply = await ruling.settle(
       execution(report, ruling),
       NOBODY,
-      entryOf([]).ahead,
+      NORMAL,
     );
     return this.#settled(report, reply);
   }

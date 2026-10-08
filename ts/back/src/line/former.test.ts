@@ -175,6 +175,7 @@ const PLAIN: readonly (readonly string[])[] = [
   ["kiten", "card", "id:", "--", "@c", "help"],
   ["kiten", "card", "id:", "do", "it", ".", "end", "help"],
   ["forget:", "kiten"],
+  ["log", "run:", "20260801-120000.000-1003"],
   ["api", "get-ss-values", "id:", "ss1", "body:", "@req.json"],
   ["help"],
 ];

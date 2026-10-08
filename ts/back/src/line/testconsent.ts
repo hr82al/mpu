@@ -10,12 +10,10 @@ import { IN_PLACE } from "../entrypoint/mod.ts";
 import { ALLOW, RulePath } from "@mpu/command/policy";
 import {
   immediately,
-  IN_PLACE_PROGRAMS,
   type LinePorts,
   type Memory,
   NO_CALLER,
   NO_REFUSAL,
-  programFiles,
   terminalChannel,
 } from "./mod.ts";
 import { openRegistryBook } from "./seeds.ts";
@@ -68,11 +66,9 @@ export function consentOf(
     channel: terminalChannel(() => Promise.resolve(queue.shift())),
     execute: immediately,
     invoker: IN_PLACE,
-    evaluator: IN_PLACE_PROGRAMS,
     rootMethods: [],
     memory,
     refusal: NO_REFUSAL,
-    files: programFiles(() => undefined),
   };
 }
 

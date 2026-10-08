@@ -19,22 +19,12 @@ import {
   inputOnRequest,
   type LineInput,
 } from "@mpu/language/frames";
-import { programCommands } from "../line/mod.ts";
-import {
-  DEFAULT_PACE_MS,
-  Every,
-  type LineReply,
-  namingOf,
-  paramsOf,
-  runProgram,
-} from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { callIo } from "./callio.ts";
 import {
   type AskKind,
   BadWorkerFrame,
   encode,
-  type Evaluation,
   type HostFrame,
   hostFrameOf,
   type Order,
@@ -67,7 +57,6 @@ class Conversation {
   readonly #stopping = new AbortController();
   #answer: Reply<string | null> = NO_REPLY;
   #input: Reply<Uint8Array> = NO_REPLY;
-  #lined: Reply<LineReply> = NO_REPLY;
   #bytes: Promise<Uint8Array> | undefined;
 
   /** @param diagnose строка диагностики исполнителя (его stderr) */
@@ -90,14 +79,6 @@ class Conversation {
     const reply = Promise.withResolvers<string | null>();
     this.#answer = this.#awaited(reply, () => (this.#answer = NO_REPLY));
     await this.send({ ask: { kind, text } });
-    return await reply.promise;
-  }
-
-  /** Команда программы — ядру отдельной строкой; ответ — итог строки. */
-  async line(words: readonly string[]): Promise<LineReply> {
-    const reply = Promise.withResolvers<LineReply>();
-    this.#lined = this.#awaited(reply, () => (this.#lined = NO_REPLY));
-    await this.send({ line: words });
     return await reply.promise;
   }
 
@@ -154,13 +135,11 @@ class Conversation {
       if ("stdin" in frame) {
         this.#input.settle(new TextEncoder().encode(frame.stdin));
       }
-      if ("lined" in frame) this.#lined.settle(frame.lined);
       if ("stop" in frame) this.#stopping.abort();
     }
     this.#stopping.abort();
     this.#answer.settle(null);
     this.#input.fail(new HostGone("ядро закрыло канал до ввода"));
-    this.#lined.fail(new HostGone("ядро закрыло канал до итога строки"));
   }
 }
 
@@ -254,37 +233,7 @@ async function outcomeOf(order: Order, io: CommandIo): Promise<Outcome> {
   }
 }
 
-/**
- * Исход программы (`platform/evaluator.md`): печать — кадрами `out`,
- * команды — ядру кадрами `line`; итог — код и отказ-объект.
- */
-async function evaluated(
-  evaluation: Evaluation,
-  conversation: Conversation,
-): Promise<Outcome> {
-  try {
-    return await runProgram(evaluation.words, {
-      commands: programCommands(evaluation.methods),
-      core: (words) => conversation.line(words),
-      // Печать отдаётся без ожидания: порт синхронный, порядок держит
-      // провод, а итог уйдёт за ней тем же проводом.
-      print: (text) => {
-        if (text === "") return;
-        conversation.send({ out: text }).catch(() => {
-          // Провод оборван — ядро ушло; программу остановит конец провода.
-        });
-      },
-      signal: conversation.signal(),
-      pace: new Every(DEFAULT_PACE_MS, () => performance.now()),
-      naming: namingOf(evaluation.source),
-      params: paramsOf(evaluation.source ?? "", evaluation.params),
-    });
-  } catch (err) {
-    return { crash: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/** Работа первого кадра: команда или программа. */
+/** Работа первого кадра: команда. */
 function workOf(
   frame: HostFrame,
   io: CommandIo,
@@ -293,8 +242,7 @@ function workOf(
   if ("run" in frame) {
     return outcomeOf(frame.run, orderIo(io, frame.run, conversation));
   }
-  if ("evaluate" in frame) return evaluated(frame.evaluate, conversation);
-  throw new Error("первый кадр ядра — не run и не evaluate");
+  throw new Error("первый кадр ядра — не run");
 }
 
 /**

@@ -16,7 +16,6 @@ import {
   VerbatimUsageError,
 } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { MarkerDir, NO_MARKERS } from "./death.ts";
@@ -27,18 +26,6 @@ import { within } from "../backend/testback.ts";
 const JSDATE = findCommand(["jsdate"]);
 if (JSDATE === undefined) throw new Error("в реестре нет jsdate");
 const COMMAND = JSDATE;
-
-/**
- * Вывод строки, всегда готовый принять следующий кусок: им вывод
- * программы спрашивает готовность строки.
- */
-const READY_OUTPUT: Pick<CommandIo, "openRemoteOutput"> = {
-  openRemoteOutput: () => ({
-    out: () => Promise.resolve(),
-    err: () => Promise.resolve(),
-    captured: () => "",
-  }),
-};
 
 /** Журнал, помнящий только pid исполнителя. */
 function journal(pids: number[]): InvokeJournal {
@@ -330,106 +317,5 @@ it("исполнитель: умер, пока человек думает на�
     VerbatimError,
     "mpu-back: исполнитель строки упал (сигнал 9)",
   );
-  await worker.exited();
-});
-
-/** Вывод строки, собранный тестом. */
-function collected(into: string[]) {
-  return {
-    stdout: (text: string) => void into.push(`out:${text}`),
-    stderr: (text: string) => void into.push(`err:${text}`),
-  };
-}
-
-it("исполнитель программы: строка команды — ядру, печать — строке, итог — код", async () => {
-  const script = new ScriptedWorker(4);
-  const worker = lineWorker(script);
-  const printed: string[] = [];
-  const sent: string[][] = [];
-  const pids: number[] = [];
-  const running = worker.evaluate(
-    ["x"],
-    TYPED,
-    NO_PARAMS,
-    makeFakeIo({ ...READY_OUTPUT }),
-    collected(printed),
-    (words) => {
-      sent.push([...words]);
-      return Promise.resolve({ data: 1, command: null, shown: "1\n" });
-    },
-    journal(pids),
-    [],
-  );
-  expect(await script.next()).toStrictEqual({
-    evaluate: { words: ["x"], methods: [], source: null, params: null },
-  });
-  await script.send({ line: ["kiten", "ls"] });
-  expect(await script.next()).toStrictEqual({
-    lined: { data: 1, command: null, shown: "1\n" },
-  });
-  await script.send({ out: "1\n" });
-  await script.send({ err: "ход\n" });
-  await script.send({ result: { exit: 0, refusal: null } });
-  expect(await within(running, 5_000, "итог программы")).toStrictEqual({
-    exit: 0,
-    refusal: null,
-  });
-  expect(sent).toStrictEqual([["kiten", "ls"]]);
-  expect(printed).toStrictEqual(["out:1\n", "err:ход\n"]);
-  expect(pids).toStrictEqual([4]);
-  await script.end({ code: 0, signal: null });
-  await worker.exited();
-});
-
-it("исполнитель программы умер, пока ядро исполняло её команду, — отказ сразу", async () => {
-  const script = new ScriptedWorker(5);
-  const worker = lineWorker(script);
-  const never = Promise.withResolvers<never>();
-  const running = worker.evaluate(
-    ["x"],
-    TYPED,
-    NO_PARAMS,
-    makeFakeIo({ ...READY_OUTPUT }),
-    collected([]),
-    () => never.promise,
-    journal([]),
-    [],
-  );
-  await script.next();
-  await script.send({ line: ["kiten", "ls"] });
-  await script.end({ code: 137, signal: "SIGKILL" });
-  await rejected(
-    () => within(running, 5_000, "отказ по смерти исполнителя программы"),
-    VerbatimError,
-    "mpu-back: исполнитель строки упал (сигнал 9)",
-  );
-  await worker.exited();
-});
-
-it("исполнитель программы: отмена строки — кадр stop", async () => {
-  const script = new ScriptedWorker(6);
-  const worker = lineWorker(script);
-  const stop = new AbortController();
-  const running = worker.evaluate(
-    ["x"],
-    TYPED,
-    NO_PARAMS,
-    makeFakeIo({ ...READY_OUTPUT, signal: stop.signal }),
-    collected([]),
-    () => Promise.resolve({ exit: 1 }),
-    journal([]),
-    [],
-  );
-  await script.next();
-  stop.abort();
-  expect(await script.next()).toStrictEqual({ stop: true });
-  await script.send({ result: { exit: 130, refusal: null } });
-  expect(
-    await within(running, 5_000, "итог отменённой программы"),
-  ).toStrictEqual({
-    exit: 130,
-    refusal: null,
-  });
-  await script.end({ code: 0, signal: null });
   await worker.exited();
 });

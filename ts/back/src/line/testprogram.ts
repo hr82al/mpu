@@ -1,9 +1,7 @@
 /**
- * Стенд программы для тестов и пересборки эталона
- * `fixtures/evaluator/cases.json` (`platform/evaluator.md`,
- * «Golden-примеры»): точка входа строки, подменённый Kaiten с тремя
- * карточками (списком и каждая целиком), кэш-БД во временном каталоге,
- * программа — здесь же.
+ * Стенд строки для тестов: точка входа строки, подменённый Kaiten с
+ * тремя карточками (списком и каждая целиком), кэш-БД во временном
+ * каталоге.
  */
 
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -23,12 +21,7 @@ import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
 import { openCacheDb } from "@mpu/command/store";
 import { makeFakeIo } from "@mpu/command/testing";
 import type { Memory } from "./it.ts";
-import {
-  type ChannelOf,
-  type ImagePorts,
-  lineEntry,
-  type ProgramFiles,
-} from "./mod.ts";
+import { type ChannelOf, type ImagePorts, lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
 const CARDS_PATH = "/api/latest/cards";
@@ -230,8 +223,6 @@ export interface StandLine {
    * по кадру, а не по stdin (ввод из пайпа, вопрос — в терминал).
    */
   readonly channel?: ChannelOf;
-  /** Файлы программ `run:` и каталоги настроек; нет — без каталогов. */
-  readonly files?: ProgramFiles;
   /** Где исполняется команда; нет — здесь же. */
   readonly invoker?: Invoker;
 }
@@ -271,7 +262,6 @@ export async function runOnStand(
   const exit = await lineEntry({
     ...ports,
     channel: line.channel ?? ports.channel,
-    files: line.files ?? ports.files,
     invoker: line.invoker ?? ports.invoker,
     refusal: (data) => void refusals.push(data),
     pictures: gallery,

@@ -138,7 +138,7 @@ it("messages группы — ровно её дети, когда разреш�
     }
   }));
 
-it("messages корня — дети, правила, вход ask, дополнение, it и run:", () =>
+it("messages корня — дети, правила, вход ask, дополнение и it", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
     const { code, stdout } = await run(file, [
@@ -158,7 +158,6 @@ it("messages корня — дети, правила, вход ask, дополн
         "deny:",
         "forget:",
         "it",
-        GRAMMAR.run,
       ].sort(),
     );
   }));

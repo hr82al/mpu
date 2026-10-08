@@ -32,7 +32,6 @@ import {
   wordListing,
 } from "@mpu/language/objects";
 import { PolicyError, type RuleBook } from "@mpu/command/policy";
-import { programHelp } from "@mpu/language/program";
 import {
   childrenOf,
   type CommandGroup,
@@ -60,7 +59,6 @@ import {
   TEXT_RESULT,
 } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
-import { runMethod } from "./runfile.ts";
 import { imageEntries, imageKeys } from "./methods.ts";
 import type { ImageMethod, MethodSnapshot } from "@mpu/cmd-image";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
@@ -496,20 +494,13 @@ export function ruleLinks(node: TreeNode): readonly string[] {
   return node.tail === null ? node.path : [...node.path, ARGS];
 }
 
-const ROOT_DOC: Doc = {
-  purpose: ROOT_SUMMARY,
-  help: `${ROOT_USAGE}\n\n${programHelp()}`,
-};
+const ROOT_DOC: Doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
 
 function rootShape(
   sight: Sight,
   own: readonly Method<Line>[] = [],
 ): Shape<Line> {
-  return groupShape([], ROOT_DOC, PLAIN, sight, [
-    ...ruleMethods(),
-    runMethod(),
-    ...own,
-  ]);
+  return groupShape([], ROOT_DOC, PLAIN, sight, [...ruleMethods(), ...own]);
 }
 
 /** Имена поверхностей: у двери их нет, как и прочих сообщений корня. */
@@ -518,14 +509,14 @@ const SURFACES: ReadonlySet<string> = new Set(
 );
 
 /**
- * Корень двери: команды и группы реестра и `run:` — источник программы
- * (`platform/ask-door.md`); прочих сообщений корня (правила, поверхности,
- * методы двери строки) дверь не понимает.
+ * Корень двери: команды и группы реестра (`platform/ask-door.md`); прочих
+ * сообщений корня (правила, поверхности, методы двери строки) дверь не
+ * понимает.
  */
 function doorShape(book: RuleBook, parts: RootParts): Shape<Line> {
   const children = childrenOf([]).filter((child) => !SURFACES.has(child.name));
   const sight = new Seen(DOOR, book, parts);
-  return groupShape([], ASK_DOC, PLAIN, sight, [runMethod()], children);
+  return groupShape([], ASK_DOC, PLAIN, sight, [], children);
 }
 
 /**

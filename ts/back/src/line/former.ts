@@ -36,7 +36,7 @@ const ADVICE =
 const MISWRITTEN = 2;
 
 /** Слова, которые прежняя форма где угодно, кроме мест «как есть». */
-const WHOLE: ReadonlySet<string> = new Set([".", ":=", "done", "rem", "run:"]);
+const WHOLE: ReadonlySet<string> = new Set([".", ":=", "done", "rem"]);
 
 /** Ключи образа: прежняя форма не первым словом (`forget:` первым — правила). */
 const IMAGE_KEYS: ReadonlySet<string> = new Set(["define:", "forget:"]);
@@ -44,8 +44,11 @@ const IMAGE_KEYS: ReadonlySet<string> = new Set(["define:", "forget:"]);
 /** Число первым словом: `12`, `-3`, `2.5`. */
 const NUMBER = /^-?\d+(\.\d+)?$/;
 
-/** Первое слово строки образа. */
-const IMAGE = "image";
+/**
+ * Первые слова прежних форм: строка образа и файл программы (`run:`
+ * дальше в строке — ключ `mpu log`, не форма).
+ */
+const FIRST: ReadonlySet<string> = new Set(["image", "run:"]);
 
 /** Начало текста `^…^`. */
 const QUOTE = "^";
@@ -259,7 +262,7 @@ function marks(
 /** Первая прежняя форма в словах строки; нет — `ADMITTED`. */
 function formerIn(said: readonly string[]): Former {
   const first = said[0];
-  if (first !== undefined && (NUMBER.test(first) || first === IMAGE)) {
+  if (first !== undefined && (NUMBER.test(first) || FIRST.has(first))) {
     return new FormerForm(first, said);
   }
   const leaf = leafOf(said);

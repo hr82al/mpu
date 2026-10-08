@@ -9,8 +9,6 @@
 import { execFile } from "node:child_process";
 import { expect, it } from "vitest";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "@mpu/language/messages";
-import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { NO_MARKERS, ProcessLauncher, Workers } from "./mod.ts";
@@ -114,64 +112,4 @@ it("процесс исполнителя: ядро ушло посреди ст
     // Дочитываем то, что исполнитель успел сказать до конца.
   }
   expect(await spawned.status).toStrictEqual({ code: 0, signal: null });
-});
-
-it("процесс исполнителя: программа — печать кадрами, команда — строкой ядра", async () => {
-  const diagnosed: string[] = [];
-  const workers = new Workers({
-    launcher: launcher(diagnosed),
-    markers: NO_MARKERS,
-    warm: 1,
-    limit: 1,
-    diagnose: (line) => void diagnosed.push(line),
-  });
-  workers.start();
-  const printed: string[] = [];
-  const asked: string[][] = [];
-  const pids: number[] = [];
-  const journal: InvokeJournal = {
-    nativeCall: () => {},
-    note: () => {},
-    executedBy: (pid) => void pids.push(pid),
-    log: { begin: () => ({}) as never },
-  };
-  const { separator: SEP, assign: ASSIGN } = GRAMMAR;
-  try {
-    const end = await workers.evaluate(
-      ["2", "print", SEP, "x", ASSIGN, "jsdate", SEP, "x", "isNil"],
-      TYPED,
-      NO_PARAMS,
-      // Вывод строки, всегда готовый: им вывод программы спрашивает
-      // готовность строки.
-      makeFakeIo({
-        openRemoteOutput: () => ({
-          out: () => Promise.resolve(),
-          err: () => Promise.resolve(),
-          captured: () => "",
-        }),
-      }),
-      { stdout: (text) => void printed.push(text), stderr: () => {} },
-      (words) => {
-        asked.push([...words]);
-        return Promise.resolve({
-          data: { stamp: "1" },
-          command: null,
-          shown: "",
-        });
-      },
-      journal,
-      [],
-    );
-    expect(end, diagnosed.join("\n")).toStrictEqual({
-      exit: 0,
-      refusal: null,
-    });
-    expect(printed).toStrictEqual(["2\n", "false\n"]);
-    expect(asked).toStrictEqual([["jsdate"]]);
-    expect(pids[0]).not.toStrictEqual(process.pid);
-    // Исполнитель программы места в пуле не занимал.
-    expect(workers.busy()).toBe(0);
-  } finally {
-    await workers.stop();
-  }
 });

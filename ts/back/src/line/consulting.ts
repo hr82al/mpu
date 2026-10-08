@@ -1,15 +1,14 @@
 /**
  * Проба хука `PreToolUse` глазами ядра (`claude-hook-pre-tool-use.md`,
- * «Как находится решение»): тот же выбор источника и маршрута, та же
- * цепочка, на месте сессии — проба.
+ * «Как находится решение»): та же проверка прежних форм и тот же
+ * маршрут, та же цепочка, на месте сессии — проба.
  */
 
 import type { HookReply } from "@mpu/cmd-claudehook";
 import type { ImageMethod } from "@mpu/cmd-image";
 import { runChain } from "@mpu/language/objects";
 import type { RuleBook } from "@mpu/command/policy";
-import type { Commands } from "@mpu/language/program";
-import { entryOf } from "./ahead.ts";
+import { entryOf } from "./view.ts";
 import {
   type Consulting,
   type OwnerHooks,
@@ -27,8 +26,6 @@ import { strippedOf, walkedWords } from "./walked.ts";
 export interface ConsultingParts {
   /** Правила строки — у пробы те же. */
   readonly book: RuleBook;
-  /** Дерево команд с методами образа — для «программа ли». */
-  readonly commands: Commands;
   /** Методы образа. */
   readonly methods: readonly ImageMethod[];
   /** Методы корня двери: в пробе у них те же имя и справка. */
@@ -41,7 +38,7 @@ export interface ConsultingParts {
   readonly owner: OwnerHooks;
 }
 
-/** Ответ хука по источнику, маршруту и цепочке строки ядра. */
+/** Ответ хука по прежним формам, маршруту и цепочке строки ядра. */
 export class LineConsulting implements Consulting {
   readonly #parts: ConsultingParts;
 
@@ -50,12 +47,12 @@ export class LineConsulting implements Consulting {
   }
 
   reply(words: readonly string[]): Promise<HookReply> {
-    const { commands, methods, readStdin, owner } = this.#parts;
+    const { readStdin, owner } = this.#parts;
     const walked = walkedWords(words);
     const door = entryOf(walked).words.length;
     const hook = { readStdin, consulting: this, owner };
     return formerOf(words, walked.slice(door)).consult(() =>
-      routeOf(walked.slice(door), { commands, methods, hook }).consult(() =>
+      routeOf(walked.slice(door), hook).consult(() =>
         this.#probed(words, walked),
       ),
     );

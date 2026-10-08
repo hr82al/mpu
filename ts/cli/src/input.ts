@@ -43,8 +43,9 @@ interface InputText {
 const LINE_TEXT: InputText = { of: (bytes) => new TextDecoder().decode(bytes) };
 
 /**
- * Ввод строки без слов — программа (`platform/program-input.md`): байты не
- * в UTF-8 отвергаются до сервера, BOM уходит как есть — его снимают слова.
+ * Ввод строки без слов: слова в нём — прежняя форма, её отказывает сервер
+ * (`platform/stage6-l1.md`); байты не в UTF-8 отвергаются до сервера, BOM
+ * уходит как есть — его снимают слова.
  */
 const PROGRAM_TEXT: InputText = {
   of(bytes) {
@@ -88,7 +89,7 @@ class PipedInput implements ClientInput {
  * Ввод клиента по его stdin.
  *
  * @param facts чем клиент снимает свой контекст
- * @param words слова строки: без слов ввод — программа
+ * @param words слова строки: без слов ввод проверяется на UTF-8
  */
 export function clientInput(
   facts: CallerFacts,

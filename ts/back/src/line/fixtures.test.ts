@@ -1,23 +1,11 @@
 /**
- * Копии эталонов (вычислитель, хук `PreToolUse`) в `testdata/` обязаны совпадать с каналом
- * спецификаций байт-в-байт (`platform/evaluator.md`, «Golden-примеры»):
- * иначе тесты молча проходят на устаревшей копии.
+ * Копии эталона хука `PreToolUse` в `testdata/` обязаны совпадать с
+ * каналом спецификаций байт-в-байт: иначе тесты молча проходят на
+ * устаревшей копии.
  */
 
 import { readdir, readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-
-const channel = new URL(
-  "../../../docs/specs/fixtures/evaluator/cases.json",
-  import.meta.url,
-);
-const copy = new URL("testdata/evaluator/cases.json", import.meta.url);
-
-it("копия эталона вычислителя совпадает с каналом", async () => {
-  expect(await readFile(copy, "utf8")).toStrictEqual(
-    await readFile(channel, "utf8"),
-  );
-});
 
 /** Эталон хука `PreToolUse`: копии `testdata/` — те же файлы канала. */
 const HOOK = "claude-hook-pre-tool-use";

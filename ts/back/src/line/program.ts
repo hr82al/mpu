@@ -1,18 +1,10 @@
 /**
- * Программа глазами ядра (`platform/evaluator.md`, «Где исполняется»):
- * дерево команд и корень для разбора, вид результата команды для печати
- * программы, доставка подстроки, место исполнения программы.
+ * Дерево команд и корень для разбора тела метода образа
+ * (`platform/image.md`), запись журнала строки образа.
  */
 
-import type { Command, CommandIo } from "@mpu/command";
-import {
-  type Delivery,
-  type InvokeJournal,
-  jsonOf,
-  type Output,
-  PRINT,
-  withoutJsonFlag,
-} from "../entrypoint/mod.ts";
+import type { Command } from "@mpu/command";
+import { jsonOf, type Output, PRINT } from "../entrypoint/mod.ts";
 import { flagged, type KeyKind } from "@mpu/language/messages";
 import type { Call } from "@mpu/language/objects";
 import {
@@ -20,15 +12,8 @@ import {
   type CommandNode,
   type Commands,
   type CommandView,
-  DEFAULT_PACE_MS,
-  Every,
-  type LineReply,
   type MethodSource,
-  type Naming,
-  type Params,
-  type ProgramEnd,
   type Root,
-  runProgram,
 } from "@mpu/language/program";
 import { commands, findCommand } from "../registry/mod.ts";
 import { addressesOf, textKeysOf } from "./keyed.ts";
@@ -158,64 +143,6 @@ export function programRoot(root: Call): Root {
   };
 }
 
-/** Что взяла доставка подстроки. */
-interface Take {
-  /** Ответ программе по коду строки и её напечатанному. */
-  reply(code: number, printed: string): LineReply;
-}
-
-/**
- * Команда до результата не дошла: код — как есть; строка без команды
- * (`it`, справка) — её напечатанное данными JSON, не JSON — текстом.
- */
-const NOTHING_TAKEN: Take = {
-  reply(code, text) {
-    if (code !== 0) return { exit: code };
-    return { data: dataOfText(text), command: null, shown: text };
-  },
-};
-
-function dataOfText(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    if (!(err instanceof SyntaxError)) throw err;
-    return text.replace(/\n$/, "");
-  }
-}
-
-/**
- * Доставка подстроки программы: результат команды не печатается, а
- * уходит программе данными с путём и аргументами — вид и форматы она
- * нарисует им же.
- */
-export class Capture implements Delivery {
-  #taken: Take = NOTHING_TAKEN;
-
-  deliver(
-    command: Command,
-    result: unknown,
-    args: readonly string[],
-    json: boolean,
-  ) {
-    const argv = withoutJsonFlag(args);
-    // Текст — тот, что строка напечатала бы: с её форматом.
-    const shown = printed(command, result, args, json);
-    this.#taken = {
-      reply: () => ({
-        data: result,
-        command: { path: command.path, argv },
-        shown,
-      }),
-    };
-    return command.textExitCode(result);
-  }
-
-  reply(code: number, text: string): LineReply {
-    return this.#taken.reply(code, text);
-  }
-}
-
 /**
  * Запись журнала о программе целиком: аргументы маскируются, если в ней
  * есть команда, которая свои не журналирует; секция out — так же.
@@ -234,40 +161,3 @@ export function programPolicy(words: readonly string[]) {
 function holds(words: readonly string[], path: readonly string[]): boolean {
   return words.some((_, at) => path.every((part, i) => words[at + i] === part));
 }
-
-/**
- * Где исполняется программа строки: у сервера строк — исполнитель вне
- * предела пула (`platform/evaluator.md`), у прочих — здесь же.
- */
-export interface Evaluator {
-  /**
-   * Итог программы `words`; её отказ называет источник `naming`,
-   * параметры файла — `params`; команды она отдаёт `core` отдельными
-   * строками, печать — в stdout `output`; методы образа `methods` —
-   * вызовы, которые она исполняет сама.
-   */
-  evaluate(
-    words: readonly string[],
-    naming: Naming,
-    params: Params,
-    io: CommandIo,
-    output: Output,
-    core: (words: readonly string[]) => Promise<LineReply>,
-    journal: InvokeJournal,
-    methods: readonly MethodSource[],
-  ): Promise<ProgramEnd>;
-}
-
-/** Программа исполняется здесь же, в процессе вызывающего. */
-export const IN_PLACE_PROGRAMS: Evaluator = {
-  evaluate: (words, naming, params, io, output, core, _journal, methods) =>
-    runProgram(words, {
-      commands: programCommands(methods),
-      core,
-      print: output.stdout,
-      signal: io.signal,
-      pace: new Every(DEFAULT_PACE_MS, () => performance.now()),
-      naming,
-      params,
-    }),
-};
