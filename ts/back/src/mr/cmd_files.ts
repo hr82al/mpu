@@ -10,7 +10,7 @@
 import { z } from "zod";
 import { defineCommand, items } from "@mpu/command";
 import { type ChangedFile, changedFiles } from "@mpu/gitlab";
-import { renderTable } from "@mpu/cmd-ps";
+import { renderTable } from "@mpu/command/table";
 import {
   asCommandError,
   gitlabAccess,

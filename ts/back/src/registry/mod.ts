@@ -95,7 +95,7 @@ import {
   claudeHookPreToolUseCommand,
   claudeHookStopCommand,
 } from "../claudehook/mod.ts";
-import { backupCommands } from "../backup/mod.ts";
+import { backupCommands } from "@mpu/cmd-backup";
 import { makeSchemaCommand } from "@mpu/cmd-makeschema";
 import {
   sheetAliasAddCommand,
@@ -111,16 +111,16 @@ import {
   sheetResolveCommand,
   sheetSetCommand,
 } from "../sheet/mod.ts";
-import { cleanLocalClientsCommand } from "../cleanlocal/mod.ts";
+import { cleanLocalClientsCommand } from "@mpu/cmd-cleanlocal";
 import {
   copyClientCommand,
   copyDevCommand,
   copySharedCommand,
-} from "../copy/mod.ts";
+} from "@mpu/cmd-copy";
 import { configCommand } from "@mpu/command/config";
 import { imageExportCommand, imageSyncCommand } from "@mpu/cmd-image";
 import { glabStatusCommand } from "../glab/mod.ts";
-import { apiCommands } from "../api/mod.ts";
+import { apiCommands } from "@mpu/cmd-api";
 import { d2MiroCommand } from "@mpu/cmd-d2miro";
 import {
   codeMentionsCommand,
@@ -150,7 +150,7 @@ import {
 import { confirmCommand } from "@mpu/command/confirm";
 import { sunCommand } from "@mpu/cmd-sun";
 import { taskCommands } from "../task/mod.ts";
-import { ozonCommands, ozonPerfCommands, wbCommands } from "../call/mod.ts";
+import { ozonCommands, ozonPerfCommands, wbCommands } from "@mpu/cmd-call";
 
 /**
  * Поверхность точки входа: запись реестра со строкой использования.

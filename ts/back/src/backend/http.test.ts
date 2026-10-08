@@ -6,7 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
-import { fakeTimers } from "../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import type { CommandIo } from "@mpu/command";
 import { rulesOf } from "../line/mod.ts";
 import {

@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import type { Discussion } from "@mpu/gitlab";
-import { renderTable } from "@mpu/cmd-ps";
+import { renderTable } from "@mpu/command/table";
 import { locationOf } from "./location.ts";
 
 /** Длина обрезки колонки EXCERPT, вместе с многоточием. */

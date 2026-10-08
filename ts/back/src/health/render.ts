@@ -5,7 +5,7 @@
  * состояние прод-фермы, — поэтому форма собрана здесь по тексту спеки.
  */
 
-import { renderTable } from "@mpu/cmd-ps";
+import { renderTable } from "@mpu/command/table";
 import type { HealthResult } from "./run.ts";
 
 /** Весь stdout вызова; блоки разделены пустой строкой. */

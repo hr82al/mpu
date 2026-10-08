@@ -53,7 +53,7 @@ import {
   schemaCheckPlan,
   schemaGoldens,
   skipReason,
-} from "../src/api/schema_golden.ts";
+} from "@mpu/cmd-api";
 
 const decoder = new TextDecoder();
 
@@ -1452,7 +1452,10 @@ function checks(subject: Subject): readonly Check[] {
         // формальность: без него голдены схемы сверялись бы только сами с
         // собой, а расхождение с базой ловила бы живая пара (замер порции
         // 79: колонки `id` в таблице нет вовсе).
-        const goldens = await schemaGoldens();
+        // Голдены — из канала спецификаций: папку пакета `ts/` не читает.
+        const goldens = await schemaGoldens(
+          new URL("../../docs/specs/fixtures/api/schema/", import.meta.url),
+        );
         assert(goldens.length > 0, "голденов схемы нет вовсе");
         const session = await openMainDb();
         try {

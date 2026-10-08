@@ -352,7 +352,7 @@ Claude Code, журнал вызовов, `sql-ro`, разбор кода с в�
 и временная кэш-БД (`plainRows`, `openTempCache`), запуск модуля текущим
 рантаймом (`runTs`); вход грузят и генераторы эталонов без Vitest, поэтому
 `vitest` он не тянет. Область на `describe` и поддельные часы —
-`back/src/vitest/scope.ts` (`heldScope`, `fakeTimers`). Табличные тесты
+`@mpu/testing/vitest` (`heldScope`, `fakeTimers`). Табличные тесты
 (`describe` + `it` по случаям или цикл по массиву случаев) — форма по умолчанию.
 Багфикс начинается с теста, воспроизводящего баг.
 
@@ -688,7 +688,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   через кэш или логин (`docs/specs/platform/tslibs-slback.md`); библиотека
   `tslibs/slback`, архивом `release/`. Подставной sl-back тестов — вход
   `@mpu/slback/testing`. Адрес и креды из env-файла и порт сеанса над io
-  команды (`back/src/slback/`) остаются в `ts/`.
+  команды — в пакете `@mpu/cmd-api` (ниже).
 - `@mpu/base` — мелкие листья, общие для `ts/` и пакетов: доступ к серверам
   на петле (`@mpu/base/access`), календарная дата (`@mpu/base/dates`),
   ошибки ОС по коду (`@mpu/base/oserror`), каталог вызова
@@ -717,7 +717,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   предпочтения и `mpu config` (`/config`), правила подтверждения
   (`/policy`) — `docs/specs/platform/tslibs-n3.md`; библиотека
   `tslibs/command`, архивом `release/`. Помощники тестов — вход
-  `@mpu/command/testing`. `zod` — его обязательный peer (выше),
+  `@mpu/command/testing`, таблица выравненных колонок `ps`, `health`, `mr` —
+  вход `@mpu/command/table`. `zod` — его обязательный peer (выше),
   `@mpu/language` и `@mpu/base` — необязательные: ставятся здесь.
 - `@mpu/language` — ядро языка строки: кадры (`@mpu/language/frames`), разбор
   в сообщения (`/messages`), картинка ответа (`/picture`), объекты цепочки
@@ -774,15 +775,26 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   контейнеров, транспорт по env-файлу, Portainer с переводом отказа в ошибку
   команды); его берут пакеты `ps`, `ssh`, `run-js`, обёрток sl-back CLI и в
   `ts/` — `health`, `move-client`. Сам транспорт — `@mpu/exec` (выше). Кроме
-  реестра `@mpu/cmd-ps` берут `health` и `mr` (таблица колонок),
-  `@mpu/cmd-nodecli` — `move-client` (сборка inner-команды).
+  реестра `@mpu/cmd-nodecli` берёт `move-client` (сборка inner-команды).
+- `@mpu/cmd-api`, `@mpu/cmd-backup`, `@mpu/cmd-call`, `@mpu/cmd-copy`,
+  `@mpu/cmd-cleanlocal` — команды `mpu api …` (с адресом и сеансом sl-back
+  над io команды), `backup-*`, `ozon`/`ozon perf`/`wb call`, `copy-*`,
+  `clean-local-clients` пакетами (`docs/specs/platform/tslibs-commands.md`,
+  D5); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме
+  реестра: таблицу пишущих эндпоинтов `@mpu/cmd-api` берёт
+  `registry/contract.test.ts`, голдены состава колонок — `smoke` (каталог
+  канала называет он сам); наборы таблиц клиента `@mpu/cmd-copy` — пакет
+  `@mpu/cmd-cleanlocal`. Тесты со стендом приложения —
+  `back/src/line/call.test.ts`, `back/src/line/call_wb.test.ts` (сообщения
+  `wb` над стендом `@mpu/cmd-call/testing`),
+  `back/src/entrypoint/backup_wiring.test.ts`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
   (`https-proxy-agent`, `socks-proxy-agent`) — её зависимости; их «зачем» — в
   `tslibs/http/CLAUDE.md`.
-- `@mpu/testing` (dev) — подставной HTTP-сервер и пойманная ошибка тестов:
-  библиотека `tslibs/testing`, архивом `release/`
+- `@mpu/testing` (dev) — подставной HTTP-сервер, пойманная ошибка и области
+  Vitest (`/vitest`) тестов: библиотека `tslibs/testing`, архивом `release/`
   (`docs/specs/platform/tslibs-testing.md`); общая с пакетами `tslibs/*`.
 - `@hono/node-server` — сервер Hono на `node:http` для `mpu-back` и `mpu-mcp`
   вместо сервера Deno (`platform/node-runtime.md`, E1): проба этапа 2 —

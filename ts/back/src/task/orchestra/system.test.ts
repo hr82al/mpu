@@ -9,7 +9,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { osError } from "@mpu/base/oserror";
-import { fakeTimers } from "../../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import { pause, runSteps, STEP_MS } from "./run.ts";
 import {
   NOTIFY_SEND,

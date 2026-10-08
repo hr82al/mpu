@@ -22,8 +22,7 @@ import {
   UsageError,
 } from "@mpu/command";
 import { SelectorError } from "@mpu/command/selector";
-import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
-import { type FieldSpec, pathParams } from "../api/endpoint.ts";
+import { type FieldSpec, pathParams, WRITE_ENDPOINTS } from "@mpu/cmd-api";
 
 /**
  * Образец вызова команды: аргументы, которые она принимает, и образец

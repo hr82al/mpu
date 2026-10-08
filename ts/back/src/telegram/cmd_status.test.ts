@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import { fakeTimers } from "../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import type { CacheDb, Command, CommandIo } from "@mpu/command";
 import { VerbatimUsageError } from "@mpu/command";
 import { startFakeKaiten } from "@mpu/kaiten/testing";

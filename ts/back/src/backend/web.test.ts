@@ -9,7 +9,7 @@ import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
-import { fakeTimers } from "../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import { DatabaseSync } from "node:sqlite";
 import { rulesOf } from "../line/mod.ts";
 import { ALLOW, ASK, DENY, RuleBook, RulePath } from "@mpu/command/policy";

@@ -12,7 +12,7 @@ import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { LastResults, lineEntry, type Memory } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 import { GRAMMAR } from "@mpu/language/messages";
-import { heldScope } from "../vitest/scope.ts";
+import { heldScope } from "@mpu/testing/vitest";
 import { makeFakeIo } from "@mpu/command/testing";
 import { lokiBody, withFakeLoki } from "@mpu/cmd-logs/testing";
 

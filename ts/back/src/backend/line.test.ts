@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { fakeTimers } from "../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import type { ServerFrame } from "@mpu/language/frames";
 import { OWNER } from "./caller.ts";
 import { AGENT_DOOR, HUMAN_DOOR } from "./door.ts";

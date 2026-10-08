@@ -5,7 +5,7 @@
 
 import { expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
-import { fakeTimers } from "../vitest/scope.ts";
+import { fakeTimers } from "@mpu/testing/vitest";
 import type { CacheDb } from "@mpu/command";
 import { fakeConfigDb, makeFakeIo } from "@mpu/command/testing";
 import { age, waitCommand, type Waiting } from "./cmd_read.ts";

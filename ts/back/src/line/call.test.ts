@@ -4,13 +4,17 @@
  * получателя по взглядам (A20) и справки — голденами. Ни одна строка
  * здесь не доходит до сети: отказы случаются раньше, а на вопрос двери
  * человек отвечает «нет».
+ *
+ * Команды — пакет `@mpu/cmd-call` в дереве реестра; тест здесь, потому что
+ * ему нужна строка приложения. Голдены справок — из канала
+ * `docs/specs/fixtures/call/`: папку пакета `ts/` не читает.
  */
 
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { lineEntry } from "../line/mod.ts";
-import { consentOf, withPolicyFile } from "../line/testconsent.ts";
+import { lineEntry } from "./mod.ts";
+import { consentOf, withPolicyFile } from "./testconsent.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { makeFakeIo } from "@mpu/command/testing";
 
@@ -148,7 +152,7 @@ it("справки получателя и сообщений — голдены
     ];
     for (const [words, name] of cases) {
       const golden = await readFile(
-        new URL(`testdata/${name}`, import.meta.url),
+        new URL(`../../../docs/specs/fixtures/call/${name}`, import.meta.url),
         "utf8",
       );
       const ran = await run(file, words);

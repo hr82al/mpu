@@ -1,9 +1,0 @@
-Использование: mpu ozon <сообщение>
-
-Ozon API под ключом кабинета клиента: Seller — call-ro | call, реклама — perf
-
-mpu ozon <сообщение> target: КЛИЕНТ [ключи]
-
-Сообщения:
-  call-ro  что сейчас отвечает ручка чтения Ozon Seller API под ключом кабинета клиента
-  perf     Ozon Performance API (реклама) под ключами кабинета клиента: call-ro | call
