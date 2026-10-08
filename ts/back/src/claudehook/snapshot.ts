@@ -22,7 +22,7 @@ import {
   STALE,
   type StepEvents,
   URGENT,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { TERMINAL } from "./decision.ts";
 import { type Dialog, dialogOf } from "./screen.ts";
 import type { KeysReader, Pane, PaneGuard, ScreenReader } from "./window.ts";

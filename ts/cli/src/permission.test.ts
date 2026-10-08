@@ -13,7 +13,7 @@ import {
   FakeBot,
   fakeQuestions,
   pressUpdate,
-} from "../../back/src/botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { runClient } from "./client.ts";
 import { type Script, testEnv, withFakeServer } from "./testkit.ts";
 import { closedPort } from "@mpu/testing";

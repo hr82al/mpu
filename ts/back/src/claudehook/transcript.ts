@@ -9,7 +9,7 @@
 import { Buffer } from "node:buffer";
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { type Clock, REAL_CLOCK } from "../botquestions/mod.ts";
+import { type Clock, REAL_CLOCK } from "@mpu/cmd-botquestions";
 import { hasErrorCode, osError } from "@mpu/base/oserror";
 import type { ToolUse } from "./permission.ts";
 import { type Fields, isFields } from "./fields.ts";

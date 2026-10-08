@@ -16,14 +16,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, beforeAll, describe, expect, it } from "vitest";
-import { type Asked, NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
+import { type Asked, NO_BOT, REAL_CLOCK } from "@mpu/cmd-botquestions";
 import type { HookReply } from "./reply.ts";
 import {
   FakeBot,
   fakeQuestions,
   pressUpdate,
   textUpdate,
-} from "../botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { DEADLINE_MS, HOOK_TIMEOUT_S, PermissionDesk } from "./desk.ts";
 import { DISK_FILES, Transcripts, WATCH_MS } from "./transcript.ts";
 import { NO_WINDOWS, type TmuxRun, Windows } from "./window.ts";

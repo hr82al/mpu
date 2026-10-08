@@ -65,7 +65,7 @@ import {
   Workers,
 } from "../worker/mod.ts";
 import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
-import { type OwnerQuestions, REAL_CLOCK } from "../botquestions/mod.ts";
+import { type OwnerQuestions, REAL_CLOCK } from "@mpu/cmd-botquestions";
 import {
   DISK_FILES,
   ElicitationDesk,

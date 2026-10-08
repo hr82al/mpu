@@ -2,40 +2,15 @@
  * Отказы `@mpu/telegram` у слоя команд (`docs/specs/platform/
  * telegram-mtproto.md`, «Ошибки и коды выхода»): отказ слоя уходит классом
  * контракта команды — код 1 и строка `telegram: …` без префикса команды; у
- * ошибки ввода — код 2; дефект — тем же объектом.
+ * ошибки ввода — код 2; дефект — тем же объектом. Здесь — коды и строки
+ * через точку входа; перевод отказа классом проверяет пакет
+ * `@mpu/cmd-telegram`.
  */
 
-import { TelegramError, TelegramInputError } from "@mpu/telegram";
 import { describe, expect, it } from "vitest";
-import {
-  DomainError,
-  type EnvFile,
-  VerbatimError,
-  VerbatimUsageError,
-} from "@mpu/command";
-import { runCli } from "../entrypoint/mod.ts";
+import { DomainError, type EnvFile } from "@mpu/command";
+import { runCli } from "../mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
-import { commandError } from "./errors.ts";
-
-describe("отказ библиотеки — классом контракта команды", () => {
-  it("отказ слоя — VerbatimError с тем же текстом", () => {
-    const refusal = new TelegramError("telegram: RPC error: CHAT_INVALID");
-    const err = commandError(refusal);
-    expect(err instanceof VerbatimError, String(err)).toBe(true);
-    expect((err as VerbatimError).message).toBe(refusal.message);
-    expect((err as VerbatimError).cause).toBe(refusal);
-  });
-  it("ошибка ввода — VerbatimUsageError с тем же текстом", () => {
-    const refusal = new TelegramInputError("telegram: пустой адресат");
-    const err = commandError(refusal);
-    expect(err instanceof VerbatimUsageError, String(err)).toBe(true);
-    expect((err as VerbatimUsageError).message).toBe(refusal.message);
-  });
-  it("дефект — тот же объект", () => {
-    const defect = new TypeError("дефект");
-    expect(commandError(defect)).toBe(defect);
-  });
-});
 
 /**
  * Env-файл без ключей: обязательный ключ отказывает классом и текстом

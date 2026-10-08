@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { listenLoopback } from "@mpu/testing";
-import { NO_BOT, type OwnerQuestions } from "../botquestions/mod.ts";
+import { NO_BOT, type OwnerQuestions } from "@mpu/cmd-botquestions";
 import type { CommandIo } from "@mpu/command";
 import { type Launcher, MemoryLauncher } from "../worker/mod.ts";
 import { FIRST_WORKER_PID, withBack } from "./testback.ts";

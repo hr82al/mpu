@@ -9,7 +9,7 @@ import {
   FakeBot,
   fakeQuestions,
   pressUpdate,
-} from "../botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { Windows } from "../claudehook/mod.ts";
 import type { CommandIo } from "@mpu/command";
 import { ALLOW, ASK, RuleBook, RulePath } from "@mpu/command/policy";

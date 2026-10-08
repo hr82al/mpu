@@ -2,15 +2,15 @@
  * Отдельный `mpu telegram login` через публичный вход: сбой самого входа —
  * «пропущено» с причиной и код 0, как у шага `mpu init`
  * (`docs/specs/telegram-login.md`, инвариант 3). Живой вход не
- * запускается: оба случая отказывают до сети.
+ * запускается: оба случая отказывают до сети. Справку команды проверяет
+ * пакет `@mpu/cmd-telegram`.
  */
 
 import { describe, expect, it } from "vitest";
 import type { EnvFile, Prompt } from "@mpu/command";
-import { runCli } from "../entrypoint/mod.ts";
+import { runCli } from "../mod.ts";
 import { makeFakeIo, promptQueue } from "@mpu/command/testing";
 import { rejected } from "@mpu/testing/thrown";
-import { telegramLoginCommand } from "./cmd_login.ts";
 
 /** Что меняет прогон команды относительно обычного. */
 interface LoginRun {
@@ -117,17 +117,4 @@ it("mpu telegram login: неверный вызов — код 2", async () => {
   const { code, written } = await login({ argv: ["telegram", "login", "--x"] });
   expect(code).toBe(2);
   expect(written).toStrictEqual({});
-});
-
-it("справка mpu telegram login называет все три кода выхода", () => {
-  // Коды — часть контракта (`telegram-login.md`, инвариант 3): абзац
-  // держится дословно, иначе справка молча разойдётся с поведением.
-  const exit = telegramLoginCommand.help.slice(
-    telegramLoginCommand.help.indexOf("Exit:"),
-  );
-  expect(exit).toBe(
-    "Exit: 0 — успех и любой пропуск, в том числе сбой самого входа; 2 —\n" +
-      "неверный вызов (лишняя опция); 1 — сбой вне сценария: дефект\n" +
-      "программы, отказ терминала, записи env-файла или закрытия клиента.",
-  );
 });

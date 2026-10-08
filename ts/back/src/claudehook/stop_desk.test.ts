@@ -10,15 +10,15 @@ import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import { type Asked, NO_BOT } from "../botquestions/mod.ts";
-import { BotFailure } from "../botquestions/bot_api.ts";
+import { type Asked, NO_BOT } from "@mpu/cmd-botquestions";
+import { BotFailure } from "@mpu/cmd-botquestions/testing";
 import {
   f1,
   FakeBot,
   fakeQuestions,
   pressUpdate,
   textUpdate,
-} from "../botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { Sessions } from "./sessions.ts";
 import { StopDesk } from "./stop_desk.ts";
 import { TestClock } from "./testclock.ts";

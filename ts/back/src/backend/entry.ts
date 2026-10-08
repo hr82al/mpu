@@ -8,7 +8,7 @@ import type { CommandIo } from "@mpu/command";
 import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "@mpu/invokelog";
 import { ensureAccessToken } from "@mpu/cmd-mcp";
-import { ownerQuestions } from "../botquestions/mod.ts";
+import { ownerQuestions } from "@mpu/cmd-botquestions";
 import { VERSION } from "../version.ts";
 import { hasErrorCode, type SecretText } from "../runtime/mod.ts";
 import { DEFAULT_LINES } from "./limit.ts";

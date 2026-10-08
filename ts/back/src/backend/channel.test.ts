@@ -14,7 +14,11 @@ import {
   helloFrame,
   STOP,
 } from "@mpu/language/frames";
-import { FakeBot, fakeQuestions, textUpdate } from "../botquestions/testbot.ts";
+import {
+  FakeBot,
+  fakeQuestions,
+  textUpdate,
+} from "@mpu/cmd-botquestions/testing";
 import {
   Client,
   openSocket,

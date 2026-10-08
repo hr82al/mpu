@@ -12,7 +12,7 @@ import {
   NO_BOT,
   type OwnerQuestions,
   REAL_CLOCK,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { UsageError } from "@mpu/command";
 import {
   type HookPayload,

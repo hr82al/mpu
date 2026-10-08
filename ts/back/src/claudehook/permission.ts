@@ -16,7 +16,7 @@ import {
   type Step,
   type StepAnswer,
   TAKES_TEXT,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { ALLOW, DENY, PermissionDecision } from "./decision.ts";
 import type { HookReply } from "./reply.ts";
 import { type Fields, isFields } from "./fields.ts";

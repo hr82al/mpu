@@ -14,7 +14,7 @@ import {
   FakeBot,
   fakeQuestions,
   pressUpdate,
-} from "../../back/src/botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { within } from "../../back/src/backend/testback.ts";
 import { ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import { call, connect, type Stack, withStack } from "./testkit.ts";

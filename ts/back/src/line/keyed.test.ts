@@ -229,7 +229,7 @@ it("унарное за литералом — результату, как по
 it("telegram file без chat: — отказ до сети, голден (F10)", async () => {
   const golden = await readFile(
     new URL(
-      "../telegram/testdata/telegram-file/err-no-chat-stderr.txt",
+      "../../../docs/specs/fixtures/telegram-file/err-no-chat-stderr.txt",
       import.meta.url,
     ),
     "utf8",

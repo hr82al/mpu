@@ -12,7 +12,7 @@ import {
   SKIP,
   type TextRule,
   Written,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 
 /** Достижимость сессии для вопроса «ждёт ввода». */
 export interface Reach {

@@ -18,10 +18,10 @@
 
 import type { Command } from "@mpu/command";
 import { XLSX_DEFAULT, xlsxCommands } from "@mpu/cmd-xlsx";
-import { initCommand } from "../init/mod.ts";
+import { initCommand } from "@mpu/cmd-init";
 import { updateCommand } from "@mpu/cmd-update";
 import { sqlCommand, sqlRoCommand } from "@mpu/cmd-sql";
-import { healthCommand } from "../health/mod.ts";
+import { healthCommand } from "@mpu/cmd-health";
 import {
   dataLoaderCommand,
   jobsCommands,
@@ -86,7 +86,7 @@ import {
   telegramSearchCommand,
   telegramSendCommand,
   telegramStatusCommand,
-} from "../telegram/mod.ts";
+} from "@mpu/cmd-telegram";
 import {
   claudeChannelCommand,
   claudeHookElicitationCommand,
@@ -132,7 +132,7 @@ import {
   codeRefsCommand,
   codeTwinsCommand,
 } from "@mpu/cmd-code";
-import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
+import { moveClientBackCommand, moveClientCommand } from "@mpu/cmd-move";
 import { mpCloneCommand } from "@mpu/cmd-mpclone";
 import { mpInitCommand } from "@mpu/cmd-mpinit";
 import {

@@ -13,7 +13,7 @@ import {
   type OutcomeReader,
   type OwnerQuestions,
   REAL_CLOCK,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { EXPIRED, NoDecision, TERMINAL } from "./decision.ts";
 import {
   type Asking,

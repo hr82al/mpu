@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Form, OwnerQuestions } from "../botquestions/mod.ts";
-import { NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
+import type { Form, OwnerQuestions } from "@mpu/cmd-botquestions";
+import { NO_BOT, REAL_CLOCK } from "@mpu/cmd-botquestions";
 import {
   NO_WINDOWS,
   sessionKeyOf,

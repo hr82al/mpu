@@ -11,7 +11,7 @@ import {
   type OwnerQuestions,
   REAL_CLOCK,
   titled,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { EXPIRED } from "./decision.ts";
 import { settledWithin } from "./desk.ts";
 import {

@@ -5,7 +5,7 @@
  * держатся на экранах, снятых живьём (`testdata/snapshot/`).
  */
 
-import { clipLabel } from "../botquestions/mod.ts";
+import { clipLabel } from "@mpu/cmd-botquestions";
 
 /** Сплошная линия: не короче — иначе это не рамка диалога. */
 const RULE_MIN = 20;

@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import type { Asked } from "../botquestions/mod.ts";
+import type { Asked } from "@mpu/cmd-botquestions";
 import { WireLink } from "./channel.ts";
 import { NO_CHANNEL } from "./reach.ts";
 import { DELIVERY_MS, Session, SESSION_CLOSED } from "./sessions.ts";

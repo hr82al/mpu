@@ -13,7 +13,7 @@ import {
   Form,
   ONE,
   type OwnerQuestions,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import {
   type CallerEnv,
   sessionKeyOf,

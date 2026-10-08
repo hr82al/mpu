@@ -15,8 +15,8 @@ import {
   fakeQuestions,
   pressUpdate,
   textUpdate,
-} from "../botquestions/testbot.ts";
-import { NO_BOT } from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions/testing";
+import { NO_BOT } from "@mpu/cmd-botquestions";
 import { NotifyDesk, SETTLE_QUESTION_MS } from "./notify_desk.ts";
 import { Sessions } from "./sessions.ts";
 import { LOOK_MS, NOTHING_SENT, SETTLE_MS } from "./snapshot.ts";

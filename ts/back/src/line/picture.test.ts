@@ -11,11 +11,7 @@ import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
 import { IN_PLACE, type Invoker } from "../entrypoint/mod.ts";
 import type { PictureData } from "@mpu/language/frames";
-import {
-  asInbox,
-  PICTURE_CHAT,
-  savedOnStand,
-} from "../telegram/testpicture.ts";
+import { asInbox, PICTURE_CHAT, savedOnStand } from "@mpu/cmd-telegram/testing";
 import { LastResults, type Memory, NO_CALLER } from "./it.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { type Ran, runOnStand, unmarked, withStand } from "./testprogram.ts";

@@ -7,7 +7,7 @@
  * реестра и наружу не выдаётся.
  */
 
-import type { Asked, Clock } from "../botquestions/mod.ts";
+import type { Asked, Clock } from "@mpu/cmd-botquestions";
 import { SESSION_ENV } from "@mpu/language/frames";
 import { TERMINAL } from "./decision.ts";
 import { NO_CHANNEL, type Reach } from "./reach.ts";

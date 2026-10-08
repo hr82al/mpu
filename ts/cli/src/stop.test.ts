@@ -8,7 +8,7 @@ import { assert, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import { STOP } from "@mpu/language/frames";
 import { withBack } from "../../back/src/backend/testback.ts";
-import { FakeBot, fakeQuestions } from "../../back/src/botquestions/testbot.ts";
+import { FakeBot, fakeQuestions } from "@mpu/cmd-botquestions/testing";
 import { runClient } from "./client.ts";
 import { testEnv } from "./testkit.ts";
 import { closedPort } from "@mpu/testing";

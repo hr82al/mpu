@@ -4,7 +4,7 @@
  * формата: поля payload'а читаются здесь и только здесь.
  */
 
-import { Form, KEEP_TAIL, ONE, WAITS_INPUT } from "../botquestions/mod.ts";
+import { Form, KEEP_TAIL, ONE, WAITS_INPUT } from "@mpu/cmd-botquestions";
 import { STOP } from "@mpu/language/frames";
 import { type Fields, isFields } from "./fields.ts";
 import { projectOf } from "./places.ts";

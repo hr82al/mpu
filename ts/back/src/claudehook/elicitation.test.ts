@@ -6,15 +6,15 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { NO_BOT } from "../botquestions/mod.ts";
-import { BotFailure } from "../botquestions/bot_api.ts";
+import { NO_BOT } from "@mpu/cmd-botquestions";
+import { BotFailure } from "@mpu/cmd-botquestions/testing";
 import {
   f1,
   FakeBot,
   fakeQuestions,
   pressUpdate,
   textUpdate,
-} from "../botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { ElicitationDesk, NO_ELICITATION_DESK } from "./elicitation_desk.ts";
 import { DISK_FILES, Transcripts } from "./transcript.ts";
 import { type CallerEnv, NO_WINDOWS } from "./window.ts";

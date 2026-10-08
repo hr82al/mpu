@@ -14,7 +14,7 @@ import { Socket } from "node:net";
 import process from "node:process";
 import { expect, it, vi } from "vitest";
 import type { EnvFile, Prompt } from "@mpu/command";
-import { runCli } from "../entrypoint/mod.ts";
+import { runCli } from "../mod.ts";
 import { makeFakeIo, promptQueue } from "@mpu/command/testing";
 
 /** Причина отказа соединения, как её отдаёт `node:net`. */

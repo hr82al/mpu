@@ -1,1 +1,0 @@
-mpu health: PORTAINER_API_KEY не задан в ~/.config/mpu/.env

@@ -9,7 +9,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, expect, it } from "vitest";
-import { asInbox, PICTURE_CHAT } from "../telegram/testpicture.ts";
+import { asInbox, PICTURE_CHAT } from "@mpu/cmd-telegram/testing";
 import { PictureLauncher } from "./testpicture.ts";
 import { post, type TestBack, withBack } from "./testback.ts";
 import { violations } from "./testschema.ts";

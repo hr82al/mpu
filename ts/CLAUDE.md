@@ -747,8 +747,9 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
 - `@mpu/cmd-kiten`, `@mpu/cmd-image` — команды `mpu kiten …` и
   `mpu image sync|export` пакетами (`docs/specs/platform/tslibs-commands.md`,
   D3); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра
-  `@mpu/cmd-kiten` берут `init` (прогрев справочников Kaiten с записью в
-  кэш-БД) и `telegram status` (журнал перемещений, московский день);
+  `@mpu/cmd-kiten` берут пакеты `@mpu/cmd-init` (прогрев справочников
+  Kaiten с записью в кэш-БД) и `@mpu/cmd-telegram` (`telegram status`:
+  журнал перемещений, московский день);
   `@mpu/cmd-image` — ядро строк `back/src/line`, сервер приложения и
   `back/back.ts` (образ `image.db`: методы пользователя, план синхронизации).
 - `@mpu/cmd-sql`, `@mpu/cmd-logs`, `@mpu/cmd-update`, `@mpu/cmd-log`,
@@ -758,7 +759,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   сессию, цель и сводку ответа PostgreSQL из `@mpu/cmd-sql` берут соседние
   команды того же сервера (`backup`, `call`, `copy`, `cleanlocal`, `api`) и
   `smoke`, драйвер — вход `@mpu/cmd-sql/pg` (вход `.` грузит его лениво);
-  `writeLokiCache` из `@mpu/cmd-logs` — `init` и `@mpu/cmd-update`, Loki на
+  `writeLokiCache` из `@mpu/cmd-logs` — `@mpu/cmd-init` и `@mpu/cmd-update`, Loki на
   петле для тестов строки и большого вывода (`line`, `backend`, подпроект
   `mcp/`) — вход `@mpu/cmd-logs/testing`; синк из
   `@mpu/cmd-update` — `search`; ядро MCP и помощники JSON-RPC из
@@ -773,9 +774,9 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   D4); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`.
   `@mpu/cmd-exec` — выбор цели без команд (место по селектору и кэшу
   контейнеров, транспорт по env-файлу, Portainer с переводом отказа в ошибку
-  команды); его берут пакеты `ps`, `ssh`, `run-js`, обёрток sl-back CLI и в
-  `ts/` — `health`, `move-client`. Сам транспорт — `@mpu/exec` (выше). Кроме
-  реестра `@mpu/cmd-nodecli` берёт `move-client` (сборка inner-команды).
+  команды); его берут пакеты `ps`, `ssh`, `run-js`, обёрток sl-back CLI,
+  `health`, `move-client` (D7). Сам транспорт — `@mpu/exec` (выше). Кроме
+  реестра `@mpu/cmd-nodecli` берёт `@mpu/cmd-move` (сборка inner-команды).
 - `@mpu/cmd-api`, `@mpu/cmd-backup`, `@mpu/cmd-call`, `@mpu/cmd-copy`,
   `@mpu/cmd-cleanlocal` — команды `mpu api …` (с адресом и сеансом sl-back
   над io команды), `backup-*`, `ozon`/`ozon perf`/`wb call`, `copy-*`,
@@ -803,6 +804,22 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   приложения — `back/src/line/task/` (сценарии `task` и оркестратора
   строкой целиком), `back/src/entrypoint/xlsx.test.ts` (эталоны — канал
   `docs/specs/fixtures/xlsx/`).
+- `@mpu/cmd-telegram`, `@mpu/cmd-botquestions`, `@mpu/cmd-init`,
+  `@mpu/cmd-health`, `@mpu/cmd-move` — команды `mpu telegram …`, вопросы
+  владельцу в чате с ботом (библиотека домена без команд), `init`, `health`,
+  `move-client`/`move-client-back` пакетами
+  (`docs/specs/platform/tslibs-commands.md`, D7); библиотеки
+  `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра: службу
+  вопросов `@mpu/cmd-botquestions` на весь процесс создаёт и держит сервер
+  ядра (`backend/entry.ts`), формы задают `backend` и `claudehook`;
+  конфигурацию бота `@mpu/cmd-botquestions` берёт из `@mpu/cmd-telegram`,
+  шаг входа — `@mpu/cmd-init`. Стенды для тестов `ts/` — входы
+  `@mpu/cmd-telegram/testing` (картинки P1–P20: `backend`, `line`, `mcp/`),
+  `@mpu/cmd-botquestions/testing` (поддельный бот: `backend`, `claudehook`,
+  `cli/`, `mcp/`), `@mpu/cmd-init/testing` (источники `init` на петле).
+  Тесты со стендом приложения — `back/src/entrypoint/telegram/` (`runCli`,
+  настоящий порт файлов), `back/src/entrypoint/init/cmd_init.test.ts`
+  (эталоны — канал `docs/specs/fixtures/init/`).
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

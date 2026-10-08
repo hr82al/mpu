@@ -18,7 +18,7 @@ import {
   FakeBot,
   fakeQuestions,
   textUpdate,
-} from "../../back/src/botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { type ChannelEnv, runChannel } from "./channel/mod.ts";
 import { runClient } from "./client.ts";
 import { testEnv } from "./testkit.ts";

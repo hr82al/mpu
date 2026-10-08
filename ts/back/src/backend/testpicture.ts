@@ -1,7 +1,7 @@
 /**
  * Исполнители стенда картинок (`platform/picture-frame.md`): строку
  * `telegram file` исполняет настоящий код команды на сеансе стенда
- * (`telegram/testpicture.ts`) и отдаёт ядру кадр `result` по протоколу
+ * (`@mpu/cmd-telegram/testing`) и отдаёт ядру кадр `result` по протоколу
  * исполнителя (`platform/line-executor.md`); прочие строки — программы
  * и команды — настоящий исполнитель в памяти.
  */
@@ -12,8 +12,8 @@ import {
   formatCommandError,
   UsageError,
 } from "@mpu/command";
-import { telegramFileCommand } from "../telegram/cmd_file.ts";
-import { savedOnStand } from "../telegram/testpicture.ts";
+import { telegramFileCommand } from "@mpu/cmd-telegram";
+import { savedOnStand } from "@mpu/cmd-telegram/testing";
 import {
   type Launcher,
   serveOne,

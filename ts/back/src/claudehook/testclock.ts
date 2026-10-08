@@ -3,7 +3,7 @@
  * (`ts/CLAUDE.md`, «TDD»).
  */
 
-import type { Clock } from "../botquestions/mod.ts";
+import type { Clock } from "@mpu/cmd-botquestions";
 
 /** Часы, которые ведёт тест: пауза кончается его `fire`. */
 export class TestClock implements Clock {

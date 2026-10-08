@@ -7,7 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
 import { PERMISSION_REQUEST } from "@mpu/language/frames";
-import { FakeBot, fakeQuestions } from "../botquestions/testbot.ts";
+import { FakeBot, fakeQuestions } from "@mpu/cmd-botquestions/testing";
 import { Windows } from "../claudehook/mod.ts";
 import { Client, type TestBack, withBack, within } from "./testback.ts";
 

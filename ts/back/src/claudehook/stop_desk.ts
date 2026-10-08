@@ -12,7 +12,7 @@ import {
   type OutcomeReader,
   type OwnerQuestions,
   REAL_CLOCK,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { TERMINAL } from "./decision.ts";
 import { placesOf } from "./places.ts";
 import { type HookReply, unparsedInput } from "./reply.ts";

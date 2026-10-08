@@ -18,7 +18,7 @@ import {
   FakeBot,
   fakeQuestions,
   pressUpdate,
-} from "../botquestions/testbot.ts";
+} from "@mpu/cmd-botquestions/testing";
 import { Client, type TestBack, withBack, within } from "./testback.ts";
 
 const SESSION_K = "/run/user/1000/cc-socks/k.sock";

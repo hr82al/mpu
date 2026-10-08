@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PictureLauncher } from "../../back/src/backend/testpicture.ts";
-import { asInbox, PICTURE_CHAT } from "../../back/src/telegram/testpicture.ts";
+import { asInbox, PICTURE_CHAT } from "@mpu/cmd-telegram/testing";
 import { call, type Stack, withClient, withStack } from "./testkit.ts";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 

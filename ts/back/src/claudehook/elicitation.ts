@@ -17,7 +17,7 @@ import {
   type StepAnswer,
   TAKES_TEXT,
   type TextRule,
-} from "../botquestions/mod.ts";
+} from "@mpu/cmd-botquestions";
 import { ELICITATION } from "@mpu/language/frames";
 import { type Fields, isFields } from "./fields.ts";
 import { projectOf } from "./places.ts";
