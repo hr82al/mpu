@@ -13,7 +13,6 @@ import {
 } from "./api.ts";
 import { Confirm } from "./Confirm.tsx";
 import { loadExpanded, saveExpanded } from "./expanded.ts";
-import { MethodPanel } from "./MethodPanel.tsx";
 import { useTransport } from "./transport.tsx";
 import { buildTree, filterTree, originOf, type RuleNode } from "./tree.ts";
 import { told, useLine } from "./useLine.ts";
@@ -65,12 +64,10 @@ interface RowProps {
   readonly searching: boolean;
   readonly toggle: (key: string) => void;
   readonly change: (words: string[]) => void;
-  /** Итог строки панели метода — перечитать дерево. */
-  readonly reread: () => void;
 }
 
 function Row(props: RowProps) {
-  const { node, depth, expanded, searching, toggle, change, reread } = props;
+  const { node, depth, expanded, searching, toggle, change } = props;
   const open = depth === 0 || searching || expanded.has(node.key);
   const target = node.path.length === 0 ? "*" : node.key;
   return (
@@ -87,7 +84,6 @@ function Row(props: RowProps) {
           </button>
         )}
         <span className="path">{node.key}</span>
-        {node.image !== undefined && <span className="label">образ</span>}
         <span className="summary">{node.summary}</span>
         <span className={`verdict verdict-${node.verdict}`}>
           {node.verdict}
@@ -117,14 +113,6 @@ function Row(props: RowProps) {
           )}
         </span>
       </div>
-      {node.image !== undefined && (
-        <MethodPanel
-          key={node.image.definition}
-          path={node.path}
-          image={node.image}
-          changed={reread}
-        />
-      )}
       {open && node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
@@ -136,7 +124,6 @@ function Row(props: RowProps) {
               searching={searching}
               toggle={toggle}
               change={change}
-              reread={reread}
             />
           ))}
         </ul>
@@ -236,7 +223,6 @@ export function Rules() {
             searching={search.trim() !== ""}
             toggle={toggle}
             change={(words) => change.send(words)}
-            reread={reread}
           />
         )}
       </ul>

@@ -1,25 +1,14 @@
 /**
- * Контракт страницы с `mpu-back` (`specs/web.md`, `web-image.md`): обмен
+ * Контракт страницы с `mpu-back` (`specs/web.md`): обмен
  * ключа на сессию и три примитива экрана — прочитать (`/rpc`), отправить
  * строку, ответить на её вопрос. Cookie
  * `HttpOnly` страница не видит — браузер прикладывает её сам.
  */
 
-/** Метод образа в узле снимка (`web-image.md`). */
-export interface MethodImage {
-  readonly author: string;
-  readonly time: string;
-  readonly source: string;
-  /** Строка определения — текст правки метода. */
-  readonly definition: string;
-}
-
 /** Узел `tree.snapshot` — поля, которые читает экран. */
 export interface SnapshotNode {
   readonly path: readonly string[];
   readonly summary: string;
-  /** Есть только у метода образа. */
-  readonly image?: MethodImage;
 }
 
 /** Сообщение протокола: селектор, вид, назначение. */
@@ -157,7 +146,7 @@ function lineReply(body: Record<string, unknown>): LineReply {
 
 const JSON_ACCEPT = { Accept: "application/json" };
 
-/** Строка экрана (`["deny:", "--", "kiten"]`, `["ask", "image", "sync"]`). */
+/** Строка экрана (`["deny:", "--", "kiten"]`). */
 export function sendLine(
   transport: Transport,
   words: readonly string[],

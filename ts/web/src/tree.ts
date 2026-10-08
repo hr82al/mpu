@@ -1,10 +1,10 @@
 /**
  * Дерево экрана «Правила» (`specs/web.md`, «Приложение (10b)»): узлы
- * `policy.tree` с назначениями и методами образа из `tree.snapshot`. Решения — только с
+ * `policy.tree` с назначениями из `tree.snapshot`. Решения — только с
  * сервера: фронт их не вычисляет, «смешанно» лишь сводит пришедшие.
  */
 
-import type { MethodImage, NodeRuling, SnapshotNode } from "./api.ts";
+import type { NodeRuling, SnapshotNode } from "./api.ts";
 
 /** Узел экрана. */
 export interface RuleNode {
@@ -12,8 +12,6 @@ export interface RuleNode {
   /** Путь текстом: `kiten card`; корень — `*`. */
   readonly key: string;
   readonly summary: string;
-  /** Метод образа; у команд и групп — нет. */
-  readonly image?: MethodImage;
   readonly verdict: string;
   readonly rule: string | null;
   readonly own: boolean;
@@ -55,7 +53,6 @@ export function buildTree(
       path: ruling.path,
       key,
       summary: node?.summary ?? "",
-      ...(node?.image === undefined ? {} : { image: node.image }),
       verdict: ruling.verdict,
       rule: ruling.rule,
       own: ruling.own,

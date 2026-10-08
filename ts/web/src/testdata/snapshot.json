@@ -137,11 +137,6 @@
           "purpose": "Список всех mpu команд с опциональной справкой."
         },
         {
-          "selector": "image",
-          "kind": "unary",
-          "purpose": "методы образа и файлы каталога"
-        },
-        {
           "selector": "init",
           "kind": "unary",
           "purpose": "первичная инициализация локальной кэш-БД: пять шагов"
@@ -240,11 +235,6 @@
           "selector": "run-js",
           "kind": "unary",
           "purpose": "Выполнить JS-код в контейнере sl-back."
-        },
-        {
-          "selector": "run:",
-          "kind": "keyword",
-          "purpose": "исполнить программу из файла .mpu"
         },
         {
           "selector": "search",
@@ -8133,107 +8123,6 @@
     },
     {
       "path": [
-        "image"
-      ],
-      "summary": "методы образа и файлы каталога",
-      "tail": null,
-      "messages": [
-        {
-          "selector": "export",
-          "kind": "unary",
-          "purpose": "Пишет в файлы каталога образа то, что изменилось в базе."
-        },
-        {
-          "selector": "sync",
-          "kind": "unary",
-          "purpose": "Сводит методы образа с файлами каталога в обе стороны."
-        }
-      ],
-      "keys": [],
-      "formats": [],
-      "variants": []
-    },
-    {
-      "path": [
-        "image",
-        "export"
-      ],
-      "summary": "Пишет в файлы каталога образа то, что изменилось в базе.",
-      "tail": "args",
-      "messages": [
-        {
-          "selector": "dir:",
-          "kind": "keyword",
-          "purpose": "каталог файлов; умолчание — ключ конфига image.dir"
-        }
-      ],
-      "keys": [
-        {
-          "name": "dir",
-          "kind": "value",
-          "required": false,
-          "purpose": "каталог файлов; умолчание — ключ конфига image.dir",
-          "reason": "прежнее имя входа"
-        }
-      ],
-      "formats": [],
-      "variants": []
-    },
-    {
-      "path": [
-        "image",
-        "sync"
-      ],
-      "summary": "Сводит методы образа с файлами каталога в обе стороны.",
-      "tail": "args",
-      "messages": [
-        {
-          "selector": "dir:",
-          "kind": "keyword",
-          "purpose": "каталог файлов; умолчание — ключ конфига image.dir"
-        }
-      ],
-      "keys": [
-        {
-          "name": "dir",
-          "kind": "value",
-          "required": false,
-          "purpose": "каталог файлов; умолчание — ключ конфига image.dir",
-          "reason": "прежнее имя входа"
-        },
-        {
-          "name": "base",
-          "kind": "list",
-          "required": false,
-          "purpose": "адрес метода получатель.имя: в конфликте права база; повторяется",
-          "reason": "прежнее имя входа"
-        },
-        {
-          "name": "files",
-          "kind": "list",
-          "required": false,
-          "purpose": "адрес метода получатель.имя: в конфликте права файл; повторяется",
-          "reason": "прежнее имя входа"
-        },
-        {
-          "name": "deletes",
-          "kind": "value",
-          "required": false,
-          "purpose": "allow — снять предохранитель массового удаления",
-          "reason": "прежнее имя входа"
-        }
-      ],
-      "formats": [],
-      "variants": [
-        {
-          "selector": "dry",
-          "purpose": "только отчёт: ни база, ни файлы, ни архив не меняются",
-          "input": "dry-run"
-        }
-      ]
-    },
-    {
-      "path": [
         "init"
       ],
       "summary": "первичная инициализация локальной кэш-БД: пять шагов",
@@ -8400,68 +8289,6 @@
       "keys": [],
       "formats": [],
       "variants": []
-    },
-    {
-      "path": [
-        "kiten",
-        "cardsIn:"
-      ],
-      "summary": "образ: мои в колонке",
-      "tail": null,
-      "messages": [],
-      "keys": [
-        {
-          "name": "cardsIn",
-          "kind": "value",
-          "required": true,
-          "purpose": "id колонки",
-          "reason": null
-        }
-      ],
-      "formats": [],
-      "variants": [],
-      "image": {
-        "author": "human",
-        "time": "2026-09-23T10:00:00.000Z",
-        "source": "do :col kiten ls where: column is: @col done",
-        "definition": "kiten define: cardsIn: purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done"
-      }
-    },
-    {
-      "path": [
-        "kiten",
-        "mine"
-      ],
-      "summary": "образ: мои",
-      "tail": null,
-      "messages": [],
-      "keys": [],
-      "formats": [],
-      "variants": [],
-      "image": {
-        "author": "human",
-        "time": "2026-09-23T10:00:00.000Z",
-        "source": "do kiten ls done",
-        "definition": "kiten define: mine purpose: ^мои^ do kiten ls done"
-      }
-    },
-    {
-      "path": [
-        "kiten",
-        "shipped"
-      ],
-      "summary": "образ: готово",
-      "tail": null,
-      "messages": [],
-      "keys": [],
-      "formats": [],
-      "variants": [],
-      "image": {
-        "author": "human",
-        "time": "2026-09-23T10:00:00.000Z",
-        "source": "do kiten ls where: column is: Готово done",
-        "definition": "kiten define: shipped purpose: ^готово^ do kiten ls where: column is: Готово done"
-      }
     },
     {
       "path": [
