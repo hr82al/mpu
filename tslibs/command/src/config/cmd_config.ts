@@ -17,6 +17,7 @@
 import { z } from "zod";
 import {
   type CacheDb,
+  type Command,
   type CommandIo,
   defineCommand,
   items,
@@ -28,12 +29,7 @@ import {
   setConfigValue,
   unsetConfigValue,
 } from "./mod.ts";
-import {
-  CONFIG_KEYS,
-  type ConfigKey,
-  configKey,
-  configKeyNames,
-} from "./registry.ts";
+import type { ConfigKey, ConfigRegistry } from "./registry.ts";
 
 const argsSchema = z.object({
   key: z.string().optional().describe("имя ключа реестра"),
@@ -73,9 +69,9 @@ type ConfigEntry = z.infer<typeof entrySchema>;
 export type ConfigIo = Pick<CommandIo, "openCacheDb" | "env">;
 
 /** Отказ на имя вне реестра: закрытый список — часть контракта. */
-function unknownKey(name: string): UsageError {
+function unknownKey(registry: ConfigRegistry, name: string): UsageError {
   return new UsageError(`unknown config key: "${name}"`, {
-    hint: `допустимые ключи: ${configKeyNames()}`,
+    hint: `допустимые ключи: ${registry.names()}`,
   });
 }
 
@@ -142,11 +138,12 @@ function assertValue(entry: ConfigKey, value: string): void {
  * `catch`.
  */
 export function runConfig(
+  registry: ConfigRegistry,
   args: ConfigArgs,
   io: ConfigIo,
 ): Promise<ConfigResult> {
   try {
-    return Promise.resolve(configResult(args, io));
+    return Promise.resolve(configResult(registry, args, io));
   } catch (err) {
     // Работа синхронная, а контракт обещает промис: отказ обязан
     // приходить отказом промиса — иначе вызывающий, написавший
@@ -161,13 +158,19 @@ export function runConfig(
  * создаёт каталог и файл — то есть отказ ввода оставлял бы след и, на
  * машине без HOME, подменялся бы отказом инфраструктуры (exit 1).
  */
-function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
+function configResult(
+  registry: ConfigRegistry,
+  args: ConfigArgs,
+  io: ConfigIo,
+): ConfigResult {
   const home = io.env("HOME");
   if (args.unset && args.key === undefined) {
     throw new UsageError("unset требует ключ key:");
   }
-  const entry = args.key === undefined ? undefined : configKey(args.key);
-  if (args.key !== undefined && entry === undefined) throw unknownKey(args.key);
+  const entry = args.key === undefined ? undefined : registry.find(args.key);
+  if (args.key !== undefined && entry === undefined) {
+    throw unknownKey(registry, args.key);
+  }
   if (entry !== undefined && args.value !== undefined) {
     if (args.unset) {
       // Молча проглотить значение нельзя: оператор просил два разных
@@ -184,8 +187,8 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
     return {
       entries: readPreferences(
         io,
-        (db) => CONFIG_KEYS.map(readWith(db, home)),
-        noStore(home),
+        (db) => registry.entries.map(readWith(db, home)),
+        noStore(registry, home),
       ),
       action: "list",
     };
@@ -219,8 +222,11 @@ function readWith(
 }
 
 /** Все ключи по умолчаниям — вид реестра, когда хранилища нет вовсе. */
-function noStore(home: string | undefined): ConfigEntry[] {
-  return CONFIG_KEYS.map((entry) => entryOf(entry, undefined, home));
+function noStore(
+  registry: ConfigRegistry,
+  home: string | undefined,
+): ConfigEntry[] {
+  return registry.entries.map((entry) => entryOf(entry, undefined, home));
 }
 
 /** Ширина колонки ключа в списке: по самому длинному имени реестра. */
@@ -238,7 +244,11 @@ function listLine(entry: ConfigEntry, width: number): string {
 }
 
 /** Четыре формы вывода: список, одно значение, запись, сброс. */
-export function renderConfig(result: ConfigResult, json: boolean): string {
+export function renderConfig(
+  registry: ConfigRegistry,
+  result: ConfigResult,
+  json: boolean,
+): string {
   if (json) return `${JSON.stringify(result.entries, null, 2)}\n`;
   const entry = result.entries[0];
   if (result.action === "list") {
@@ -254,16 +264,21 @@ export function renderConfig(result: ConfigResult, json: boolean): string {
   // строкового пустой вывод означает «не задано», и на это опираются
   // скрипты (`[ -z "$(mpu config sheet.default)" ]`, контракт спеки).
   if (entry.source === "config") return `${entry.value}\n`;
-  return configKey(entry.key)?.type === "int" ? `${entry.value}\n` : "";
+  return registry.find(entry.key)?.type === "int" ? `${entry.value}\n` : "";
 }
 
-export const configCommand = defineCommand({
-  path: ["config"],
-  keys: { key: "key", value: "value" },
-  errorName: "config",
-  summary: "Локальные предпочтения CLI: показать и задать ключи.",
-  usage: "mpu config [unset] [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [end json]",
-  help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
+/**
+ * Команда `mpu config` над закрытым списком ключей, собранным
+ * приложением из объявлений доменов; справка перечисляет его же.
+ */
+export function configCommand(registry: ConfigRegistry): Command {
+  return defineCommand({
+    path: ["config"],
+    keys: { key: "key", value: "value" },
+    errorName: "config",
+    summary: "Локальные предпочтения CLI: показать и задать ключи.",
+    usage: "mpu config [unset] [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [end json]",
+    help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
 sheet и xlsx по умолчанию, пределы кэша таблиц, каталог образа.
 
 Без ключей печатает все ключи реестра с действующими
@@ -275,7 +290,7 @@ mpu config key: K печатает значение: у строкового к�
 умолчание. key: K value: V задаёт значение, unset key: K удаляет
 запись. Повторный unset — тоже успех: команда идемпотентна.
 
-Ключи (закрытый список): ${configKeyNames()}.
+Ключи (закрытый список): ${registry.names()}.
 Имя вне списка — ошибка; записей «на лету» не появляется. Числовому
 ключу нечисловое значение задать нельзя — отказ до записи. Значения
 хранятся буквально: «007» останется «007».
@@ -290,20 +305,21 @@ end json печатает массив {key, value, source, default, description
 
 Exit: 0 — успех; 2 — имя вне реестра, нечисловое значение числового
 ключа, unset без ключа; 1 — хранилище недоступно.`,
-  examples: [
-    "mpu config",
-    "mpu config key: sheet.default value: 4326",
-    "mpu config unset key: sheet.default",
-  ],
-  policy: "rw",
-  argsSchema,
-  forms: { key: { positional: "one" }, value: { positional: "one" } },
-  resultSchema,
-  data: items<ConfigResult>({
-    records: (result) => result.entries,
-    with: (result, entries) => ({ ...result, entries }),
-  }),
-  run: (args: ConfigArgs, io: ConfigIo) => runConfig(args, io),
-  render: (result: ConfigResult, args: ConfigArgs) =>
-    renderConfig(result, args.json),
-});
+    examples: [
+      "mpu config",
+      "mpu config key: sheet.default value: 4326",
+      "mpu config unset key: sheet.default",
+    ],
+    policy: "rw",
+    argsSchema,
+    forms: { key: { positional: "one" }, value: { positional: "one" } },
+    resultSchema,
+    data: items<ConfigResult>({
+      records: (result) => result.entries,
+      with: (result, entries) => ({ ...result, entries }),
+    }),
+    run: (args: ConfigArgs, io: ConfigIo) => runConfig(registry, args, io),
+    render: (result: ConfigResult, args: ConfigArgs) =>
+      renderConfig(registry, result, args.json),
+  });
+}

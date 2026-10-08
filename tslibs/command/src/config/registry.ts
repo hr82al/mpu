@@ -1,16 +1,17 @@
 /**
  * Реестр ключей предпочтений (`platform/config.md`, «CLI-контракт»):
- * закрытый список из шести имён с типом, умолчанием и описанием.
+ * протокол объявления ключа и закрытый список, собранный из объявлений.
+ *
+ * Ключ объявляет его домен — пакет команды, которая значение применяет
+ * (`sheet.cache.*` — `sheet`, `task.history` — `task`); список
+ * собирает приложение в порядке спеки. Порядок вывода — контракт, и он
+ * не совпадает с группировкой по доменам (`xlsx.default` стоит между
+ * ключами `sheet`), поэтому собирает его одно место, а не сцепка
+ * списков пакетов.
  *
  * Закрытый — значит обращение к имени вне списка никогда не создаёт
  * запись «на лету»: опечатка в ключе обязана быть отказом, а не тихо
  * осевшей строкой, которую потом никто не найдёт.
- *
- * Описания — дословно из голденов рабочей версии
- * (`fixtures/config/list-json.stdout`): их читает человек в выводе
- * `mpu config --json`, и расходиться двум текстам об одном ключе
- * незачем. У нашего ключа `image.dir`, которого в оригинале нет,
- * описание своё, в том же стиле.
  */
 
 /** Тип значения ключа; от него зависит и валидация, и печать. */
@@ -23,15 +24,15 @@ export type ConfigKeyType = "str" | "int";
 export type Fallback = (home: string | undefined) => string | undefined;
 
 /** Умолчания нет: не задано — значит не задано. */
-const NO_FALLBACK: Fallback = () => undefined;
+export const NO_FALLBACK: Fallback = () => undefined;
 
 /** Постоянное умолчание. */
-function fixed(value: string): Fallback {
+export function fixed(value: string): Fallback {
   return () => value;
 }
 
 /** Путь под `HOME`; `HOME` нет — умолчания нет (`platform/config.md`). */
-function underHome(path: string): Fallback {
+export function underHome(path: string): Fallback {
   return (home) => (home === undefined ? undefined : `${home}/${path}`);
 }
 
@@ -57,79 +58,29 @@ export interface ConfigKey {
 }
 
 /**
- * Каталог файлов образа (`platform/config.md`, «Ключ `image.dir`»). Его
- * умолчание — и граница права записи строки `image sync`
- * (`image-sync.md`): каталог — оно или под ним.
+ * Закрытый список ключей в порядке объявления — в этом же порядке их
+ * печатает вывод. Список копируется при сборке: собравший его не правит
+ * реестр задним числом.
  */
-export const IMAGE_DIR: ConfigKey = {
-  key: "image.dir",
-  type: "str",
-  fallback: underHome("mr/mp/mpu/image"),
-  description:
-    "Каталог файлов методов образа для `mpu image sync` и `mpu image export`",
-};
+export class ConfigRegistry {
+  readonly #keys: readonly ConfigKey[];
 
-/** Ключи по порядку объявления — в этом же порядке их печатает вывод. */
-/** Глубина журнала канала `mpu task` в порциях (`task.md`, «Конфигурация»). */
-export const TASK_HISTORY: ConfigKey = {
-  key: "task.history",
-  type: "int",
-  fallback: fixed("3"),
-  description:
-    "Глубина журнала `mpu task` в порциях: 0 — только текущая, -1 — не чистить",
-};
+  constructor(keys: readonly ConfigKey[]) {
+    this.#keys = [...keys];
+  }
 
-export const TASK_MAX_BUSY: ConfigKey = {
-  key: "task.max_busy",
-  type: "int",
-  fallback: fixed("4"),
-  description:
-    "Предел одновременно занятых ролей оркестратора `mpu-task` по всем проектам",
-};
+  /** Ключи по порядку объявления. */
+  get entries(): readonly ConfigKey[] {
+    return this.#keys;
+  }
 
-export const CONFIG_KEYS: readonly ConfigKey[] = [
-  {
-    key: "sheet.default",
-    type: "str",
-    fallback: NO_FALLBACK,
-    description:
-      "Spreadsheet по умолчанию (ID/URL/alias/client_id/title) для `mpu sheet`",
-  },
-  {
-    key: "xlsx.default",
-    type: "str",
-    fallback: NO_FALLBACK,
-    description: "Путь или alias .xlsx по умолчанию для `mpu xlsx`",
-  },
-  {
-    key: "sheet.cache.tab_ttl",
-    type: "int",
-    fallback: fixed("7200"),
-    description: "TTL whole-tab кэша листов, секунды",
-  },
-  {
-    key: "sheet.cache.max_tab_bytes",
-    type: "int",
-    fallback: fixed("10485760"),
-    description: "Порог, выше которого таб не кэшируется, байты (после gzip)",
-  },
-  {
-    key: "sheet.cache.max_total_mb",
-    type: "int",
-    fallback: fixed("500"),
-    description: "Общий потолок кэша листов, МБ",
-  },
-  IMAGE_DIR,
-  TASK_HISTORY,
-  TASK_MAX_BUSY,
-];
+  /** Ключ по имени; имени нет в списке — `undefined`. */
+  find(name: string): ConfigKey | undefined {
+    return this.#keys.find((entry) => entry.key === name);
+  }
 
-/** Ключ реестра по имени; имени нет в списке — `undefined`. */
-export function configKey(name: string): ConfigKey | undefined {
-  return CONFIG_KEYS.find((entry) => entry.key === name);
-}
-
-/** Имена ключей через запятую — для подсказки при опечатке. */
-export function configKeyNames(): string {
-  return CONFIG_KEYS.map((entry) => entry.key).join(", ");
+  /** Имена ключей через запятую — для подсказки при опечатке. */
+  names(): string {
+    return this.#keys.map((entry) => entry.key).join(", ");
+  }
 }

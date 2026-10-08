@@ -17,7 +17,15 @@ import {
 } from "../command/mod.ts";
 import { isMissingTable } from "../store/mod.ts";
 
-export { IMAGE_DIR, TASK_HISTORY, TASK_MAX_BUSY } from "./registry.ts";
+export {
+  type ConfigKey,
+  type ConfigKeyType,
+  ConfigRegistry,
+  type Fallback,
+  fixed,
+  NO_FALLBACK,
+  underHome,
+} from "./registry.ts";
 
 /** Алиас файла: имя и путь, как его ввели. */
 export interface Alias {

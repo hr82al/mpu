@@ -26,8 +26,24 @@ import {
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { configValue, setConfigValue } from "./mod.ts";
-import { configCommand, renderConfig, runConfig } from "./cmd_config.ts";
-import { CONFIG_KEYS } from "./registry.ts";
+import {
+  configCommand,
+  renderConfig as renderWith,
+  runConfig as runWith,
+} from "./cmd_config.ts";
+import { TEST_REGISTRY } from "./testkeys.ts";
+
+type RunArgs = Parameters<typeof runWith>;
+
+/** Ход команды над реестром фикстуры. */
+const runConfig = (args: RunArgs[1], io: RunArgs[2]) =>
+  runWith(TEST_REGISTRY, args, io);
+
+/** Печать результата над реестром фикстуры. */
+const renderConfig = (
+  result: Awaited<ReturnType<typeof runWith>>,
+  json: boolean,
+) => renderWith(TEST_REGISTRY, result, json);
 
 /** Аргументы вызова; по умолчанию — голый `mpu config`. */
 const args = (overrides: Record<string, unknown> = {}) =>
@@ -436,22 +452,10 @@ it("переменные окружения на выдачу не влияют 
   }
 });
 
-it("реестр: восемь ключей по порядку спеки, task.max_busy последним", () => {
-  expect(CONFIG_KEYS.map((entry) => entry.key)).toStrictEqual([
-    "sheet.default",
-    "xlsx.default",
-    "sheet.cache.tab_ttl",
-    "sheet.cache.max_tab_bytes",
-    "sheet.cache.max_total_mb",
-    "image.dir",
-    "task.history",
-    "task.max_busy",
-  ]);
-});
-
 it("справка config перечисляет ключи из реестра", () => {
-  const listed = CONFIG_KEYS.map((entry) => entry.key).join(", ");
-  expect(configCommand.help.includes(listed), configCommand.help).toBe(true);
+  const listed = TEST_REGISTRY.entries.map((entry) => entry.key).join(", ");
+  const { help } = configCommand(TEST_REGISTRY);
+  expect(help.includes(listed), help).toBe(true);
 });
 
 it("unset image.dir печатает умолчание от HOME (C3)", async () => {
@@ -545,7 +549,9 @@ describe("чтение работает и без хранилища — по у
 
   it("список печатается целиком", async () => {
     const text = renderConfig(await runConfig(args(), io), false);
-    expect(text.split("\n").length - 1).toStrictEqual(CONFIG_KEYS.length);
+    expect(text.split("\n").length - 1).toStrictEqual(
+      TEST_REGISTRY.entries.length,
+    );
     expect(text.includes("7200  (default)"), text).toBe(true);
   });
 
