@@ -50,7 +50,7 @@ import {
   type ProgramOutput,
   runProgram,
   startProgram,
-} from "../src/subprocess/mod.ts";
+import { type ProgramOutput, runProgram, startProgram } from "@mpu/subprocess";
 import { listenLoopback, serveFetch } from "@mpu/testing";
 import {
   compareColumns,

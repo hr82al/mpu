@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hasErrorCode } from "@mpu/base/oserror";
-import { startProgram } from "../subprocess/mod.ts";
+import { startProgram } from "@mpu/subprocess";
 
 /** Итог подпроцесса: код и собранные потоки. */
 export interface ProcessOutcome {

@@ -20,7 +20,7 @@ import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PgTarget } from "../sql/mod.ts";
-import { type ProgramOutput, startProgram } from "../subprocess/mod.ts";
+import { type ProgramOutput, startProgram } from "@mpu/subprocess";
 
 /** Итог запуска инструмента. */
 export interface ToolOutcome {
@@ -279,7 +279,8 @@ export const spawnRedis: RunRedis = async (argv, stdin) => {
     // вовсе, тогда процесс закрывает трубу раньше, чем мы дописали, — и
     // запись «до первого чтения» отвергается BrokenPipe **вместо**
     // настоящей причины из stderr («No such container»). Форма та же,
-    // что у подпроцесса ssh (`src/exec/ssh.ts`), и по той же причине.
+    // что у подпроцесса ssh (`spawnProcess` из `@mpu/exec`), и по той же
+    // причине.
     const [, out] = await Promise.all([
       feed(child.stdin, stdin),
       child.output(),

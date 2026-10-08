@@ -11,7 +11,7 @@
 
 import { writeSync } from "node:fs";
 import { hasErrorCode } from "@mpu/base/oserror";
-import { runProgram, startProgram } from "../subprocess/mod.ts";
+import { runProgram, startProgram } from "@mpu/subprocess";
 
 /** Дескриптор stderr процесса: эхо пишется в него синхронно. */
 const STDERR = 2;

@@ -4,7 +4,7 @@
  * подставляют постоянную отметку и настоящий git не запускают вовсе.
  */
 
-import { runProgram } from "../subprocess/mod.ts";
+import { runProgram } from "@mpu/subprocess";
 import type { RunGit } from "./mark.ts";
 
 /**

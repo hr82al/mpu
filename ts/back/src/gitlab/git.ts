@@ -5,7 +5,7 @@
  */
 
 import { hasErrorCode } from "@mpu/base/oserror";
-import { runProgram } from "../subprocess/mod.ts";
+import { runProgram } from "@mpu/subprocess";
 import type { GitOutcome, RunGit } from "./resolve.ts";
 
 /**

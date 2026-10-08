@@ -1,8 +1,9 @@
 /**
  * Транспорт удалённого выполнения (`platform/exec-transport.md`):
  * доставить shell-команду в контейнер фермы, стримить её вывод и
- * вернуть код выхода 1:1. Публичная поверхность модуля — этот файл;
- * кодек кадров, архив и клиент WebSocket наружу не выходят.
+ * вернуть код выхода 1:1. Публичная поверхность модуля — этот файл.
+ * Сам транспорт — `@mpu/exec`; здесь — выбор цели (селектор, кэш
+ * контейнеров, env-файл) и перевод его отказа в ошибку команды.
  */
 
 export {
@@ -15,26 +16,24 @@ export {
   serverLocation,
 } from "./containers.ts";
 export {
-  detachOverPortainer,
+  detachOverSsh,
   type HttpCall,
   type OnInterrupt,
+  type OpenChannel,
   type PortainerTarget,
-  runOverPortainer,
-} from "./portainer.ts";
-export { ambiguous, placeOf, type PlaceSources } from "./place.ts";
-export { escapeLike, LIKE_ESCAPE } from "./containers.ts";
-export { quoteArg, shellCommand } from "./shell.ts";
-export {
-  detachOverSsh,
   type ProcessRun,
-  runOverSsh,
+  quoteArg,
   type RunProcess,
+  runOverSsh,
+  shellCommand,
   // Настоящий подпроцесс: им же исполняется локальный `docker exec`
   // у `mpu make-schema` (`docs/specs/make-schema.md`).
   spawnProcess,
   type SshTarget,
-} from "./ssh.ts";
-export type { OpenChannel } from "./ws.ts";
+} from "@mpu/exec";
+export { detachOverPortainer, runOverPortainer } from "./remote.ts";
+export { ambiguous, placeOf, type PlaceSources } from "./place.ts";
+export { escapeLike, LIKE_ESCAPE } from "./containers.ts";
 export {
   chooseTransport,
   devCliContainer,

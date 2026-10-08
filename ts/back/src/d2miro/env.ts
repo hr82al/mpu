@@ -5,14 +5,14 @@
  * Порт объявлен здесь, у потребителя, а не добавлен в общий
  * `CommandIo`: он нужен одной команде, и расширять им интерфейс,
  * который реализуют все фейки, значило бы платить за него везде.
- * Приём тот же, что у запуска ssh (`src/exec/ssh.ts`): подменяется
+ * Приём тот же, что у запуска ssh (`RunProcess` из `@mpu/exec`): подменяется
  * функция, а не запуск процесса.
  */
 
 import { stat } from "node:fs/promises";
 import { hasErrorCode } from "@mpu/base/oserror";
-import { runProgram } from "../subprocess/mod.ts";
 import { Workdir } from "@mpu/base/workdir";
+import { runProgram } from "@mpu/subprocess";
 import type { FetchLike } from "./miro.ts";
 
 /** Внешний мир глазами команды. */

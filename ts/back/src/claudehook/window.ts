@@ -6,7 +6,7 @@
  */
 
 import { hasErrorCode } from "@mpu/base/oserror";
-import { type ProgramOutput, runProgram } from "../subprocess/mod.ts";
+import { type ProgramOutput, runProgram } from "@mpu/subprocess";
 
 /** Программа tmux: абсолютным путём [D.7]. */
 export const TMUX = "/usr/bin/tmux";

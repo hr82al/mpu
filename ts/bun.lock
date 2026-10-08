@@ -8,11 +8,13 @@
         "@hono/node-server": "1.19.5",
         "@modelcontextprotocol/sdk": "1.30.0",
         "@mpu/base": "file:../tslibs/base/release/mpu-base-0.1.0.tgz",
+        "@mpu/exec": "file:../tslibs/exec/release/mpu-exec-0.1.0.tgz",
         "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
         "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
         "@mpu/loki": "file:../tslibs/loki/release/mpu-loki-0.1.0.tgz",
         "@mpu/portainer": "file:../tslibs/portainer/release/mpu-portainer-0.1.0.tgz",
         "@mpu/slback": "file:../tslibs/slback/release/mpu-slback-0.1.0.tgz",
+        "@mpu/subprocess": "file:../tslibs/subprocess/release/mpu-subprocess-0.1.0.tgz",
         "@mpu/telegram": "file:../tslibs/telegram/release/mpu-telegram-0.1.0.tgz",
         "@tanstack/react-query": "5.103.1",
         "@tanstack/react-router": "1.170.38",
@@ -186,6 +188,8 @@
 
     "@mpu/base": ["@mpu/base@../tslibs/base/release/mpu-base-0.1.0.tgz", {}, "sha512-MmdyhhFlR8KouPxnui6azLCNcbkMRMeGkc+Xdh86biutBwhhZu1AavdQ7gBfIUBnR21TxLrkwlEVX1lf7ghxPg=="],
 
+    "@mpu/exec": ["@mpu/exec@../tslibs/exec/release/mpu-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/portainer": "0.1.0", "@mpu/subprocess": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/portainer", "@mpu/subprocess"] }, "sha512-h73/jXLKGPWkHtxEgxqYy2m5SeIiXAt+eLfVaa5Lrtc5++/0C3kn5jhraIpNE6RsjTGHsnskRbxMssfXVjL/8A=="],
+
     "@mpu/http": ["@mpu/http@../tslibs/http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-+hY7JHme3toSSMpYpWS7IXRAAGZvUIh0DFiMX0FIsbeWYrzrE/IXO5xb16zmWUdgJDMoqr61/e+Bj1MmnWIS7w=="],
 
     "@mpu/kaiten": ["@mpu/kaiten@../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
@@ -195,6 +199,8 @@
     "@mpu/portainer": ["@mpu/portainer@../tslibs/portainer/release/mpu-portainer-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-SQuM1YhjlpM+lWL5vGPFwCyVyQjN1/mUcztkIKAwz5EBlxdQPksbU7OheLRaNjcaySNGqIM2T3OePRFkbKLIyA=="],
 
     "@mpu/slback": ["@mpu/slback@../tslibs/slback/release/mpu-slback-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-fvyaq82OR+lDnukCezRLhJwzI/N78EdGBr3nFq4Ka4NWVD/EP4hzaKyEJ2RfvDbXRPDsq/DStArQXb6vLEnJLg=="],
+
+    "@mpu/subprocess": ["@mpu/subprocess@../tslibs/subprocess/release/mpu-subprocess-0.1.0.tgz", {}, "sha512-rNTQg5er9saOribajHJZub0XtW6EZvGME/DexKKVGGCCUcoN9d6XPucsjF7BfcxjgMnwlzGCjegB5odsEvJkHg=="],
 
     "@mpu/telegram": ["@mpu/telegram@../tslibs/telegram/release/mpu-telegram-0.1.0.tgz", { "dependencies": { "@mtcute/convert": "0.31.0", "@mtcute/markdown-parser": "0.31.0", "@mtcute/node": "0.31.0", "@mtcute/wasm": "0.31.0" }, "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-MIgubWwfMaOkJ1HxTcWNRMoF4c757vHC5s0xd0IQGYbc50ESnOX8v1eNu2n6Ix7L6X4zzBNipQvNu9Y+QdDFCw=="],
 

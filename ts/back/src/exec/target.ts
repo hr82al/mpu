@@ -11,6 +11,7 @@
  */
 
 import { type EnvFile, UsageError } from "../command/mod.ts";
+import type { PortainerTarget, SshTarget } from "@mpu/exec";
 import type { PortainerAccess } from "@mpu/portainer";
 import type { CacheReader } from "../selector/mod.ts";
 import {
@@ -38,20 +39,14 @@ export type ExecPlace =
   /** Контейнер по точному имени: где он лежит, уже известно из кэша. */
   | { readonly kind: "container"; readonly location: ContainerLocation };
 
-/** Готовый адрес исполнения: бэкенд выбран, конфигурация прочитана. */
+/**
+ * Готовый адрес исполнения: бэкенд выбран, конфигурация прочитана. Поля
+ * цели — формы `@mpu/exec`, и вариант уходит в свой бэкенд как есть;
+ * признак `kind` нужен только тому, кто выбирает бэкенд.
+ */
 export type ExecTarget =
-  | {
-      readonly kind: "ssh";
-      readonly host: string;
-      readonly user: string;
-      readonly container: string;
-    }
-  | {
-      readonly kind: "portainer";
-      readonly access: PortainerAccess;
-      readonly endpointId: number;
-      readonly container: string;
-    };
+  | ({ readonly kind: "ssh" } & SshTarget)
+  | ({ readonly kind: "portainer" } & PortainerTarget);
 
 /** Откуда выбор транспорта берёт всё, что ему нужно. */
 export interface TransportSources {

@@ -674,7 +674,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `health` и адресации `exec`: environment'ы, контейнеры, снимок логов и
   разбор потока Docker (`docs/specs/platform/tslibs-ops.md`); библиотека
   `tslibs/portainer`, архивом `release/`. Исполнение в контейнере по
-  WebSocket (`back/src/exec/portainer.ts`) — в `ts/`.
+  WebSocket — `@mpu/exec`.
 - `@mpu/loki` — разговор с Loki для `init`, `update`, `logs`: discovery
   хостов и сервисов, чтение `query_range`
   (`docs/specs/platform/tslibs-ops.md`); библиотека `tslibs/loki`, архивом
@@ -692,6 +692,19 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`@mpu/base/workdir`) — `docs/specs/platform/tslibs-n1.md`; библиотека
   `tslibs/base`, архивом `release/`. Входа `.` нет: общей предметной
   области у четырёх модулей нет. Зависимостей у пакета нет.
+- `@mpu/subprocess` — запуск локального процесса поверх `node:child_process`
+  одинаково под тремя рантаймами: отказ запуска кодом ОС, код по сигналу
+  `128 + номер`, отмена статусом (`docs/specs/platform/tslibs-exec.md`);
+  библиотека `tslibs/subprocess`, архивом `release/`. Потребители — git,
+  docker, `mpu-worker`, хуки, `smoke` и `@mpu/exec`.
+- `@mpu/exec` — исполнение команды в контейнере фермы для `ssh`, `run-js`,
+  `node cli`, `move-client`; shell-строка — ещё `copy-shared`, `mp-init`;
+  локальный подпроцесс `spawnProcess` — `make-schema` (`docker exec`):
+  Portainer exec по WebSocket (кадры, stdin архивом, kill по Ctrl+C) или
+  `ssh` с `docker exec`, одна shell-строка на оба пути
+  (`docs/specs/platform/tslibs-exec.md`); библиотека `tslibs/exec`, архивом
+  `release/`. Выбор цели (селектор, кэш контейнеров, env-файл) и перевод
+  `ExecError` в `DomainError` (`back/src/exec/remote.ts`) остаются в `ts/`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

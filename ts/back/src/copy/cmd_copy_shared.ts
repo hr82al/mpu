@@ -22,7 +22,7 @@ import {
 } from "../command/mod.ts";
 import { type CacheReader, resolveSelector } from "../selector/mod.ts";
 import { shellCommand } from "../exec/mod.ts";
-import { runProgram } from "../subprocess/mod.ts";
+import { runProgram } from "@mpu/subprocess";
 
 const argsSchema = z.object({
   selector: z
