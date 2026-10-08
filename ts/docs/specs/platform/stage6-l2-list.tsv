@@ -1,0 +1,193 @@
+portion	B	tslibs/language	*	tslibs/language/src/messages/message.ts:38	2	no	у ключа ${key} нет значения		reason=отказ; MessageParseError.noValue; вызовы words.ts:284,290,325,434,449,452; Walk.read добавляет адрес? нет: said=err.message без адреса, remedy=NO_REMEDY
+L2a	B	tslibs/language	*	tslibs/language/src/messages/message.ts:63	2	no	${at}: значение ${value} не понимает ${word} (StrayWord; ${at} = адрес с взятыми словами, chain.ts:117)	подсказка = pending.result().remedy(word, after) — зависит от Strays вида; по умолчанию нет	reason=отказ; динамика: A, если вид задал Strays (strays: в ShapeOptions), иначе B; [класс по коду не очевиден]
+L2a	B	tslibs/language	*	tslibs/language/src/messages/words.ts:372	2	no	do — в начале строки или на месте значения		reason=тот же текст (постоянный вид отказа); openElsewhere, бросается words.ts:409,418
+L2a	B	tslibs/language	*	tslibs/language/src/messages/words.ts:385	2	no	группа значения ключа ${key} не закрыта		reason=отказ
+L2a	B	tslibs/language	*	tslibs/language/src/messages/words.ts:455	2	no	после -- нет слова		reason=отказ; -- = GRAMMAR.literal
+L2a	B	tslibs/language	*	tslibs/language/src/messages/receiver.ts:97	2	no	ключ ${key} указан дважды		reason=отказ
+L2a	B	tslibs/language	*	tslibs/language/src/messages/receiver.ts:270	2	no	не хватает ключа ${fewest[0]}		reason=отказ; имя ключа без двоеточия и без готовой строки; Walk не даёт remedy
+L2a	B	tslibs/language	*	tslibs/language/src/messages/receiver.ts:296	2	no	[internal?] у ключа ${key} в описании приёмника два вида		дефект описания команды, не ввода; reason=отказ
+L2a	B	tslibs/language	*	tslibs/language/src/messages/value.ts:81	2	no	ключ ${key} ждёт true или false		reason=отказ; asFlag
+L2a	B	tslibs/language	*	tslibs/language/src/messages/value.ts:93	2	no	ключ ${key} ждёт true или false		reason=отказ; notFlag (выражение на месте флага)
+L2a	B	tslibs/language	*	tslibs/language/src/objects/chain.ts:301	2	no	${address}: выражение значения здесь не вычисляется		reason=отказ; NO_EVALUATION.group
+L2a	B	tslibs/language	*	tslibs/language/src/objects/chain.ts:304	2	no	${address}: stdin здесь не читается		reason=отказ; NO_EVALUATION.stdin
+L2a	B	tslibs/language	*	tslibs/language/src/objects/chain.ts:117	2	no	${address со взятыми словами}: ${err.message}		шаблон адреса для StrayWord; адрес = trail.textWith(taken)
+L2a	B	tslibs/language	*	tslibs/language/src/objects/chain.ts:230	2	no	${address}: ${err.message}		шаблон адреса для Refusal (все Refusal в дереве объектов); MessageParseError идут БЕЗ адреса (chain.ts:102 said=err.message)
+L2a	B	tslibs/language	*	tslibs/language/src/objects/refusal.ts:110	2	no	${said}${hint.said()}		шаблон итогового stderr отказа строки
+L2a	B	tslibs/language	*	tslibs/language/src/objects/refusal.ts:40	2	no	не понимает (reason — вид отказа doesNotUnderstand, в structuredContent.refusal.reason)		ключ reason
+L2a	C	tslibs/language	*	tslibs/language/src/objects/refusal.ts:37	2	no	прежнее имя (reason — вид отказа RENAMED)		ключ reason; слово «прежнее»
+L2a	B	tslibs/language	*	tslibs/language/src/messages/message.ts:20	2	no	отказ (reason по умолчанию UNNAMED_REFUSAL)		ключ reason; безымянный вид
+L2a	C	tslibs/language	*	tslibs/language/src/objects/reflection.ts:124	2	no	selectors — теперь messages	у selectors: «: mpu <адрес> messages»; (в объекте hint = [адрес…, messages])	RENAMED; текст собран в :115 renamed(); слово «теперь»; +A
+L2a	C	tslibs/language	*	tslibs/language/src/objects/reflection.ts:127	2	no	respondsTo — теперь understands (при вводе respondsTo: — «respondsTo: — теперь understands:»)	«: mpu <адрес> understands: <значение>»	RENAMED; текст в :115; слово «теперь»; +A; прежние имена RETIRED
+L2a	B	tslibs/language	*	tslibs/language/src/objects/result.ts:231	2	no	${адрес}: цепочка окончена, ${selector} отправить некому		ended(): слово после закрытия/формата
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:226	2	no	${адрес}: не понимает ${selector}		reason=не понимает; lookupData tail
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:781	2	no	${адрес}: не понимает ${selector}		reason=не понимает; Selecting tail
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:263	2	no	${адрес}: не понимает ${selector}; формат — последним		reason=не понимает; formatLast: называет правило, готовой строки нет
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:320	2	no	${адрес}: скаляр не понимает ${selector}		refusedBy("скаляр",…,[]) — кандидатов нет; те же вызовы :332,:397,:400
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:551	2	no	${адрес}: коллекция не понимает ${name}		Collection.field
+L2a	B	tslibs/language	*	tslibs/language/src/objects/data.ts:454	2	no	${адрес}: ${selector}: ${count} — ожидается n ≥ 0		countOf: называет ожидаемое, строки нет
+L2a	B	tslibs/language	*	tslibs/language/src/frames/context.ts:132	?	no	mpu-back: ввод больше ${MAX_STDIN_BYTES/1024/1024} МиБ (=8 МиБ)		tooLargeInput; report BadFrame, context.ts:218
+L2a	B	tslibs/language	*	tslibs/language/src/frames/context.ts:339	?	no	mpu-back: переменная вне списка: ${outside.join(', ')}		report; допустимый список CLIENT_ENV_NAMES не называется; context.ts:337-340
+L2a	B	tslibs/language	*	tslibs/language/src/frames/words.ts:87	?	no	не в UTF-8: байт ${hex} на смещении ${bad}		NotUtf8; ts/cli/src/input.ts добавляет «файл»/«ввод»; reason? неизвестно
+L2b	B	tslibs/command	*	tslibs/command/src/command/errors.ts:104	2 (UsageError) / 1 (DomainError)	no	mpu ${name}: ${message}		префикс; Verbatim* — без префикса
+L2b	B	tslibs/command	*	tslibs/command/src/command/errors.ts:98	2/1	no	${message}⏎${details}		details — строки кандидатов резолва / диагностики
+L2b	B	tslibs/command	*	tslibs/command/src/command/mod.ts:914	2	yes	${where}: ${reason zod без «Invalid input: »} / ${issue.message}		путь MCP-входа (parseInputObject); без hint; часть текстов английская (zod)
+L2b	B	tslibs/command	*	tslibs/command/src/command/mod.ts:926	2	yes	arguments must be an object		MCP-вход
+L2b	B	tslibs/command	*	tslibs/command/src/command/mod.ts:931	2	yes	unknown argument "${name}"		MCP-вход; ближайших не предлагает
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:101	2	yes	empty selector		и resolve.ts:123 (searchCandidates)
+L2b	B	tslibs/command	search	tslibs/command/src/selector/resolve.ts:123	2	yes	empty selector		searchCandidates
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:174	2	yes	selector resolved to a server but no client_id; use a selector that points to a specific client		+ details = список кандидатов
+L2a	D	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:205	2	yes	email '${selector}' не в кэше; сначала запусти: mpu search ${selector}	mpu search ${selector}	русский в англ. окружении; живая грамматика mpu search query: ${selector}; [проверить D]; email-ветка, иначе nothing matched
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:206	2	yes	nothing matched: '${selector}'		
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:215	2	yes	matched but no server resolvable: '${selector}'		+ details кандидаты
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:221	2	yes	ambiguous selector '${selector}' — ${n} candidates on different servers		+ details кандидаты
+L2b	B	tslibs/command	* (target:)	tslibs/command/src/selector/resolve.ts:288	2	yes	конфликт адресов в env-файле: '${ip}' задан ключами ${k1, k2}		IP-селектор
+L2b	B	tslibs/command	*	tslibs/command/src/selector/candidate.ts:47	2	yes	  client_id=${id}  server=${sl-N}  title="…"  spreadsheet_id=… (строки кандидатов)		details списком
+L2b	B	tslibs/command	* (политика)	tslibs/command/src/policy/verdict.ts:165	?	no	${text}: не подтверждено		reason=не подтверждено; text = строка вызова; ответ «нет» на ask
+L2b	B	tslibs/command	* (политика)	tslibs/command/src/policy/verdict.ts:167	?	no	${text}: нужно подтверждение, а спросить некого		reason=нужно подтверждение, а спросить некого; не говорит что делать (запросить у человека / ask-путь)
+L2b	B	tslibs/command	* (политика)	tslibs/command/src/policy/verdict.ts:181	?	no	${text}: запрещено правилом «${правило}»		reason=запрещено правилом
+L2b	B	tslibs/command	policy (ask policy)	tslibs/command/src/policy/verdict.ts:224	?	no	[internal?] неизвестное решение ${word}		UnknownVerdict; JSON.stringify(word)
+L2b	B	tslibs/command	* (политика)	tslibs/command/src/policy/book.ts:62	?	no	правила подтверждения: каталог состояния не задан (нет HOME)		PolicyError → plainRefusal (ts/back line/session.ts:261, line/mod.ts:216 reason=отказ)
+L2b	B	tslibs/command	* (политика)	tslibs/command/src/policy/book.ts:254	?	no	правила подтверждения: ${причина sqlite/fs}		PolicyError, причина динамическая
+L2b	B	tslibs/command	policy	tslibs/command/src/policy/path.ts:29	?	no	путь правила пуст		EmptyRulePath; ловится ts/back/src/line/rules.ts:125
+L2b	B	tslibs/command	config	tslibs/command/src/config/cmd_config.ts:108	2	no	${key} ожидает целое число, получено "${value}"		
+L2b	B	tslibs/command	config	tslibs/command/src/config/cmd_config.ts:119	2	no	${key} ожидает порт ${min}–${max}, получено "${value}"		
+L2b	B	tslibs/command	config	tslibs/command/src/config/cmd_config.ts:168	2	no	unset не сочетается с value:		
+L2b	B	tslibs/command	confirm	tslibs/command/src/confirm/cmd_confirm.ts:73	1	no	отменено — pipe прерван.		ответ «нет»
+L2b	B	tslibs/command	confirm	tslibs/command/src/confirm/gate.ts:41	2	no	--- tty диагностика (как запущен mpu) ---⏎/dev/tty: открыть не удалось⏎fd 0 (stdin): isatty=…⏎fd 1 (stdout): isatty=…⏎fd 2 (stderr): isatty=…⏎имя устройства: недоступно — ttyname в Deno нет		details к NO_TERMINAL (gate.ts:41-46); упоминает Deno [проверить: рантайм сейчас Node?]
+L2b	B	tslibs/command	*	tslibs/command/src/env/mod.ts:111	1	yes	cannot write env value for ${name}: value contains a newline or a single quote		
+L2b	B	tslibs/command	*	tslibs/command/src/env/mod.ts:160	1	yes	cannot write env file: no config directory		
+L2b	B	tslibs/command	*	tslibs/command/src/env/mod.ts:175	1	yes	cannot write env value for ${name}: a later line in ${path} repeats the key and would override the write		
+L2a	C	ts/back	*	ts/back/src/line/keys.ts:212	2	no	--${this.old} — теперь ключ ${this.#spec.name}	<: ><адрес> <набранные ключи> <ключ>: <значение>	Renamed.refusal для ключа вне словаря; «теперь ключ» = история; reason=«прежнее имя»; +D (в тексте старый флаг --old)
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:672	2	no	не хватает ключа ${absent}		Keys.none(): обязательный ключ не набран; ключ назван, строки `ключ: значение` нет; absent — первый по алфавиту
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:796	2	no	не хватает ключа ${absent}		#split: тот же текст при ключе, который команда спросила бы при терминале (sql) либо отсутствующем обязательном
+L2a	C	ts/back	*	ts/back/src/line/keys.ts:721	2	no	--${key} снят — цель одна: ${replacement}: ${value}		accept(): retired-вход команды (command.retired, см. tslibs/cmd-sql); «снят» = история; готовая замена в тексте как фрагмент; +D (флаг --key)
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:804	2	no	не понимает ${named.selector()}		#split: ключи за непонятым словом, обязательного ключа нет; UNDERSTOOD_NOT; кандидатов нет
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:862	2	no	лишнее слово ${first}		bare(): голое слово, а ключа под него нет или слово — имя варианта
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:527	?	no	[internal?] формат ${name}		Entry.address — только для addresses() (completeness/pairs/snapshot-тесты), пользователю не печатается
+L2a	C	ts/back	*	ts/back/src/line/keys.ts:531	?	no	[internal?] снят: ${replacement}:		Entry.address — только для addresses() (completeness/pairs/snapshot-тесты), пользователю не печатается; «снят» = история
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:1065	?	no	[internal?] варианты ${names.join(", ")}		Entry.address — только для addresses() (completeness/pairs/snapshot-тесты), пользователю не печатается
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:1107	?	no	[internal?] вариант ${name}		Entry.address — только для addresses() (completeness/pairs/snapshot-тесты), пользователю не печатается
+L2a	B	ts/back	*	ts/back/src/line/keys.ts:1023	?	no	[internal?] ${name} ${key}:		Entry.address — только для addresses() (completeness/pairs/snapshot-тесты), пользователю не печатается
+L2a	B	ts/back	*	ts/back/src/line/session.ts:35	1	no	изменить правила может только человек		HUMAN_ONLY: policy/allow:/ask:/deny:/forget: без канала к человеку (plainRefusal, reason=текст); как исправить не сказано (нужен терминал/web)
+L2a	B	ts/back	*	ts/back/src/line/session.ts:196	1	no	изменить правила может только человек		session.change absent: тот же текст отказа HUMAN_ONLY
+L2a	B	ts/back	*	ts/back/src/line/session.ts:38	1	no	<текст от команды: consent.settle refusal>		OWNER_ONLY=«пишет только человек» — reason; text приходит из Consent команды (human: (question, refusal)); при absent печатается refusal команды (S:221)
+L2a	B	ts/back	*	ts/back/src/line/session.ts:194	1	no	${report.text()}: не подтверждено		session.change no: человек ответил «нет» на изменение правила (NOT_CONFIRMED)
+L2a	B	ts/back	*	ts/back/src/line/session.ts:219	1	no	${report.text()}: не подтверждено		#consented no: человек отказал строке, которую решает он сам
+L2a	B	ts/back	*	ts/back/src/line/session.ts:262	1	no	<PolicyError.message: правила подтверждения: …>		#broken: сбой файла правил -> plainRefusal(UNNAMED_REFUSAL=«отказ», message); тексты — tslibs/command/src/policy/book.ts (61, 254)
+L2b	B	tslibs/command	*	tslibs/command/src/policy/verdict.ts:181	1	no	${execution.text}: запрещено правилом «${won}»		xref (вне области back, исполняется Session.#ruled): deny-правило; как исправить не сказано (правила меняет только человек)
+L2b	B	tslibs/command	*	tslibs/command/src/policy/verdict.ts:165	1	no	${text}: не подтверждено		xref: человек ответил «нет» на строку ask (NOT_CONFIRMED)
+L2b	B	tslibs/command	*	tslibs/command/src/policy/verdict.ts:167	1	no	${text}: нужно подтверждение, а спросить некого		xref: ask-строка без канала к человеку (NOBODY_TO_ASK); не сказано, что делать (позвать человека / запустить в терминале)
+L2b	B	tslibs/command	*	tslibs/command/src/policy/book.ts:61	1	no	правила подтверждения: каталог состояния не задан (нет HOME)		xref: PolicyError, путь до session.ts:262 и line/mod.ts:216
+L2b	B	tslibs/command	*	tslibs/command/src/policy/book.ts:254	1	no	правила подтверждения: ${reason}		xref: PolicyError обёртка сбоя файла правил
+L2b	B	tslibs/command	allow:|ask:|deny:|forget:	tslibs/command/src/policy/path.ts:29	2	no	путь правила пуст		xref: EmptyRulePath -> Refusal (ts/back/src/line/rules.ts:126); примера пути нет
+L2a	B	ts/back	allow:|ask:|deny:|forget:	ts/back/src/line/rules.ts:126	2	no	${EmptyRulePath.message} (путь правила пуст)		rulePath(): пустой путь правила; без примера `allow: "kiten card"`
+L2a	B	ts/back	* (key: stdin)	ts/back/src/line/value.ts:64	2	no	stdin — терминал		StdinOnce.take: значение ключа из stdin, а stdin — терминал и ключ команда не спрашивает сама
+L2a	B	ts/back	*	ts/back/src/line/value.ts:75	2	no	stdin уже прочитан ключом ${reader}		forCommand: UsageError (exit 2 через DomainError/UsageError путь); второе чтение stdin
+L2a	B	ts/back	*	ts/back/src/line/value.ts:81	2	no	stdin уже прочитан ключом ${reader}		#once: Refusal; тот же текст второго чтения stdin ключом
+L2a	B	ts/back	* (do … end)	ts/back/src/line/value.ts:119	2	no	значение ключа ${key} — не скаляр (${список|запись})		valueOf: группа вернула список/запись; суффикс см. следующую строку
+L2a	B	ts/back	* (do … end)	ts/back/src/line/value.ts:147	2	no	значение ключа ${key} — не данные		parsed: вывод группы не JSON (cause SyntaxError)
+L2a	B	ts/back	it	ts/back/src/line/it.ts:163	2	no	не понимает ${selector}; формат — последним		formatLast: слово после формата у `it`; reason=«не понимает»; действие названо словами («формат — последним»), строки нет
+L2a	B	ts/back	it	ts/back/src/line/it.ts:271	1	no	${report.text()}: нет прошлого результата у этого вызывающего		Absent.final: `it` без прошлого результата (stderr, код 1); не сказано, что выполнить сначала
+L2a	B	ts/back	*	ts/back/src/line/mod.ts:216	1	no	<PolicyError.message: правила подтверждения: …>		lineEntry: файл правил не открылся — отказ любой строке, включая справку; plainRefusal(UNNAMED_REFUSAL)
+L2a	B	ts/back	* (результат-поток: logs follow и др.)	ts/back/src/line/result.ts:99	2	no	поток — только форматы		Pending.source: отбор над потоком; готовой строки нет
+L2a	B	ts/back	*	ts/back/src/line/result.ts:231	?	no	[internal?] отбор у текста не вызывается: selects — false		TEXT_RESULT.select: программная ошибка, недостижима
+L2a	B	ts/back	* (весь реестр, поддеревья правил)	ts/back/src/line/tree.ts:154	2	no	<PolicyError.message>		#admits: сбой файла правил при составлении списка детей (дополнение/справка)
+L2a	B	ts/back	*	ts/back/src/line/tree.ts:356	?	no	[internal?] узел реестра без объявления: ${path}		leafDoc: дефект реестра (третьего вида узла не бывает)
+L2a	D	ts/back	*	ts/back/src/entrypoint/mod.ts:198	2	yes	No such command '${name}'.⏎Try 'mpu -h' for help.⏎		runLine: путь не найден (noSuchCommand, mod.ts:579; тот же текст mod.ts:574 для неизвестной подкоманды группы); подсказка зовёт флаг -h вместо `mpu help` [проверить D]; английский, остальные тексты русские
+L2a	D	ts/back	<группа> *	ts/back/src/entrypoint/mod.ts:574	2	yes	No such command '${группа подкоманда}'.⏎Try 'mpu -h' for help.⏎		runGroup: неизвестная подкоманда группы; noSuchCommand mod.ts:579 [проверить D]; E=yes
+L2b	B	ts/back	*	ts/back/src/entrypoint/mod.ts:291	2	yes	No such option "${rest[0]}"⏎		runEntrypointSurface: первое слово начинается с `-`; нет указания, что вместо этого
+L2b	B	ts/back	*	ts/back/src/entrypoint/mod.ts:467	1	no	mpu ${errorName}: ${DomainError.message}[; попробуй: ${hint}]		errorToExitCode: DomainError любой команды (formatCommandError, tslibs/command); класс по команде: A если у ошибки есть hint/advice
+L2b	B	ts/back	*	ts/back/src/entrypoint/mod.ts:463	2	no	mpu ${errorName}: ${UsageError.message}[; попробуй: ${hint}]		errorToExitCode: UsageError любой команды; класс по команде: A если есть hint
+L2b	B	ts/back	<группа selector-first>	ts/back/src/entrypoint/mod.ts:562	2	no	селектор ставится перед именем подкоманды		runGroup: subPlace misplaced; действие названо словами, готовой строки (`<подкоманда> target: …`) нет
+L2a	C	ts/back	(корневой индекс)	ts/back/src/entrypoint/mod.ts:65	0	no	Окружение: HOME … XDG_CONFIG_HOME их не уводит: файлы общие с прежней реализацией. … Изолировать разом и состояние, и конфигурацию можно только подменой HOME.		ENV_NOTE (mod.ts:65-74) в справке корня (stdout, exit 0/2); «прежней реализацией» = история
+L2a	D	ts/back	*	ts/back/src/entrypoint/help.ts:39	0	no	Подробнее: --help у каждой подкоманды.		renderIndex: хвост индекса; зовёт флаг --help; в строке живая справка — слово `help` [проверить D]
+L2b	B	ts/back	*	ts/back/src/entrypoint/help.ts:52	0	no	Использование: ${command.usage}⏎⏎${command.summary}		renderCommandHelp: шаблон справки листа (не отказ)
+L2b	B	ts/back	help|version	ts/back/src/entrypoint/help.ts:65	0	no	Использование: ${usage}⏎⏎${summary}		renderSurfaceHelp (не отказ)
+L2b	B	ts/back	*	ts/back/src/entrypoint/help.ts:129	0	no	${description} (обязателен)		textOf: пометка обязательного входа в справке
+L2a	D	ts/back	help	ts/back/src/entrypoint/help_command.ts:139	0	yes	Available commands:⏎⏎${имена и summary}⏎Run `<command> --help` for detailed usage.		renderList: футер зовёт --help; живая справка — `mpu <путь> help` [проверить D]; английский
+L2b	B	ts/back	help	ts/back/src/entrypoint/help_command.ts:111	?	no	[internal?] неизвестный вид записи справки: ${JSON}		never-ветка switch
+L2b	B	ts/back	help	ts/back/src/registry/mod.ts:394	0	yes	Show mpu version.		summary поверхности version; английский среди русских summary
+L2b	B	ts/back	*	ts/back/src/process/mod.ts:112	1	yes	mpu: unexpected error: ${message}		runJournaled: любое необработанное исключение; английский; без указания, что делать
+L2b	B	ts/back	* (чтение файлов)	ts/back/src/runtime/mod.ts:72	?	yes	file not found		NotFoundIoError: ENOENT; превращается командой в её отказ; английский
+L2b	B	ts/back	* (чтение файлов)	ts/back/src/runtime/mod.ts:379	?	yes	not a regular file: ${path}		NotFoundIoError: путь — не файл; английский
+L2b	B	ts/back	config / init (запись токена)	ts/back/src/runtime/mod.ts:422	1	yes	config store is unavailable (HOME is not set)		writeAccessToken: DomainError без HOME; английский
+L2b	B	ts/back	sl-back команды (токен-кэш)	ts/back/src/runtime/mod.ts:440	1	yes	token cache is unavailable (HOME is not set)		writeTokenCache: DomainError без HOME; английский
+L2b	B	ts/back	кэш-БД (search, update, sheet, …)	ts/back/src/runtime/mod.ts:456	1	no	путь к кэш-БД не определён: HOME не задан		openCacheDb: DomainError без HOME
+L2b	B	ts/back	* (открытие ссылки/окна)	ts/back/src/runtime/mod.ts:493	?	yes	opener did not start: ${cmd}		launchOpener: файл есть, но не запустился (cause — право)
+L2b	B	ts/back	* (открытие ссылки/окна)	ts/back/src/runtime/mod.ts:495	?	yes	opener did not start: ${cmd}		launchOpener: без cause
+L2b	B	ts/back	*	ts/back/src/worker/death.ts:46	1	no	mpu-back: исполнитель строки упал (сигнал ${signal})		VerbatimError: исполнитель убит сигналом без отметки сторожа
+L2b	B	ts/back	*	ts/back/src/worker/death.ts:53	1	no	mpu-back: строка остановлена: машине не хватает памяти, строка заняла ${mib} МиБ		VerbatimError: отметка сторожа памяти; сборка текста death.ts:53-55
+L2b	B	ts/back	*	ts/back/src/worker/death.ts:117	1	no	mpu-back: исполнитель строки упал (код ${status.code})		VerbatimError
+L2b	B	ts/back	*	ts/back/src/worker/death.ts:125	1	no	mpu-back: исполнитель строки не запустился: ${reason}		VerbatimError (cause); reason — message причины
+L2b	B	ts/back	*	ts/back/src/worker/lineworker.ts:87	2	no	<stderr исполнителя дословно, код 2>		VerbatimUsageError: UsageError команды, исполненной в процессе-исполнителе (текст формирует serve.ts:227 formatCommandError)
+L2b	B	ts/back	*	ts/back/src/worker/lineworker.ts:88	1	no	<stderr исполнителя дословно, код 1>		VerbatimError: DomainError команды из исполнителя (serve.ts:230)
+L2b	B	ts/back	*	ts/back/src/worker/lineworker.ts:85	1	no	${outcome.crash}		crash исполнителя -> Error -> «mpu: unexpected error: …» (process/mod.ts:112)
+L2b	B	ts/back	*	ts/back/src/worker/serve.ts:219	1	no	исполнителю неизвестна команда ${path}		outcomeOf crash: команда не найдена в исполнителе; -> unexpected error
+L2b	B	ts/back	*	ts/back/src/worker/serve.ts:232	1	no	${err.message}		outcomeOf crash: любое неожиданное исключение команды; -> unexpected error
+L2b	B	ts/back	*	ts/back/src/worker/lineworker.ts:58	?	no	[internal?] исполнитель строки остановлен		WorkerStopped: строку остановило ядро
+L2b	B	ts/back	*	ts/back/src/worker/lineworker.ts:180	?	no	[internal?] mpu-back: исполнитель не остановлен: ${err}		diagnose в stderr mpu-back (оператор)
+L2b	B	ts/back	*	ts/back/src/worker/serve.ts:119	?	no	[internal?] mpu-worker: непонятый кадр ядра: ${err.message}		diagnose исполнителя
+L2b	B	ts/back	*	ts/back/src/worker/serve.ts:142	?	no	[internal?] ядро закрыло канал до ввода		HostGone
+L2b	B	ts/back	*	ts/back/src/worker/serve.ts:245	?	no	[internal?] первый кадр ядра — не run		
+L2b	B	ts/back	mpu-back (процесс)	ts/back/src/backend/entry.ts:27	2	no	mpu-back: предел строк должен быть больше нуля		BAD_LINES: --lines 0
+L2b	B	ts/back	mpu-back (процесс)	ts/back/src/backend/entry.ts:160	1	no	mpu-back: порт ${port} занят		EADDRINUSE
+L2b	B	ts/back	mpu-back (HTTP /)	ts/back/src/backend/static.ts:11	?	no	mpu-back: фронт не установлен		тело text/plain страницы, когда нет index.html
+L2b	B	ts/back	mpu-back (HTTP)	ts/back/src/backend/server.ts:310	?	no	номер подтверждения недействителен		INVALID_TICKET: JSON {error}, HTTP 404
+L2b	B	ts/back	mpu-back (HTTP)	ts/back/src/backend/server.ts:770	?	no	${err.report} (по умолчанию «плохой кадр строки»)		JSON {error}, HTTP 400; BAD_FRAME_REPORT tslibs/language/src/frames/bad.ts:9
+L2b	B	ts/back	*	ts/back/src/backend/server.ts:810	2	no	mpu-back: ${err.report}		строка отклонена: плохой кадр запроса; stderr строки; BadFrame.report
+L2b	B	ts/back	*	ts/back/src/backend/server.ts:815	2	no	mpu-back: нет каталога ${request.cwd}		cwd клиента не каталог
+L2b	B	ts/back	*	ts/back/src/backend/socket.ts:157	2	no	mpu-back: ${err.report}		ввод сверх предела / плохой кадр (boundedInput); код 2
+L2b	B	ts/back	*	ts/back/src/backend/line.ts:22	1	no	mpu-back: остановлен		STOPPED: открытая строка при остановке сервера (line.ts:332)
+L2b	B	ts/back	*	ts/back/src/backend/socket.ts:75	?	no	[internal?] клиент ушёл до ввода		InputLost
+L2b	B	ts/back	*	ts/back/src/backend/loopback.ts:293	?	no	[internal?] адрес петли не порт: ${address}		
+L2b	B	ts/back	*	ts/back/src/backend/server.ts:516	?	no	[internal?] mpu-back: снимок дерева не записан: ${failure}		diagnose; причины snapshot.ts:39 «каталог кэша не задан (нет HOME)»
+L2b	B	ts/back	*	ts/back/src/backend/server.ts:787	?	no	[internal?] mpu-back: сбой строки: ${reason}		diagnose (после него line.finish(1))
+L2b	B	ts/back	*	ts/back/src/backend/outlet.ts:84	?	no	[internal?] mpu-back: вывод не записан в ${path}: ${reason}		diagnose
+L2b	B	ts/back	mpu-task (процесс)	ts/back/task.ts:33	2	no	mpu-task: аргументов нет; нужны HOME и XDG_RUNTIME_DIR		console.error; процесс супервизора, не команда строки
+L2b	B	ts/cli	*	ts/cli/src/client.ts:85	1	no	mpu: сервер оборвал строку		кадра exit не было; без причины и без действия
+L2b	B	ts/cli	*	ts/cli/src/client.ts:93	130	no	mpu: прервано		Ctrl+C; информационный, исправлять нечего
+L2b	B	ts/cli	*	ts/cli/src/client.ts:202	?	no	mpu: ${frame.settled}		кадр settled: текст решения владельца из Telegram приходит с сервера; в TSV ядра не входит
+L2b	B	ts/cli	*	ts/cli/src/client.ts:235	2	no	mpu: ${err.report} (BadFrame: ввод больше ${MAX_STDIN_BYTES/1024/1024} МиБ, из tslibs/language frames/context.ts:132 tooLargeInput)		ввод строки больше предела; не говорит что сделать (сократить ввод/передать файлом)
+L2b	B	ts/cli	*	ts/cli/src/input.ts:56	2	no	mpu: ввод не в UTF-8: байт ${hex} на смещении ${bad} (BadFrame report `ввод ${err.message}`; текст NotUtf8 из tslibs/language frames/words.ts:87)		только для строки без слов (isBareLine); не говорит как исправить
+L2b	B	ts/cli	*	ts/cli/src/client.ts:239	1	no	mpu: ввод не прочитан: ${reason}		сбой чтения stdin
+L2b	B	ts/cli	*	ts/cli/src/client.ts:262	?	no	mpu: ответ не прочитан: ${reason}		ответ на вопрос ask не прочитан; трактуется как «нет», код строки решает сервер
+L2b	B	ts/cli	*	ts/cli/src/client.ts:292	1	no	mpu: сервер отказал в доступе (${response.status})		401/403 на пробном GET; не называет токен и путь ~/.config/mpu/token
+L2b	B	ts/cli	*	ts/cli/src/client.ts:363	0	no	hook.undecided(hook.unavailable(cause)): для хука PreToolUse строка «правила недоступны|сервер mpu не отвечает: <причина>» вместо кадров (тексты в tslibs/language frames/hook.ts:60-80)		строка-хук всегда выходит с кодом 0; текст определяют HOOK_LINES в language
+L2b	B	ts/cli	claude-channel	ts/cli/src/channel/registration.ts:64	?	no	mpu claude-channel: ядро недоступно или нет токена — повтор через ${RETRY_MS/1000} с		канал живёт и повторяет; stderr пишется один раз на серию
+L2b	B	ts/cli	claude-channel	ts/cli/src/channel/registration.ts:139	?	no	mpu claude-channel: запись не удалась: ${err}		запись в stdout канала не удалась
+L2b	B	ts/cli	claude-channel	ts/cli/src/channel/registration.ts:110	0	no	mpu claude-channel: зарегистрирован в ядре		информационная строка, не отказ; для полноты
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/tools.ts:114	-32602 (McpError InvalidParams)	no	${name}: нужен список строк		name = words|path; аргумент не массив строк
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/tools.ts:117	-32602 (McpError InvalidParams)	no	${name}: список пуст		words пуст; для help path может быть пуст
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/tools.ts:135	-32602 (McpError InvalidParams)	no	нет тула ${name}		не перечисляет тулы help и mpu
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/tools.ts:217	1 (isError=true, structuredContent нет)	no	${reply.failed} (передаётся как content[0].text; failed: см. back.ts строки ниже)		failed(text): isError без structuredContent
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/back.ts:32	isError	no	подтверждение истекло		404 на /agent/line/answer: номер вопроса истёк; не говорит перезапустить строку
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/back.ts:57	isError	no	mpu-back ответил не по контракту (${status})		BadFrame или 404 на /agent/line
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/back.ts:178	isError	no	mpu-back недоступен на ${base}		адрес есть; как поднять сервер не сказано (в CLI-клиенте есть systemctl-подсказка)
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/back.ts:182	isError	no	mpu-back отказал в доступе (${status})		401/403; не называет токен
+L2b	B	ts/mcp	mpu (MCP tool)	ts/mcp/src/back.ts:40	-	no	[internal?] решения в другом месте нет		внутренний исход ожидания Telegram-решения; наружу не печатается (Settled.failed в tools.ts игнорируется)
+L2a	D	ts/mcp	mpu (MCP tool: описание тула)	ts/mcp/src/tools.ts:27	-	no	Значение — только ключом: `ключ: значение` ≡ `--ключ значение`; одно слово массива — одно значение, пробелы можно: `sql: "select 1"`.	--ключ значение	описание тула, не отказ: упоминает `--ключ значение` — старую грамматику флагов в описании живой [проверить D: старое написание даёт отказ]
+L2b	B	ts/mcp	mpu (MCP tool: описание тула)	ts/mcp/src/tools.ts:29	-	no	`${close}` ... формат (`${close} json`, `${close} md`; список — `<команда> formats`)		описание; полный список формата дан
+L2b	B	ts/mcp	mpu-mcp (процесс)	ts/mcp/src/entry.ts:87	1	no	mpu-mcp: нет токена mpu-back (${proc.backToken.path})		путь есть; как создать токен/запустить back не сказано
+L2b	B	ts/mcp	mpu-mcp (процесс)	ts/mcp/src/entry.ts:107	1	no	mpu-mcp: порт ${port} занят		нет подсказки --port <другой>
+L2b	B	ts/mcp	mpu-mcp (процесс)	ts/mcp/src/server.ts:217	?	no	[internal?] адрес петли не порт: ${address}		программная ошибка (server.address() не порт)
+L2b	B	ts/mcp	mpu (MCP tool: ответ)	ts/mcp/src/tools.ts:171	-	no	stderr:⏎${stderr}		второй content-блок: stderr строки; structuredContent.refusal/stderr/exit берутся из ответа back (RefusalData)
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/entry.ts:83	?	no	[supervisor] перезапуск не удался: ${String(err)}		пишется в stderr службы (journalctl), сигнал SIGUSR1/2
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/child.ts:143	?	no	[supervisor] ${name}: перезапуск через ${ms/1000} с		информационная строка в stderr
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/child.ts:176	?	no	[supervisor] ${name}: не запустился: ${reason}		reason = spawn ${command}: ${code} (ENOENT|EACCES) из system.ts:50
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/system.ts:50	?	no	spawn ${command}: ${code}		Error из spawnRefusal; код ОС ENOENT/EACCES; второй вариант system.ts:52: spawn ${command}
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/system.ts:52	?	no	spawn ${command}		
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/child.ts:201	?	no	[supervisor] ${name}: не ответил на SIGTERM, SIGKILL		
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/watchdog.ts:138	?	no	[supervisor] сторож: ${reason}		сбой такта сторожа памяти; reason из outputOf watchdog.ts:196: ${program}: ${stderr.trim()}
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/watchdog.ts:196	?	no	${program}: ${stderr.trim()}		Error: подпроцесс cat/ps вышел не нулём
+L2b	B	ts/supervisor	mpu-supervisor (журнал службы)	ts/supervisor/src/watchdog.ts:126	?	no	[supervisor] сторож: памяти ${MiB} МиБ, убит исполнитель ${pid} (${mib} МиБ)		информационная: исполнитель убит по нехватке памяти
+L2b	B	ts/web	web (экран)	ts/web/src/useLine.ts:61	1	no	mpu-back недоступен на ${reply.base}		сеть/не-ok/не JSON; нет как поднять
+L2b	B	ts/web	web (экран)	ts/web/src/useLine.ts:97	1	no	ответ mpu-back не разобран: ${String(err)}		
+L2b	B	ts/web	web (экран)	ts/web/src/useLine.ts:107	1	no	ответ mpu-back не разобран: ${String(err)}		тот же текст в respond
+L2b	B	ts/web	web (экран)	ts/web/src/Rules.tsx:52	-	no	mpu-back недоступен на ${base}	кнопка «Повторить»	экран Unreachable
+L2b	B	ts/web	web (экран)	ts/web/src/api.ts:44	-	no	Refusal {reason, hint: string[]|null, text} — тип отказа строки объектом; экран его не показывает: told() (useLine.ts:44) печатает только outcome.stderr, а refusal.hint/refusal.text в UI не используются		hint игнорируется экраном: исправленную строку человеку не предлагают
+L2a	D	tslibs/cmd-search	search	tslibs/cmd-search/src/cmd_search.ts:272	0 (stderr; кандидаты в stdout)	no	mpu search: 10X staff search (scope=${effective(args)}): по '${args.value}' найдено кандидатов: ${outcome.candidates.length}; повтори с точным email или с user.id (--scope user)		флаг --scope (живой ключ scope:) [проверить D]
+L2a	D	tslibs/cmd-sheet	sheet *	tslibs/cmd-sheet/src/target.ts:140	2	no	client_id=${value} не найден в sl_spreadsheets. Запусти `mpu sheet sync` чтобы обновить кэш.	(в тексте) mpu sheet sync	команда sheet sync убрана (registry/dropped.ts: заменено `mpu update`); совет мёртв
+L2a	D	tslibs/cmd-sheet	sheet *	tslibs/cmd-sheet/src/target.ts:149	2	no	Spreadsheet '${value}' не найден ни как ID/URL/alias/client_id/title. Запусти `mpu sheet sync` чтобы обновить кэш.	(в тексте) mpu sheet sync	то же: sheet sync убран; при этом «ни как ID/URL/alias/client_id/title» — перечень разборов
+L2a	D	tslibs/cmd-sql	sql-ro (и sql)	tslibs/cmd-sql/src/run.ts:61	1	no	запрос пытается писать — заблокировано read-only сессией. Для записи используйте `mpu sql`.	(в тексте) `mpu sql`	WRITE_REFUSED (run.ts:60-62), DomainError; [проверить D] живой путь записи — `mpu ask sql` (help sql-ro: «Для записи — mpu ask sql»), голый `mpu sql` даёт отказ с «ask»
+L2a	C	tslibs/cmd-sql	sql / sql-ro	tslibs/cmd-sql/src/run.ts:167	2	no	маршрут sw выброшен: доступа к контуру воркспейсов нет		«выброшен»; селектор-алиас sw (routeOf); как исправить не сказано
+L2a	C	tslibs/cmd-call	wb *|ozon *|ozon perf *	tslibs/cmd-call/src/run.ts:198	2	no	маршрут sw выброшен: доступа к контуру воркспейсов нет		«выброшен»; нет hint, что указать вместо sw
