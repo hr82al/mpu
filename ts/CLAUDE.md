@@ -695,8 +695,11 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
 - `@mpu/subprocess` — запуск локального процесса поверх `node:child_process`
   одинаково под тремя рантаймами: отказ запуска кодом ОС, код по сигналу
   `128 + номер`, отмена статусом (`docs/specs/platform/tslibs-exec.md`);
-  библиотека `tslibs/subprocess`, архивом `release/`. Потребители — git,
-  docker, `mpu-worker`, хуки, `smoke` и `@mpu/exec`.
+  библиотека `tslibs/subprocess`, архивом `release/`. Потребители — git
+  (`code`, `gitlab`), docker (`mp-init`, `copy-shared`), `pg_dump`,
+  `pg_restore` и `redis-cli` (`copy`), `d2` (`d2-miro`), `mp-clone`,
+  `mpu-worker`, `tmux` (хук окна, `mpu-task`), `notify-send` (`mpu-task`),
+  `smoke` и `@mpu/exec`.
 - `@mpu/exec` — исполнение команды в контейнере фермы для `ssh`, `run-js`,
   `node cli`, `move-client`; shell-строка — ещё `copy-shared`, `mp-init`;
   локальный подпроцесс `spawnProcess` — `make-schema` (`docker exec`):
