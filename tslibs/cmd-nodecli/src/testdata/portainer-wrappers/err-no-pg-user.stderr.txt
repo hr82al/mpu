@@ -1,0 +1,1 @@
+mpu ss-update: PG_MY_USER_NAME not set in ~/.config/mpu/.env

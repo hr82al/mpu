@@ -1,0 +1,3 @@
+mpu ss-load: cannot resolve --spreadsheet-id from selector; pass --spreadsheet-id
+  client_id=777  server=sl-9  title="Таблица клиента"  spreadsheet_id=SHEET123
+  client_id=777  server=sl-9  title="Вторая таблица клиента"  spreadsheet_id=SHEET456

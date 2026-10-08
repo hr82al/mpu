@@ -1,0 +1,1 @@
+ssh -i <HOME>/.ssh/id_rsa -t probeuser@10.9.9.9 'docker exec -it sl-9-cli sh -c "node cli service:dataProcessor process --client-id 777 --spreadsheet-id SHEET123 --datasets wb_unit wb_unit --with-tags source source --forced --dry-run --nm-ids [7,8] --skus [1,2] --logs debug"'
