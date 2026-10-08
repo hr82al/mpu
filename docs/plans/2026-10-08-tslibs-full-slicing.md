@@ -1,0 +1,53 @@
+# Нарезка `ts/back/src` на пакеты до конца
+
+Решение владельца 2026-10-08: «нарезать все на библиотеки до конца»; ядро
+языка — тоже пакетом (при снятии языка на этапе 6 удаляется один пакет).
+Договор пакета — `ts/docs/specs/platform/tslibs-package.md`. Порядок — от
+листьев к корню по графу импортов каталогов (снят 2026-10-08, циклов нет).
+
+## Сделано
+
+`@mpu/http` (H1), `@mpu/testing` (H2), `@mpu/telegram` (T1), `@mpu/kaiten`
+(KA1), `@mpu/portainer` и `@mpu/loki` (OP1), `@mpu/slback` (SB1); в работе —
+`@mpu/subprocess` и `@mpu/exec` (EX1).
+
+## Конец
+
+В `ts/` остаётся приложение: сборка объектов и точки входа — `registry`,
+`entrypoint`, `runtime`, `process`, `line`, `worker`, `backend` (и подпроекты
+`mcp/`, `supervisor/`, `cli/`, `web/`). Всё прочее из `back/src` — пакеты.
+Пакеты команд называются `@mpu/cmd-<каталог>` (команды и их вид), библиотеки
+без слоя команд — `@mpu/<домен>`. Остатки-адаптеры в `ts/back/src/{kaiten,loki,
+slback,telegram}` уходят в пакеты команд своих доменов.
+
+## Порции (по уровням графа; строки — без тестов)
+
+| Порция | Пакеты | Каталоги | Строк |
+|---|---|---|---|
+| N1 | `@mpu/base`, `@mpu/gitlab` | `access`, `dates`, `oserror`, `workdir`; `gitlab` | ~1.5k |
+| N2 | `@mpu/language` | `frames`, `messages`, `picture`, `objects`, `program` | ~11k |
+| N3 | `@mpu/command` | `command`, `env`, `confirm`, `jsdate`, `selector`, `store`, `config`, `policy`, `testing` | ~5k |
+| N4 | `@mpu/invokelog` | `invokelog` | ~1k |
+| D1 | `@mpu/cmd-*` | `code`, `d2miro`, `mpclone`, `sun` | ~7.5k |
+| D2 | `@mpu/cmd-*` | `sql`, `logs`+`loki`, `update`, `log`, `mcp` | ~6k |
+| D3 | `@mpu/cmd-*` | `kiten`+`kaiten`, `image` | ~10.5k |
+| D4 | `@mpu/cmd-*` | `exec` (адаптер), `ps`, `ssh`, `runjs`, `makeschema`, `nodecli`, `mpinit` | ~8k |
+| D5 | `@mpu/cmd-*` | `api`+`slback`, `backup`, `call`, `copy`, `cleanlocal` | ~9k |
+| D6 | `@mpu/cmd-*` | `search`, `sheet`, `xlsx`, `task` | ~12k |
+| D7 | `@mpu/cmd-*` | `telegram` (адаптер), `botquestions`, `init`, `health`, `move` | ~7k |
+| D8 | `@mpu/cmd-*` | `mr`, `glab`, `claudehook` | ~7.5k |
+
+Каждая порция — спека `ts/docs/specs/platform/tslibs-<порция>.md` по образцу
+KA1/EX1: граница, сценарии (гейт пакета под тремя рантаймами,
+`check:release`, списки случаев до = после, свежая установка по локу,
+голдены команд без изменений, живая проверка хостом), инварианты. Порции
+крупнее 8k строк исполнитель может делить на коммиты, не на ветки.
+
+## Правила, которые держат порядок
+
+- Пакет зависит только от пакетов (необязательный `peerDependency` +
+  `devDependency` архивом), никогда от `ts/`.
+- Поведение команд не меняется; тексты отказов не переписываются (вычистка —
+  после этапа 6).
+- Каждая порция: слияние, полная переустановка `ts/node_modules` по локу,
+  `install.sh`, живая проверка команд порции.
