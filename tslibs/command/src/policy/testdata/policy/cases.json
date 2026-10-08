@@ -1,0 +1,207 @@
+{
+  "cases": [
+    {
+      "name": "правил нет",
+      "rules": [],
+      "path": "kiten ls",
+      "verdict": "ask",
+      "won": null
+    },
+    {
+      "name": "только корень",
+      "rules": [
+        {
+          "path": "*",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten ls",
+      "verdict": "allow",
+      "won": "*"
+    },
+    {
+      "name": "корень и группа — строка в группе",
+      "rules": [
+        {
+          "path": "*",
+          "verdict": "allow"
+        },
+        {
+          "path": "sql-ro",
+          "verdict": "ask"
+        }
+      ],
+      "path": "sql-ro <args>",
+      "verdict": "ask",
+      "won": "sql-ro"
+    },
+    {
+      "name": "корень и группа — строка вне группы",
+      "rules": [
+        {
+          "path": "*",
+          "verdict": "allow"
+        },
+        {
+          "path": "sql-ro",
+          "verdict": "ask"
+        }
+      ],
+      "path": "kiten ls",
+      "verdict": "allow",
+      "won": "*"
+    },
+    {
+      "name": "ребёнок сильнее родителя",
+      "rules": [
+        {
+          "path": "kiten",
+          "verdict": "ask"
+        },
+        {
+          "path": "kiten ls",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten ls",
+      "verdict": "allow",
+      "won": "kiten ls"
+    },
+    {
+      "name": "родитель на соседа ребёнка",
+      "rules": [
+        {
+          "path": "kiten",
+          "verdict": "ask"
+        },
+        {
+          "path": "kiten ls",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten card <args>",
+      "verdict": "ask",
+      "won": "kiten"
+    },
+    {
+      "name": "правило на самой команде",
+      "rules": [
+        {
+          "path": "kiten card",
+          "verdict": "deny"
+        }
+      ],
+      "path": "kiten card <args>",
+      "verdict": "deny",
+      "won": "kiten card"
+    },
+    {
+      "name": "правило на хвосте сильнее команды",
+      "rules": [
+        {
+          "path": "kiten card",
+          "verdict": "deny"
+        },
+        {
+          "path": "kiten card <args>",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten card <args>",
+      "verdict": "allow",
+      "won": "kiten card <args>"
+    },
+    {
+      "name": "совпадение по звеньям, не по буквам",
+      "rules": [
+        {
+          "path": "kiten",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kitenx ls",
+      "verdict": "ask",
+      "won": null
+    },
+    {
+      "name": "длинное правило не действует на короткий путь",
+      "rules": [
+        {
+          "path": "kiten ls",
+          "verdict": "deny"
+        }
+      ],
+      "path": "kiten",
+      "verdict": "ask",
+      "won": null
+    },
+    {
+      "name": "точный путь равен правилу",
+      "rules": [
+        {
+          "path": "policy",
+          "verdict": "allow"
+        }
+      ],
+      "path": "policy",
+      "verdict": "allow",
+      "won": "policy"
+    },
+    {
+      "name": "глубокая цепочка",
+      "rules": [
+        {
+          "path": "*",
+          "verdict": "deny"
+        },
+        {
+          "path": "kiten",
+          "verdict": "ask"
+        },
+        {
+          "path": "kiten card",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten card <args>",
+      "verdict": "allow",
+      "won": "kiten card"
+    },
+    {
+      "name": "глубокая цепочка — соседняя ветка",
+      "rules": [
+        {
+          "path": "*",
+          "verdict": "deny"
+        },
+        {
+          "path": "kiten",
+          "verdict": "ask"
+        },
+        {
+          "path": "kiten card",
+          "verdict": "allow"
+        }
+      ],
+      "path": "sql-ro <args>",
+      "verdict": "deny",
+      "won": "*"
+    },
+    {
+      "name": "вид звена в пути",
+      "rules": [
+        {
+          "path": "kiten card <card> comment",
+          "verdict": "ask"
+        },
+        {
+          "path": "kiten",
+          "verdict": "allow"
+        }
+      ],
+      "path": "kiten card <card> comment <text>",
+      "verdict": "ask",
+      "won": "kiten card <card> comment"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "key": "sheet.default",
+    "value": null,
+    "source": "default",
+    "default": null,
+    "description": "Spreadsheet по умолчанию (ID/URL/alias/client_id/title) для `mpu sheet`"
+  },
+  {
+    "key": "xlsx.default",
+    "value": null,
+    "source": "default",
+    "default": null,
+    "description": "Путь или alias .xlsx по умолчанию для `mpu xlsx`"
+  },
+  {
+    "key": "sheet.cache.tab_ttl",
+    "value": "7200",
+    "source": "default",
+    "default": "7200",
+    "description": "TTL whole-tab кэша листов, секунды"
+  },
+  {
+    "key": "sheet.cache.max_tab_bytes",
+    "value": "10485760",
+    "source": "default",
+    "default": "10485760",
+    "description": "Порог, выше которого таб не кэшируется, байты (после gzip)"
+  },
+  {
+    "key": "sheet.cache.max_total_mb",
+    "value": "500",
+    "source": "default",
+    "default": "500",
+    "description": "Общий потолок кэша листов, МБ"
+  }
+]
