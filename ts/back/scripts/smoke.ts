@@ -46,10 +46,6 @@ import { Image, imageFile, ImageMethod } from "../src/image/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
 import { hasErrorCode } from "@mpu/base/oserror";
-import {
-  type ProgramOutput,
-  runProgram,
-  startProgram,
 import { type ProgramOutput, runProgram, startProgram } from "@mpu/subprocess";
 import { listenLoopback, serveFetch } from "@mpu/testing";
 import {

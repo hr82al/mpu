@@ -7,7 +7,6 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { hasErrorCode } from "@mpu/base/oserror";
-import { hasErrorCode } from "../../oserror/mod.ts";
 import { runProgram } from "@mpu/subprocess";
 import type { Letters, Notices, Place, Windows } from "./ports.ts";
 
