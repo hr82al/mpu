@@ -236,7 +236,7 @@ describe("ключ-текст берёт слово как есть (`platform/a
     { words: ["text:", "."], message: { keyword: { text: "." } } },
     { words: ["text:", END], message: { keyword: { text: END } } },
     {
-      words: ["text:", GRAMMAR.comment],
+      words: ["text:", "rem"],
       message: { keyword: { text: "rem" } },
     },
     { words: ["text:", "--help"], message: { keyword: { text: "--help" } } },

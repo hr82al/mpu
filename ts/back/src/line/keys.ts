@@ -17,7 +17,6 @@ import {
   Refusal,
   RENAMED,
   type ResultKind,
-  separated,
   type Trace,
   UNDERSTOOD_NOT,
   unknownKey,
@@ -44,6 +43,12 @@ const DICTIONARY: ReadonlyMap<string, string> = new Map([
  * искать (`platform/at-word-literal.md`, правило 1).
  */
 const TEXT_KEYS: ReadonlySet<string> = new Set(["text", "query"]);
+
+/**
+ * Знак файла в значении входа, чей файл читается своим ключом
+ * (`body: @req.json`): подсказка ведёт к ключу файла.
+ */
+const FILE_SIGN = "@";
 
 /** Причина имени ключа, оставшегося прежним именем входа. */
 const KEPT = "прежнее имя входа";
@@ -742,12 +747,12 @@ export class Keys {
   ) {
     const fileKey = this.#fromFile[key];
     const text = String(value);
-    if (fileKey === undefined || !text.startsWith(GRAMMAR.variable)) return;
+    if (fileKey === undefined || !text.startsWith(FILE_SIGN)) return;
     const others = kept.filter(([one]) => one !== key);
     throw hinted("файл — ключом", [
       ...this.#words(others),
       `${fileKey}:`,
-      text.slice(GRAMMAR.variable.length),
+      text.slice(FILE_SIGN.length),
     ]);
   }
 
@@ -854,7 +859,7 @@ export class Keys {
     const noKey = keys.length === 0;
     const variant = this.#variants.some((one) => one.name === first);
     if (first !== undefined && (noKey || variant)) {
-      return new Refusal(`лишнее слово ${first}${separated(first)}`);
+      return new Refusal(`лишнее слово ${first}`);
     }
     return hinted("значение — ключом", this.#pairs(keys, values));
   }

@@ -1,6 +1,6 @@
 {
   "name": "@mpu/language",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "files": [
     "dist"
@@ -22,10 +22,6 @@
       "types": "./dist/objects.d.ts",
       "default": "./dist/objects.js"
     },
-    "./program": {
-      "types": "./dist/program.d.ts",
-      "default": "./dist/program.js"
-    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
@@ -37,7 +33,7 @@
     "test:bun": "bun --bun vitest run",
     "test:node": "node node_modules/vitest/vitest.mjs run",
     "test:deno": "deno run -A --no-config --node-modules-dir=manual node_modules/vitest/vitest.mjs run",
-    "build": "rm -rf dist && bun build frames.ts messages.ts picture.ts objects.ts program.ts testing.ts --target node --packages external --splitting --chunk-naming 'chunk-[hash].[ext]' --outdir dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && bun build frames.ts messages.ts picture.ts objects.ts testing.ts --target node --packages external --splitting --chunk-naming 'chunk-[hash].[ext]' --outdir dist && tsc -p tsconfig.build.json",
     "release": "bun run build && bun pm pack --destination release",
     "check:release": "bun run build && sh -c 'd=$(mktemp -d) && bun pm pack --destination \"$d\" >/dev/null && f=$(basename \"$d\"/*.tgz) && cmp -s \"$d/$f\" \"release/$f\"; r=$?; rm -rf \"$d\"; [ $r = 0 ] || { echo \"release/$f не совпадает с исходниками — bun run release и закоммить архив\" >&2; exit 1; }'",
     "gate": "bun run lint && bun run typecheck && bun run test:bun && bun run test:node && bun run test:deno && bun run check:release"

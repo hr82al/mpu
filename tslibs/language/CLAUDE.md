@@ -1,20 +1,21 @@
 # CLAUDE.md — `@mpu/language`
 
 Ядро языка строки `mpu`: контракт кадров, разбор строки в сообщения,
-картинка в ответе, объекты цепочки и вычислитель. Ставится архивом из
+картинка в ответе и объекты цепочки. Ставится архивом из
 `release/`.
 
 Спеки — в `ts/docs/specs/` mpu: порция `platform/tslibs-n2.md`, договор
 пакета `platform/tslibs-package.md`; поведение — спеки, на которые
 ссылаются шапки модулей (`platform/back-rpc.md`, `platform/messages.md`,
-`platform/picture-frame.md`, `platform/objects.md`,
-`platform/evaluator.md`). Ссылки на спеки в комментариях — от
-`ts/docs/specs/`.
+`platform/picture-frame.md`, `platform/objects.md`). Ссылки на спеки в
+комментариях — от `ts/docs/specs/`.
 
-## Поверхность — пять точек входа и `./testing`
+## Поверхность — четыре точки входа и `./testing`
 
 Входа `.` нет: потребители берут каталоги порознь (страница и клиент —
-только кадры), общий вход тянул бы к ним вычислитель.
+только кадры), общий вход тянул бы к ним разбор и объекты цепочки.
+Вычислитель строки (`./program`) снят в 0.2.0 (порция L1 этапа 6,
+`platform/stage6-l1.md`).
 
 - `@mpu/language/frames` (`frames.ts`) — кадры строки, контекст вызова,
   слова текста (`wordsOf`), разбор JSON с провода.
@@ -23,7 +24,6 @@
 - `@mpu/language/picture` (`picture.ts`) — картинка в ответе.
 - `@mpu/language/objects` (`objects.ts`) — объекты цепочки, справка,
   отказы, дополнение.
-- `@mpu/language/program` (`program.ts`) — вычислитель строки.
 - `@mpu/language/testing` (`testing.ts`) — `said` для тестов потребителя.
 
 Поверхность входа — `mod.ts` его каталога (`export *`); имя попадает
@@ -48,12 +48,12 @@ bun run check:release             # сборка и упаковка = архи�
 
 Сборка — с `--splitting`: общие модули входов лежат в одном куске. Без него
 у каждого входа своя копия `Refusal`, `MessageParseError`, `SILENT`, и
-`instanceof`/сравнение по ссылке между `objects` и `program` молча лжёт.
+`instanceof`/сравнение по ссылке между `messages` и `objects` молча лжёт.
 
 ## Раскладка
 
-- `frames.ts`, `messages.ts`, `picture.ts`, `objects.ts`, `program.ts`,
-  `testing.ts` — поверхности; `src/<каталог>/` — устройство и тесты
+- `frames.ts`, `messages.ts`, `picture.ts`, `objects.ts`, `testing.ts` —
+  поверхности; `src/<каталог>/` — устройство и тесты
   `*.test.ts` рядом с кодом.
 - `src/messages/testdata/`, `src/objects/testdata/` — копии эталонов
   канала `ts/docs/specs/fixtures/{messages,objects}/` байт-в-байт. Сверить

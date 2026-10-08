@@ -15,7 +15,6 @@
     "messages.ts",
     "picture.ts",
     "objects.ts",
-    "program.ts",
     "testing.ts"
   ]
 }

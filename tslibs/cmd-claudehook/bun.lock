@@ -13,7 +13,7 @@
         "@mpu/command": "file:../command/release/mpu-command-0.3.0.tgz",
         "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",
         "@mpu/kaiten": "file:../kaiten/release/mpu-kaiten-0.1.0.tgz",
-        "@mpu/language": "file:../language/release/mpu-language-0.1.0.tgz",
+        "@mpu/language": "file:../language/release/mpu-language-0.2.0.tgz",
         "@mpu/subprocess": "file:../subprocess/release/mpu-subprocess-0.1.0.tgz",
         "@mpu/telegram": "file:../telegram/release/mpu-telegram-0.1.0.tgz",
         "@mpu/testing": "file:../testing/release/mpu-testing-0.2.0.tgz",
@@ -26,7 +26,7 @@
         "@mpu/base": "0.1.0",
         "@mpu/cmd-botquestions": "0.2.0",
         "@mpu/command": "0.3.0",
-        "@mpu/language": "0.1.0",
+        "@mpu/language": "0.2.0",
         "@mpu/subprocess": "0.1.0",
         "zod": "4.4.3",
       },
@@ -134,7 +134,7 @@
 
     "@mpu/kaiten": ["@mpu/kaiten@../kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
 
-    "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.1.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-+wbWMJ4qyCFxFKHIAyzzIw1MbsYnT9JQH7/yIWMw3VJuUz7t0J31AFEjlU/Z81jPAtZgIzJbd86l72dddAtmgA=="],
+    "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.2.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-Zx8mKbLlNcGiZhRi0Lh4A6Q3CUZZbkqnqzIAvk4IIFuG8mOGANoSMmqudjYdbQ2SfdkuXyJQelggCj+cJlY0GA=="],
 
     "@mpu/subprocess": ["@mpu/subprocess@../subprocess/release/mpu-subprocess-0.1.0.tgz", {}, "sha512-rNTQg5er9saOribajHJZub0XtW6EZvGME/DexKKVGGCCUcoN9d6XPucsjF7BfcxjgMnwlzGCjegB5odsEvJkHg=="],
 

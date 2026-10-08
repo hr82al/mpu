@@ -291,18 +291,11 @@ export async function runOnStand(
 /** Метка адреса подменённого Kaiten в эталоне. */
 export const KAITEN_MARK = "{kaiten}";
 
-/** Метки слов грамматики в эталоне: `{do}`, `{done}`, `{^}` и прочие. */
+/** Метки слов грамматики в эталоне: `{do}`, `{end}`, `{--}`. */
 const MARKS: ReadonlyMap<string, string> = new Map([
   ["{do}", GRAMMAR.open],
   ["{end}", GRAMMAR.close],
   ["{--}", GRAMMAR.literal],
-  ["{done}", GRAMMAR.blockEnd],
-  ["{rem}", GRAMMAR.comment],
-  ["{.}", GRAMMAR.separator],
-  ["{:=}", GRAMMAR.assign],
-  ["{^}", GRAMMAR.quote],
-  ["{@}", GRAMMAR.variable],
-  ["{:}", GRAMMAR.parameter],
 ]);
 
 /**
@@ -313,13 +306,4 @@ export function unmarked(text: string): string {
   let out = text;
   for (const [mark, word] of MARKS) out = out.replaceAll(mark, word);
   return out;
-}
-
-/** Случай эталона: строка с метками и её итог. */
-export interface EvaluatorCase {
-  readonly name: string;
-  readonly line: string;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exit: number;
 }

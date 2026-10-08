@@ -722,8 +722,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `@mpu/language` и `@mpu/base` — необязательные: ставятся здесь.
 - `@mpu/language` — ядро языка строки: кадры (`@mpu/language/frames`), разбор
   в сообщения (`/messages`), картинка ответа (`/picture`), объекты цепочки
-  (`/objects`), вычислитель (`/program`) —
-  `docs/specs/platform/tslibs-n2.md`; библиотека `tslibs/language`, архивом
+  (`/objects`) — `docs/specs/platform/tslibs-n2.md` (вход `/program` снят
+  в 0.2.0, `platform/stage6-l1.md`); библиотека `tslibs/language`, архивом
   `release/`. Помощник тестов `said` — вход `@mpu/language/testing`. Версия
   бинаря (`back/src/version.ts`) остаётся в `ts/`. `fastest-levenshtein`
   (ближайшие селекторы непонятого) — её зависимость, «зачем» — в
@@ -745,14 +745,12 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`back/src/registry/mod.ts`). Воркер разбора кода — второй вход сборки
   пакета (`dist/repo_worker.js`); `compile:back` и `compile:worker`
   встраивают его из `node_modules/@mpu/cmd-code/dist`.
-- `@mpu/cmd-kiten`, `@mpu/cmd-image` — команды `mpu kiten …` и
-  `mpu image sync|export` пакетами (`docs/specs/platform/tslibs-commands.md`,
-  D3); библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра
-  `@mpu/cmd-kiten` берут пакеты `@mpu/cmd-init` (прогрев справочников
-  Kaiten с записью в кэш-БД) и `@mpu/cmd-telegram` (`telegram status`:
-  журнал перемещений, московский день);
-  `@mpu/cmd-image` — ядро строк `back/src/line`, сервер приложения и
-  `back/back.ts` (образ `image.db`: методы пользователя, план синхронизации).
+- `@mpu/cmd-kiten` — команды `mpu kiten …` пакетом
+  (`docs/specs/platform/tslibs-commands.md`, D3); библиотека
+  `tslibs/cmd-kiten`, архивом `release/`. Кроме реестра его берут пакеты
+  `@mpu/cmd-init` (прогрев справочников Kaiten с записью в кэш-БД) и
+  `@mpu/cmd-telegram` (`telegram status`: журнал перемещений, московский
+  день). Пакет образа `@mpu/cmd-image` снят порцией L1 этапа 6.
 - `@mpu/cmd-sql`, `@mpu/cmd-logs`, `@mpu/cmd-update`, `@mpu/cmd-log`,
   `@mpu/cmd-mcp` — команды `sql-ro`/`sql`, `logs`, `update`, `log` и ядро
   MCP-сервера пакетами (`docs/specs/platform/tslibs-commands.md`, D2);

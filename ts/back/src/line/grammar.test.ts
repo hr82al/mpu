@@ -5,10 +5,12 @@
  */
 
 import { assert, expect, it } from "vitest";
+import { Undecided } from "@mpu/cmd-claudehook";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { commands, groups, surfaces } from "../registry/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
+import { formerOf } from "./former.ts";
 import { lineEntry } from "./mod.ts";
 import { FOREIGN, OWN } from "./order.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
@@ -184,12 +186,12 @@ it("код завершения один с форматом и без", () =>
     expect((await run(file, ["xlsx", "resolve", "--json"])).code).toBe(2);
   }));
 
-it("слова грамматики зарезервированы: так не зовут ни узел, ни ключ, ни формат", () => {
+it("слова грамматики зарезервированы: так не зовут ни узел, ни ключ, ни формат", async () => {
   // Узел и формат пишутся голым словом — им нельзя ни одно слово
-  // грамматики, и строки, и программы (`platform/evaluator.md`). Ключ
-  // пишется `имя:` или `--имя` — другим словом, чем голое слово
-  // программы (`done:` у `kiten close` блок не закрывает); ему нельзя
-  // только слова строки.
+  // грамматики и ни одна прежняя форма: строка с ней не исполнится
+  // (`platform/stage6-l1.md`). Ключ пишется `имя:` или `--имя` — другим
+  // словом, чем голое (`done:` у `kiten close` — не прежняя форма); ему
+  // нельзя только слова строки.
   const everyWord = new Set<string>(Object.values(GRAMMAR));
   const lineWords = new Set<string>([DO, END]);
   const bare = [
@@ -203,4 +205,15 @@ it("слова грамматики зарезервированы: так не 
   assert(bare.length + keys.length > 300, `имён ${bare.length + keys.length}`);
   expect(bare.filter((name) => everyWord.has(name))).toStrictEqual([]);
   expect(keys.filter((name) => lineWords.has(name))).toStrictEqual([]);
+  const passed = new Undecided("не прежняя форма");
+  const former: string[] = [];
+  for (const name of new Set(bare)) {
+    for (const words of [[name], ["x", name]]) {
+      const reply = await formerOf(words, words).consult(() =>
+        Promise.resolve(passed),
+      );
+      if (reply !== passed) former.push(words.join(" "));
+    }
+  }
+  expect(former).toStrictEqual([]);
 });

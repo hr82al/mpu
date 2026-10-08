@@ -58,16 +58,17 @@ function described(raw: RawReceiver): ReceiverDescription {
 
 /**
  * Слова грамматики в эталоне — метками: эталон не зависит от того, как
- * они пишутся (`platform/line-grammar.md` [D.1]).
+ * они пишутся (`platform/line-grammar.md` [D.1]). Метки прежних слов
+ * программы — их написание: разбору строки это обычные слова.
  */
 const MARKS: Readonly<Record<string, string>> = {
   $open: GRAMMAR.open,
   $close: GRAMMAR.close,
   $literal: GRAMMAR.literal,
-  $done: GRAMMAR.blockEnd,
-  $rem: GRAMMAR.comment,
-  $separator: GRAMMAR.separator,
-  $assign: GRAMMAR.assign,
+  $done: "done",
+  $rem: "rem",
+  $separator: ".",
+  $assign: ":=",
 };
 
 function word(text: string): string {

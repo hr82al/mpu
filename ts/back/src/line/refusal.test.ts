@@ -90,7 +90,7 @@ const HINTED: readonly (readonly [string, readonly string[]])[] = [
       "ss1",
       "body:",
       GRAMMAR.literal,
-      `${GRAMMAR.variable}req.json`,
+      "@req.json",
     ],
   ],
 ];
@@ -190,7 +190,7 @@ it("файл значением — отказ с готовой строкой 
       "ss1",
       "body:",
       GRAMMAR.literal,
-      `${GRAMMAR.variable}req.json`,
+      "@req.json",
     ]);
     expect(got.code).toBe(2);
     expect(got.stderr).toStrictEqual(

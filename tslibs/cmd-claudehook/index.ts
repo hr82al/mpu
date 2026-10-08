@@ -63,7 +63,6 @@ export {
   type HookReply,
   HUMAN_DECIDES,
   NOT_RULED,
-  programUnseen,
   RULE_CHANGE,
   Undecided,
   unparsedLine,

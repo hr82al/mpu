@@ -67,7 +67,6 @@ export {
   RefusalNotice,
   Rejection,
   RENAMED,
-  separated,
   UNDERSTOOD_NOT,
   unknownKey,
 } from "./refusal.ts";
