@@ -20,6 +20,8 @@ HTTP-сервер и `rejected` после H1 живут в двух копия�
   `FetchHandler`, `FakeHttp` (сигнатура копии `ts/` сохранена);
 - `listenLoopback(server)`, `closedPort()`;
 - `rejected(promise, ErrorClass)` — точка входа `@mpu/testing/thrown`.
+- Области Vitest (`heldScope`, `fakeTimers`) — точка входа `@mpu/testing/vitest`
+  (`vitest` — необязательный peer), с 0.2.0 (D5).
 
 Прочие помощники `ts/back/src/testing/` в пакет не идут: они знают о домене
 `ts/` (стенд `back`, журнал, клиент строк).
