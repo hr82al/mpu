@@ -136,12 +136,14 @@ const FORMER: readonly {
   { argv: ["ask"], word: "stdin", input: piped("kiten ls\n") },
   { argv: ["kiten", "ls", "each:", "do", ":c", "it", "done"], word: '"do :c"' },
   { argv: ["kiten", "forget:", "x"], word: "forget:" },
-  { argv: ["kiten", "card", "id:", "@c"], word: "@c" },
-  { argv: ["kiten", "card", "--id", "@c"], word: "@c" },
-  { argv: ["nosuch", "id:", "@c"], word: "@c" },
   { argv: ["kiten", "comment", "id:", "5", "--", "text:", "."], word: "." },
   { argv: ["kiten", "ls", "done"], word: "done" },
-  { argv: ["kiten", "comment", "id:", "5", "text:", "^итог^"], word: "^итог^" },
+  { argv: ["kiten", "ls", "--md", ".", "kiten", "whoami"], word: "." },
+  { argv: ["kiten", "card", "id:", "1", "--md", "done"], word: "done" },
+  { argv: ["kiten", "ls", "--help", "^привет^"], word: "^привет^" },
+  { argv: ["kiten", "card", "--id=5", "."], word: "." },
+  { argv: ["kiten", "ls", "мир^"], word: "мир^" },
+  { argv: ["^привет", "мир^", "print"], word: "^привет" },
 ];
 
 describe("прежняя форма: отказ, код 2, ничего не исполнено, одна запись", () => {
@@ -167,9 +169,10 @@ describe("прежняя форма: отказ, код 2, ничего не и�
 });
 
 /**
- * Не прежняя форма: слово ключа-текста как есть, `--`, группа значения,
- * корневой `forget:`, `@путь` у ключа файла — строка идёт прежним путём
- * (отказа «не команда mpu» нет).
+ * Не прежняя форма: значение любого ключа как есть (`^_^`, `@ivan`,
+ * `@req.json`), слово за `--`, группа значения, корневой `forget:`, `@x`
+ * не первым словом — строка идёт прежним путём (отказа «не команда mpu»
+ * нет; что значение доходит до команды — стенд ниже).
  */
 const PLAIN: readonly (readonly string[])[] = [
   ["kiten", "comment", "id:", "5", "text:", ".", "help"],
@@ -180,6 +183,12 @@ const PLAIN: readonly (readonly string[])[] = [
   ["forget:", "kiten"],
   ["log", "run:", "20260801-120000.000-1003"],
   ["kiten", "ls", "@x"],
+  ["kiten", "card", "id:", "@c", "help"],
+  ["kiten", "card", "--id", "@c", "help"],
+  ["nosuch", "id:", "@c"],
+  ["kiten", "comment", "id:", "1", "text:", "^_^", "help"],
+  ["kiten", "comment", "id:", "1", "text:", "@ivan", "help"],
+  ["telegram", "send", "chat:", "@username", "text:", "x", "help"],
   ["api", "get-ss-values", "id:", "ss1", "body:", "@req.json"],
   ["api", "get-ss-values", "id:", "ss1", "--body", "@req.json"],
   ["help"],
@@ -218,6 +227,8 @@ describe("ключ-текст на стенде: текст уходит как 
       ["kiten", "comment", "id:", "11", "text:", "@ivan готово. Проверьте"],
       ["11 @ivan готово. Проверьте"],
     ],
+    [["kiten", "comment", "id:", "11", "text:", "^_^"], ["11 ^_^"]],
+    [["kiten", "comment", "id:", "11", "text:", "@ivan"], ["11 @ivan"]],
   ];
   for (const [line, posted] of cases) {
     it(line.join(" "), () =>

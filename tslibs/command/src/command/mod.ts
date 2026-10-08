@@ -476,14 +476,13 @@ interface CommandDeclaration<A, R> {
   /**
    * Входы, чьё значение `@путь` прежде читалось из файла: имя → ключ,
    * которым файл читается теперь (`body` → `body-file`). Значение на `@`
-   * — отказ «файл — ключом» с готовой строкой: слово `@…` в строке —
-   * переменная программы (`platform/evaluator.md`).
+   * — отказ «файл — ключом» с готовой строкой.
    */
   readonly fromFile?: Readonly<Record<string, string>>;
   /**
    * Входы, чьё значение — текст как есть: адресат, запрос, свободный
    * текст вне словаря (`chat`, `to`, `title`). Слово значения не
-   * толкуется — ни переменной, ни знаком (`platform/at-word-literal.md`).
+   * толкуется (`platform/at-word-literal.md`).
    * Словарные `text` и `query` — текст всегда, их не объявляют.
    */
   readonly texts?: readonly string[];
@@ -530,8 +529,7 @@ interface CommandDeclaration<A, R> {
    */
   readonly logsStdout?: false;
   /**
-   * Результат — текст, как справка метода (`image-sync.md`,
-   * «CLI-контракт»): форматов и отбора нет, слово после `end` — отказ
+   * Результат — текст: форматов и отбора нет, слово после `end` — отказ
    * до исполнения. Без объявления — данные.
    */
   readonly text?: true;
@@ -734,7 +732,7 @@ export interface Command {
    * Аргументы не разобрались — правила: исполнение откажет разбором.
    */
   readonly consent: (argv: readonly string[]) => Consent;
-  /** Кто решает строки пути без аргументов: посев, обход программы. */
+  /** Кто решает строки пути без аргументов: посев. */
   readonly gate: Gate;
   /** Результат строки `argv` — поток: отбору не подлежит. */
   readonly streams: (argv: readonly string[]) => boolean;

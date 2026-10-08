@@ -96,7 +96,7 @@ export const SETUP_TEXT: string = `Канал работы проекта: mpu t
    - Действующие правила и решения — mpu task decisions project: <проект>.
 
 4. Первый цикл
-   mpu ask task setup project: <проект> note: ^о чём проект^
+   mpu ask task setup project: <проект> note: "о чём проект"
    mpu task post project: <проект> file: постановка.md        (хост)
    mpu task read project: <проект>                            (исполнитель)
    mpu task report project: <проект> file: отчёт.md           (исполнитель)

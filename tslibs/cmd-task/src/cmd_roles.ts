@@ -71,7 +71,7 @@ forget удаляет профиль роли.
 Exit: 0; 1 — нет человека или «нет»; 2 — нет проекта, роль не host|exec,
 dir: нет, не абсолютный или занят.`,
   examples: [
-    "mpu task role project: demo role: exec dir: /home/u/demo powers: ^прод — только чтение^",
+    'mpu task role project: demo role: exec dir: /home/u/demo powers: "прод — только чтение"',
     "mpu task role forget project: demo role: exec",
   ],
   policy: "rw",

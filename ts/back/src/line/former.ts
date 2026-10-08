@@ -12,16 +12,14 @@ import {
   Undecided,
   unparsedLine,
 } from "@mpu/cmd-claudehook";
-import type { Command, CommandIo } from "@mpu/command";
+import type { CommandIo } from "@mpu/command";
 import type { OutputPolicy } from "@mpu/invokelog";
 import { isBareLine, wordsOf } from "@mpu/language/frames";
 import { GRAMMAR } from "@mpu/language/messages";
 import { plainRefusal } from "@mpu/language/objects";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { commands, findCommand } from "../registry/mod.ts";
-import { addressesOf, textKeysOf } from "./keyed.ts";
+import { commands } from "../registry/mod.ts";
 import type { Speech } from "./printed.ts";
-import { formatsOf } from "./tree.ts";
 
 /** Вид отказа прежней форме. */
 const NOT_COMMAND = "не команда mpu";
@@ -35,7 +33,10 @@ const ADVICE =
 /** Код отказа до исполнения: строку набрали не так. */
 const MISWRITTEN = 2;
 
-/** Слова, которые прежняя форма где угодно, кроме мест «как есть». */
+/**
+ * Слова, которые прежняя форма на месте слова строки — вне `--`, группы
+ * значения и значения ключа.
+ */
 const WHOLE: ReadonlySet<string> = new Set([".", ":=", "done", "rem"]);
 
 /** Ключи образа: прежняя форма не первым словом (`forget:` первым — правила). */
@@ -50,7 +51,7 @@ const NUMBER = /^-?\d+(\.\d+)?$/;
  */
 const FIRST: ReadonlySet<string> = new Set(["image", "run:"]);
 
-/** Начало текста `^…^`. */
+/** Край текста `^…^`: слово, которое им начинается или кончается. */
 const QUOTE = "^";
 
 /** Начало переменной `@x`. */
@@ -153,77 +154,12 @@ function holds(words: readonly string[], path: readonly string[]): boolean {
   return words.some((_, at) => path.every((part, i) => words[at + i] === part));
 }
 
-/** Ключи листа, которым начата строка: чьё значение берётся как есть. */
-interface LeafKeys {
-  /** Значение `value` ключа `key` — слово как есть, не прежняя форма. */
-  asIs(key: string | undefined, value: string): boolean;
-  /** `@путь` у ключа `key` — файл, его подсказку даёт ключ (`keys.ts`). */
-  readsFile(key: string | undefined): boolean;
-}
-
-/** Строка не начата листом: мест «как есть» нет. */
-const NO_LEAF: LeafKeys = {
-  asIs: () => false,
-  readsFile: () => false,
-};
-
-/** Ключи листа реестра. */
-class Leaf implements LeafKeys {
-  readonly #texts: ReadonlySet<string>;
-  readonly #files: ReadonlySet<string>;
-
-  constructor(command: Command) {
-    const formats = Object.keys(formatsOf(command.path));
-    this.#texts = new Set(textKeysOf(command, formats));
-    const addresses = addressesOf(command, formats);
-    this.#files = new Set(
-      Object.keys(command.fromFile).map((input) =>
-        fileKeyOf(addresses.get(input), input),
-      ),
-    );
-  }
-
-  /**
-   * Ключ-текст берёт слово как есть (`platform/at-word-literal.md`,
-   * правило 1); `^…` и `do` там — свои.
-   */
-  asIs(key: string | undefined, value: string): boolean {
-    if (key === undefined || !this.#texts.has(keyName(key))) return false;
-    return !value.startsWith(QUOTE);
-  }
-
-  readsFile(key: string | undefined): boolean {
-    return key !== undefined && this.#files.has(keyName(key));
-  }
-}
-
 /**
- * Имя ключа входа `input`, чей файл читается своим ключом: из адреса
- * `body:`; вход без адреса-ключа — его имя.
+ * Слово — ключ, который берёт следующее слово значением: `id:`. Слово на
+ * `--` (флаг `--md`, `--x=v`, `--help`) значения не берёт.
  */
-function fileKeyOf(address: string | undefined, input: string): string {
-  if (address === undefined || !address.endsWith(":")) return input;
-  return address.slice(0, -1);
-}
-
-/** Имя ключа по слову-ключу (`isKey`): `text:` и `--text` → `text`. */
-function keyName(key: string): string {
-  return key.endsWith(":") ? key.slice(0, -1) : key.slice(2);
-}
-
-/** Лист реестра, которым начата строка; не начата — `NO_LEAF`. */
-function leafOf(said: readonly string[]): LeafKeys {
-  for (let end = said.length; end > 0; end--) {
-    const command = findCommand(said.slice(0, end));
-    if (command !== undefined) return new Leaf(command);
-  }
-  return NO_LEAF;
-}
-
-/** Слово — ключ: `id:` или `--id` (сам `--` — знак литерала). */
 function isKey(word: string): boolean {
-  if (word.endsWith(":")) return word.length > 1;
-  return word.startsWith("--") && word.length > 2;
+  return word.length > 1 && word.endsWith(":");
 }
 
 /** Параметр блока: `:x` сразу за `do`. */
@@ -252,22 +188,13 @@ function closingOf(said: readonly string[], open: number): number {
   return -1;
 }
 
-/**
- * Слово `word` на месте `at` — прежняя форма; `key` — ключ, чьё значение
- * это слово (нет — `undefined`).
- */
-function marks(
-  word: string,
-  at: number,
-  key: string | undefined,
-  leaf: LeafKeys,
-): boolean {
-  if (WHOLE.has(word) || word.startsWith(QUOTE)) return true;
+/** Слово `word` на месте слова строки `at` — прежняя форма. */
+function marks(word: string, at: number): boolean {
+  if (WHOLE.has(word)) return true;
+  if (word.startsWith(QUOTE) || word.endsWith(QUOTE)) return true;
   if (IMAGE_KEYS.has(word)) return at > 0;
-  if (!word.startsWith(VARIABLE)) return false;
-  // Переменная — на месте получателя или значения ключа; `@путь` у
-  // ключа файла — его подсказка, не язык.
-  return at === 0 || (key !== undefined && !leaf.readsFile(key));
+  // Переменная — только на месте получателя: первым словом.
+  return at === 0 && word.startsWith(VARIABLE);
 }
 
 /** Первая прежняя форма в словах строки; нет — `ADMITTED`. */
@@ -276,14 +203,12 @@ function formerIn(said: readonly string[]): Former {
   if (first !== undefined && (NUMBER.test(first) || FIRST.has(first))) {
     return new FormerForm(first, said);
   }
-  const leaf = leafOf(said);
-  // Ключ, чьё значение — следующее слово; слово за `--` и группа ключом
-  // не бывают.
-  let key: string | undefined;
+  // Значение ключа идёт как есть; слово за `--` и группа ключом не бывают.
+  let keyed = false;
   for (let at = 0; at < said.length; at++) {
     const word = said[at];
-    const valueOf = key;
-    key = undefined;
+    const value = keyed;
+    keyed = false;
     if (word === GRAMMAR.literal) {
       at++;
       continue;
@@ -294,9 +219,9 @@ function formerIn(said: readonly string[]): Former {
       at = Math.max(at, closingOf(said, at));
       continue;
     }
-    if (leaf.asIs(valueOf, word)) continue;
-    if (marks(word, at, valueOf, leaf)) return new FormerForm(word, said);
-    if (isKey(word)) key = word;
+    if (value) continue;
+    if (marks(word, at)) return new FormerForm(word, said);
+    keyed = isKey(word);
   }
   return ADMITTED;
 }

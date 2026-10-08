@@ -121,7 +121,7 @@ stdout — одна строка JSON: {"id": …, "chat_id": …, "date": …}.
 Exit: 0 — успех; 1 — конфигурация или отказ Telegram; 2 — ошибка ввода.`,
   examples: [
     "mpu telegram send text: готово chat: me file: /tmp/report.xlsx",
-    "mpu telegram send chat: @username text: ^@username готово, проверь^",
+    'mpu telegram send chat: @username text: "@username готово, проверь"',
   ],
   policy: "rw",
   argsSchema,

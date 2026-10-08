@@ -35,8 +35,8 @@ const FILE = z.string().optional().describe("файл с телом сообще
 /** Пустой результат записи: печатать нечего. */
 const NOTHING = z.object({});
 
-const BODY_HELP = `Тело — text: (одно слово; из нескольких — ^…^; stdin — ввод) или
-file: (путь), ровно одно из двух; хранится и печатается побайтово.`;
+const BODY_HELP = `Тело — text: (одно слово; из нескольких — в кавычках: "…"; stdin —
+ввод) или file: (путь), ровно одно из двух; хранится и печатается побайтово.`;
 
 const setupArgs = z.object({
   project: z.string().optional().describe("имя проекта: завести или обновить"),
@@ -61,7 +61,7 @@ stdout — инструкция: роли и единственный вход, 
 Exit: 0; 2 — note: без project:.`,
   examples: [
     "mpu ask task setup",
-    "mpu ask task setup project: demo note: ^игрушечный проект^",
+    'mpu ask task setup project: demo note: "игрушечный проект"',
   ],
   policy: "rw",
   text: true,
@@ -112,7 +112,7 @@ Exit: 0; 1 — порция не отработана (без force) или за
 2 — нет проекта, тело пустое или задано дважды.`,
   examples: [
     "mpu task post project: demo file: постановка.md",
-    "mpu task post force project: demo text: ^сделай y^",
+    'mpu task post force project: demo text: "сделай y"',
   ],
   policy: "rw",
   text: true,
@@ -160,7 +160,7 @@ function kindCommand(spec: KindCommand): Command {
 ${BODY_HELP}
 
 Exit: 0; 2 — нет проекта, порций ещё нет, тело пустое или задано дважды.`,
-    examples: [`mpu task ${word} project: demo text: ^…^`],
+    examples: [`mpu task ${word} project: demo text: "…"`],
     policy: "rw",
     text: true,
     argsSchema: attachArgs,
@@ -260,7 +260,7 @@ text: — причина (умолчание — стоп); ложится в ж
 текущей порции (порций нет — к порции 0).
 
 Exit: 0; 2 — нет проекта.`,
-  examples: ["mpu task stop project: demo text: ^нужен ключ API^"],
+  examples: ['mpu task stop project: demo text: "нужен ключ API"'],
   policy: "rw",
   text: true,
   argsSchema: stopArgs,

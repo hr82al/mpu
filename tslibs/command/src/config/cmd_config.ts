@@ -64,7 +64,7 @@ type ConfigEntry = z.infer<typeof entrySchema>;
 
 /**
  * Срез порта: состояние команды — таблица кэш-БД; `HOME` — для
- * умолчаний, выведенных из него (`image.dir`).
+ * умолчаний, выведенных из него.
  */
 export type ConfigIo = Pick<CommandIo, "openCacheDb" | "env">;
 
@@ -269,7 +269,7 @@ export function configCommand(registry: ConfigRegistry): Command {
     summary: "Локальные предпочтения CLI: показать и задать ключи.",
     usage: "mpu config [unset] [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [end json]",
     help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
-sheet и xlsx по умолчанию, пределы кэша таблиц, каталог образа.
+sheet и xlsx по умолчанию, пределы кэша таблиц.
 
 Без ключей печатает все ключи реестра с действующими
 значениями; у взятого из умолчания стоит пометка (default), у

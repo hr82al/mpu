@@ -144,28 +144,7 @@ describe("справки: примеры полем, без снятых нап�
   }
 });
 
-/**
- * Примеры пакетов, которые пишут текст прежней формой `^…^`: справки
- * `@mpu/cmd-telegram` и `@mpu/cmd-task` правятся вне порции L1 (вопрос
- * хосту в отчёте L1). Пока пример в списке, тест требует, чтобы он
- * оставался прежней формой: поправленный пакет напомнит снять запись.
- */
-const FORMER_EXAMPLES: ReadonlySet<string> = new Set([
-  "mpu telegram send chat: @username text: ^@username готово, проверь^",
-  "mpu ask task setup project: demo note: ^игрушечный проект^",
-  "mpu task post force project: demo text: ^сделай y^",
-  "mpu task report project: demo text: ^…^",
-  "mpu task question project: demo text: ^…^",
-  "mpu task answer project: demo text: ^…^",
-  "mpu task decision project: demo text: ^…^",
-  "mpu task owner project: demo text: ^…^",
-  "mpu task owner-answer project: demo text: ^…^",
-  "mpu task rule project: demo text: ^…^",
-  "mpu task role project: demo role: exec dir: /home/u/demo powers: ^прод — только чтение^",
-  "mpu task stop project: demo text: ^нужен ключ API^",
-]);
-
-/** Пример — не прежняя форма: её строка отказала бы до маршрута. */
+/** Прежняя ли форма строка примера: её ядро отказало бы до маршрута. */
 async function isFormer(words: readonly string[]): Promise<boolean> {
   const passed = new Undecided("пример дошёл до маршрута");
   const reply = await formerOf(words, entryOf(words).said).consult(() =>
@@ -173,6 +152,18 @@ async function isFormer(words: readonly string[]): Promise<boolean> {
   );
   return reply !== passed;
 }
+
+it("ни один пример справки дерева не прежняя форма", async () => {
+  // Пример с прежней формой учил бы строке, которую ядро отказывает до
+  // маршрута (`platform/stage6-l1.md`, сценарий 10).
+  const examples = commands.flatMap((command) => command.examples);
+  assert(examples.length > 100, `примеров ${examples.length}`);
+  const former: string[] = [];
+  for (const example of examples) {
+    if (await isFormer(lineOf(example))) former.push(example);
+  }
+  expect(former).toStrictEqual([]);
+});
 
 describe("справки: каждый пример доходит до исполнения", () => {
   for (const command of commands) {
@@ -183,9 +174,6 @@ describe("справки: каждый пример доходит до испо
           using book = RuleBook.open(file, registrySeeds());
           const words = lineOf(example);
           const root = registryRoot(new Captured(), book);
-          const former = FORMER_EXAMPLES.has(example);
-          expect(await isFormer(words), "прежняя форма").toBe(former);
-          if (former) return;
           const outcome = await runChain(words, root, SAMPLE_VALUES);
           expect(
             "exit" in outcome && outcome.exit,

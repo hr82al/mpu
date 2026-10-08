@@ -96,7 +96,7 @@ export class RuleBook implements Disposable {
 
   /**
    * Посев путей, которые посев ещё ни разу не видел, — по надобности, а не
-   * на открытии (путь `define:` получателя, `platform/image.md`).
+   * на открытии.
    */
   sow(seeds: readonly Rule[]) {
     guarded(() => {
