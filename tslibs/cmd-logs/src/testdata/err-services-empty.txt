@@ -1,0 +1,1 @@
+mpu logs: для host='sl-99' нет services в кэше. Проверь host через `mpu logs ls` или обнови кэш через `mpu update`.

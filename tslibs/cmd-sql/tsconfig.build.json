@@ -1,0 +1,15 @@
+{
+  // Объявления типов поверхности: только графы `index.ts` и `pg.ts`,
+  // без тестов.
+  // Пути в `.d.ts` остаются с `.ts` — `tsc` потребителя находит по ним
+  // соседние `.d.ts`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": [],
+  "files": ["index.ts", "pg.ts", "untyped-modules.d.ts"]
+}
