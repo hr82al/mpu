@@ -4,7 +4,7 @@
  * косметика, а признак того, что данные из снапшота.
  */
 
-import { renderTable } from "./table.ts";
+import { renderTable } from "@mpu/command/table";
 import type { PsResult } from "./run.ts";
 
 /** Вывод по выбранной форме; хвост — один перевод строки. */

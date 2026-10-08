@@ -8,7 +8,7 @@
         "@biomejs/biome": "2.5.15",
         "@mpu/base": "file:../base/release/mpu-base-0.1.0.tgz",
         "@mpu/language": "file:../language/release/mpu-language-0.1.0.tgz",
-        "@mpu/testing": "file:../testing/release/mpu-testing-0.1.0.tgz",
+        "@mpu/testing": "file:../testing/release/mpu-testing-0.2.0.tgz",
         "@types/node": "24.19.0",
         "typescript": "5.9.3",
         "vitest": "3.2.4",
@@ -102,7 +102,7 @@
 
     "@mpu/language": ["@mpu/language@../language/release/mpu-language-0.1.0.tgz", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-+wbWMJ4qyCFxFKHIAyzzIw1MbsYnT9JQH7/yIWMw3VJuUz7t0J31AFEjlU/Z81jPAtZgIzJbd86l72dddAtmgA=="],
 
-    "@mpu/testing": ["@mpu/testing@../testing/release/mpu-testing-0.1.0.tgz", { "peerDependencies": { "vitest": "3.2.4" } }, "sha512-cTzuWfUFS8/UTNOS0m6Jwu/dzrw2eWxVbM6wdqh7YSyg5aorTmBVwP7Fw2+xtbk6dFbfMVrkNawIpU8wSlefpg=="],
+    "@mpu/testing": ["@mpu/testing@../testing/release/mpu-testing-0.2.0.tgz", { "peerDependencies": { "vitest": "3.2.4" }, "optionalPeers": ["vitest"] }, "sha512-weL9FxIvxdN2dgymu/bZiJ36d+pCULktUXfi/4QwYVcBicRBaifU6BJKcRLPFXKxTk/UHsIAsH9tSn5ih8DluA=="],
 
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 

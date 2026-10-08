@@ -8,13 +8,13 @@
         "@biomejs/biome": "2.5.15",
         "@mpu/base": "file:../base/release/mpu-base-0.1.0.tgz",
         "@mpu/cmd-exec": "file:../cmd-exec/release/mpu-cmd-exec-0.1.0.tgz",
-        "@mpu/command": "file:../command/release/mpu-command-0.1.0.tgz",
+        "@mpu/command": "file:../command/release/mpu-command-0.2.0.tgz",
         "@mpu/exec": "file:../exec/release/mpu-exec-0.1.0.tgz",
         "@mpu/http": "file:../http/release/mpu-http-0.1.0.tgz",
         "@mpu/language": "file:../language/release/mpu-language-0.1.0.tgz",
         "@mpu/portainer": "file:../portainer/release/mpu-portainer-0.1.0.tgz",
         "@mpu/subprocess": "file:../subprocess/release/mpu-subprocess-0.1.0.tgz",
-        "@mpu/testing": "file:../testing/release/mpu-testing-0.1.0.tgz",
+        "@mpu/testing": "file:../testing/release/mpu-testing-0.2.0.tgz",
         "@types/node": "24.19.0",
         "typescript": "5.9.3",
         "vitest": "3.2.4",
@@ -22,7 +22,7 @@
       },
       "peerDependencies": {
         "@mpu/cmd-exec": "0.1.0",
-        "@mpu/command": "0.1.0",
+        "@mpu/command": "0.2.0",
         "@mpu/portainer": "0.1.0",
         "zod": "4.4.3",
       },
@@ -110,7 +110,7 @@
 
     "@mpu/cmd-exec": ["@mpu/cmd-exec@../cmd-exec/release/mpu-cmd-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "@mpu/portainer": "0.1.0" }, "optionalPeers": ["@mpu/command", "@mpu/exec", "@mpu/portainer"] }, "sha512-51xe5SMJgz3iQ8k2l9Yukrfla75PVntLROEVcI8cldTayp7hQgiXXSrfY7QQuwIMZSxqm12PGWikUKuqLffF5A=="],
 
-    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-RGFc08ZSi4e2f/062WGfBt5hNi1kxEi7A29hKQa67NqwEi2iC4n37WdqxFxF4SH5ZrHstzQvSGXYw1CqlhqIxQ=="],
+    "@mpu/command": ["@mpu/command@../command/release/mpu-command-0.2.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-Osb6ysryZ1IsxTkNP54y9aWessinqfAv65WLpobWsb0t6t7vwY6Zj2pjhv5OktAnlqKCxfonjDQGEXPIMfQr0A=="],
 
     "@mpu/exec": ["@mpu/exec@../exec/release/mpu-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/portainer": "0.1.0", "@mpu/subprocess": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/portainer", "@mpu/subprocess"] }, "sha512-h73/jXLKGPWkHtxEgxqYy2m5SeIiXAt+eLfVaa5Lrtc5++/0C3kn5jhraIpNE6RsjTGHsnskRbxMssfXVjL/8A=="],
 
@@ -122,7 +122,7 @@
 
     "@mpu/subprocess": ["@mpu/subprocess@../subprocess/release/mpu-subprocess-0.1.0.tgz", {}, "sha512-rNTQg5er9saOribajHJZub0XtW6EZvGME/DexKKVGGCCUcoN9d6XPucsjF7BfcxjgMnwlzGCjegB5odsEvJkHg=="],
 
-    "@mpu/testing": ["@mpu/testing@../testing/release/mpu-testing-0.1.0.tgz", { "peerDependencies": { "vitest": "3.2.4" } }, "sha512-cTzuWfUFS8/UTNOS0m6Jwu/dzrw2eWxVbM6wdqh7YSyg5aorTmBVwP7Fw2+xtbk6dFbfMVrkNawIpU8wSlefpg=="],
+    "@mpu/testing": ["@mpu/testing@../testing/release/mpu-testing-0.2.0.tgz", { "peerDependencies": { "vitest": "3.2.4" }, "optionalPeers": ["vitest"] }, "sha512-weL9FxIvxdN2dgymu/bZiJ36d+pCULktUXfi/4QwYVcBicRBaifU6BJKcRLPFXKxTk/UHsIAsH9tSn5ih8DluA=="],
 
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 
