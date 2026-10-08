@@ -94,7 +94,7 @@ V1 — основа (зависимости, раннер, гейт) и пере
 | Файл | `deno task test` | `deno task vitest` |
 |---|---|---|
 | `back/src/objects/cases.test.ts` | нет | да |
-| `back/src/kiten/cmd_status_test.ts` | да | нет |
+| `tslibs/cmd-kiten/src/cmd_status.test.ts` | да | нет |
 | `supervisor/src/install_test.ts` | да | нет |
 | `cli/src/tasks_test.ts` | да | нет |
 | `mod_test.ts` (корень `ts/`) | да | нет |
