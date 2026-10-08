@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "files": {
+    "includes": ["**", "!**/testdata"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "useLiteralKeys": "off",
+        "useArrowFunction": "off",
+        "useOptionalChain": "off",
+        "noUselessContinue": "off"
+      },
+      "correctness": {
+        "useYield": "off",
+        "useHookAtTopLevel": "off",
+        "noVoidTypeReturn": "off",
+        "noUnsafeOptionalChaining": "off",
+        "useParseIntRadix": "off"
+      },
+      "performance": {
+        "noAccumulatingSpread": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off",
+        "useImportType": "off",
+        "useShorthandFunctionType": "off"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "off",
+        "noImplicitAnyLet": "off",
+        "noShadowRestrictedNames": "off",
+        "useIterableCallbackReturn": "off",
+        "noTemplateCurlyInString": "off",
+        "noSelfCompare": "off",
+        "noUselessEscapeInString": "off",
+        "noArrayIndexKey": "off",
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "assist": { "enabled": false }
+}
