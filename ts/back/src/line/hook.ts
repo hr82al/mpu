@@ -46,7 +46,6 @@ import {
   type RuleBook,
   type Ruling,
 } from "@mpu/command/policy";
-import type { ImageContext, ImageLine } from "./define.ts";
 import type { Line } from "./dispatch.ts";
 import { itMethod, NO_CALLER } from "./it.ts";
 import type { Order } from "./order.ts";
@@ -101,17 +100,46 @@ export interface HookPorts {
   readonly owner: OwnerHooks;
 }
 
+/** Что строке-хуку нужно от ядра. */
+export interface LineContext {
+  readonly speech: Speech;
+  /**
+   * Строка обычной цепочкой, где исполнение листа — у `wrap`: сессию
+   * строки и её слова он получает, строку, которой исполнять, отдаёт.
+   */
+  readonly walk: (
+    wrap: (session: Line, words: readonly string[]) => Line,
+  ) => Promise<number>;
+}
+
 /**
- * Строка-хук по словам без входа двери; иначе — `otherwise`. Справка и
- * отказы идут обычной цепочкой: подменено только исполнение листа. Хуку
- * `PreToolUse` она отвечает «решается при исполнении»: её исход — ответ
- * на stdin, которого он не видит.
+ * Маршрут набранной строки: строка-хук или обычная цепочка. Хук
+ * `PreToolUse` спрашивает этот же маршрут (`claude-hook-pre-tool-use.md`,
+ * «Как находится решение»).
+ */
+export interface LineRoute {
+  /** Исполнить строку; не строка-хук — `chain`. */
+  settle(context: LineContext, chain: () => Promise<number>): Promise<number>;
+  /** Ответ хука `PreToolUse`, ничего не исполняя; не строка-хук — `probe`. */
+  consult(probe: () => Promise<HookReply>): Promise<HookReply>;
+}
+
+/** Не строка-хук: обычная цепочка. Null-объект модуля. */
+const CHAIN: LineRoute = {
+  settle: (_context, chain) => chain(),
+  consult: (probe) => probe(),
+};
+
+/**
+ * Маршрут по словам строки без входа двери: строка-хук, иначе — обычная
+ * цепочка. Справка и отказы строки-хука идут обычной цепочкой: подменено
+ * только исполнение листа. Хуку `PreToolUse` она отвечает «решается при
+ * исполнении»: её исход — ответ на stdin, которого он не видит.
  */
 export function hookLineOf(
   said: readonly string[],
   ports: HookPorts,
-  otherwise: ImageLine,
-): ImageLine {
+): LineRoute {
   const { consulting, owner } = ports;
   const hooks: readonly { hook: HookWords; answer: HookAnswer }[] = [
     {
@@ -126,7 +154,7 @@ export function hookLineOf(
   ];
   return hooks.reduceRight(
     (rest, { hook, answer }) => hooked(hook, said, ports, answer, rest),
-    otherwise,
+    CHAIN,
   );
 }
 
@@ -136,11 +164,11 @@ function hooked(
   said: readonly string[],
   ports: HookPorts,
   answer: HookAnswer,
-  otherwise: ImageLine,
-): ImageLine {
+  otherwise: LineRoute,
+): LineRoute {
   if (!hook.opens(said)) return otherwise;
   return {
-    settle: (context: ImageContext) =>
+    settle: (context) =>
       context.walk(
         (session) =>
           new HookLine(session, context.speech, ports.readStdin, answer),

@@ -13,11 +13,11 @@ import { shellCommand } from "@mpu/exec";
 import { GRAMMAR } from "@mpu/language/messages";
 import { type Outcome, type Report, runChain } from "@mpu/language/objects";
 import { RuleBook } from "@mpu/command/policy";
-import { isProgram } from "@mpu/language/program";
+import { Undecided } from "@mpu/cmd-claudehook";
 import { commands, findCommand } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { addressesOf } from "./keyed.ts";
-import { programCommands } from "./program.ts";
+import { formerOf } from "./former.ts";
 import type { Order } from "./order.ts";
 import { registrySeeds } from "./seeds.ts";
 import { withPolicyFile } from "./testconsent.ts";
@@ -388,7 +388,10 @@ describe("ключ-текст: слово MCP как есть доходит д�
   for (const [words, input] of cases) {
     it(words.join(" "), () =>
       withPolicyFile(async (file) => {
-        expect(isProgram(words, programCommands())).toBe(false);
+        const passed = new Undecided("не прежняя форма");
+        expect(
+          await formerOf(words, words).consult(() => Promise.resolve(passed)),
+        ).toBe(passed);
         const command = findCommand(words.slice(0, 2));
         if (command === undefined) throw new Error("нет команды");
         const argv = await argvOf(file, words);

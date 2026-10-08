@@ -153,7 +153,6 @@ import {
 import { confirmCommand } from "@mpu/command/confirm";
 import { sunCommand } from "@mpu/cmd-sun";
 import { TASK_HISTORY, TASK_MAX_BUSY, taskCommands } from "@mpu/cmd-task";
-import { IMAGE_DIR } from "../line/imagedir.ts";
 import { ozonCommands, ozonPerfCommands, wbCommands } from "@mpu/cmd-call";
 
 /**
@@ -200,7 +199,6 @@ export const CONFIG_REGISTRY: ConfigRegistry = new ConfigRegistry([
   SHEET_CACHE_TAB_TTL,
   SHEET_CACHE_MAX_TAB_BYTES,
   SHEET_CACHE_MAX_TOTAL_MB,
-  IMAGE_DIR,
   TASK_HISTORY,
   TASK_MAX_BUSY,
 ]);

@@ -34,8 +34,6 @@ export interface Door {
   prompting(human: boolean): PromptDoor;
   /** Методы корня, которые есть только у этой двери. */
   rootMethods(services: DoorServices): readonly RootMethod[];
-  /** Канал автора определения метода образа (`platform/image.md`). */
-  readonly author: string;
   /**
    * Голова вопроса-подтверждения в чате владельца
    * (`platform/ask-telegram.md`, «Вопрос в чате»).
@@ -125,7 +123,6 @@ export const HUMAN_DOOR: Door = {
   channel: clientChannel,
   prompting: (human) => (human ? HUMAN_PROMPTS : NO_PROMPTS),
   rootMethods: webMethods,
-  author: "human",
   confirmHead: "❓ mpu ask",
   // Номером на этой двери спрашивают страница `web/` и `curl`: о решении в
   // чате они не узнают, и снять их вопрос нечем — чат его не получает.
@@ -139,7 +136,6 @@ export const AGENT_DOOR: Door = {
   channel: (line, human) => new Agent(clientChannel(line, human)),
   prompting: (human) => (human ? AGENT_PROMPTS : NO_PROMPTS),
   rootMethods: () => [],
-  author: "agent",
   confirmHead: "❓ mpu ask (MCP)",
   // Переводчик MCP ждёт решения запросом `…/settled` и снимает форму сам.
   ticketRival: (rival) => rival,

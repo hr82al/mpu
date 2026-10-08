@@ -1,9 +1,9 @@
 /**
  * Список ключей `mpu config` (`platform/config.md`), собранный реестром
  * из объявлений доменов, против голдена канала и спеки. Ключи объявляют
- * их потребители (`@mpu/cmd-sheet`, `@mpu/cmd-xlsx`, `@mpu/cmd-task`,
- * `line/imagedir.ts`), механику команды проверяет пакет
- * `@mpu/command` над своей фикстурой; собранный список — только здесь.
+ * их потребители (`@mpu/cmd-sheet`, `@mpu/cmd-xlsx`, `@mpu/cmd-task`),
+ * механику команды проверяет пакет `@mpu/command` над своей фикстурой;
+ * собранный список — только здесь.
  */
 
 import { readFile } from "node:fs/promises";
@@ -58,12 +58,12 @@ it("умолчания реестра совпадают с теми, что п�
   }
 });
 
-it("реестр: восемь ключей по порядку спеки, task.max_busy последним", async () => {
+it("реестр: семь ключей по порядку спеки, task.max_busy последним", async () => {
   // Каждое объявление целиком — то, что человек видит в
   // `mpu config end json`, и то, как команда проверяет значение: пять —
   // голден рабочей версии (умолчание и описание; тип — `platform/config.md`,
-  // «CLI-контракт»), три ключа mpu — дословно из спек (`platform/config.md`,
-  // `task.md`, `task-orchestrator.md`). Умолчание — при `HOME` стенда.
+  // «CLI-контракт»), два ключа mpu — дословно из спек (`task.md`,
+  // `task-orchestrator.md`). Умолчание — при `HOME` стенда.
   const types: Readonly<Record<string, string>> = {
     "sheet.default": "str",
     "xlsx.default": "str",
@@ -78,13 +78,6 @@ it("реестр: восемь ключей по порядку спеки, task
       default: golden.default,
       description: golden.description,
     })),
-    {
-      key: "image.dir",
-      type: "str",
-      default: `${H}/mr/mp/mpu/image`,
-      description:
-        "Каталог файлов методов образа для `mpu image sync` и `mpu image export`",
-    },
     {
       key: "task.history",
       type: "int",

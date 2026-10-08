@@ -5,18 +5,17 @@
  */
 
 import type { HookReply } from "@mpu/cmd-claudehook";
-import type { ImageMethod } from "@mpu/cmd-image";
 import { runChain } from "@mpu/language/objects";
 import type { RuleBook } from "@mpu/command/policy";
 import { entryOf } from "./view.ts";
 import {
   type Consulting,
+  hookLineOf,
   type OwnerHooks,
   probedReply,
   standingMethods,
 } from "./hook.ts";
 import { formerOf } from "./former.ts";
-import { routeOf } from "./route.ts";
 import type { RootMethod } from "./rules.ts";
 import type { Targets } from "./keyed.ts";
 import { registryRoot } from "./tree.ts";
@@ -26,8 +25,6 @@ import { strippedOf, walkedWords } from "./walked.ts";
 export interface ConsultingParts {
   /** Правила строки — у пробы те же. */
   readonly book: RuleBook;
-  /** Методы образа. */
-  readonly methods: readonly ImageMethod[];
   /** Методы корня двери: в пробе у них те же имя и справка. */
   readonly rootMethods: readonly RootMethod[];
   /** Значения ключа `target:`. */
@@ -52,7 +49,7 @@ export class LineConsulting implements Consulting {
     const door = entryOf(walked).words.length;
     const hook = { readStdin, consulting: this, owner };
     return formerOf(words, walked.slice(door)).consult(() =>
-      routeOf(walked.slice(door), hook).consult(() =>
+      hookLineOf(walked.slice(door), hook).consult(() =>
         this.#probed(words, walked),
       ),
     );
@@ -63,14 +60,13 @@ export class LineConsulting implements Consulting {
     words: readonly string[],
     walked: readonly string[],
   ): Promise<HookReply> {
-    const { book, methods, rootMethods, targets } = this.#parts;
+    const { book, rootMethods, targets } = this.#parts;
     return probedReply(book, words, (probe, values) =>
       runChain(
         walked,
         registryRoot(probe, book, {
           own: standingMethods(rootMethods),
           targets,
-          image: methods,
           stripped: strippedOf(words),
         }),
         values,

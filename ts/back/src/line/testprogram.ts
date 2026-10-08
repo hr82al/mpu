@@ -21,7 +21,7 @@ import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
 import { openCacheDb } from "@mpu/command/store";
 import { makeFakeIo } from "@mpu/command/testing";
 import type { Memory } from "./it.ts";
-import { type ChannelOf, type ImagePorts, lineEntry } from "./mod.ts";
+import { type ChannelOf, lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
 const CARDS_PATH = "/api/latest/cards";
@@ -214,8 +214,6 @@ export interface StandLine {
   readonly memory?: Memory;
   /** Подмены окружения поверх стенда: без терминала — человека нет. */
   readonly io?: Partial<CommandIo>;
-  /** Образ строки (`platform/image.md`); нет — пуст. */
-  readonly image?: ImagePorts;
   /** Журнал вызовов, в который строка пишет свою запись; нет — не пишет. */
   readonly log?: InvokeLog;
   /**
@@ -265,7 +263,6 @@ export async function runOnStand(
     invoker: line.invoker ?? ports.invoker,
     refusal: (data) => void refusals.push(data),
     pictures: gallery,
-    image: line.image,
   })(
     words,
     makeFakeIo({

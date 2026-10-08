@@ -84,20 +84,16 @@ export const DOOR: View = {
   },
 };
 
-/**
- * Вход строки: слова, которыми он начинает подстроки (группы значений),
- * и взгляд, которым решается строка образа (`platform/image.md`).
- */
+/** Вход строки: слова, которыми он начинает подстроки (группы значений). */
 export interface Entry {
   readonly words: readonly string[];
-  readonly view: View;
 }
 
 /** Через дверь: подстроки — той же дверью. */
-const THROUGH_DOOR: Entry = { words: [ASK_WORD], view: DOOR };
+const THROUGH_DOOR: Entry = { words: [ASK_WORD] };
 
 /** Без двери. */
-const OUTSIDE: Entry = { words: [], view: NORMAL };
+const OUTSIDE: Entry = { words: [] };
 
 /** Вход строки по её первому слову. */
 export function entryOf(words: readonly string[]): Entry {

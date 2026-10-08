@@ -25,7 +25,6 @@ import {
 } from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
-import { Image, ImageError, type ImageMethod } from "@mpu/cmd-image";
 import {
   AGENT,
   BROWSER,
@@ -103,8 +102,6 @@ export interface BackOptions {
   readonly tokens: Tokens;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
   readonly policyFile: string | undefined;
-  /** Файл образа (`platform/image.md`); нет HOME — `undefined`. */
-  readonly imageFile: string | undefined;
   /** Окружение сервера; строка получает его без stdin и терминалов. */
   readonly io: CommandIo;
   readonly log: InvokeLog;
@@ -422,14 +419,9 @@ class Back {
   readonly #spill: Spill;
   /** Пул исполнителей: на них идёт каждая команда строки. */
   readonly #workers: Workers;
-  /**
-   * Образ на весь процесс: сверка `data_version` видит методы, которые
-   * определил другой процесс, следующей строкой.
-   */
-  readonly #image: Image;
-  /** Снимок дерева: пересобирается, когда меняется образ. */
-  #snapshot: unknown;
-  /** Часы сервера: память результатов и время образа. */
+  /** Снимок дерева: структура реестра, одна на процесс. */
+  readonly #snapshot = snapshotOf();
+  /** Часы сервера: память результатов. */
   readonly #now: () => number;
   /** Вопросы хука `PermissionRequest`: ряд у них общий с ядром. */
   readonly #desk: PermissionDesk;
@@ -452,8 +444,6 @@ class Back {
     this.#options = options;
     this.#upgrades = upgrades;
     this.#now = options.now ?? Date.now;
-    this.#image = Image.at(options.imageFile);
-    this.#snapshot = snapshotOf(this.#imageMethods());
     this.#spill = {
       dir: options.spill?.dir ?? SPILL_DIR,
       threshold: options.spill?.threshold ?? SPILL_THRESHOLD,
@@ -510,31 +500,13 @@ class Back {
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => this.#snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
-      [
-        "policy.tree",
-        () => policyTree(options.policyFile, this.#imageMethods()),
-      ],
+      ["policy.tree", () => policyTree(options.policyFile)],
       ["schema", () => SCHEMA],
     ]);
   }
 
-  /**
-   * Методы образа для снимка и дерева web. Нечитаемый образ — без
-   * методов: строки отказывают сами, а снимок нужен дополнению и без них.
-   */
-  #imageMethods(): readonly ImageMethod[] {
-    try {
-      return this.#image.methods();
-    } catch (err) {
-      if (!(err instanceof ImageError)) throw err;
-      this.#options.diagnose(`mpu-back: ${err.message}`);
-      return [];
-    }
-  }
-
-  /** Пересобирает снимок дерева по образу и пишет его на диск. */
+  /** Пишет снимок дерева на диск. */
   async writeSnapshot() {
-    this.#snapshot = snapshotOf(this.#imageMethods());
     const failure = await writeSnapshot(
       this.#options.snapshotFile,
       JSON.stringify(this.#snapshot),
@@ -641,7 +613,6 @@ class Back {
     // После строк: строка, ждавшая вопрос, при остановке снимает его,
     // и правка сообщения в «истёк» должна успеть уйти.
     await this.#options.questions.stop();
-    this.#image[Symbol.dispose]();
   }
 
   /**
@@ -882,12 +853,6 @@ class Back {
         elicitation: (text, signal) =>
           this.#elicitationDesk.reply(text, callerEnv, signal),
       },
-      image: {
-        image: this.#image,
-        author: caller.author(door.author),
-        now: () => new Date(this.#now()),
-        changed: () => this.writeSnapshot(),
-      },
     });
     const io = lineIo(
       this.#options.io,
@@ -920,11 +885,11 @@ class Back {
   }
 }
 
-/** Снимок дерева: версия, узлы с методами образа, сообщения отбора. */
-function snapshotOf(image: readonly ImageMethod[]) {
+/** Снимок дерева: версия, узлы, сообщения отбора. */
+function snapshotOf() {
   return {
     version: VERSION,
-    nodes: registryNodes(image),
+    nodes: registryNodes(),
     selection: selectionMessages(),
     protocol: protocolMessages(),
   };

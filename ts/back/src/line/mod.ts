@@ -33,7 +33,6 @@ import {
   type RuleEntry,
 } from "@mpu/command/policy";
 import type { CliEntry } from "../process/mod.ts";
-import { programCommands, programPolicy, programRoot } from "./program.ts";
 import { strippedOf, walkedWords } from "./walked.ts";
 import { openRegistryBook } from "./seeds.ts";
 import { targetValues } from "@mpu/command/selector";
@@ -46,11 +45,9 @@ import { LineValues, StdinOnce } from "./value.ts";
 import { entryOf, toDoor } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
-import { Image, ImageError, type ImageMethod } from "@mpu/cmd-image";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
-import type { OwnerHooks } from "./hook.ts";
-import { routeOf } from "./route.ts";
+import { hookLineOf, type OwnerHooks } from "./hook.ts";
 import { formerOf } from "./former.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -75,13 +72,10 @@ export interface NodeRuling {
  *
  * @throws PolicyError — файл правил нельзя открыть или прочитать
  */
-export function policyTree(
-  file: string | undefined,
-  image: readonly ImageMethod[] = [],
-): NodeRuling[] {
+export function policyTree(file: string | undefined): NodeRuling[] {
   using book = openRegistryBook(file);
   const owned = new Set(book.list().map((rule) => rule.path));
-  return registryNodes(image).map((node) => {
+  return registryNodes().map((node) => {
     const { verdict, won } = book.decide(ruleLinks(node)).record();
     const own = owned.has(node.path.length === 0 ? "*" : node.path.join(" "));
     return { path: node.path, verdict, rule: won, own };
@@ -143,8 +137,6 @@ export interface LinePorts {
    * (`platform/refusal-object.md`); у прямого вызова объект не нужен.
    */
   readonly refusal: (data: RefusalData) => void;
-  /** Образ строки (`platform/image.md`); нет — образ пуст, писать некуда. */
-  readonly image?: ImagePorts;
   /**
    * Картинки результатов строки (`platform/picture-frame.md`): их кадры
    * отдаёт дверь перед `exit`. Нет — картинки читать некому.
@@ -152,27 +144,6 @@ export interface LinePorts {
   readonly pictures?: Pictures;
   /** Вопросы владельцу строк-хуков. Нет — бот не настроен. */
   readonly owner?: OwnerAsking;
-}
-
-/** Образ строки: файл, кто пишет, часы и снимок дерева. */
-export interface ImagePorts {
-  /** Файл образа; живёт дольше строки — сверка `data_version` у него. */
-  readonly image: Image;
-  /** Канал автора определения: `human`, `agent`, `web`. */
-  readonly author: string;
-  readonly now: () => Date;
-  /** Образ изменился: снимок дерева переписывается. */
-  readonly changed: () => Promise<void>;
-}
-
-/** Образа нет: пуст, запись — отказ «нет HOME». */
-function noImage(): ImagePorts {
-  return {
-    image: Image.at(undefined),
-    author: "human",
-    now: () => new Date(),
-    changed: () => Promise.resolve(),
-  };
 }
 
 /** Картинки строки читать некому: у двери нет кадра для них. */
@@ -244,17 +215,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return 1;
     }
     using _book = book;
-    const imaging = ports.image ?? noImage();
     const pictures = ports.pictures ?? UNSEEN;
-    let methods: readonly ImageMethod[];
-    try {
-      methods = imaging.image.methods();
-    } catch (err) {
-      if (!(err instanceof ImageError)) throw err;
-      plainRefusal(UNNAMED_REFUSAL, err.message).tell(speech);
-      return 1;
-    }
-    const sources = methods.map((method) => method.source());
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
@@ -282,7 +243,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
             using db = io.openCacheDb();
             return Promise.resolve(targetValues(db, like));
           },
-          image: methods,
         };
         /**
          * Строка `words` с выводом `out`: её собственная сессия; результат
@@ -338,7 +298,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
             stripped: strippedOf(argv),
           });
         const root = rootOf((session) => session);
-        const commands = programCommands(sources);
         /**
          * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
          * — с окружением клиента и сигналом обрыва строки.
@@ -355,7 +314,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
           owner,
           consulting: new LineConsulting({
             book,
-            methods,
             rootMethods: ports.rootMethods,
             targets: parts.targets,
             readStdin: lineIo.readStdin,
@@ -363,20 +321,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
           }),
         };
         const context = {
-          said,
-          view: typedEntry.view,
-          book,
-          channel,
           speech,
-          image: imaging.image,
-          methods,
-          commands,
-          root: programRoot(root),
-          author: imaging.author,
-          now: imaging.now,
-          changed: imaging.changed,
-          journaled: () => journal.nativeCall(programPolicy(said)),
-          io: lineIo,
           walk: async (
             wrap: (session: Line, words: readonly string[]) => Line,
           ) =>
@@ -389,7 +334,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
               speech,
             ),
         };
-        return await routeOf(said, hook).settle(context, () =>
+        return await hookLineOf(said, hook).settle(context, () =>
           runChain(walked, root, values).then((outcome) =>
             printed(outcome, speech),
           ),

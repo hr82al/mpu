@@ -42,7 +42,6 @@ import { WARMUP_BUDGET_MS } from "@mpu/cmd-kiten";
 import { envFilePath, makeEnvFile } from "@mpu/command/env";
 import { ALLOW, RuleBook, RulePath } from "@mpu/command/policy";
 import { policyFile } from "../src/line/mod.ts";
-import { Image, imageFile, ImageMethod } from "@mpu/cmd-image";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "@mpu/cmd-sql";
 import { hasErrorCode } from "@mpu/base/oserror";
@@ -267,7 +266,6 @@ const ALLOWED: readonly string[] = [
   "config",
   "copy-dev",
   "d2-miro",
-  "image sync",
   "init",
   "mp-clone",
   "ssh",
@@ -306,25 +304,6 @@ async function gitIn(dir: string, args: readonly string[]): Promise<void> {
       `git ${args[0]}: ${new TextDecoder().decode(output.stderr)}`,
     );
   }
-}
-
-/**
- * Метод образа прогона — прямой записью в `image.db` каталога состояния:
- * строка `define:` спросила бы человека, а спросить в прогоне некого.
- */
-function seedImageMethod(home: string): void {
-  using image = Image.at(imageFile(`${home}/.config/mpu`));
-  image.define(
-    new ImageMethod({
-      receiver: ["kiten"],
-      name: "probe",
-      words: ["do", "kiten", "whoami", "done"],
-      purpose: "проба",
-      keys: "",
-      author: "human",
-      time: "2026-09-25T00:00:00.000Z",
-    }),
-  );
 }
 
 /** Отсутствие файла как утверждение: есть — проверка красная. */
@@ -1338,25 +1317,6 @@ function checks(subject: Subject): readonly Check[] {
             name.stdout.includes("src/c.ts:1  addOne (n: number): number"),
           `оба раздела не ответили: ${JSON.stringify(name.stdout)}`,
         );
-      },
-    ],
-    // Каталог образа (`image-sync.md`): файлы методов пишет ядро строкой
-    // `image sync` в `$HOME/mr/mp/mpu/image`; не записав, строка
-    // отвечает `сбой`, код 1. Метод посеян записью в `image.db`, правило
-    // `image sync` — `allow` (`ALLOWED`): вопроса в прогоне задать
-    // некому.
-    [
-      "каталог образа: файл метода пишется ядром",
-      async () => {
-        seedImageMethod(subject.home);
-        await mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
-        const outcome = await run(subject, ["image", "sync"]);
-        assert.deepStrictEqual(
-          [outcome.code, outcome.stdout],
-          [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
-          `stderr: ${outcome.stderr}`,
-        );
-        await stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
       },
     ],
     // Два файла корня рабочей области (`mp-clone.md`, «Корень и права»):

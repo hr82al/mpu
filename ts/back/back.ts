@@ -6,7 +6,6 @@
 import process from "node:process";
 import { runBack } from "./src/backend/mod.ts";
 import { policyFile } from "./src/line/mod.ts";
-import { imageFile } from "@mpu/cmd-image";
 import { processIo, processLog } from "./src/process/mod.ts";
 import { MarkerDir, NO_MARKERS, ProcessLauncher } from "./src/worker/mod.ts";
 import {
@@ -41,7 +40,6 @@ if (import.meta.main) {
         stateDir === undefined ? io : tokenFile(`${stateDir}/agent-token`),
       log: processLog(io),
       policyFile: policyFile(stateDir),
-      imageFile: imageFile(stateDir),
       snapshotFile:
         home === undefined || home === ""
           ? undefined

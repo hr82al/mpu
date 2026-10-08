@@ -266,8 +266,8 @@ VITEST_MAX_FORKS=3 bun run gate    # всё ниже по порядку
 клиента и старт без `PATH`, env-слой `MPU_XLSX`, клиент MTProto и его
 криптография без сети, `init` и `update` на подменных адресах, границы каталогов
 `HOME`/`XDG_CONFIG_HOME`, `d2-miro`, подпроцесс (`mpu ssh` на петлю), канал
-Claude Code, журнал вызовов, `sql-ro`, разбор кода с воркером, образ,
-`mp-clone`, отказ прежней форме, кэш-БД `mpu-task`. Активная установка (`~/.local/bin/mpu`)
+Claude Code, журнал вызовов, `sql-ro`, разбор кода с воркером, `mp-clone`,
+отказ прежней форме, кэш-БД `mpu-task`. Активная установка (`~/.local/bin/mpu`)
 и настоящие rc-файлы при этом не трогаются.
 
 Пропуски — **условные** и названы: путь временного дампа требует `/tmp` на
@@ -795,8 +795,7 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   ролей пакетами (`docs/specs/platform/tslibs-commands.md`, D6);
   библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Ключи `mpu config`
   объявляет их домен (`sheet.*` — `@mpu/cmd-sheet`, `xlsx.default` —
-  `@mpu/cmd-xlsx`, `task.*` — `@mpu/cmd-task`, `image.dir` —
-  `back/src/line/imagedir.ts`), список в порядке спеки собирает
+  `@mpu/cmd-xlsx`, `task.*` — `@mpu/cmd-task`), список в порядке спеки собирает
   `back/src/registry/mod.ts` (`CONFIG_REGISTRY`, команда —
   `configCommand(CONFIG_REGISTRY)`); сверка собранного списка с голденом —
   `back/src/registry/config.test.ts`. Кроме реестра: `HISTORY_CLEAR_PATH`

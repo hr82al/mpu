@@ -32,9 +32,8 @@ export interface Line {
   /** Изменить правило на пути `path`. */
   change(report: Report, path: RulePath, change: Change): Promise<Outcome>;
   /**
-   * Вызов метода образа (`platform/image.md`): решение правил пути строки
-   * у взгляда `view` — вопрос, отказ или согласие; исполнения нет, тело
-   * метода исполняет программа.
+   * Решение правил пути строки у взгляда `view` — вопрос, отказ или
+   * согласие; исполнения нет: ответ строки-хука даёт сам хук (`hook.ts`).
    */
   consent(report: Report, view: View): Promise<Outcome>;
 }

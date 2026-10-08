@@ -59,8 +59,6 @@ import {
   TEXT_RESULT,
 } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
-import { imageEntries, imageKeys } from "./methods.ts";
-import type { ImageMethod, MethodSnapshot } from "@mpu/cmd-image";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
 /** Вид звена хвоста: оно же звено пути строки у правил. */
@@ -77,28 +75,18 @@ interface Sight extends Execution {
   roster(path: readonly string[]): Roster;
   /** Значения ключа `target:` для дополнения. */
   readonly targets: Targets;
-  /** Методы образа получателя `path` (`platform/image.md`). */
-  methods(path: readonly string[]): Method<Line>[];
 }
 
-/**
- * Снимок дерева: структура без решений правил — все узлы, обычный конец.
- *
- * @param image методы образа
- */
-function whole(image: readonly ImageMethod[]): Sight {
-  return {
-    settle: (report, line, order) => line.dispatch(report, NORMAL, order),
-    streams: (line, order) => line.streams(NORMAL, order),
-    select: (report, line, order, replay) =>
-      line.select(report, NORMAL, order, replay),
-    stripped: NOTHING_STRIPPED,
-    roster: () => EVERYONE,
-    targets: NO_TARGETS,
-    methods: (path) =>
-      imageEntries(image, path, (report, line) => line.consent(report, NORMAL)),
-  };
-}
+/** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
+const WHOLE: Sight = {
+  settle: (report, line, order) => line.dispatch(report, NORMAL, order),
+  streams: (line, order) => line.streams(NORMAL, order),
+  select: (report, line, order, replay) =>
+    line.select(report, NORMAL, order, replay),
+  stripped: NOTHING_STRIPPED,
+  roster: () => EVERYONE,
+  targets: NO_TARGETS,
+};
 
 /**
  * Взгляд над книгой правил строки. Решения спрашиваются у книги на
@@ -109,7 +97,6 @@ class Seen implements Sight {
   readonly targets: Targets;
   readonly #view: View;
   readonly #book: RuleBook;
-  readonly #image: readonly ImageMethod[];
   #executing: readonly TreeNode[] | undefined;
 
   constructor(view: View, book: RuleBook, parts: RootParts) {
@@ -117,13 +104,6 @@ class Seen implements Sight {
     this.#book = book;
     this.stripped = parts.stripped ?? NOTHING_STRIPPED;
     this.targets = parts.targets ?? NO_TARGETS;
-    this.#image = parts.image ?? [];
-  }
-
-  methods(path: readonly string[]): Method<Line>[] {
-    return imageEntries(this.#image, path, (report, line) =>
-      line.consent(report, this.#view),
-    );
   }
 
   settle(report: Report, line: Line, order: Order): Promise<Outcome> {
@@ -234,7 +214,7 @@ function dispatching(
 ): Shape<Line> {
   const settle = sight.settle.bind(sight);
   const results = new ResultOf(formatsOf(path), sight, fieldOf(path));
-  const shape: Shape<Line> = new Shape<Line>(sight.methods(path), {
+  const shape: Shape<Line> = new Shape<Line>([], {
     fallback: kind.fallback(doc, () => shape),
     ending: { finish: (report, line) => settle(report, line, kind.order) },
     closing: results.closing((line: Line) => new Pending(line, kind.order)),
@@ -267,7 +247,6 @@ function leafShape(
     settle,
     stripped: sight.stripped,
     targets: sight.targets,
-    methods: sight.methods(path),
   });
 }
 
@@ -331,7 +310,7 @@ function groupShape(
   const methods = children.map((child) =>
     childMethod([...path, child.name], child.name, sight),
   );
-  return new Shape<Line>([...methods, ...sight.methods(path), ...own], {
+  return new Shape<Line>([...methods, ...own], {
     ...kind.options(path, doc, sight),
     roster: sight.roster(path),
   });
@@ -399,8 +378,6 @@ export interface TreeNode {
   readonly formats: readonly string[];
   /** Ответ на `variants`. */
   readonly variants: readonly VariantLine[];
-  /** Узел метода образа: кто и когда определил, исходник; иначе поля нет. */
-  readonly image?: MethodSnapshot;
 }
 
 /** Узел снимка — со слов самого вида: его отражение и его хвост. */
@@ -427,15 +404,12 @@ function nodesUnder(
   path: readonly string[],
   summary: string,
   shape: Shape<Line>,
-  image: readonly ImageMethod[],
 ): TreeNode[] {
-  const sight = whole(image);
   const children = childrenOf(path)
     .map((child) => child.name)
     .sort();
   return [
     nodeOf(path, summary, shape),
-    ...methodNodes(image, path),
     ...children.flatMap((name) => {
       const childPath = [...path, name];
       const group = findGroup(childPath);
@@ -444,46 +418,18 @@ function nodesUnder(
         return nodesUnder(
           childPath,
           group.summary,
-          groupShape(childPath, doc, groupKind(group), sight),
-          image,
+          groupShape(childPath, doc, groupKind(group), WHOLE),
         );
       }
       const doc = leafDoc(childPath);
-      return [
-        nodeOf(childPath, doc.purpose, leafShape(childPath, doc, sight)),
-        ...methodNodes(image, childPath),
-      ];
+      return [nodeOf(childPath, doc.purpose, leafShape(childPath, doc, WHOLE))];
     }),
   ];
 }
 
-/** Узлы методов образа получателя `path`: снимок называет их с полем `image`. */
-function methodNodes(
-  image: readonly ImageMethod[],
-  path: readonly string[],
-): TreeNode[] {
-  const receiver = path.join(" ");
-  return image
-    .filter((method) => method.record().receiver.join(" ") === receiver)
-    .map((method) => ({
-      path: method.links(),
-      summary: method.purposeLine(),
-      tail: null,
-      messages: [],
-      keys: imageKeys(method),
-      formats: [],
-      variants: [],
-      image: method.snapshot(),
-    }));
-}
-
-/**
- * Узлы дерева команд для снимка: корень, группы, команды и методы образа.
- *
- * @param image методы образа; нет — только реестр
- */
-export function registryNodes(image: readonly ImageMethod[] = []): TreeNode[] {
-  return nodesUnder([], ROOT_SUMMARY, rootShape(whole(image)), image);
+/** Узлы дерева команд для снимка: корень, группы и команды. */
+export function registryNodes(): TreeNode[] {
+  return nodesUnder([], ROOT_SUMMARY, rootShape(WHOLE));
 }
 
 /**
@@ -573,6 +519,4 @@ export interface RootParts {
   readonly stripped?: Stripped;
   /** Значения ключа `target:` — по умолчанию нет. */
   readonly targets?: Targets;
-  /** Методы образа — по умолчанию нет. */
-  readonly image?: readonly ImageMethod[];
 }

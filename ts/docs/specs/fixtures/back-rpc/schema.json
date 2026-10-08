@@ -503,7 +503,7 @@
       "type": "object"
     },
     "treeNode": {
-      "description": "Узел снимка — вывод протокола отражения вида (platform/reflection.md); у метода образа — поле image.",
+      "description": "Узел снимка — вывод протокола отражения вида (platform/reflection.md).",
       "type": "object",
       "required": [
         "path",
@@ -553,31 +553,6 @@
           "items": {
             "$ref": "#/$defs/variantLine"
           }
-        },
-        "image": {
-          "description": "Метод образа (web-image.md): кто и когда определил, исходник, строка определения — текст правки.",
-          "type": "object",
-          "required": [
-            "author",
-            "time",
-            "source",
-            "definition"
-          ],
-          "properties": {
-            "author": {
-              "type": "string"
-            },
-            "time": {
-              "type": "string"
-            },
-            "source": {
-              "type": "string"
-            },
-            "definition": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
         }
       },
       "additionalProperties": false
