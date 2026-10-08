@@ -759,8 +759,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   сессию, цель и сводку ответа PostgreSQL из `@mpu/cmd-sql` берут соседние
   команды того же сервера (`backup`, `call`, `copy`, `cleanlocal`, `api`) и
   `smoke`, драйвер — вход `@mpu/cmd-sql/pg` (вход `.` грузит его лениво);
-  `writeLokiCache` из `@mpu/cmd-logs` — `@mpu/cmd-init` и `@mpu/cmd-update`, Loki на
-  петле для тестов строки и большого вывода (`line`, `backend`, подпроект
+  `writeLokiCache` из `@mpu/cmd-logs` — `@mpu/cmd-init` и `@mpu/cmd-update`,
+  Loki на петле для тестов строки и большого вывода (`line`, `backend`, подпроект
   `mcp/`) — вход `@mpu/cmd-logs/testing`; синк из
   `@mpu/cmd-update` — `search`; ядро MCP и помощники JSON-RPC из
   `@mpu/cmd-mcp` — `backend`. Закрытый список публикации тулов пакет не
