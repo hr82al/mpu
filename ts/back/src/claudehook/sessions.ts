@@ -8,7 +8,7 @@
  */
 
 import type { Asked, Clock } from "../botquestions/mod.ts";
-import { SESSION_ENV } from "../frames/mod.ts";
+import { SESSION_ENV } from "@mpu/language/frames";
 import { TERMINAL } from "./decision.ts";
 import { NO_CHANNEL, type Reach } from "./reach.ts";
 import type { CallerEnv } from "./window.ts";

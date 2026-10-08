@@ -11,7 +11,7 @@ import {
   failedFrame,
   helloFrame,
   readCoreFrame,
-} from "../../../back/src/frames/mod.ts";
+} from "@mpu/language/frames";
 import { channelNotification } from "./mcp.ts";
 
 /** Пауза между попытками регистрации. */

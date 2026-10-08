@@ -16,7 +16,7 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { NO_PARAMS, TYPED } from "../program/mod.ts";
+import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { MarkerDir, NO_MARKERS } from "./death.ts";

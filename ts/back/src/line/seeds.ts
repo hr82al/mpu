@@ -10,7 +10,7 @@ import {
   NOTIFICATION,
   PERMISSION_REQUEST,
   STOP,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import { EXPORT_PATH } from "../image/mod.ts";
 import {
   ALLOW,

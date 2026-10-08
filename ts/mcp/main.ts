@@ -6,7 +6,7 @@
 import { writeSync } from "node:fs";
 import { chmod, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
-import { VERSION } from "../back/src/frames/mod.ts";
+import { VERSION } from "../back/src/version.ts";
 import { type McpProcess, runMcp, type TokenFile } from "./src/mod.ts";
 
 const DEFAULT_BACK_URL = "http://127.0.0.1:7338";

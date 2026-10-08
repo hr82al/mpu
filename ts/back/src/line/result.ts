@@ -5,7 +5,7 @@
  * конец строки.
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import {
   AsideCall,
   type Call,
@@ -29,7 +29,7 @@ import {
   type Sent,
   Shape,
   type Source,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import type { Line } from "./dispatch.ts";
 import { formatted, type Order } from "./order.ts";
 import { type Misplaced, NOT_MISPLACED } from "./variants.ts";

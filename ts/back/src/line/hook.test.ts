@@ -16,7 +16,7 @@ import goldenCases from "./testdata/claude-hook-pre-tool-use/cases.json" with {
 import LIVE from "./testdata/claude-hook-pre-tool-use/live-bash-mpu-version.json" with {
   type: "json",
 };
-import { PRE_TOOL_USE } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "@mpu/language/frames";
 import { findCommand } from "../registry/mod.ts";
 import {
   ALLOW,

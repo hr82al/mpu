@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";

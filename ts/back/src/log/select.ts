@@ -9,7 +9,7 @@
  * двадцати последних.
  */
 
-import { ASK_WORD } from "../messages/mod.ts";
+import { ASK_WORD } from "@mpu/language/messages";
 import type { LogRecord } from "./parse.ts";
 
 /** Чем отбирают записи; не заданное поле ступень не создаёт. */

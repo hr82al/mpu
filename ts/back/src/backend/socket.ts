@@ -15,7 +15,7 @@ import {
   type LineInput,
   STDIN_REQUEST,
   stdinOf,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import { type Asking, type Delivery, Line, type Posed } from "./line.ts";
 import type { AcceptedSocket } from "./loopback.ts";
 

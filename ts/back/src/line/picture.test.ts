@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
 import { IN_PLACE, type Invoker } from "../entrypoint/mod.ts";
-import type { PictureData } from "../frames/mod.ts";
+import type { PictureData } from "@mpu/language/frames";
 import {
   asInbox,
   PICTURE_CHAT,

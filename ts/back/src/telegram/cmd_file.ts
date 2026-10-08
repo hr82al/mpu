@@ -18,7 +18,7 @@ import {
 } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
 import { asCommand } from "./errors.ts";
-import { filePicture } from "../picture/mod.ts";
+import { filePicture } from "@mpu/language/picture";
 
 /** Каталог вложений по умолчанию: `/tmp` уже в праве записи у CLI и сервера. */
 export const INBOX_DIR = "/tmp/mpu-telegram";

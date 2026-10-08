@@ -13,8 +13,8 @@ import {
   PRINT,
   withoutJsonFlag,
 } from "../entrypoint/mod.ts";
-import { flagged, type KeyKind } from "../messages/mod.ts";
-import type { Call } from "../objects/mod.ts";
+import { flagged, type KeyKind } from "@mpu/language/messages";
+import type { Call } from "@mpu/language/objects";
 import {
   callWord,
   type CommandNode,
@@ -29,7 +29,7 @@ import {
   type ProgramEnd,
   type Root,
   runProgram,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import { commands, findCommand } from "../registry/mod.ts";
 import { addressesOf, textKeysOf } from "./keyed.ts";
 import { formatsOf, registryNodes, ruleLinks } from "./tree.ts";

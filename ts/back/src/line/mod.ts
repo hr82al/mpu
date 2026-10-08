@@ -23,14 +23,14 @@ import {
   runLine,
   streams,
 } from "../entrypoint/mod.ts";
-import type { RefusalData } from "../frames/mod.ts";
-import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import type { RefusalData } from "@mpu/language/frames";
+import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import {
   type Outcome,
   plainRefusal,
   type Report,
   runChain,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Address,
   type Channel,
@@ -48,7 +48,7 @@ import {
   parseProgram,
   Placed,
   type Root,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import {
   Capture,
   type Evaluator,
@@ -74,7 +74,7 @@ import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
-import type { Commands, MethodSource } from "../program/mod.ts";
+import type { Commands, MethodSource } from "@mpu/language/program";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
 import type { OwnerHooks } from "./hook.ts";
@@ -89,7 +89,7 @@ export {
 export { LastResults, type Memory, NO_CALLER } from "./it.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
-export { protocolMessages, selectionMessages } from "../objects/mod.ts";
+export { protocolMessages, selectionMessages } from "@mpu/language/objects";
 
 /** Действующее решение узла дерева (`specs/web.md`, «Действующие решения»). */
 export interface NodeRuling {

@@ -4,7 +4,7 @@
  * (`platform/registry-objects.md`, «Известные отклонения»).
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { assert, describe, expect, it } from "vitest";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";

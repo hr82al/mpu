@@ -6,7 +6,7 @@
  */
 
 import { type Session, type Sessions, WireLink } from "../claudehook/mod.ts";
-import { helloKeyOf, READY_FRAME } from "../frames/mod.ts";
+import { helloKeyOf, READY_FRAME } from "@mpu/language/frames";
 
 /** Что соединение делает с кадром и с закрытием — по своему состоянию. */
 interface Phase {

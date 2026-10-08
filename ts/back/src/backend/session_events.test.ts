@@ -13,7 +13,7 @@ import {
   PERMISSION_REQUEST,
   SESSION_ENV,
   STOP,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import {
   FakeBot,
   fakeQuestions,

@@ -23,7 +23,7 @@ import {
   findSurface,
   surfaces,
 } from "../registry/mod.ts";
-import { flagged } from "../messages/mod.ts";
+import { flagged } from "@mpu/language/messages";
 import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";

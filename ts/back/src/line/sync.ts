@@ -55,7 +55,7 @@ import {
   RefusalNotice,
   type Report,
   ROOT_TEXT,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Address,
   ASK,
@@ -67,7 +67,7 @@ import {
   RulePath,
 } from "../policy/mod.ts";
 import { atExecution } from "../claudehook/mod.ts";
-import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import { programCommands } from "./program.ts";
 import {
   type Checking,

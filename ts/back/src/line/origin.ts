@@ -7,9 +7,13 @@
 
 import { type HookReply, programUnseen } from "../claudehook/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
-import { isBareLine, wordsOf } from "../frames/mod.ts";
-import { ASK_WORD, GRAMMAR } from "../messages/mod.ts";
-import { line as lineText, type Refused, ROOT_TEXT } from "../objects/mod.ts";
+import { isBareLine, wordsOf } from "@mpu/language/frames";
+import { ASK_WORD, GRAMMAR } from "@mpu/language/messages";
+import {
+  line as lineText,
+  type Refused,
+  ROOT_TEXT,
+} from "@mpu/language/objects";
 import {
   fileParams,
   type Naming,
@@ -17,7 +21,7 @@ import {
   NO_PARAMS,
   type Params,
   TYPED,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import { type Doorless, type Entry, entryOf, needsDoor } from "./ahead.ts";
 import type { Speech } from "./printed.ts";
 import {

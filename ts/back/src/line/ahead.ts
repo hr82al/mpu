@@ -5,7 +5,7 @@
  * подсказкой начать её с `ask`; прочее — исполнение, вопрос — при отправке.
  */
 
-import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import {
   line as lineText,
   type Outcome,
@@ -15,7 +15,7 @@ import {
   type Report,
   ROOT_TEXT,
   throughGate,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Address,
   EXECUTE,
@@ -25,7 +25,7 @@ import {
   REDIRECT,
   type Ruling,
 } from "../policy/mod.ts";
-import type { Reach } from "../program/mod.ts";
+import type { Reach } from "@mpu/language/program";
 import type { Speech } from "./printed.ts";
 import { ARGS } from "./tree.ts";
 import { ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";

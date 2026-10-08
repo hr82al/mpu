@@ -6,7 +6,7 @@
  */
 
 import type { Answer, Prompt } from "../command/mod.ts";
-import type { AskKind, ServerFrame } from "../frames/mod.ts";
+import type { AskKind, ServerFrame } from "@mpu/language/frames";
 
 /** Что вопросу нужно от строки: спросить, дождаться, послать кадр. */
 export interface Asking {

@@ -6,7 +6,7 @@
  */
 
 import { readdir } from "node:fs/promises";
-import type { RefusalData } from "../frames/mod.ts";
+import type { RefusalData } from "@mpu/language/frames";
 import { ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import {

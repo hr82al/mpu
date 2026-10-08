@@ -7,7 +7,7 @@
  */
 
 import type { Output } from "../entrypoint/mod.ts";
-import type { AskKind, ServerFrame } from "../frames/mod.ts";
+import type { AskKind, ServerFrame } from "@mpu/language/frames";
 import { type Lines, NO_SLOT, type Slot } from "./limit.ts";
 import { type Outlet, WHOLE } from "./outlet.ts";
 import { Stopping } from "./stopping.ts";

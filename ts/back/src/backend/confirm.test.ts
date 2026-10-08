@@ -12,7 +12,7 @@ import {
   Sessions,
   Windows,
 } from "../claudehook/mod.ts";
-import { type AskKind, SESSION_ENV } from "../frames/mod.ts";
+import { type AskKind, SESSION_ENV } from "@mpu/language/frames";
 import { ChatConfirms } from "./confirm.ts";
 
 /**

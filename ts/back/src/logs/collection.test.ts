@@ -15,7 +15,7 @@ import {
   consentOf,
   withPolicyFile,
 } from "../line/testconsent.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { heldScope } from "../testing/scope.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lokiBody, withFakeLoki } from "./testloki.ts";

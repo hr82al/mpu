@@ -4,11 +4,7 @@
  * ответ на вопрос по номеру. Недоступный `back` — повторы до срока.
  */
 
-import {
-  BadFrame,
-  type Collected,
-  collectedOf,
-} from "../../back/src/frames/mod.ts";
+import { BadFrame, type Collected, collectedOf } from "@mpu/language/frames";
 
 /** Куда и как ходит переводчик. */
 export interface BackTarget {

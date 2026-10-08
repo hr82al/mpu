@@ -13,7 +13,7 @@ import {
   type Report,
   runChain,
   type ValueEvaluation,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import { RuleBook } from "../policy/mod.ts";
 import { commands } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
@@ -21,7 +21,7 @@ import { addressesOf } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { formatsOf, registryRoot } from "./tree.ts";
-import { isProgram, parseProgram } from "../program/mod.ts";
+import { isProgram, parseProgram } from "@mpu/language/program";
 import { programCommands, programRoot } from "./program.ts";
 
 /** Строка доходит до исполнения; самого исполнения нет. */

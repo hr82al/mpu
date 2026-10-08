@@ -18,7 +18,7 @@ import type {
   Report,
   ResultKind,
   Trace,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Help,
   HELP_SELECTOR,
@@ -26,9 +26,9 @@ import {
   REFUSE,
   ROOT_TEXT,
   Shape,
-} from "../objects/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
-import { callWord } from "../program/mod.ts";
+} from "@mpu/language/objects";
+import { GRAMMAR } from "@mpu/language/messages";
+import { callWord } from "@mpu/language/program";
 import type { Line } from "./dispatch.ts";
 
 /** Что строка делает с вызовом метода в конце: решает правила. */

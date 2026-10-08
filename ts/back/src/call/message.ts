@@ -6,7 +6,7 @@
  */
 
 import { defineCommand, record } from "../command/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { denoSession } from "../sql/mod.ts";
 import type { Access } from "./access.ts";
 import {

@@ -6,13 +6,13 @@
 
 import type { Command, Consent } from "../command/mod.ts";
 import type { Delivery } from "../entrypoint/mod.ts";
-import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import {
   type Data,
   type Outcome,
   plainRefusal,
   type Report,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Change,
   type Channel,

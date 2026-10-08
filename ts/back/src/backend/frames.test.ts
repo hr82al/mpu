@@ -6,7 +6,7 @@
  * эталона лежит в `testdata/back-rpc/frames-*.json`.
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { IN_PLACE, type InvokeJournal } from "../entrypoint/mod.ts";

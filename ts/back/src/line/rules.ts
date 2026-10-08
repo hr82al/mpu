@@ -20,8 +20,8 @@ import {
   type Sent,
   unary,
   type Yields,
-} from "../objects/mod.ts";
-import type { KeyValue } from "../messages/mod.ts";
+} from "@mpu/language/objects";
+import type { KeyValue } from "@mpu/language/messages";
 import {
   ALLOW,
   ASK,

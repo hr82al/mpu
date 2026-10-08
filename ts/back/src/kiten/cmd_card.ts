@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, record } from "../command/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import {
   getCard,
   type KaitenAccess,

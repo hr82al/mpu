@@ -9,8 +9,8 @@
 import { execFile } from "node:child_process";
 import { expect, it } from "vitest";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
-import { NO_PARAMS, TYPED } from "../program/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
+import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { NO_MARKERS, ProcessLauncher, Workers } from "./mod.ts";

@@ -5,7 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { VERSION } from "../version.ts";
 import { line, type TestBack, withBack } from "./testback.ts";
 

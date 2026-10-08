@@ -21,7 +21,7 @@ import {
   TERMINAL,
   type Windows,
 } from "../claudehook/mod.ts";
-import type { AskKind, ServerFrame } from "../frames/mod.ts";
+import type { AskKind, ServerFrame } from "@mpu/language/frames";
 import { type Line, NO_RIVAL, type Rival, type Rivalry } from "./line.ts";
 import type { Asking } from "./prompt.ts";
 

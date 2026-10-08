@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { within } from "../backend/testback.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { makeFakeIo } from "../testing/mod.ts";
 import { encode, workerFrameOf } from "./frames.ts";
 import { serveOne } from "./serve.ts";

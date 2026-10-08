@@ -6,7 +6,7 @@
  */
 
 import { readFile, writeFile } from "node:fs/promises";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import type { CommandIo } from "../command/mod.ts";

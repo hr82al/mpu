@@ -8,7 +8,7 @@
  * по относительному пути, `mpu xlsx alias add` пишет в кэш-БД.
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

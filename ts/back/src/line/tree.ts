@@ -30,9 +30,9 @@ import {
   unary,
   type VariantLine,
   wordListing,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import { PolicyError, type RuleBook } from "../policy/mod.ts";
-import { programHelp } from "../program/mod.ts";
+import { programHelp } from "@mpu/language/program";
 import {
   childrenOf,
   type CommandGroup,

@@ -6,7 +6,7 @@
 
 import type { Command, Keeper } from "../command/mod.ts";
 import { type Delivery, jsonOf } from "../entrypoint/mod.ts";
-import { flagged, GRAMMAR } from "../messages/mod.ts";
+import { flagged, GRAMMAR } from "@mpu/language/messages";
 import {
   AsideCall,
   type Call,
@@ -26,7 +26,7 @@ import {
   unary,
   UNDERSTOOD_NOT,
   type Yields,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import type { Line } from "./dispatch.ts";
 
 /** Память одного вызывающего: прошлый результат его строки. */

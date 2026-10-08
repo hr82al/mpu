@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { RefusalData } from "../frames/mod.ts";
+import type { RefusalData } from "@mpu/language/frames";
 import {
   ALLOW,
   ASK,

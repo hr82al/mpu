@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { wordsOf } from "../../back/src/frames/mod.ts";
+import { wordsOf } from "@mpu/language/frames";
 import type { MethodImage } from "./api.ts";
 import { Confirm } from "./Confirm.tsx";
 import { told, useLine } from "./useLine.ts";

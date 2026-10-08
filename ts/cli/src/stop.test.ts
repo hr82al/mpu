@@ -6,7 +6,7 @@
 
 import { assert, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { STOP } from "../../back/src/frames/mod.ts";
+import { STOP } from "@mpu/language/frames";
 import { withBack } from "../../back/src/backend/testback.ts";
 import { FakeBot, fakeQuestions } from "../../back/src/botquestions/testbot.ts";
 import { runClient } from "./client.ts";

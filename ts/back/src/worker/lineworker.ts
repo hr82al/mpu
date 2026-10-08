@@ -14,14 +14,14 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
-import { contextFieldsOf } from "../frames/mod.ts";
+import { contextFieldsOf } from "@mpu/language/frames";
 import type {
   LineReply,
   MethodSource,
   Naming,
   Params,
   ProgramEnd,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import { deathOf, type ExitStatus, type Markers } from "./death.ts";
 import {
   BadWorkerFrame,

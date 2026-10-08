@@ -11,8 +11,8 @@ import type {
   OutputFile,
   PictureData,
   RefusalData,
-} from "../../back/src/frames/mod.ts";
-import { GRAMMAR } from "../../back/src/messages/mod.ts";
+} from "@mpu/language/frames";
+import { GRAMMAR } from "@mpu/language/messages";
 import type { Asker, Verdict } from "./asker.ts";
 import type { BackLine, Reply } from "./back.ts";
 

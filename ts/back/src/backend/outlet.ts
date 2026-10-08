@@ -14,7 +14,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import type { OutputFile } from "../frames/mod.ts";
+import type { OutputFile } from "@mpu/language/frames";
 import { hasErrorCode } from "../runtime/mod.ts";
 
 /** Поле ответа вместо вывода: сам вывод или файл с ним. */

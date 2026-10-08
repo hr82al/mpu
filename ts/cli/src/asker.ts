@@ -1,4 +1,4 @@
-import type { AskKind } from "../../back/src/frames/mod.ts";
+import type { AskKind } from "@mpu/language/frames";
 import type { TerminalIo } from "./terminal/mod.ts";
 
 /**

@@ -17,7 +17,7 @@ import {
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
   STOP,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import {
   Allowed,
   askedBy,
@@ -38,7 +38,7 @@ import {
   type Report,
   ROOT_TEXT,
   type ValueEvaluation,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Execution,
   NOBODY,

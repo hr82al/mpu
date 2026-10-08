@@ -45,7 +45,7 @@ import {
   type LineRequest,
   lineRequest,
   ticketAnswerOf,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import { formFor, type Opened, ticketAsking } from "./http.ts";
 import { type Asking, linePrompt, type PromptDoor } from "./prompt.ts";
 import { ChatConfirms, ConfirmingLine } from "./confirm.ts";
@@ -64,7 +64,7 @@ import {
   type Markers,
   Workers,
 } from "../worker/mod.ts";
-import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
+import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
 import { type OwnerQuestions, REAL_CLOCK } from "../botquestions/mod.ts";
 import {
   DISK_FILES,

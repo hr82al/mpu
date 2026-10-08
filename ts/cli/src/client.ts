@@ -14,8 +14,8 @@ import {
   type HookWords,
   type ServerFrame,
   serverFrameOf,
-  VERSION,
-} from "../../back/src/frames/mod.ts";
+} from "@mpu/language/frames";
+import { VERSION } from "../../back/src/version.ts";
 import type { TerminalIo } from "./terminal/mod.ts";
 import { type Asker, humanAsker, NOBODY } from "./asker.ts";
 import { type Clip, clipboard, shown } from "./clip.ts";

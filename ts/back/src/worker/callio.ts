@@ -8,7 +8,7 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import type { CallContext } from "../frames/mod.ts";
+import type { CallContext } from "@mpu/language/frames";
 import { Workdir } from "@mpu/base/workdir";
 
 /**

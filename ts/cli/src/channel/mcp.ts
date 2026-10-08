@@ -5,7 +5,7 @@
  * запросы отвечает пустым результатом; уведомления не требуют ответа.
  */
 
-import { VERSION } from "../../../back/src/frames/mod.ts";
+import { VERSION } from "../../../back/src/version.ts";
 
 /** Имя сервера канала: его называет флаг `server:mpu-channel`. */
 export const CHANNEL_NAME = "mpu-channel";

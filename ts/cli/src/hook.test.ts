@@ -6,7 +6,7 @@
 
 import { assert, beforeAll, describe, expect, it } from "vitest";
 import { chmod, readFile, writeFile } from "node:fs/promises";
-import { PRE_TOOL_USE } from "../../back/src/frames/mod.ts";
+import { PRE_TOOL_USE } from "@mpu/language/frames";
 import {
   ALLOW,
   ASK,

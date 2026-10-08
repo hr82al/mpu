@@ -5,7 +5,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { type MethodSource, nameParts } from "../program/mod.ts";
+import { type MethodSource, nameParts } from "@mpu/language/program";
 import { canonicalLine } from "./definition.ts";
 
 /** Поля метода, как их пишет и читает файл образа. */

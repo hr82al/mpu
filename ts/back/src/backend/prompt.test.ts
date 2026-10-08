@@ -9,7 +9,7 @@ import fs from "node:fs";
 import fsp, { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import type { Answer, CommandIo } from "../command/mod.ts";
-import { askFrame, type AskKind, type ServerFrame } from "../frames/mod.ts";
+import { askFrame, type AskKind, type ServerFrame } from "@mpu/language/frames";
 import { linePrompt } from "./prompt.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import {

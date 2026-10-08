@@ -13,7 +13,7 @@ import {
   failedFrame,
   helloFrame,
   STOP,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import { FakeBot, fakeQuestions, textUpdate } from "../botquestions/testbot.ts";
 import {
   Client,

@@ -6,9 +6,9 @@
 
 import type { HookReply } from "../claudehook/mod.ts";
 import type { ImageMethod } from "../image/mod.ts";
-import { runChain } from "../objects/mod.ts";
+import { runChain } from "@mpu/language/objects";
 import type { RuleBook } from "../policy/mod.ts";
-import type { Commands } from "../program/mod.ts";
+import type { Commands } from "@mpu/language/program";
 import { entryOf } from "./ahead.ts";
 import {
   type Consulting,

@@ -5,7 +5,7 @@
  * (`image-sync.md`, «Файл метода») — разбор один на обоих.
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 
 /** Сообщение определения метода. */
 export const DEFINE = "define:";

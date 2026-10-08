@@ -5,7 +5,7 @@
  * команды не уходит, а записывает метод ядро — у него образ и правила.
  */
 
-import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { GRAMMAR, UNNAMED_REFUSAL } from "@mpu/language/messages";
 import {
   DEFINE,
   type Image,
@@ -24,7 +24,7 @@ import {
   type Refused,
   ROOT_TEXT,
   throughGate,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   ALLOW,
   ASK,
@@ -41,7 +41,7 @@ import {
   Placed,
   refusalOf,
   type Root,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import type { CommandIo } from "../command/mod.ts";
 import { atExecution, type HookReply } from "../claudehook/mod.ts";
 import type { Line } from "./dispatch.ts";

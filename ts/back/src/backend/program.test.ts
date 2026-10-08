@@ -6,7 +6,7 @@
  */
 
 import { assert, expect, it } from "vitest";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { CANCELLED_CODE } from "./stopping.ts";
 import { Client, line, withBack, within } from "./testback.ts";
 

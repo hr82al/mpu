@@ -21,7 +21,7 @@ import {
   type Trace,
   unary,
   type ValueLine,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import type { Line } from "./dispatch.ts";
 import { formatAsFlag, Keys, type Layout, NO_REST, type Rest } from "./keys.ts";
 import type { Order } from "./order.ts";

@@ -4,7 +4,7 @@
  */
 
 import type { Output } from "../entrypoint/mod.ts";
-import type { Outcome, Told } from "../objects/mod.ts";
+import type { Outcome, Told } from "@mpu/language/objects";
 
 /** Вывод строки, которому отказ говорит и объектом, и текстом. */
 export type Speech = Output & Told;

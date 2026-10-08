@@ -4,11 +4,7 @@
  * выбранные один раз: дальше клиент о токенах и терминалах не спрашивает.
  */
 
-import type {
-  AskKind,
-  ContextFields,
-  FirstFrame,
-} from "../../back/src/frames/mod.ts";
+import type { AskKind, ContextFields, FirstFrame } from "@mpu/language/frames";
 import { type Asker, NOBODY } from "./asker.ts";
 
 /** Путь, токен и отвечающий строки. */

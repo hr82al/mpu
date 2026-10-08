@@ -4,7 +4,7 @@
  * и без закрытия с тем, что за ним.
  */
 
-import { flagged, GRAMMAR } from "../messages/mod.ts";
+import { flagged, GRAMMAR } from "@mpu/language/messages";
 
 /** Как лист отдаёт строку нынешней диспетчеризации. */
 export interface Order {

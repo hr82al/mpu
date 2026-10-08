@@ -5,7 +5,7 @@
  * ждущим доставкам.
  */
 
-import { deliverFrame, readChannelAnswer } from "../frames/mod.ts";
+import { deliverFrame, readChannelAnswer } from "@mpu/language/frames";
 import { ChannelReach, type Reach } from "./reach.ts";
 import type { Link, Session } from "./sessions.ts";
 

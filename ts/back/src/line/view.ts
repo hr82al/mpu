@@ -9,7 +9,7 @@ import {
   type Outcome,
   Refusal,
   throughGate,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import {
   type Address,
   CONFIRM,
@@ -17,7 +17,7 @@ import {
   REDIRECT,
   type Treatment,
 } from "../policy/mod.ts";
-import { ASK_WORD } from "../messages/mod.ts";
+import { ASK_WORD } from "@mpu/language/messages";
 
 export { ASK_WORD };
 

@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
-import { STOP } from "../frames/mod.ts";
+import { STOP } from "@mpu/language/frames";
 
 const argsSchema = z.object({});
 

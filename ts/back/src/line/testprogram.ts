@@ -11,15 +11,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
-import type { PictureData, RefusalData } from "../frames/mod.ts";
+import type { PictureData, RefusalData } from "@mpu/language/frames";
 import {
   type InvokeCommand,
   type InvokeLog,
   NO_INVOKE_LOG,
 } from "../invokelog/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
-import { GRAMMAR } from "../messages/mod.ts";
-import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
+import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";

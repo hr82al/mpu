@@ -7,8 +7,8 @@
 
 import { readFile, realpath, stat } from "node:fs/promises";
 import { configHomeDir } from "../env/mod.ts";
-import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
-import { ASK_WORD, GRAMMAR, MessageParseError } from "../messages/mod.ts";
+import { NotUtf8, utf8Of, wordsOf } from "@mpu/language/frames";
+import { ASK_WORD, GRAMMAR, MessageParseError } from "@mpu/language/messages";
 import { hasErrorCode } from "@mpu/base/oserror";
 import {
   type Doc,
@@ -19,8 +19,8 @@ import {
   Refusal,
   RefusalNotice,
   type Refused,
-} from "../objects/mod.ts";
-import { Misstep, textAt } from "../program/mod.ts";
+} from "@mpu/language/objects";
+import { Misstep, textAt } from "@mpu/language/program";
 import type { Line } from "./dispatch.ts";
 import type { LineStdin } from "./value.ts";
 

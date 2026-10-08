@@ -4,7 +4,7 @@
  */
 
 import { copyToClipboard } from "./src/clipboard/mod.ts";
-import type { CallerFacts } from "../back/src/frames/mod.ts";
+import type { CallerFacts } from "@mpu/language/frames";
 import { openControllingTerminal } from "./src/terminal/mod.ts";
 import { writeSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -13,7 +13,7 @@ import process from "node:process";
 import { buffer } from "node:stream/consumers";
 import { setTimeout as sleep } from "node:timers/promises";
 import { isatty } from "node:tty";
-import { SESSION_ENV } from "../back/src/frames/mod.ts";
+import { SESSION_ENV } from "@mpu/language/frames";
 import { CHANNEL_WORDS, runChannel } from "./src/channel/mod.ts";
 import { type ClientEnv, runClient } from "./src/mod.ts";
 

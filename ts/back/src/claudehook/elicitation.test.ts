@@ -19,7 +19,7 @@ import { ElicitationDesk, NO_ELICITATION_DESK } from "./elicitation_desk.ts";
 import { DISK_FILES, Transcripts } from "./transcript.ts";
 import { type CallerEnv, NO_WINDOWS } from "./window.ts";
 import { sessionKeyOf, Sessions } from "./sessions.ts";
-import { SESSION_ENV } from "../frames/mod.ts";
+import { SESSION_ENV } from "@mpu/language/frames";
 import { TestClock } from "./testclock.ts";
 
 const OWNER = 111;

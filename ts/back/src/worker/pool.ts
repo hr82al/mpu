@@ -14,7 +14,7 @@ import type {
   Naming,
   Params,
   ProgramEnd,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import { unlaunched } from "./death.ts";
 import type { Launcher } from "./launch.ts";
 import { LineWorker, type WorkerParts } from "./lineworker.ts";

@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
-import { type Outcome, type Report, runChain } from "../objects/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
+import { type Outcome, type Report, runChain } from "@mpu/language/objects";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Line } from "./dispatch.ts";

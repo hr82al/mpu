@@ -5,7 +5,7 @@
  * всегда 0.
  */
 
-import { PERMISSION_REQUEST } from "../frames/mod.ts";
+import { PERMISSION_REQUEST } from "@mpu/language/frames";
 import { DECIDED, type HookReply, type HookSpeech } from "./reply.ts";
 
 /** Решение Claude Code о вызове. */

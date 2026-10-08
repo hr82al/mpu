@@ -7,14 +7,14 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import { UsageError } from "../command/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import {
   GroupExit,
   type Outcome,
   Refusal,
   Rejection,
   type ValueEvaluation,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 
 /** Итог группы: как кончилась строка и что она напечатала в stdout. */
 export interface GroupRun {

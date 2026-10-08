@@ -15,7 +15,7 @@ import {
   storedName,
 } from "./definition.ts";
 import type { ImageMethod } from "./method.ts";
-import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
+import { NotUtf8, utf8Of, wordsOf } from "@mpu/language/frames";
 import { hasErrorCode } from "@mpu/base/oserror";
 
 /** Хэш отсутствующей стороны — null-объект решения: sha256 пустым не бывает. */

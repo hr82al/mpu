@@ -7,9 +7,9 @@
 import { describe, expect, it } from "vitest";
 import { BY_RULES } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import type { RefusalData } from "../frames/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
-import { runChain } from "../objects/mod.ts";
+import type { RefusalData } from "@mpu/language/frames";
+import { GRAMMAR } from "@mpu/language/messages";
+import { runChain } from "@mpu/language/objects";
 import { NOBODY, RuleBook } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";

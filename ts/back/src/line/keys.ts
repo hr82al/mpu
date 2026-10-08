@@ -11,7 +11,7 @@ import type {
   InputSpec,
   KeyRename,
 } from "../command/mod.ts";
-import { GRAMMAR, type KeyKind, type KeyValue } from "../messages/mod.ts";
+import { GRAMMAR, type KeyKind, type KeyValue } from "@mpu/language/messages";
 import {
   type Args,
   atAddress,
@@ -26,7 +26,7 @@ import {
   type Trace,
   UNDERSTOOD_NOT,
   unknownKey,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 import type { Order } from "./order.ts";
 import { type Chosen, Variant } from "./variants.ts";
 

@@ -5,7 +5,7 @@
  */
 
 import { expect, it } from "vitest";
-import { MAX_STDIN_BYTES } from "../../back/src/frames/mod.ts";
+import { MAX_STDIN_BYTES } from "@mpu/language/frames";
 import { runClient } from "./client.ts";
 import { type Script, testEnv, withFakeServer, within } from "./testkit.ts";
 

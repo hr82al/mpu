@@ -1,6 +1,9 @@
 /**
  * Копии эталонов объектов в `testdata/` обязаны совпадать с каналом
  * спецификаций байт-в-байт.
+ *
+ * Копия лежит в пакете `tslibs/language`, а сверка — здесь, у владельца
+ * канала: пакет канала не видит (`platform/tslibs-package.md`, [S.1]).
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -24,7 +27,10 @@ const channelDir = new URL(
   "../../../docs/specs/fixtures/objects/",
   import.meta.url,
 );
-const copyDir = new URL("testdata/objects/", import.meta.url);
+const copyDir = new URL(
+  "../../../../tslibs/language/src/objects/testdata/objects/",
+  import.meta.url,
+);
 
 describe("копии эталонов объектов совпадают с каналом", () => {
   for (const name of FIXTURES) {

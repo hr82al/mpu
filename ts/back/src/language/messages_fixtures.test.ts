@@ -1,6 +1,9 @@
 /**
  * Копия эталона в `testdata/` обязана совпадать с каналом спецификаций
  * байт-в-байт: иначе тесты молча проходят на устаревшей копии.
+ *
+ * Копия лежит в пакете `tslibs/language`, а сверка — здесь, у владельца
+ * канала: пакет канала не видит (`platform/tslibs-package.md`, [S.1]).
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -12,7 +15,10 @@ const channelDir = new URL(
   "../../../docs/specs/fixtures/messages/",
   import.meta.url,
 );
-const copyDir = new URL("testdata/messages/", import.meta.url);
+const copyDir = new URL(
+  "../../../../tslibs/language/src/messages/testdata/messages/",
+  import.meta.url,
+);
 
 describe("копия эталона сообщений совпадает с каналом", () => {
   for (const name of FIXTURES) {

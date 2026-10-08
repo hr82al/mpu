@@ -23,8 +23,8 @@ import {
   resultData,
   selecting,
   type Source,
-} from "../objects/mod.ts";
-import { NO_PICTURE, type Picture } from "../picture/mod.ts";
+} from "@mpu/language/objects";
+import { NO_PICTURE, type Picture } from "@mpu/language/picture";
 
 export {
   DomainError,

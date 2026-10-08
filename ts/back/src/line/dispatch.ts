@@ -1,4 +1,4 @@
-import type { Data, Outcome, Report } from "../objects/mod.ts";
+import type { Data, Outcome, Report } from "@mpu/language/objects";
 import type { Change, RulePath } from "../policy/mod.ts";
 import type { Order } from "./order.ts";
 import type { View } from "./view.ts";

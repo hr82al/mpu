@@ -4,7 +4,7 @@
  * ответу не принадлежит: у строки хука он всегда 0.
  */
 
-import { PRE_TOOL_USE } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "@mpu/language/frames";
 
 /** Куда ответ печатает себя: stdout — решение, stderr — его отсутствие. */
 export interface HookSpeech {

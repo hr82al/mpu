@@ -4,7 +4,7 @@
  */
 
 import type { Delivery } from "../entrypoint/mod.ts";
-import type { Picture } from "../picture/mod.ts";
+import type { Picture } from "@mpu/language/picture";
 
 /** Куда строка складывает картинки результатов. */
 export interface Pictures {

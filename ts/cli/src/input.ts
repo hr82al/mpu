@@ -12,7 +12,7 @@ import {
   isBareLine,
   NotUtf8,
   utf8Of,
-} from "../../back/src/frames/mod.ts";
+} from "@mpu/language/frames";
 
 /** Что клиент отвечает на кадр `stdinRequest`. */
 export interface ClientInput {

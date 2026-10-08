@@ -7,7 +7,7 @@
 
 import { assert, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { PERMISSION_REQUEST } from "../../back/src/frames/mod.ts";
+import { PERMISSION_REQUEST } from "@mpu/language/frames";
 import { withBack } from "../../back/src/backend/testback.ts";
 import {
   FakeBot,

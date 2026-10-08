@@ -11,7 +11,7 @@ import {
   type PictureData,
   type RefusalData,
   type ServerFrame,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import type { Caller } from "./caller.ts";
 import type { Door } from "./door.ts";
 import type { Asking, Delivery } from "./line.ts";

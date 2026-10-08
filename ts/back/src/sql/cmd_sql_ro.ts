@@ -8,7 +8,7 @@
  */
 
 import { defineCommand, items } from "../command/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { SQL_ITEMS } from "./items.ts";
 import { renderOutcome } from "./render.ts";
 import {

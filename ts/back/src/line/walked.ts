@@ -5,7 +5,7 @@
  */
 
 import { JSON_FLAG } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 
 /** Граница, до которой ищется общий `--json`: первый `--`. */

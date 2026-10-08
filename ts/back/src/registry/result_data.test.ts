@@ -11,8 +11,8 @@ import {
   type Outcome,
   runChain,
   SELECTABLE,
-} from "../objects/mod.ts";
-import { said } from "../objects/testtree.ts";
+} from "@mpu/language/objects";
+import { said } from "@mpu/language/testing";
 import { findCommand } from "./mod.ts";
 
 /** Аргументы вызова там, где пустые не проходят разбор команды. */

@@ -7,7 +7,8 @@
 
 import { assert, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { STOP, VERSION } from "../../back/src/frames/mod.ts";
+import { STOP } from "@mpu/language/frames";
+import { VERSION } from "../../back/src/version.ts";
 import {
   type TestBack,
   withBack,

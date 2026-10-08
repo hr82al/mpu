@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { PRE_TOOL_USE } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "@mpu/language/frames";
 import {
   COMPOUND,
   EXPANSION,

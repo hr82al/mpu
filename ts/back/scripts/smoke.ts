@@ -36,7 +36,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { VERSION } from "../src/version.ts";
-import { GRAMMAR } from "../src/messages/mod.ts";
+import { GRAMMAR } from "@mpu/language/messages";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "@mpu/http";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";

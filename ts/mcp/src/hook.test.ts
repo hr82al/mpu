@@ -13,7 +13,7 @@ import {
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
   STOP,
-} from "../../back/src/frames/mod.ts";
+} from "@mpu/language/frames";
 import { call, withClient, withStack } from "./testkit.ts";
 
 it("S22: тул mpu со словами хука — вход не разобран, код 0", () =>

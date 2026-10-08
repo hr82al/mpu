@@ -5,7 +5,7 @@
  * Дополнение не падает: нет ни того, ни другого — нет вариантов, код 0.
  */
 
-import { VERSION } from "../../back/src/frames/mod.ts";
+import { VERSION } from "../../back/src/version.ts";
 import { fromSnapshot, printed } from "./complete.ts";
 import type { Choice } from "./tree.ts";
 import { initScript, SHELL_NAMES, shellOf } from "./init.ts";

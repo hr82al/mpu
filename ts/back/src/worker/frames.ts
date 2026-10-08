@@ -4,9 +4,14 @@
  * границы — разбираются здесь один раз, дальше идут значениями типов.
  */
 
-import { isRecord, parsedJson } from "../frames/json.ts";
-import { BadFrame, type RefusalData, refusalOf } from "../frames/mod.ts";
-import type { LineReply, MethodSource } from "../program/mod.ts";
+import {
+  BadFrame,
+  isRecord,
+  parsedJson,
+  type RefusalData,
+  refusalOf,
+} from "@mpu/language/frames";
+import type { LineReply, MethodSource } from "@mpu/language/program";
 
 /**
  * Что исполнить: путь команды, её аргументы, каталог строки и поля

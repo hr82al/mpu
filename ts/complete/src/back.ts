@@ -5,7 +5,7 @@
  * снимок. Клиент минимальный: один POST и чтение кадров контрактом.
  */
 
-import { BadFrame, serverFrameOf } from "../../back/src/frames/mod.ts";
+import { BadFrame, serverFrameOf } from "@mpu/language/frames";
 import type { Choice } from "./tree.ts";
 
 /** Что клиенту нужно снаружи: адрес, токен, сеть и срок ответа. */

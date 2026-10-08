@@ -18,7 +18,7 @@ import {
   callContextOf,
   inputOnRequest,
   type LineInput,
-} from "../frames/mod.ts";
+} from "@mpu/language/frames";
 import { programCommands } from "../line/mod.ts";
 import {
   DEFAULT_PACE_MS,
@@ -27,7 +27,7 @@ import {
   namingOf,
   paramsOf,
   runProgram,
-} from "../program/mod.ts";
+} from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
 import { callIo } from "./callio.ts";
 import {

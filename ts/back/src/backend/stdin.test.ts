@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MAX_STDIN_BYTES } from "../frames/mod.ts";
+import { MAX_STDIN_BYTES } from "@mpu/language/frames";
 import { CANCELLED_CODE } from "./stopping.ts";
 import {
   Client,

@@ -18,7 +18,7 @@ import {
   type VariantLine,
   type VariantMethod as VariantMethodOf,
   wholeLine,
-} from "../objects/mod.ts";
+} from "@mpu/language/objects";
 
 /** Вид отказа: вариант набран после ключей. */
 const AFTER_KEYS = "вариант — до ключей";

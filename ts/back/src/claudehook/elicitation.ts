@@ -18,7 +18,7 @@ import {
   TAKES_TEXT,
   type TextRule,
 } from "../botquestions/mod.ts";
-import { ELICITATION } from "../frames/mod.ts";
+import { ELICITATION } from "@mpu/language/frames";
 import { type Fields, isFields } from "./fields.ts";
 import { projectOf } from "./places.ts";
 import {
