@@ -1,0 +1,2 @@
+broken-fixture · вне git
+  отказ: конфигурация проекта tsconfig.json не разбирается: File '@nowhere/base.json' not found.

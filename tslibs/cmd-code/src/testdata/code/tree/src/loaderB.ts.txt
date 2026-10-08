@@ -1,0 +1,12 @@
+// Похожий близнец №2: тело loaderA без комментария и с другим литералом.
+export function utcDayList(from: string, to: string): string[] {
+  const start = Date.parse(from);
+  if (Number.isNaN(start)) {
+    throw new Error('buyout window is not a date');
+  }
+  const days: string[] = [];
+  for (const d = new Date(start); d.getTime() <= Date.parse(to); d.setUTCDate(d.getUTCDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}

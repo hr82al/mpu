@@ -1,0 +1,37 @@
+{
+  "id" : "3458764682192590530",
+  "links" : {
+    "self" : "https://api.miro.com/v2/boards/uXjVJqkHSQc%3D/connectors/3458764682192590530"
+  },
+  "startItem" : {
+    "links" : {
+      "self" : "https://api.miro.com/v2/boards/uXjVJqkHSQc%3D/items/3458764682192590497"
+    },
+    "id" : "3458764682192590497"
+  },
+  "endItem" : {
+    "links" : {
+      "self" : "https://api.miro.com/v2/boards/uXjVJqkHSQc%3D/items/3458764682192590519"
+    },
+    "id" : "3458764682192590519"
+  },
+  "createdAt" : "2026-08-31T08:19:31Z",
+  "createdBy" : {
+    "id" : "3458764573044865760",
+    "type" : "user"
+  },
+  "modifiedAt" : "2026-08-31T08:19:31Z",
+  "modifiedBy" : {
+    "id" : "3458764573044865760",
+    "type" : "user"
+  },
+  "shape" : "curved",
+  "style" : {
+    "startStrokeCap" : "none",
+    "endStrokeCap" : "stealth",
+    "strokeWidth" : "1.0",
+    "strokeStyle" : "normal",
+    "strokeColor" : "#000000"
+  },
+  "type" : "connector"
+}

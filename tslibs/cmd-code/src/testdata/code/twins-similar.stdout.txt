@@ -1,0 +1,13 @@
+fixture · вне git · разбор по типам — ответ полон
+
+utcDayList (from: string, to: string): string[]
+
+побайтово: 1
+  src/loaderA.ts:2  utcDayList
+
+похоже: 1
+  src/loaderB.ts:2  utcDayList
+    разница: комментарий снят; литерал 'accrual window is not a date' против 'buyout window is not a date'
+
+не разрешено: 1
+  src/broken.ts:3 → ./nowhere — модуль не найден

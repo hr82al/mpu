@@ -1,0 +1,13 @@
+// Похожий близнец №1: отличается от loaderB комментарием и литералом.
+export function utcDayList(from: string, to: string): string[] {
+  const start = Date.parse(from);
+  if (Number.isNaN(start)) {
+    throw new Error('accrual window is not a date');
+  }
+  // Шаг — следующий календарный день, а не «+86400000 мс».
+  const days: string[] = [];
+  for (const d = new Date(start); d.getTime() <= Date.parse(to); d.setUTCDate(d.getUTCDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}

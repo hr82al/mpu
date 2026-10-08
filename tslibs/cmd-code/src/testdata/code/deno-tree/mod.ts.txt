@@ -1,0 +1,3 @@
+// Вход проекта объявлен полем exports конфигурации Deno, а не index.ts:
+// на этом виде проекта вход находится иначе, чем на tsconfig-проекте.
+export { addDays } from './src/days.ts';

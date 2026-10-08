@@ -1,0 +1,13 @@
+deno-fixture · вне git · разбор по типам — ответ полон
+
+addDays (day: string, count: number): string
+  экспортируется из модуля и из входа проекта
+
+потребители: 3 файла
+  mod.ts:3
+  src/seed_test.ts:3
+  src/window.ts:3
+
+не разрешено: 2
+  src/broken.ts:2 → ./nowhere.ts — модуль не найден
+  src/ext.ts:3 → @std/assert — модуль не найден

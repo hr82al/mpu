@@ -1,0 +1,9 @@
+// Побайтовый близнец №3 и тестовая обвязка, которую шаблон «**/*.spec.ts»
+// не описывает вовсе: в Deno тесты называются *_test.ts.
+import { addDays } from './days';
+
+export function daySeries(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
+  return days;
+}

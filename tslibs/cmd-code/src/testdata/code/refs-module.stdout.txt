@@ -1,0 +1,9 @@
+fixture · вне git · разбор по типам — ответ полон
+
+модуль src/window.ts
+
+читатели: 1 файл
+  src/index.ts:4
+
+не разрешено: 1
+  src/broken.ts:3 → ./nowhere — модуль не найден

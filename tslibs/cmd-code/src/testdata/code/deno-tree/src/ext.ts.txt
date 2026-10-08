@@ -1,0 +1,5 @@
+// Внешний пакет: компилятор его не разрешает, и он попадает в раздел
+// «не разрешено» поимённо — на перечень потребителей это не влияет.
+import { assertEquals } from '@std/assert';
+
+export const same = (a: string, b: string): void => assertEquals(a, b);

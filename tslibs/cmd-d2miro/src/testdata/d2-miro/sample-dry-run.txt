@@ -1,0 +1,13 @@
+[warn] in d2 source but not in SVG: ['card']
+[info] sample.d2: 5 shapes, 5 edges, 1 markdown blocks; viewBox 478x1146 -> frame 478x1418 (scale=1.000)
+[dry-run] would create:
+  shape(rectangle)     loader  kind=rectangle
+  shape(can)           mart  kind=cylinder
+  shape(rectangle)     recalc  kind=rectangle
+  shape(rectangle)     recalc.check  kind=rectangle
+  shape(rectangle)     recalc.report  kind=rectangle
+  edge   recalc.check -> recalc.report  label=''
+  edge   loader -> mart  label='пишет'
+  edge   mart -> loader  label='курсор'
+  edge   mart -> recalc.check  label=''
+  edge   recalc.report -> card  label=''

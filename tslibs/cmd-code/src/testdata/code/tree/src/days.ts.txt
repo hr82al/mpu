@@ -1,0 +1,11 @@
+// Объявляет символ, вокруг которого построены сценарии «кто ссылается».
+export function addDays(day: string, count: number): string {
+  const date = new Date(`${day}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + count);
+  return date.toISOString().slice(0, 10);
+}
+
+// Ширина окна, обе границы включительно (+1). Тёзка живёт в span.ts.
+export function spanDays(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+}
