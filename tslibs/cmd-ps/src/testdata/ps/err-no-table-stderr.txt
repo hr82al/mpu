@@ -1,0 +1,1 @@
+mpu ps: SQLite error: no such table: portainer_containers — запусти `mpu init`
