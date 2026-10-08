@@ -181,7 +181,7 @@ export const STAND_WARMUP_LINES =
   "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
 
 /** Доска из пути `/api/latest/boards/<id>/<что>`; путь не тот — undefined. */
-function boardOf(pathname: string, what: string): string | undefined {
+export function boardOf(pathname: string, what: string): string | undefined {
   const match = new RegExp(`^/api/latest/boards/(\\d+)/${what}$`).exec(
     pathname,
   );

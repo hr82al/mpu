@@ -7,6 +7,7 @@
 
 export {
   API_KEY,
+  boardOf,
   containersResponse,
   endpointsResponse,
   envFileFake,
