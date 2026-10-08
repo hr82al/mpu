@@ -19,15 +19,15 @@ import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,
   kitenFieldSetCommand,
 } from "./mod.ts";
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
 const CARD_ID = 10000001;

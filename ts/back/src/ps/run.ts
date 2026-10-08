@@ -11,11 +11,11 @@ import {
   type CommandIo,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { escapeLike, LIKE_ESCAPE, requirePortainer } from "../exec/mod.ts";
 import { containerName, listContainers, PortainerError } from "@mpu/portainer";
 import type { RequestTimeouts } from "@mpu/http";
-import { type CacheReader, resolveSelector } from "../selector/mod.ts";
+import { type CacheReader, resolveSelector } from "@mpu/command/selector";
 
 /**
  * Пределы HTTP-запроса (спека, «Конфигурация»): соединение — 10 секунд,

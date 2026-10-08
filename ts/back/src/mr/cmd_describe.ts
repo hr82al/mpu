@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { updateDescription } from "@mpu/gitlab";
 import { type BodyIo, commentBody, stripAssistantFooter } from "./body.ts";
 import {

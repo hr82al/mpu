@@ -9,7 +9,7 @@
  * ограничила бы операцию сегодняшним размером листа.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { columnNumber } from "./a1.ts";
 
 /** Лист таблицы глазами компилятора: имя и его id. */

@@ -5,12 +5,12 @@
  */
 
 import { deepStrictEqual } from "node:assert/strict";
-import type { CacheDb, CommandIo } from "../command/mod.ts";
+import type { CacheDb, CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
-import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
+import { fakeConfigDb, makeFakeIo } from "@mpu/command/testing";
 import { SETUP_TEXT } from "./texts.ts";
 
 export interface Run {

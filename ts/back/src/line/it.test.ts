@@ -5,11 +5,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { findCommand } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { LastResults, type Memory } from "./it.ts";
 import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";

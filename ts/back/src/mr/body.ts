@@ -12,7 +12,7 @@
  * должен увидеть символ в символ.
  */
 
-import { type CommandIo, UsageError } from "../command/mod.ts";
+import { type CommandIo, UsageError } from "@mpu/command";
 
 /** Срез порта: файл тела и stdin. */
 export type BodyIo = Pick<CommandIo, "readTextFile" | "readStdin">;

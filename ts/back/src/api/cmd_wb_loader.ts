@@ -20,8 +20,8 @@ import {
   DomainError,
   items,
   UsageError,
-} from "../command/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+} from "@mpu/command";
+import type { CacheReader } from "@mpu/command/selector";
 import type { SlbackSession } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";

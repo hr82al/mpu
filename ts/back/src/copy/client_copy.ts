@@ -9,7 +9,7 @@
  * две реализации разошлись бы и в нём.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import {
   type SqlSession,
   type Statement,

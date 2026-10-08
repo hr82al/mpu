@@ -8,7 +8,7 @@
  * накапливаются в порядке появления.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { quoteTab } from "./a1.ts";
 import { splitScript, tokenize, unquote } from "./script.ts";
 

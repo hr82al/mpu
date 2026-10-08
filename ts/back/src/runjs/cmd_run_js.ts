@@ -4,7 +4,7 @@
  * (`platform/exec-transport.md`); здесь поверхность команды.
  */
 
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { argsSchema, resultSchema, type RunJsIo, runRunJs } from "./run.ts";
 
 export const runJsCommand = defineCommand({

@@ -7,7 +7,7 @@
 
 import { expect, it } from "vitest";
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { nativeEntry } from "./native_tool.ts";
 
 const probe = defineCommand({

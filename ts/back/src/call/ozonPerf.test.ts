@@ -10,9 +10,9 @@
  */
 
 import { assert, expect, it } from "vitest";
-import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
+import { DomainError, formatCommandError, UsageError } from "@mpu/command";
 import type { OpenSession } from "../sql/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import {
   EXCHANGE_EACH_CALL,

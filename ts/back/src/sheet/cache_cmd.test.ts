@@ -12,9 +12,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { type CacheDb, UsageError } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { type CacheDb, UsageError } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { infoKey, writeTab } from "./cache.ts";
 import { sheetCacheClearCommand, sheetCacheInfoCommand } from "./cmd_cache.ts";
 

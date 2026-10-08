@@ -5,12 +5,7 @@
  * строки прежней диспетчеризации и теста полноты.
  */
 
-import type {
-  Command,
-  CommandMode,
-  InputSpec,
-  KeyRename,
-} from "../command/mod.ts";
+import type { Command, CommandMode, InputSpec, KeyRename } from "@mpu/command";
 import { GRAMMAR, type KeyKind, type KeyValue } from "@mpu/language/messages";
 import {
   type Args,

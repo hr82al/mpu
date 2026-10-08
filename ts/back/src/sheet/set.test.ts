@@ -17,9 +17,9 @@ import {
   DomainError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { infoKey, writeTab } from "./cache.ts";
 import { runSet, sheetSetCommand } from "./cmd_set.ts";
 

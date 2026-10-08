@@ -13,7 +13,7 @@
  * схем вида `schema_<N>`.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import {
   SL0_CLIENT_TABLES,
   SL1_CLIENT_TABLES,

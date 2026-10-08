@@ -6,8 +6,8 @@
  */
 
 import { expect, it } from "vitest";
-import type { EnvFile } from "../command/mod.ts";
-import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
+import type { EnvFile } from "@mpu/command";
+import { makeFakeIo, promptAnswering } from "@mpu/command/testing";
 import { runTelegramLogin } from "./telegram.ts";
 
 it("вход при init: сбой криптографии — пропуск с текстом спеки", async () => {

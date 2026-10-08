@@ -6,7 +6,7 @@
  * аргументов и диапазон `--limit` отбиваются до открытия сеанса.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { inputError } from "./errors.ts";
 import { parsePeer, type Peer } from "@mpu/telegram";
 

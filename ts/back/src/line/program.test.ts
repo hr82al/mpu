@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { GRAMMAR } from "@mpu/language/messages";
-import { DENY, RuleBook, RulePath } from "../policy/mod.ts";
+import { DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import golden from "./testdata/evaluator/cases.json" with { type: "json" };
 import { programPolicy } from "./program.ts";
 import { registrySeeds } from "./seeds.ts";

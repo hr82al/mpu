@@ -24,7 +24,7 @@ import {
   PolicyError,
   REDIRECT,
   type Ruling,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import type { Reach } from "@mpu/language/program";
 import type { Speech } from "./printed.ts";
 import { ARGS } from "./tree.ts";

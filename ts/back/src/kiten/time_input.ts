@@ -8,7 +8,7 @@
  * рядом, в `./msk.ts`.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Перечень принятых форм — он же хвост двух текстов отказа. */
 const DURATION_FORMS = "3h | 1h15m | 1:15 | 90 (минуты) | 2.5h";

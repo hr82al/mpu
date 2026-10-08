@@ -11,7 +11,7 @@ import { createServer } from "node:net";
 import { expect, it } from "vitest";
 import { listenLoopback } from "@mpu/testing";
 import { rulesOf } from "../line/mod.ts";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { makeDenoIo, secretText, tokenFile } from "../runtime/mod.ts";
 import { VERSION } from "../version.ts";

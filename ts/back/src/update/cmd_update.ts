@@ -13,7 +13,7 @@ import {
   type CommandIo,
   defineCommand,
   DomainError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { DEFAULT_TIMEOUTS, firstLine, type RequestTimeouts } from "@mpu/http";
 import { collectLokiSeries, requireLokiAccess } from "@mpu/loki";
 import { writeLokiCache } from "../loki/mod.ts";

@@ -14,7 +14,7 @@ import { rejected } from "@mpu/testing/thrown";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import {
   type CacheDb,
   type CommandIo,
@@ -23,8 +23,8 @@ import {
   formatCommandError,
   UsageError,
   VerbatimError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { runSql, type SqlArgs, type SqlResult } from "./mod.ts";
 import { sqlRoCommand } from "./cmd_sql_ro.ts";
 import type { SqlOutcome } from "./render.ts";

@@ -8,18 +8,21 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { openTempCache, type TempCache } from "../testing/cache.ts";
+import {
+  makeFakeIo,
+  openTempCache,
+  type TempCache,
+} from "@mpu/command/testing";
 import { rejected } from "@mpu/testing/thrown";
 import {
   type CacheDb,
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { PortainerAccess, PortainerContainer } from "@mpu/portainer";
 import { PortainerError } from "@mpu/portainer";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import { psCommand } from "./cmd_ps.ts";
 import { type PsArgs, type PsIo, type PsOptions, runPs } from "./run.ts";
 

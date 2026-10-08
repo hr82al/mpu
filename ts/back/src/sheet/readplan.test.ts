@@ -5,7 +5,7 @@
 
 import { expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { planRead } from "./readplan.ts";
 
 it("инструкции сливаются в один план, опции — последнее слово", () => {

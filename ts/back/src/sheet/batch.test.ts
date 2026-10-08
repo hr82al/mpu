@@ -17,9 +17,9 @@ import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { writeTab } from "./cache.ts";
 import { runBatchGet } from "./cmd_batch_get.ts";
 import {

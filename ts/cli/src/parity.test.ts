@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import type { CommandIo } from "../../back/src/command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { IN_PLACE, type InvokeJournal } from "../../back/src/entrypoint/mod.ts";
 import {
   immediately,
@@ -20,13 +20,8 @@ import {
   rulesOf,
 } from "../../back/src/line/mod.ts";
 import { withPolicyFile } from "../../back/src/line/testconsent.ts";
-import {
-  Agent,
-  type Channel,
-  Human,
-  NOBODY,
-} from "../../back/src/policy/mod.ts";
-import { makeFakeIo } from "../../back/src/testing/mod.ts";
+import { Agent, type Channel, Human, NOBODY } from "@mpu/command/policy";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";
 import { testEnv } from "./testkit.ts";

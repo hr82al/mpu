@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
 import { openFixture } from "./testing.ts";
 import type { Repo } from "./workspace.ts";

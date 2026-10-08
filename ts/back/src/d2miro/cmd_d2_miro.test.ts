@@ -7,8 +7,8 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { DomainError, NotFoundIoError, UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { DomainError, NotFoundIoError, UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import type { D2MiroEnv } from "./env.ts";
 import { runD2MiroWith } from "./cmd_d2_miro.ts";
 
@@ -55,7 +55,7 @@ function makeIo(
       get: (name) => keys[name],
       values: () => ({ ...keys }),
       // Текст платформенный — команда только меняет класс ошибки, и в
-      // фейке он повторён дословно (`src/env/mod.ts`, «Ввод/вывод»):
+      // фейке он повторён дословно (`@mpu/command/env`, «Ввод/вывод»):
       // иначе проверка кода выхода прошла бы на своём же тексте.
       require: (name) => {
         const value = keys[name];

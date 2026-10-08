@@ -15,7 +15,7 @@ import {
   NotFoundIoError,
   readTextStdin,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   createCardComment,
   createCardCommentWithFiles,

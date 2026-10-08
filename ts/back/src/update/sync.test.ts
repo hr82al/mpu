@@ -11,11 +11,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
-import { plainRows } from "../testing/cache.ts";
+import { fakeTimers } from "../vitest/scope.ts";
+import { plainRows } from "@mpu/command/testing";
 import { rejected } from "@mpu/testing/thrown";
-import { openCacheDb } from "../store/mod.ts";
-import type { CacheDb } from "../command/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import type { CacheDb } from "@mpu/command";
 import type { PgRow } from "./cache.ts";
 import {
   ClientNotFoundError,

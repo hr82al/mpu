@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { GRAMMAR } from "@mpu/language/messages";
 import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import {
   ALLOW,
@@ -18,8 +18,8 @@ import {
   RuleBook,
   RulePath,
   type Verdict,
-} from "../policy/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command/policy";
+import { makeFakeIo } from "@mpu/command/testing";
 import { lineEntry, policyTree, registryNodes } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import {

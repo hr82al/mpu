@@ -16,8 +16,8 @@ import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { parseRecords } from "./parse.ts";
 import { type LogArgs, runLog } from "./cmd_log.ts";
 

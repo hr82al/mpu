@@ -13,7 +13,7 @@ import {
   type OwnerQuestions,
   REAL_CLOCK,
 } from "../botquestions/mod.ts";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import {
   type HookPayload,
   notificationMovesOn,

@@ -15,13 +15,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { Command } from "../command/mod.ts";
-import {
-  formatCommandError,
-  UsageError,
-  VerbatimError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import type { Command } from "@mpu/command";
+import { formatCommandError, UsageError, VerbatimError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   documentFile,
   type MessageFile,

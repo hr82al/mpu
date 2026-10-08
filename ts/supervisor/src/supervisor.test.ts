@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { statSync } from "node:fs";
-import { runTs } from "../../back/src/testing/runts.ts";
+import { runTs } from "@mpu/command/testing";
 import {
   type Clock,
   KILL_AFTER_MS,

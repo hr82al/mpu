@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { NO_ONE, type Prompt } from "../command/mod.ts";
+import { NO_ONE, type Prompt } from "@mpu/command";
 import { type LoginClient, TelegramError } from "@mpu/telegram";
 import {
   API_HASH_KEY,

@@ -7,18 +7,18 @@ import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
+import { fakeTimers } from "../vitest/scope.ts";
 import { rejected } from "@mpu/testing/thrown";
 import {
   type Answer,
   type CommandIo,
   VerbatimError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { MarkerDir, NO_MARKERS } from "./death.ts";
 import { LineWorker, STOP_GRACE_MS, WorkerStopped } from "./lineworker.ts";
 import { ScriptedWorker } from "./testworker.ts";

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
 import { devTarget, type PgTarget, routeOf, serverTarget } from "./target.ts";
 
 /** Env-файл фейком: только чтение, значения теста. */

@@ -1,5 +1,5 @@
 import type { Data, Outcome, Report } from "@mpu/language/objects";
-import type { Change, RulePath } from "../policy/mod.ts";
+import type { Change, RulePath } from "@mpu/command/policy";
 import type { Order } from "./order.ts";
 import type { View } from "./view.ts";
 

@@ -8,7 +8,7 @@ import {
   NotFoundIoError,
   readTextStdin,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { loadWorkbook } from "./book.ts";
 import { resolvePath } from "./settings.ts";
 import { pathNotSetError } from "./resolve.ts";

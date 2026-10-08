@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
 import { ProjectBuildError } from "./project.ts";
 import { parseAddress } from "./address.ts";
 import { renderMark, renderMarkOnly } from "./mark.ts";

@@ -1,1 +1,0 @@
-mpu confirm: отменено — pipe прерван.

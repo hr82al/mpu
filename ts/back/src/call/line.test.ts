@@ -12,7 +12,7 @@ import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
 import { GRAMMAR } from "@mpu/language/messages";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 
 interface Ran {
   readonly code: number;

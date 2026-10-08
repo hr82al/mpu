@@ -7,9 +7,9 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { lokiBody, withFakeLoki } from "../logs/testloki.ts";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import {
   collected,
   type Frame,

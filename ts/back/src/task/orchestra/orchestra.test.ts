@@ -4,7 +4,7 @@
  */
 
 import { assert, expect, it, vi } from "vitest";
-import { fakeTimers } from "../../testing/scope.ts";
+import { fakeTimers } from "../../vitest/scope.ts";
 import { withStand } from "../teststand.ts";
 import { RESUME_LINE } from "./letter.ts";
 import { demo, ENTER, LETTER_DIR, Rig, shellWords } from "./teststage.ts";

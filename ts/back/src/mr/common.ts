@@ -9,7 +9,7 @@
  * селектора.
  */
 
-import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
+import { type CommandIo, DomainError, UsageError } from "@mpu/command";
 import {
   DEFAULT_BASE_URL,
   DiscussionRefError,
@@ -22,7 +22,7 @@ import {
   type RunGit,
   spawnGit,
 } from "@mpu/gitlab";
-import { envFilePath } from "../env/mod.ts";
+import { envFilePath } from "@mpu/command/env";
 
 /** Срез порта: env-файл (доступ) и каталог вызова (git-резолв). */
 export type MrIo = Pick<CommandIo, "envFile" | "env" | "cwd">;

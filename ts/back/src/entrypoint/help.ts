@@ -5,7 +5,7 @@
  * краток, листовой полон.
  */
 
-import type { Command, InputSpec, SchemaField } from "../command/mod.ts";
+import type { Command, InputSpec, SchemaField } from "@mpu/command";
 
 /** Строка индекса: имя сегмента и его однострока. */
 export interface IndexEntry {

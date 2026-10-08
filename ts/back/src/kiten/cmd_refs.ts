@@ -18,7 +18,7 @@ import {
   type CommandIo,
   defineCommand,
   DomainError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   type Board,
   getCurrentUser,

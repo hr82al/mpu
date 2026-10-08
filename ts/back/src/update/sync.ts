@@ -11,7 +11,7 @@
  * реализация порта.
  */
 
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 import { firstLine } from "@mpu/http";
 import {
   type ClientRow,

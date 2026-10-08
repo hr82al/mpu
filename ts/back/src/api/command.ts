@@ -17,7 +17,7 @@ import {
   DomainError,
   type KeyRename,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { SlbackError } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import {

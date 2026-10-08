@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { isQuoted, splitScript, tokenize, unquote } from "./script.ts";
 
 const texts = (source: string) => splitScript(source).map((i) => i.text);

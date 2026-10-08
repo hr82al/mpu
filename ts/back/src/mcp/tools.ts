@@ -8,7 +8,7 @@
  * маршрута подпроцесса больше нет (порция 97).
  */
 
-import type { Command, Policy } from "../command/mod.ts";
+import type { Command, Policy } from "@mpu/command";
 import { asDestructive, type Profile, type ToolEntry } from "./tool.ts";
 import { nativeEntry } from "./native_tool.ts";
 // Закрытый список публикации читается из канала спецификаций

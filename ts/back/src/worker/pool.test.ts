@@ -7,9 +7,9 @@
 
 import { expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { findCommand } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type Launcher, MemoryLauncher, NO_MARKERS, Workers } from "./mod.ts";
 import { ScriptedLauncher, ScriptedWorker } from "./testworker.ts";
 import { within } from "../backend/testback.ts";

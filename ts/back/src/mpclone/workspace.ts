@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { Disk } from "./ports.ts";
 
 /**

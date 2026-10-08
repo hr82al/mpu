@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import {
   buildLogQl,
   parseSince,

@@ -5,7 +5,7 @@
  */
 
 import type { z } from "zod";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { type CallArgs, pathArgs } from "./args.ts";
 
 /** Куда уходит запрос. */

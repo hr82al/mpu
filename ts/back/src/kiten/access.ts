@@ -8,7 +8,7 @@
  * мест правки при изменении класса ошибки или текста подсказки.
  */
 
-import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
+import { type CommandIo, DomainError, UsageError } from "@mpu/command";
 import {
   type KaitenAccess,
   KaitenError,

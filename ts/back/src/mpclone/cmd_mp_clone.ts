@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import {
   type Clock,
   type Disk,

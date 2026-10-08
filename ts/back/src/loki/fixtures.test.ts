@@ -6,8 +6,7 @@
  * перечитывает.
  *
  * Тест на файл, а не на каталог: имя разошедшегося эталона должно быть
- * видно из отчёта, без запуска diff'а вручную. Калька с
- * `src/env/fixtures.test.ts` и `src/store/fixtures.test.ts`.
+ * видно из отчёта, без запуска diff'а вручную.
  */
 
 import { readdir, readFile } from "node:fs/promises";

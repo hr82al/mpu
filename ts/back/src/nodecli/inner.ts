@@ -7,7 +7,7 @@
  * здесь, в одном месте: разойтись режимам нельзя (инвариант спеки).
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /**
  * Допустимые символы значения (`SafeToken` глоссария). Значение

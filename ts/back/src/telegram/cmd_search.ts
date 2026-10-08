@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
 import { findMessages, SCAN_CAP, type SearchClient } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
 import { asCommand } from "./errors.ts";

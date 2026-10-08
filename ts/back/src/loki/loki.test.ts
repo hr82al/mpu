@@ -10,8 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { plainRows } from "../testing/cache.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { plainRows } from "@mpu/command/testing";
+import { openCacheDb } from "@mpu/command/store";
 import { writeLokiCache } from "./mod.ts";
 
 /** Временная кэш-БД с готовой схемой; уборка каталога — в `finally`. */

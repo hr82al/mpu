@@ -1,1 +1,0 @@
-mpu sql-ro: email 'nosuch@example.com' не в кэше; сначала запусти: mpu search nosuch@example.com

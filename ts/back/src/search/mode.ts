@@ -40,7 +40,7 @@ export function modeOf(inputs: ModeInputs): SearchMode {
   return "local";
 }
 
-import { isSidLike } from "../selector/mod.ts";
+import { isSidLike } from "@mpu/command/selector";
 
 /** Email ли селектор: та же маска, что выбирает email-предикат резолва. */
 export function isEmail(value: string): boolean {

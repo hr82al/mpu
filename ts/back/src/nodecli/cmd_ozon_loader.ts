@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { type Command, defineCommand, UsageError } from "../command/mod.ts";
+import { type Command, defineCommand, UsageError } from "@mpu/command";
 import {
   commonArgs,
   commonArgsOf,

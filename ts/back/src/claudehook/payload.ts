@@ -12,7 +12,7 @@
  * второе событие того же хука, и дёшево должно стать именно оно.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /**
  * Предел длины текста `sendMessage` у Bot API. Единица счёта —

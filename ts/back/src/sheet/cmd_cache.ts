@@ -16,7 +16,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { cacheReady, cacheState, dropInfo, dropTabs } from "./cache.ts";
 import { targetOf } from "./sources.ts";
 

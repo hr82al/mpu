@@ -21,9 +21,9 @@ import {
   type CommandIo,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
+import { openCacheDb } from "@mpu/command/store";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { mskStamp } from "./msk.ts";
 import { kitenCloseCommand } from "./mod.ts";

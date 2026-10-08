@@ -10,7 +10,7 @@
  * различать их оператор должен по сообщению, а не по догадке.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { SqlSession } from "../sql/session.ts";
 
 /**

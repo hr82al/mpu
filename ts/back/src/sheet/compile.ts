@@ -10,7 +10,7 @@
  * состоянию таблицы, снятому до компиляции.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { cellValue, color, condition, number, styleOf } from "./format.ts";
 import { columnNumber } from "./a1.ts";
 import {

@@ -5,8 +5,8 @@
  */
 
 import { expect, it, vi } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
-import { ASK, NOT_CONFIRMED, RuleBook, RulePath } from "../policy/mod.ts";
+import { fakeTimers } from "../vitest/scope.ts";
+import { ASK, NOT_CONFIRMED, RuleBook, RulePath } from "@mpu/command/policy";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import { Lines } from "./limit.ts";
 import {

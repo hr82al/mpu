@@ -5,8 +5,8 @@
  * соседнего модуля.
  */
 
-import type { CommandIo } from "../command/mod.ts";
-import { aliases, configValue, readPreferences } from "../config/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { aliases, configValue, readPreferences } from "@mpu/command/config";
 import { type ResolveReport, resolveXlsxPath } from "./resolve.ts";
 
 /**

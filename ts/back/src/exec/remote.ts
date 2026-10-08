@@ -9,7 +9,7 @@
  */
 
 import * as exec from "@mpu/exec";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 
 /** Код выхода удалённой команды; отказ транспорта — `DomainError`. */
 export async function runOverPortainer(

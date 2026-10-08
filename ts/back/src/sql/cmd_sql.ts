@@ -9,7 +9,7 @@
  * команды: `--dry` — превью, не защита.
  */
 
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
 import { renderOutcome } from "./render.ts";
 import {

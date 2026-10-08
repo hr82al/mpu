@@ -8,15 +8,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { makeDenoIo } from "../runtime/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { CAPTION_LIMIT, logMessage, telegramLogCommand } from "./cmd_log.ts";
 
 const command: Command = telegramLogCommand;

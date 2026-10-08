@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 
 /** Путь команды: по нему ядро узнаёт строку синхронизации. */
 export const SYNC_PATH: readonly string[] = ["image", "sync"];

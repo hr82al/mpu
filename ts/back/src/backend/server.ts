@@ -8,7 +8,7 @@ import { stat } from "node:fs/promises";
 import process from "node:process";
 import { Hono } from "hono";
 import { hasBearer, LOOPBACK_ORIGINS } from "@mpu/base/access";
-import type { CommandIo, RemoteOutput } from "../command/mod.ts";
+import type { CommandIo, RemoteOutput } from "@mpu/command";
 import {
   type InvokeLog,
   type InvokeRecording,

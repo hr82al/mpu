@@ -5,7 +5,7 @@
  * (`platform/store.md`) её не содержит и не правится.
  */
 
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 import { type Body, Card } from "./card.ts";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS telegram_questions (

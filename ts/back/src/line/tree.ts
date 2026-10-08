@@ -31,7 +31,7 @@ import {
   type VariantLine,
   wordListing,
 } from "@mpu/language/objects";
-import { PolicyError, type RuleBook } from "../policy/mod.ts";
+import { PolicyError, type RuleBook } from "@mpu/command/policy";
 import { programHelp } from "@mpu/language/program";
 import {
   childrenOf,

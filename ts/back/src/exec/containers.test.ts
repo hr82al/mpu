@@ -9,9 +9,9 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CacheDb } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { heldScope } from "../testing/scope.ts";
+import type { CacheDb } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { heldScope } from "../vitest/scope.ts";
 import {
   containerLocations,
   containerNamesLike,

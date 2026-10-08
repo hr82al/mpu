@@ -6,7 +6,7 @@
  * решает ключ своего получателя.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { Received, Signed, Wire } from "./transport.ts";
 
 /** Замена ключа в любом выводе. */

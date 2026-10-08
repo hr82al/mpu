@@ -14,7 +14,7 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runTs } from "../../back/src/testing/runts.ts";
+import { runTs } from "@mpu/command/testing";
 import { SYSTEM_PROCS, systemHands, Watchdog } from "./mod.ts";
 
 const MIB = 1024 * 1024;

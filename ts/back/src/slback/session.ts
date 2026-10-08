@@ -13,7 +13,7 @@ import {
   openSlback as openSession,
   type SlbackSession,
 } from "@mpu/slback";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { slbackBaseUrl, slbackCredentials } from "./config.ts";
 
 /** Срез io команды: env-файл и обе стороны кэша токена. */

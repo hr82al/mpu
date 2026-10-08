@@ -4,7 +4,7 @@
  * (`platform/exec-transport.md`); здесь только поверхность команды.
  */
 
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { argsSchema, resultSchema, runSsh, type SshIo } from "./run.ts";
 
 export const sshCommand = defineCommand({

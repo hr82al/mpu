@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, items, UsageError } from "../command/mod.ts";
+import { defineCommand, items, UsageError } from "@mpu/command";
 import { discussions, mergeRequest } from "@mpu/gitlab";
 import {
   asCommandError,

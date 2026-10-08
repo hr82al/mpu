@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import { normalizeInside } from "./address.ts";
 import { scopeText, treeMarkOf } from "./answer.ts";
 import { renderUnresolved } from "./cmd_refs.ts";

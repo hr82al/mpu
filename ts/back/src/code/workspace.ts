@@ -9,7 +9,7 @@
 
 import { readdirSync, statSync } from "node:fs";
 import { hasErrorCode } from "@mpu/base/oserror";
-import { VerbatimError } from "../command/mod.ts";
+import { VerbatimError } from "@mpu/command";
 import { gitTreeMark, type MarkSource, type RunGit } from "./mark.ts";
 
 /** Файл, по которому опознаётся корень рабочей области. */

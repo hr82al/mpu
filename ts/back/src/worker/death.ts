@@ -7,7 +7,7 @@
  */
 
 import { readFile, rm, stat } from "node:fs/promises";
-import { VerbatimError } from "../command/mod.ts";
+import { VerbatimError } from "@mpu/command";
 import { hasErrorCode } from "@mpu/base/oserror";
 
 /** Как кончился процесс исполнителя. */

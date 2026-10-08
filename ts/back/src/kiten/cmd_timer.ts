@@ -20,7 +20,7 @@ import {
   defineCommand,
   DomainError,
   record,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   getCard,
   type KaitenAccess,

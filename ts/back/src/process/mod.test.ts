@@ -6,7 +6,7 @@
 
 import { expect, it } from "vitest";
 import type { InvokeCommand, InvokeLog } from "../invokelog/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type CliEntry, runJournaled } from "./mod.ts";
 
 /** Журнал, который только помнит, о чём его просили. */

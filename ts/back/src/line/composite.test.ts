@@ -8,7 +8,7 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import {
   COMPOSITE_DIR,
   compositeFiles,

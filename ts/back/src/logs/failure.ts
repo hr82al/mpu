@@ -8,7 +8,7 @@
  * есть: подменять чужую ошибку своим текстом — терять причину.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { LokiError, LokiHttpError } from "@mpu/loki";
 import { PortainerError } from "@mpu/portainer";
 

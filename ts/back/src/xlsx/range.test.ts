@@ -8,7 +8,7 @@ import {
   type RangeTarget,
   resolveArea,
 } from "./range.ts";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 function area(
   startCol?: number,

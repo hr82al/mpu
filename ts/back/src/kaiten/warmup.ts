@@ -26,7 +26,7 @@ import {
   listUserRoles,
   type Space,
 } from "@mpu/kaiten";
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 
 /**
  * Строка пространства в кэше: вложенных досок в ней нет — они уходят своей

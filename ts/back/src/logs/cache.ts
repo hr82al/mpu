@@ -8,7 +8,7 @@
  * своим текстом («запусти `mpu init`»), а не сырое «no such table».
  */
 
-import type { CacheDb, CommandIo, SqlParam, SqlRow } from "../command/mod.ts";
+import type { CacheDb, CommandIo, SqlParam, SqlRow } from "@mpu/command";
 
 /** Адрес Docker API сервера: environment Portainer и его база. */
 export interface PortainerTarget {

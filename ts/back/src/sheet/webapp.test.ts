@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { backoffMs, callWebapp, type WebappDeps } from "./webapp.ts";
 
 /** Подставной канал: отдаёт заготовленные ответы по порядку. */

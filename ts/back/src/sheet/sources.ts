@@ -9,8 +9,8 @@ import {
   NotFoundIoError,
   readTextStdin,
   UsageError,
-} from "../command/mod.ts";
-import { configValue } from "../config/mod.ts";
+} from "@mpu/command";
+import { configValue } from "@mpu/command/config";
 import { resolveTarget, type Target, type TargetSources } from "./target.ts";
 
 /** Срез порта: кэш-БД, env-файл, локальные настройки и stdin. */

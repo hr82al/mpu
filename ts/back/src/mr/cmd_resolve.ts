@@ -10,7 +10,7 @@
  */
 
 import { z } from "zod";
-import { type Command, defineCommand, DomainError } from "../command/mod.ts";
+import { type Command, defineCommand, DomainError } from "@mpu/command";
 import {
   discussions,
   matchDiscussion,

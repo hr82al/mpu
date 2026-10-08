@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import {
   formatCommandError,
   UsageError,
   VerbatimUsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { foundMessage, noFile, type RawMessage, SCAN_CAP } from "@mpu/telegram";
 import {
   runTelegramSearch,

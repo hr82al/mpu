@@ -5,8 +5,8 @@
  * данными, stderr хода — как есть.
  */
 
-import type { CommandIo } from "../command/mod.ts";
-import { UsageError } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { UsageError } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
 import {
   GroupExit,

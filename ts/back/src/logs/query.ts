@@ -5,7 +5,7 @@
  * запрос воспроизводим в тестах побайтово.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Единицы относительного `--since` и их длительность в миллисекундах. */
 const UNITS: Readonly<Record<string, number>> = {

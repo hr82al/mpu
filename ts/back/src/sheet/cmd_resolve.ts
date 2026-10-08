@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { housekeeping } from "./cache.ts";
 import { cacheSettings } from "./settings.ts";
 import { type SheetIo, targetOf } from "./sources.ts";

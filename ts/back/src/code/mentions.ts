@@ -19,7 +19,7 @@ import {
   TRUNCATION_NOTE,
   unresolvedSchema,
 } from "./answer.ts";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { hasErrorCode } from "@mpu/base/oserror";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";

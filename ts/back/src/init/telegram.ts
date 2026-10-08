@@ -14,7 +14,7 @@
  * возвращает причину пропуска либо `null`.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { loginFailureReason, runTelegramLoginStep } from "../telegram/mod.ts";
 
 /** Срез порта: ровно то, что нужно самому входу. */

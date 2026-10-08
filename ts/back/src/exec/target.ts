@@ -10,10 +10,10 @@
  * больше не жалуется от чужого имени (спека, «Известные отклонения»).
  */
 
-import { type EnvFile, UsageError } from "../command/mod.ts";
+import { type EnvFile, UsageError } from "@mpu/command";
 import type { PortainerTarget, SshTarget } from "@mpu/exec";
 import type { PortainerAccess } from "@mpu/portainer";
-import type { CacheReader } from "../selector/mod.ts";
+import type { CacheReader } from "@mpu/command/selector";
 import {
   type ContainerLocation,
   serverCliContainer,

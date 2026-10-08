@@ -6,8 +6,8 @@
  * `--dry` тем и ценен, что показывает ровно то, что ушло бы серверу.
  */
 
-import { UsageError } from "../command/mod.ts";
-import { type Candidate, formatCandidates } from "../selector/mod.ts";
+import { UsageError } from "@mpu/command";
+import { type Candidate, formatCandidates } from "@mpu/command/selector";
 import { localDate } from "@mpu/base/dates";
 
 /** Суффикс даты: ровно восемь цифр, `YYYYMMDD`. */

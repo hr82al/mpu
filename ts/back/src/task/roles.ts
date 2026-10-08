@@ -5,7 +5,7 @@
  * трогает.
  */
 
-import type { CacheDb, SqlRow } from "../command/mod.ts";
+import type { CacheDb, SqlRow } from "@mpu/command";
 import { TaskUsage } from "./refusal.ts";
 
 /** Таблицы ролей: создаются вместе с журналом (`Projects.open`). */

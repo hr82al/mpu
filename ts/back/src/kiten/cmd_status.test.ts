@@ -20,10 +20,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { CommandIo } from "../command/mod.ts";
-import { UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
+import { openCacheDb } from "@mpu/command/store";
 import { startFakeKaiten } from "@mpu/kaiten/testing";
 import type {
   Activity,

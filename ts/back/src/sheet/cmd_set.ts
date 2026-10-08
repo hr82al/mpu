@@ -16,7 +16,7 @@ import {
   defineCommand,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { formatRange, parseRange, type Range } from "./a1.ts";
 import { housekeeping, invalidateTabs } from "./cache.ts";
 import { printJson } from "./emit.ts";

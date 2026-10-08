@@ -15,8 +15,8 @@ import {
   type CommandIo,
   defineCommand,
   VerbatimError,
-} from "../command/mod.ts";
-import { type CacheReader, resolveSelector } from "../selector/mod.ts";
+} from "@mpu/command";
+import { type CacheReader, resolveSelector } from "@mpu/command/selector";
 import {
   DbError,
   denoSession,

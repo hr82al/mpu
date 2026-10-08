@@ -13,7 +13,7 @@
  * прямом вызове.
  */
 
-import type { InputSpec } from "../command/mod.ts";
+import type { InputSpec } from "@mpu/command";
 import { appendRecord } from "./file.ts";
 import {
   commandLine,

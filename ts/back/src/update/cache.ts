@@ -8,7 +8,7 @@
  * дело `sync.ts`.
  */
 
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 
 /** Значение колонки в выборке PG. */
 export type PgValue = string | number | boolean | null;

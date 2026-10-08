@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import lockfile from "proper-lockfile";
-import { runTs } from "../testing/runts.ts";
+import { runTs } from "@mpu/command/testing";
 import { appendRecord, LOCK_NAME } from "./file.ts";
 
 /** Временный каталог журнала с уборкой; путь файла — внутри него. */

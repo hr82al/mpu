@@ -5,7 +5,7 @@
  * эталон схемы кэш-БД (`platform/store.md`) их не содержит.
  */
 
-import type { CacheDb, SqlRow } from "../command/mod.ts";
+import type { CacheDb, SqlRow } from "@mpu/command";
 import {
   DECIDING,
   type Kind,

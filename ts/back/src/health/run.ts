@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
+import { type CommandIo, DomainError, UsageError } from "@mpu/command";
 import { requirePortainer } from "../exec/mod.ts";
 import type { RequestTimeouts } from "@mpu/http";
 import {
@@ -14,7 +14,7 @@ import {
   listContainers,
   PortainerError,
 } from "@mpu/portainer";
-import { type CacheReader, resolveSelector } from "../selector/mod.ts";
+import { type CacheReader, resolveSelector } from "@mpu/command/selector";
 import { classify, type Row } from "./classify.ts";
 
 /**

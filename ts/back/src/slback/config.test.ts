@@ -5,7 +5,7 @@
 
 import { expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { DomainError, type EnvFile } from "../command/mod.ts";
+import { DomainError, type EnvFile } from "@mpu/command";
 import { slbackBaseUrl, slbackCredentials } from "./mod.ts";
 
 function envOf(values: Readonly<Record<string, string>>): EnvFile {

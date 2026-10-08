@@ -10,11 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { CacheDb, Command, CommandIo } from "../command/mod.ts";
-import { formatCommandError, UsageError } from "../command/mod.ts";
+import type { CacheDb, Command, CommandIo } from "@mpu/command";
+import { formatCommandError, UsageError } from "@mpu/command";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   kitenMoveCommand,
   kitenReadyCommand,

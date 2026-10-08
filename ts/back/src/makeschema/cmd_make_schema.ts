@@ -14,14 +14,14 @@ import {
   type CommandIo,
   defineCommand,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { type RunProcess, spawnProcess } from "../exec/mod.ts";
 import {
   type CacheReader,
   type Candidate,
   formatCandidates,
   resolveSelector,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 
 const argsSchema = z.object({
   selector: z

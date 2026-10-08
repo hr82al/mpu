@@ -8,7 +8,7 @@
  * сумму колонки ВРЕМЯ, и путать их нельзя.
  */
 
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 import type {
   Activity,
   CardSummary,

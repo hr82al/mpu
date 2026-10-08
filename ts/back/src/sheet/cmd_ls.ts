@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, items } from "../command/mod.ts";
+import { type CommandIo, defineCommand, items } from "@mpu/command";
 import { housekeeping, type TabInfo } from "./cache.ts";
 import { tabsOf } from "./read.ts";
 import type { WebappDeps } from "./webapp.ts";

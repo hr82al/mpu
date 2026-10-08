@@ -30,7 +30,7 @@ import {
   EmptyRulePath,
   FORGET,
   RulePath,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import type { Line } from "./dispatch.ts";
 import { POLICY_SELECTOR } from "./seeds.ts";
 

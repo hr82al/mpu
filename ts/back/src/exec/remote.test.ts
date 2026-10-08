@@ -6,7 +6,7 @@
 import { ExecError, type PortainerRun } from "@mpu/exec";
 import { rejected } from "@mpu/testing/thrown";
 import { expect, it } from "vitest";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { detachOverPortainer, runOverPortainer } from "./remote.ts";
 
 /** Цель, до которой дело не дойдёт: граница HTTP подменена. */

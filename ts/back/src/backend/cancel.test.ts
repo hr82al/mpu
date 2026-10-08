@@ -11,9 +11,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { serveFetch } from "@mpu/testing";
-import type { CommandIo } from "../command/mod.ts";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { ASK, RuleBook, RulePath } from "@mpu/command/policy";
+import { openCacheDb } from "@mpu/command/store";
 import { CANCELLED_CODE, Stopping } from "./stopping.ts";
 import {
   Client,

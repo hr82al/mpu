@@ -16,7 +16,7 @@
  * (`platform/command-contract.md`).
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
@@ -44,7 +44,7 @@ import { logCommand } from "../log/mod.ts";
 import { psCommand } from "../ps/mod.ts";
 import { searchCommand } from "../search/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
-import { jsdateCommand } from "../jsdate/mod.ts";
+import { jsdateCommand } from "@mpu/command/jsdate";
 import { sshCommand } from "../ssh/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
 import {
@@ -117,7 +117,7 @@ import {
   copyDevCommand,
   copySharedCommand,
 } from "../copy/mod.ts";
-import { configCommand } from "../config/cmd_config.ts";
+import { configCommand } from "@mpu/command/config";
 import { imageSyncCommand } from "../image/cmd_sync.ts";
 import { imageExportCommand } from "../image/cmd_export.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
@@ -148,7 +148,7 @@ import {
   mrUnresolveCommand,
   mrViewCommand,
 } from "../mr/mod.ts";
-import { confirmCommand } from "../confirm/mod.ts";
+import { confirmCommand } from "@mpu/command/confirm";
 import { sunCommand } from "../sun/mod.ts";
 import { taskCommands } from "../task/mod.ts";
 import { ozonCommands, ozonPerfCommands, wbCommands } from "../call/mod.ts";

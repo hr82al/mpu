@@ -4,7 +4,7 @@
  * которого изменить правило нельзя ни при каком ответе.
  */
 
-import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
+import { Agent, type Channel, Human, NOBODY } from "@mpu/command/policy";
 import type { RootMethod } from "../line/mod.ts";
 import {
   FileOutlet,

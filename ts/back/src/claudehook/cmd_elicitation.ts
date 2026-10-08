@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { ELICITATION } from "@mpu/language/frames";
 import { DEADLINE_MS, HOOK_TIMEOUT_S } from "./desk.ts";
 

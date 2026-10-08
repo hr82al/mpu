@@ -9,14 +9,14 @@
  * добавлении.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import {
   type CacheReader,
   type Candidate,
   isSidLike,
   searchCandidates,
   type ServerAddresses,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 
 /**
  * 25 загрузчиков в порядке реестра (спека, «Загрузчики и причины»).

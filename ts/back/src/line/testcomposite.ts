@@ -7,7 +7,7 @@
 
 import { readdir } from "node:fs/promises";
 import type { RefusalData } from "@mpu/language/frames";
-import { ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import {
   type Frame,

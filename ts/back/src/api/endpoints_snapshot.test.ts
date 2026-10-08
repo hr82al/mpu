@@ -27,7 +27,7 @@ import writeFixture from "../../../docs/specs/fixtures/api/write-endpoints.json"
 };
 import { type EndpointSpec, PATH_ARG_HELP } from "./endpoint.ts";
 import { apiCommands } from "./mod.ts";
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import { READ_ENDPOINTS } from "./endpoints.ts";
 import { WRITE_ENDPOINTS } from "./endpoints_write.ts";
 

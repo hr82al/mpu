@@ -13,7 +13,7 @@ import {
   defineCommand,
   UsageError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { NoTabError, parseRange, type Range } from "./a1.ts";
 import { housekeeping } from "./cache.ts";
 import { type Layer, readRanges } from "./read.ts";

@@ -1,7 +1,7 @@
 /** Команда `mpu xlsx open` — открыть книгу системным приложением. */
 
 import { z } from "zod";
-import { defineCommand, DomainError } from "../command/mod.ts";
+import { defineCommand, DomainError } from "@mpu/command";
 import { resolvePath } from "./settings.ts";
 import { pathNotSetError } from "./resolve.ts";
 

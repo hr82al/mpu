@@ -7,8 +7,8 @@
  * вызов не знал бы, чего в записи не хватает.
  */
 
-import type { CacheDb, SqlRow } from "../command/mod.ts";
-import { isMissingTable } from "../store/mod.ts";
+import type { CacheDb, SqlRow } from "@mpu/command";
+import { isMissingTable } from "@mpu/command/store";
 
 /** Лист в кэше: два слоя и фактические границы. */
 export interface TabPayload {

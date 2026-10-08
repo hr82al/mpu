@@ -12,9 +12,9 @@ import {
   type EnvFile,
   VerbatimError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { commandError } from "./errors.ts";
 
 describe("отказ библиотеки — классом контракта команды", () => {
@@ -39,7 +39,7 @@ describe("отказ библиотеки — классом контракта 
 
 /**
  * Env-файл без ключей: обязательный ключ отказывает классом и текстом
- * настоящего env-файла (`env/mod.ts`).
+ * настоящего env-файла (`@mpu/command/env`).
  */
 function emptyEnv(): EnvFile {
   return {

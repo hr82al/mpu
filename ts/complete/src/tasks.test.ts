@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { withBack } from "../../back/src/backend/testback.ts";
-import { runTs } from "../../back/src/testing/runts.ts";
+import { runTs } from "@mpu/command/testing";
 
 it("процесс дополнения спрашивает back: вариант не из снимка", () =>
   withBack(async (back) => {

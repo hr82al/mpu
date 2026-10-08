@@ -8,7 +8,7 @@
  * способ позвать себя.
  */
 
-import { type CommandIo, readTextStdin, UsageError } from "../command/mod.ts";
+import { type CommandIo, readTextStdin, UsageError } from "@mpu/command";
 import { fileText, type SheetIo } from "./sources.ts";
 
 /** Срез порта пакетных команд: то же, что у чтения, плюс признак tty. */

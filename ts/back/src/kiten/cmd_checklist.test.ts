@@ -21,8 +21,8 @@ import {
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenChecklistAddCommand,

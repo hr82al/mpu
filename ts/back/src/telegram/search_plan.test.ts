@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { UsageError, VerbatimUsageError } from "../command/mod.ts";
+import { UsageError, VerbatimUsageError } from "@mpu/command";
 import { searchPlan } from "./search_plan.ts";
 
 async function golden(name: string): Promise<string> {

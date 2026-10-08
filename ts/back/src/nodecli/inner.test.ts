@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { formatCommandError, UsageError } from "../command/mod.ts";
+import { formatCommandError, UsageError } from "@mpu/command";
 import { type Flag, innerText, innerTokens } from "./inner.ts";
 
 function tokens(flags: readonly Flag[]): readonly string[] {

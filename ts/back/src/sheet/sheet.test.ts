@@ -18,10 +18,10 @@ import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { setConfigValue } from "../config/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { setConfigValue } from "@mpu/command/config";
+import { makeFakeIo } from "@mpu/command/testing";
 import { runGet, sheetGetCommand } from "./cmd_get.ts";
 import { runLs, sheetLsCommand } from "./cmd_ls.ts";
 import { sheetResolveCommand } from "./cmd_resolve.ts";

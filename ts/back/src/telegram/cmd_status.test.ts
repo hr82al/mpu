@@ -2,13 +2,13 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
-import type { CacheDb, Command, CommandIo } from "../command/mod.ts";
-import { VerbatimUsageError } from "../command/mod.ts";
+import { fakeTimers } from "../vitest/scope.ts";
+import type { CacheDb, Command, CommandIo } from "@mpu/command";
+import { VerbatimUsageError } from "@mpu/command";
 import { startFakeKaiten } from "@mpu/kaiten/testing";
 import { recordMove } from "../kiten/card_move.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { telegramStatusCommand } from "./cmd_status.ts";
 
 const command: Command = telegramStatusCommand;

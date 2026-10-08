@@ -15,7 +15,7 @@ import {
   DomainError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { parseD2 } from "./d2.ts";
 import { type D2MiroEnv, denoD2MiroEnv } from "./env.ts";
 import { MiroBoard, MiroError } from "./miro.ts";

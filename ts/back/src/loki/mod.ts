@@ -10,7 +10,7 @@
  */
 
 import type { LokiSeries } from "@mpu/loki";
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 
 /**
  * Полная перезапись обеих таблиц (`loki_hosts`, `loki_services_by_host`)

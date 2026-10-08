@@ -11,10 +11,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { type CacheDb, UsageError } from "../command/mod.ts";
+import { type CacheDb, UsageError } from "@mpu/command";
 import type { Column, KaitenAccess } from "@mpu/kaiten";
 import { startFakeKaiten } from "@mpu/kaiten/testing";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import {
   appliedOf,
   applyMove,

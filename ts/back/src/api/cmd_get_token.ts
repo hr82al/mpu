@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, DomainError } from "@mpu/command";
 import { NoAccessTokenError } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";

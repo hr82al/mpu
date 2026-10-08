@@ -10,8 +10,8 @@ import { assert, expect, it } from "vitest";
 import { Image } from "../image/mod.ts";
 import { makeInvokeLog } from "../invokelog/mod.ts";
 import { runLog } from "../log/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { ALLOW, DENY, RuleBook, RulePath } from "../policy/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
+import { ALLOW, DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import { type ImagePorts, registryNodes } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import {

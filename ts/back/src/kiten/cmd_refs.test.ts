@@ -19,16 +19,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { plainRows } from "../testing/cache.ts";
+import { makeFakeIo, plainRows } from "@mpu/command/testing";
 import {
   type Command,
   type CommandIo,
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
 import { startFakeKaiten } from "@mpu/kaiten/testing";
 import {
   kitenBoardsCommand,

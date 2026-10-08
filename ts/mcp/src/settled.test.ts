@@ -16,7 +16,7 @@ import {
   pressUpdate,
 } from "../../back/src/botquestions/testbot.ts";
 import { within } from "../../back/src/backend/testback.ts";
-import { ASK, RuleBook, RulePath } from "../../back/src/policy/mod.ts";
+import { ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import { call, connect, type Stack, withStack } from "./testkit.ts";
 import { SETTLED_ELSEWHERE } from "./tools.ts";
 

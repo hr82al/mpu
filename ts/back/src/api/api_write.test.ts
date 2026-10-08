@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { type Command, UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { type Command, UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   type CapturedRequest,
   loginReply,

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { childrenOf, commands, surfaces } from "./mod.ts";
 import { type Profile, profileTools } from "../mcp/mod.ts";
 import toolPolicies from "../../../docs/specs/fixtures/mcp-server/tool-policies.json" with {

@@ -12,7 +12,7 @@
  * остался бы на обоих серверах, и «перенос» стал бы тихим удвоением.
  */
 
-import { type CommandIo, UsageError } from "../command/mod.ts";
+import { type CommandIo, UsageError } from "@mpu/command";
 import {
   ambiguous,
   chooseTransport,
@@ -23,7 +23,7 @@ import {
   runOverSsh,
   type RunProcess,
 } from "../exec/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+import type { CacheReader } from "@mpu/command/selector";
 import type { ExecPlace } from "../exec/mod.ts";
 import { innerTokens } from "../nodecli/inner.ts";
 

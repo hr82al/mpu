@@ -5,13 +5,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { BY_RULES } from "../command/mod.ts";
+import { BY_RULES } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import type { RefusalData } from "@mpu/language/frames";
 import { GRAMMAR } from "@mpu/language/messages";
 import { runChain } from "@mpu/language/objects";
-import { NOBODY, RuleBook } from "../policy/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { NOBODY, RuleBook } from "@mpu/command/policy";
+import { makeFakeIo } from "@mpu/command/testing";
 import { lineEntry } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";

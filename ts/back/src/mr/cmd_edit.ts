@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, DomainError } from "../command/mod.ts";
+import { defineCommand, DomainError } from "@mpu/command";
 import { updateNote } from "@mpu/gitlab";
 import { type BodyIo, commentBody } from "./body.ts";
 import {

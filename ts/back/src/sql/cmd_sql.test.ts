@@ -18,8 +18,8 @@ import {
   formatCommandError,
   UsageError,
   VerbatimError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { sqlCommand } from "./cmd_sql.ts";
 import type { SqlOutcome } from "./render.ts";
 import { runSql, type SqlArgs, type SqlResult } from "./run.ts";

@@ -6,7 +6,7 @@
  */
 
 import process from "node:process";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import {
   type InvokeLog,

@@ -11,8 +11,8 @@ import {
   pressUpdate,
 } from "../botquestions/testbot.ts";
 import { Windows } from "../claudehook/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
-import { ALLOW, ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { ALLOW, ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import { violations } from "./testschema.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import {

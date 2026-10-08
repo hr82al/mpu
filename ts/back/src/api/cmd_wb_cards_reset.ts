@@ -10,14 +10,14 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import {
   type CacheReader,
   type Candidate,
   formatCandidates,
   isSidLike,
   searchCandidates,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import type { SlbackSession } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import { asDomainError } from "./command.ts";

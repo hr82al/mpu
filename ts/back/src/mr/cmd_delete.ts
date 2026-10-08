@@ -9,9 +9,9 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, DomainError } from "@mpu/command";
 import { deleteNote } from "@mpu/gitlab";
-import { isYes } from "../confirm/gate.ts";
+import { isYes } from "@mpu/command/confirm";
 import {
   asCommandError,
   gitlabAccess,

@@ -7,7 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { compileScript } from "./compile.ts";
 import { printJson } from "./emit.ts";
 import type { SheetRef } from "./grid.ts";

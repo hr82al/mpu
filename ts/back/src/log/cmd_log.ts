@@ -15,7 +15,7 @@ import {
   DomainError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { windowStart } from "@mpu/base/dates";
 import { DEFAULT_KEEP } from "../invokelog/mod.ts";
 import { type LogRecord, parseRecords } from "./parse.ts";

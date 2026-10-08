@@ -5,7 +5,7 @@
  */
 
 import { spawn } from "node:child_process";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { Program } from "@mpu/subprocess";
 import { type ExitStatus, killedStatus, type StopSignal } from "./death.ts";
 import { serveOne } from "./serve.ts";

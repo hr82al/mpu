@@ -7,7 +7,7 @@
 
 import { expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import {
   type EnvKeys,
   x10BaseUrl,

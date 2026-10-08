@@ -6,7 +6,7 @@
  * публичный, и знание адреса равносильно доступу к таблицам.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { firstLine, httpSend } from "@mpu/http";
 
 /** Предел времени одного запроса; webapp отвечает медленно. */

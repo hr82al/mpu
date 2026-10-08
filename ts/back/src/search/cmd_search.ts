@@ -9,13 +9,13 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import {
   ClientNotFoundError,
   runClientSync,
   runUpdate,
 } from "../update/mod.ts";
-import { searchCandidates } from "../selector/mod.ts";
+import { searchCandidates } from "@mpu/command/selector";
 import { effectiveScope, modeOf, type Scope } from "./mode.ts";
 import { localDate } from "@mpu/base/dates";
 import { type LocalIo, searchLocal, type SyncCache } from "./local.ts";

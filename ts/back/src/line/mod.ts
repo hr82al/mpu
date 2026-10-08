@@ -5,7 +5,7 @@
  * позволяют правила подтверждения (`platform/policy.md`).
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import {
   type HookReply,
   NO_DESK,
@@ -40,7 +40,7 @@ import {
   RuleBook,
   type RuleEntry,
   type Ruling,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { type CliEntry, runJournaled } from "../process/mod.ts";
 import {
   type LineReply,
@@ -58,7 +58,7 @@ import {
 } from "./program.ts";
 import { strippedOf, walkedWords } from "./walked.ts";
 import { openRegistryBook } from "./seeds.ts";
-import { targetValues } from "../selector/mod.ts";
+import { targetValues } from "@mpu/command/selector";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { type Pictures, picturing } from "./pictured.ts";
 import { printed, type Speech } from "./printed.ts";

@@ -11,12 +11,12 @@
  */
 
 import { assert, describe, expect, it } from "vitest";
-import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
+import { DomainError, formatCommandError, UsageError } from "@mpu/command";
 import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
 import type { OpenSession } from "../sql/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import type { CallArgs } from "./args.ts";
 import { READS } from "./reads.ts";

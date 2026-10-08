@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { EnvFile, Prompt } from "../command/mod.ts";
+import type { EnvFile, Prompt } from "@mpu/command";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo, promptQueue } from "../testing/mod.ts";
+import { makeFakeIo, promptQueue } from "@mpu/command/testing";
 import { rejected } from "@mpu/testing/thrown";
 import { telegramLoginCommand } from "./cmd_login.ts";
 

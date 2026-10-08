@@ -17,7 +17,7 @@
 
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
 import type { Address } from "./address.ts";
 import type { TreeMark } from "./mark.ts";
 import {

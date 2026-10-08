@@ -13,7 +13,7 @@ import {
   type Prompt,
   type RemoteOutput,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   callContextOf,
   inputOnRequest,

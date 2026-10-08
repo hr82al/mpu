@@ -15,7 +15,7 @@ import {
   defineCommand,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   deleteCardFile,
   getCard,

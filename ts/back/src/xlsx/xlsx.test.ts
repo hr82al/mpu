@@ -11,11 +11,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runCli } from "../entrypoint/mod.ts";
-import { type CommandIo, DomainError, type EnvFile } from "../command/mod.ts";
-import { setConfigValue } from "../config/mod.ts";
+import { type CommandIo, DomainError, type EnvFile } from "@mpu/command";
+import { setConfigValue } from "@mpu/command/config";
 import { makeDenoIo } from "../runtime/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { xlsxCommands } from "./mod.ts";
 
 /** Заглушка env-файла: значения из карты, `require`/`set` не ожидаются. */

@@ -14,9 +14,9 @@ import {
   formatCommandError,
   UsageError,
   VerbatimError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { DbError, type OpenSession } from "../sql/mod.ts";
 import { backupCommands, runBackup } from "./cmd_backup.ts";
 import { runCli } from "../entrypoint/mod.ts";

@@ -7,7 +7,7 @@
  * единственного места, где нужен webapp.
  */
 
-import { type CommandIo, readTextStdin, UsageError } from "../command/mod.ts";
+import { type CommandIo, readTextStdin, UsageError } from "@mpu/command";
 import { fileText, type SheetIo } from "./sources.ts";
 
 /** Как сервер должен понять значение. */

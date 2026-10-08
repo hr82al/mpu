@@ -6,8 +6,8 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
-import type { CommandIo } from "../command/mod.ts";
+import { fakeTimers } from "../vitest/scope.ts";
+import type { CommandIo } from "@mpu/command";
 import { rulesOf } from "../line/mod.ts";
 import {
   ASK,
@@ -15,7 +15,7 @@ import {
   NOT_CONFIRMED,
   RuleBook,
   RulePath,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { formFor } from "./http.ts";
 import { WHOLE } from "./outlet.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";

@@ -13,14 +13,9 @@ import { z } from "zod";
 import { runCli } from "../entrypoint/mod.ts";
 import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";
-import {
-  type Command,
-  defineCommand,
-  DomainError,
-  NO_ONE,
-} from "../command/mod.ts";
+import { type Command, defineCommand, DomainError, NO_ONE } from "@mpu/command";
 import { commands } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type InvokeLog, makeInvokeLog } from "./mod.ts";
 
 /** Стенд: журнал поверх временного файла и вывод, который он копирует. */

@@ -4,7 +4,7 @@
  * правил, изменение правила — только ответ человека.
  */
 
-import type { Command, Consent } from "../command/mod.ts";
+import type { Command, Consent } from "@mpu/command";
 import type { Delivery } from "../entrypoint/mod.ts";
 import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import {
@@ -21,7 +21,7 @@ import {
   type RuleBook,
   type RulePath,
   type Ruling,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";
 import { selectorFirstWriters } from "./seeds.ts";

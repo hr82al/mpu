@@ -5,7 +5,7 @@
  * чистый: все источники передаются параметрами.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Идентификатор источника пути. */
 export type SourceKind = "flag" | "env" | "config";

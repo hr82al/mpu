@@ -24,10 +24,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { plainRows } from "../testing/cache.ts";
+import { plainRows } from "@mpu/command/testing";
 import { serveFetch } from "@mpu/testing";
 import { KAITEN_TIMEOUTS, type KaitenAccess, KaitenError } from "@mpu/kaiten";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import {
   collectKaitenWarmup,
   DEFAULT_KAITEN_LIMITS,

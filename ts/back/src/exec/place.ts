@@ -10,14 +10,14 @@
  * ошибки вызвавшей.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { containerLocations } from "./containers.ts";
 import type { ExecPlace } from "./target.ts";
 import {
   type CacheReader,
   resolveSelector,
   type ServerAddresses,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 
 /** Префикс dev-стенда и допустимые формы его хвоста. */
 const DEV_PREFIX = "dev:";

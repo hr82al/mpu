@@ -18,7 +18,7 @@ import {
   DomainError,
   readTextStdin,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   type Card,
   type Column,

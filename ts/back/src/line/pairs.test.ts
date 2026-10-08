@@ -8,11 +8,11 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import type { Command, InputSpec } from "../command/mod.ts";
+import type { Command, InputSpec } from "@mpu/command";
 import { shellCommand } from "../exec/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { type Outcome, type Report, runChain } from "@mpu/language/objects";
-import { RuleBook } from "../policy/mod.ts";
+import { RuleBook } from "@mpu/command/policy";
 import { isProgram } from "@mpu/language/program";
 import { commands, findCommand } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";

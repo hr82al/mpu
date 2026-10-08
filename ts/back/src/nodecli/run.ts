@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { type CacheDb, type CommandIo, UsageError } from "../command/mod.ts";
+import { type CacheDb, type CommandIo, UsageError } from "@mpu/command";
 import {
   chooseTransport,
   devCliContainer,
@@ -26,7 +26,7 @@ import {
   type Candidate,
   formatCandidates,
   resolveSelector,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import {
   type Flag,
   type InnerCommand,
@@ -430,7 +430,7 @@ function pickOf(
     `cannot resolve ${flag} from selector; pass ${flag}`,
     // Пустой список — отсутствие подробностей, а не пустая строка:
     // иначе за отказом печатается лишний перевод строки (приём
-    // `../selector/error.ts`).
+    // `tslibs/command/src/selector/error.ts`).
     { details: list === "" ? undefined : list.slice(0, -1) },
   );
 }

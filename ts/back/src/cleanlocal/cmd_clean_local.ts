@@ -17,7 +17,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import { openPgSession } from "../sql/pg.ts";
 import type { SqlOutcome } from "../sql/render.ts";
 import type { SqlSession } from "../sql/session.ts";

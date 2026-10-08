@@ -3,7 +3,7 @@
  * из объявления самой команды (`platform/command-contract.md`).
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import type { JsonSchema, Tool, ToolEntry } from "./tool.ts";
 import { fitDescription, toolName } from "./tool.ts";
 

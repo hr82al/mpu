@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 

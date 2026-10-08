@@ -9,10 +9,10 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 

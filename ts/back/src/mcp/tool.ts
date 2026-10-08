@@ -9,7 +9,7 @@
  * пометка журналу перестали быть необязательными.
  */
 
-import type { CommandIo, Policy } from "../command/mod.ts";
+import type { CommandIo, Policy } from "@mpu/command";
 import type { OutputPolicy } from "../invokelog/mod.ts";
 
 /** Профиль сервера: путь `/ro` или `/rw`. */

@@ -6,7 +6,7 @@
  */
 
 import { type HookReply, programUnseen } from "../claudehook/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { isBareLine, wordsOf } from "@mpu/language/frames";
 import { ASK_WORD, GRAMMAR } from "@mpu/language/messages";
 import {

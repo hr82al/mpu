@@ -5,7 +5,7 @@
  * кабинета, отправляет — `Wire`.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import type { Method } from "./reads.ts";
 import type { Reply } from "./reply.ts";
 

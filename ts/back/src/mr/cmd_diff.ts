@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, DomainError, items } from "../command/mod.ts";
+import { defineCommand, DomainError, items } from "@mpu/command";
 import { type ChangedFile, changedFiles } from "@mpu/gitlab";
 import {
   asCommandError,

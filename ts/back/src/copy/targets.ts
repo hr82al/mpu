@@ -8,8 +8,8 @@
  * ушла обратно в прод. Селектор влияет только на источник.
  */
 
-import { UsageError } from "../command/mod.ts";
-import type { EnvFile } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
+import type { EnvFile } from "@mpu/command";
 import type { PgTarget } from "../sql/mod.ts";
 
 /** Хост локальных приёмников; не настраивается (спека). */

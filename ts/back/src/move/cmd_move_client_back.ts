@@ -19,12 +19,12 @@ import {
   type CommandIo,
   defineCommand,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   type CacheReader,
   requireSingleClient,
   resolveSelector,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import { forgetMove, type Move, moveOf, moves } from "./journal.ts";
 import {
   putJob,

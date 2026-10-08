@@ -7,14 +7,14 @@
  */
 
 import { assert, describe, expect, it } from "vitest";
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import {
   type Outcome,
   type Report,
   runChain,
   type ValueEvaluation,
 } from "@mpu/language/objects";
-import { RuleBook } from "../policy/mod.ts";
+import { RuleBook } from "@mpu/command/policy";
 import { commands } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { addressesOf } from "./keyed.ts";

@@ -4,7 +4,7 @@
  * входа, а каждая подкоманда объявлена по контракту команды.
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import { lsCommand } from "./cmd_ls.ts";
 import { getCommand } from "./cmd_get.ts";
 import { openCommand } from "./cmd_open.ts";

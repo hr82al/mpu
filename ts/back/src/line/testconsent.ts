@@ -7,7 +7,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { IN_PLACE } from "../entrypoint/mod.ts";
-import { ALLOW, RulePath } from "../policy/mod.ts";
+import { ALLOW, RulePath } from "@mpu/command/policy";
 import {
   immediately,
   IN_PLACE_PROGRAMS,

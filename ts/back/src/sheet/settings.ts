@@ -7,8 +7,8 @@
  * чинит конфигурацию.
  */
 
-import { type CacheDb, type CommandIo, DomainError } from "../command/mod.ts";
-import { configValue } from "../config/mod.ts";
+import { type CacheDb, type CommandIo, DomainError } from "@mpu/command";
+import { configValue } from "@mpu/command/config";
 import type { CacheSettings } from "./cache.ts";
 
 /** Умолчания int-ключей кэша; их же показывает `mpu config`. */

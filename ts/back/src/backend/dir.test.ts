@@ -13,7 +13,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import { Client, type Frame, type TestBack, withBack } from "./testback.ts";
 
 /** Строка с собственным каталогом; кадры — до `exit`. */

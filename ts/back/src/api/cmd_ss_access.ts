@@ -19,7 +19,7 @@ import {
   defineCommand,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { SlbackSession } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import { slbackCredentials } from "../slback/config.ts";

@@ -6,9 +6,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { writeLokiCache } from "../loki/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import { serveFetch } from "@mpu/testing";
 
 /** Ответ `query_range`: потоки с метками и парами `[ts, строка]`. */

@@ -7,7 +7,7 @@
  * write-вариантом и лежит в `run.ts`.
  */
 
-import { defineCommand, items } from "../command/mod.ts";
+import { defineCommand, items } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
 import { SQL_ITEMS } from "./items.ts";
 import { renderOutcome } from "./render.ts";

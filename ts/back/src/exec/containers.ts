@@ -9,8 +9,8 @@
  * этого есть свой текст (спека, «Кэш контейнеров»).
  */
 
-import type { SqlParam, SqlRow } from "../command/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+import type { SqlParam, SqlRow } from "@mpu/command";
+import type { CacheReader } from "@mpu/command/selector";
 
 /** Таблица кэша, которую читает транспорт (`platform/store.md`). */
 const TABLE = "portainer_containers";

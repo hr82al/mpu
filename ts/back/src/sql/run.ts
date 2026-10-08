@@ -16,8 +16,8 @@ import {
   readTextStdin,
   UsageError,
   VerbatimError,
-} from "../command/mod.ts";
-import { type CacheReader, resolveSelector } from "../selector/mod.ts";
+} from "@mpu/command";
+import { type CacheReader, resolveSelector } from "@mpu/command/selector";
 import { type MetaBlock, metaText } from "./meta.ts";
 import { type OutputFormat, type SqlOutcome } from "./render.ts";
 import {

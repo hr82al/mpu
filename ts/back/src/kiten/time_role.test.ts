@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { rejected, thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { KaitenAccess } from "@mpu/kaiten";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import {

@@ -19,8 +19,8 @@ import {
   type CommandIo,
   defineCommand,
   UsageError,
-} from "../command/mod.ts";
-import { type CacheReader, resolveSelector } from "../selector/mod.ts";
+} from "@mpu/command";
+import { type CacheReader, resolveSelector } from "@mpu/command/selector";
 import { shellCommand } from "../exec/mod.ts";
 import { runProgram } from "@mpu/subprocess";
 

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { DomainError, UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import type { SlbackSession } from "@mpu/slback";
 import type { OpenSession } from "../sql/mod.ts";
 import type { SqlSession } from "../sql/session.ts";

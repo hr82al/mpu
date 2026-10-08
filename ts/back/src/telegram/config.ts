@@ -17,7 +17,7 @@ import {
   TelegramError,
   telegramConfig as readTelegramConfig,
 } from "@mpu/telegram";
-import { DomainError, type EnvFile } from "../command/mod.ts";
+import { DomainError, type EnvFile } from "@mpu/command";
 import { commandError } from "./errors.ts";
 
 /** Что из env-файла нужно конфигурации: чтение ключа и обязательный ключ. */

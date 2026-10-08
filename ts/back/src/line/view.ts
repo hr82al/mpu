@@ -16,7 +16,7 @@ import {
   EXECUTE,
   REDIRECT,
   type Treatment,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { ASK_WORD } from "@mpu/language/messages";
 
 export { ASK_WORD };

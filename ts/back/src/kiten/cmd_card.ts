@@ -10,7 +10,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, record } from "../command/mod.ts";
+import { type CommandIo, defineCommand, record } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
 import {
   getCard,

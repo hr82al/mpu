@@ -9,7 +9,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
 import type { PictureData, RefusalData } from "@mpu/language/frames";
 import {
@@ -20,8 +20,8 @@ import {
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { GRAMMAR } from "@mpu/language/messages";
 import { Gallery, PICTURE_LIMIT } from "@mpu/language/picture";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import type { Memory } from "./it.ts";
 import {
   type ChannelOf,

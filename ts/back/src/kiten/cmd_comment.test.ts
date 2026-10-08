@@ -18,8 +18,8 @@ import {
   formatCommandError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type CapturedRequest, startFakeKaiten } from "@mpu/kaiten/testing";
 import { kitenCommentCommand } from "./mod.ts";
 

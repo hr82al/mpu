@@ -252,8 +252,8 @@ VITEST_MAX_FORKS=3 bun run gate    # всё ниже по порядку
 Тесты репозитория — `*.test.ts` под Vitest, одинаковые под Bun, Node и Deno
 (раннер выбирается именем файла, `platform/vitest.md`); `*_test.ts` под
 `deno test` больше нет. Тесту, которому нужен настоящий второй
-процесс, — `back/src/testing/runts.ts` (модуль `.ts` текущим рантаймом), а не
-имя `deno`/`bun`/`node` из `PATH`.
+процесс, — `runTs` из `@mpu/command/testing` (модуль `.ts` текущим
+рантаймом), а не имя `deno`/`bun`/`node` из `PATH`.
 
 `bun run smoke` обязателен наравне с остальными: тесты идут по исходникам и не
 видят того, что есть только у собранной программы, — состава бинаря (воркер
@@ -345,10 +345,12 @@ Claude Code, журнал вызовов, `sql-ro`, разбор кода с в�
 пишется на Vitest и только файлом `*.test.ts` (раннер выбирается именем файла,
 `platform/vitest.md`). Помощники, общие с пакетами `tslibs/*`, — пакет
 `@mpu/testing`: стенд HTTP на петле (`@mpu/testing`) и пойманная ошибка
-(`@mpu/testing/thrown`). Помощники домена `ts/` — `back/src/testing/`, по
-модулю на вид: строки SQLite и временная кэш-БД (`cache.ts`),
-область на `describe` и поддельные часы (`scope.ts`), запуск модуля текущим
-рантаймом (`runts.ts`). Табличные тесты
+(`@mpu/testing/thrown`). Помощники слоя команд — `@mpu/command/testing`:
+подставное io и спрошенный (`makeFakeIo`, `promptAnswering`), строки SQLite
+и временная кэш-БД (`plainRows`, `openTempCache`), запуск модуля текущим
+рантаймом (`runTs`); вход грузят и генераторы эталонов без Vitest, поэтому
+`vitest` он не тянет. Область на `describe` и поддельные часы —
+`back/src/vitest/scope.ts` (`heldScope`, `fakeTimers`). Табличные тесты
 (`describe` + `it` по случаям или цикл по массиву случаев) — форма по умолчанию.
 Багфикс начинается с теста, воспроизводящего баг.
 
@@ -649,7 +651,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
 - `zod` — объявление схемы аргументов и результата команды: из одного объявления
   берутся проверка входа, статический тип и схема тула для MCP-сервера
   (`platform/command-contract.md` требует ровно этой пары «схема + тип»). Своих
-  зависимостей у пакета нет.
+  зависимостей у пакета нет. Он же обязательный peer `@mpu/command`: схемы
+  `ts/` пересекают границу пакета, экземпляр один — этот.
 - `hono` — HTTP-транспорт MCP-сервера: маршрутизация путей профилей `/ro` и
   `/rw`, разбор запроса и сборка ответа. Работает на веб-API
   (`Request`/`Response`), поэтому ядро диспетчера от него не зависит и
@@ -707,6 +710,14 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   (`docs/specs/platform/tslibs-exec.md`); библиотека `tslibs/exec`, архивом
   `release/`. Выбор цели (селектор, кэш контейнеров, env-файл) и перевод
   `ExecError` в `DomainError` (`back/src/exec/remote.ts`) остаются в `ts/`.
+- `@mpu/command` — слой команд: контракт команды и порт io (`@mpu/command`),
+  env-файл (`/env`), ворота `mpu confirm` (`/confirm`), `mpu jsdate`
+  (`/jsdate`), резолв селектора (`/selector`), кэш-БД (`/store`),
+  предпочтения и `mpu config` (`/config`), правила подтверждения
+  (`/policy`) — `docs/specs/platform/tslibs-n3.md`; библиотека
+  `tslibs/command`, архивом `release/`. Помощники тестов — вход
+  `@mpu/command/testing`. `zod` — его обязательный peer (выше),
+  `@mpu/language` и `@mpu/base` — необязательные: ставятся здесь.
 - `@mpu/language` — ядро языка строки: кадры (`@mpu/language/frames`), разбор
   в сообщения (`/messages`), картинка ответа (`/picture`), объекты цепочки
   (`/objects`), вычислитель (`/program`) —
@@ -891,8 +902,9 @@ git commit -m "…" -- ts/              # коммит с pathspec
 
 Каркас собран целиком: реестр команд (`src/registry/`,
 `docs/specs/platform/registry.md`), MCP-сервер с профилями `ro`/`rw`
-(`src/mcp/`), журнал вызовов, локальный конфиг и кэш-БД (`src/invokelog/`,
-`src/config/`, `src/store/`). Точка входа — `src/entrypoint/`.
+(`src/mcp/`), журнал вызовов (`src/invokelog/`), локальный конфиг и
+кэш-БД (`@mpu/command/config`, `@mpu/command/store`). Точка входа —
+`src/entrypoint/`.
 
 Способ исполнения один: команда объявлена контрактом. Маршрут `legacy`,
 отдававший непереехавшие команды подпроцессу Python-версии, снят целиком

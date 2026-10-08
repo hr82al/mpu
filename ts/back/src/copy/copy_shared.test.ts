@@ -12,9 +12,9 @@ import { rejected } from "@mpu/testing/thrown";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
+import { openCacheDb } from "@mpu/command/store";
 import {
   composeArgs,
   runCopyShared,

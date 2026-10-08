@@ -45,7 +45,7 @@ import {
   PolicyError,
   type RuleBook,
   type Ruling,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { entryOf } from "./ahead.ts";
 import type { ImageContext, ImageLine } from "./define.ts";
 import type { Line } from "./dispatch.ts";

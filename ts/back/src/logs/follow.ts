@@ -9,7 +9,7 @@
  * forward с лимитом дочитывает окно с того же конца.
  */
 
-import { DomainError, formatCommandError } from "../command/mod.ts";
+import { DomainError, formatCommandError } from "@mpu/command";
 import type { LogEntry, RangeQuery } from "@mpu/loki";
 import { lokiFailure } from "./failure.ts";
 import { toNanoseconds } from "./query.ts";

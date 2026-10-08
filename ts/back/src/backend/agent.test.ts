@@ -5,7 +5,7 @@
  */
 
 import { expect, it } from "vitest";
-import { ASK, NOBODY_TO_ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, NOBODY_TO_ASK, RuleBook, RulePath } from "@mpu/command/policy";
 import {
   Client,
   refusalFrame,

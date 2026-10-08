@@ -12,7 +12,7 @@ import {
   NotFoundIoError,
   type RemoteOutput,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   ambiguous,
   chooseTransport,
@@ -27,7 +27,7 @@ import {
   type RunProcess,
   viaOf,
 } from "../exec/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+import type { CacheReader } from "@mpu/command/selector";
 
 /** Ключ ssh — без настройки (`platform/exec-transport.md`). */
 const KEY_FILE = ".ssh/id_rsa";

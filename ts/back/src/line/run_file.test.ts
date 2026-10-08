@@ -21,9 +21,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
-import { type CommandIo, DomainError } from "../command/mod.ts";
+import { type CommandIo, DomainError } from "@mpu/command";
 import { makeInvokeLog } from "../invokelog/mod.ts";
-import { ASK, DENY, Human, NOBODY, RuleBook, RulePath } from "../policy/mod.ts";
+import {
+  ASK,
+  DENY,
+  Human,
+  NOBODY,
+  RuleBook,
+  RulePath,
+} from "@mpu/command/policy";
 import { type ChannelOf, type ProgramFiles, programFiles } from "./mod.ts";
 import { osError } from "@mpu/base/oserror";
 import { within } from "../backend/testback.ts";

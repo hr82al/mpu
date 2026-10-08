@@ -34,7 +34,7 @@ import {
   type RuleBook,
   RulePath,
   type Verdict,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import {
   type Commands,
   parseMethodBody,
@@ -42,7 +42,7 @@ import {
   refusalOf,
   type Root,
 } from "@mpu/language/program";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { atExecution, type HookReply } from "../claudehook/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";

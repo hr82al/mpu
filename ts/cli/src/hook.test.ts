@@ -14,7 +14,7 @@ import {
   RuleBook,
   RulePath,
   type Verdict,
-} from "../../back/src/policy/mod.ts";
+} from "@mpu/command/policy";
 import { rulesOf } from "../../back/src/line/mod.ts";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";

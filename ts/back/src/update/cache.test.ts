@@ -2,16 +2,16 @@
  * Тесты `cache.ts` (`docs/specs/update.md`): формы строк снапшота (разбор
  * выборок PG в них — `read*Rows`) и запись в кэш-БД (`writeSnapshot`,
  * точечный `upsertClient`). Кэш-БД — временный файл SQLite через
- * `openCacheDb` (как в `../store/mod.test.ts`).
+ * `openCacheDb` (как в `tslibs/command/src/store/mod.test.ts`).
  */
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { plainRows } from "../testing/cache.ts";
+import { plainRows } from "@mpu/command/testing";
 import { thrown } from "@mpu/testing/thrown";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import {
   type ClientRow,
   type PgRow,
@@ -25,7 +25,7 @@ import {
   upsertClient,
   writeSnapshot,
 } from "./cache.ts";
-import type { CacheDb } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
 
 /** Временная кэш-БД с уборкой: у каждого теста своя, файл живёт в $TMPDIR. */
 async function withDb(fn: (db: CacheDb) => void): Promise<void> {

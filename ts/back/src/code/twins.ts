@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
 import type { Analyzer } from "./analyzer.ts";
 import type { Address } from "./address.ts";
 import type { Body } from "./body.ts";

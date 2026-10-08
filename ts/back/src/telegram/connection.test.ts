@@ -13,9 +13,9 @@
 import { Socket } from "node:net";
 import process from "node:process";
 import { expect, it, vi } from "vitest";
-import type { EnvFile, Prompt } from "../command/mod.ts";
+import type { EnvFile, Prompt } from "@mpu/command";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo, promptQueue } from "../testing/mod.ts";
+import { makeFakeIo, promptQueue } from "@mpu/command/testing";
 
 /** Причина отказа соединения, как её отдаёт `node:net`. */
 const REFUSAL = "connect ECONNREFUSED 127.0.0.1:1";

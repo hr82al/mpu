@@ -3,7 +3,7 @@
  * синтетическому кэшу голденов канала и правило автосинка. Кэш-БД —
  * настоящий SQLite во временном каталоге (как в `../selector/resolve_test.ts`
  * и `../nodecli/cmd_test.ts`), подставной io — `makeFakeIo`
- * (`../testing/mod.ts`). Сети нет ни на одном пути: догоняющий синк
+ * (`@mpu/command/testing`). Сети нет ни на одном пути: догоняющий синк
  * подменяется фейком-счётчиком, живого PostgreSQL в тестах нет.
  *
  * Конфиг клиентов синтетический, тот же, что снимал голдены канала
@@ -22,9 +22,9 @@ import {
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   runSearch,
   type SearchArgs,

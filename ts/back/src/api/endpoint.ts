@@ -9,7 +9,7 @@
  * соседним.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Тип поля тела: чем текст из argv станет в JSON запроса. */
 export type FieldType = "string" | "number" | "boolean" | "json";

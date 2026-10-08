@@ -19,7 +19,7 @@ import {
   type CommandIo,
   defineCommand,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { housekeeping, type TabInfo } from "./cache.ts";
 import { tabsOf } from "./read.ts";
 import { cacheSettings, webappUrl } from "./settings.ts";

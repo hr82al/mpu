@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import {
   AsideCall,
   type Outcome,

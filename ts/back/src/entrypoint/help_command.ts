@@ -8,7 +8,7 @@
  * `--help`, как было в оригинале (отклонение-fix спеки).
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 
 import type { SurfaceCommand } from "../registry/mod.ts";
 import { renderCommandHelp, renderSurfaceHelp } from "./help.ts";

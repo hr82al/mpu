@@ -13,7 +13,7 @@ import {
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   childrenOf,
   type CommandGroup,

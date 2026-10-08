@@ -4,7 +4,7 @@
  * программы, доставка подстроки, место исполнения программы.
  */
 
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import {
   type Delivery,
   type InvokeJournal,

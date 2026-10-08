@@ -4,7 +4,7 @@
  * источник решения правило в файле.
  */
 
-import type { Command, Policy } from "../command/mod.ts";
+import type { Command, Policy } from "@mpu/command";
 import {
   ELICITATION,
   NOTIFICATION,
@@ -20,7 +20,7 @@ import {
   RuleBook,
   RulePath,
   type Verdict,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
 import { HISTORY_CLEAR_PATH } from "../task/mod.ts";
 

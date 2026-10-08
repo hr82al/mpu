@@ -5,7 +5,7 @@
  * только просит клиента, а как это сделать, решает клиент.
  */
 
-import type { Answer, Prompt } from "../command/mod.ts";
+import type { Answer, Prompt } from "@mpu/command";
 import type { AskKind, ServerFrame } from "@mpu/language/frames";
 
 /** Что вопросу нужно от строки: спросить, дождаться, послать кадр. */

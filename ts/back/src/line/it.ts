@@ -4,7 +4,7 @@
  * рисует его заново без повторного исполнения.
  */
 
-import type { Command, Keeper } from "../command/mod.ts";
+import type { Command, Keeper } from "@mpu/command";
 import { type Delivery, jsonOf } from "../entrypoint/mod.ts";
 import { flagged, GRAMMAR } from "@mpu/language/messages";
 import {

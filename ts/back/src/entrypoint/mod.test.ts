@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runCli } from "./mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
+import type { CommandIo } from "@mpu/command";
 
 /**
  * Точка входа маршрутизирует и печатает; io при этом почти не нужен —

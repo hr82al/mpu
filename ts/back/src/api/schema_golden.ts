@@ -10,7 +10,7 @@
  */
 
 import { readdir, readFile } from "node:fs/promises";
-import type { EnvFile } from "../command/mod.ts";
+import type { EnvFile } from "@mpu/command";
 import { type PgTarget, serverTarget } from "../sql/mod.ts";
 
 /** Каталог голденов; единица — файл, а не список имён в коде. */

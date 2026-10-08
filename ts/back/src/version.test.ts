@@ -7,7 +7,7 @@
 import { expect, it } from "vitest";
 import { VERSION } from "./version.ts";
 import { runCli } from "./entrypoint/mod.ts";
-import { makeFakeIo } from "./testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import tree from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };

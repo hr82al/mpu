@@ -14,8 +14,8 @@ import {
   type CommandIo,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
-import { configValue, IMAGE_DIR, readPreferences } from "../config/mod.ts";
+} from "@mpu/command";
+import { configValue, IMAGE_DIR, readPreferences } from "@mpu/command/config";
 import {
   type Applier,
   BaseMethod,
@@ -65,7 +65,7 @@ import {
   Rule,
   type RuleBook,
   RulePath,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { atExecution } from "../claudehook/mod.ts";
 import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import { programCommands } from "./program.ts";

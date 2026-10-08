@@ -11,13 +11,7 @@ import {
   ElicitResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { collected, post } from "../../back/src/backend/testback.ts";
-import {
-  ALLOW,
-  ASK,
-  DENY,
-  RuleBook,
-  RulePath,
-} from "../../back/src/policy/mod.ts";
+import { ALLOW, ASK, DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import { TOOLS } from "./mod.ts";
 import {
   call,

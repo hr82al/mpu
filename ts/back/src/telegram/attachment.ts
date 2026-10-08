@@ -9,7 +9,7 @@
  */
 
 import type { Attachment } from "@mpu/telegram";
-import { type CommandIo, NotFoundIoError, UsageError } from "../command/mod.ts";
+import { type CommandIo, NotFoundIoError, UsageError } from "@mpu/command";
 
 /** Что чтению нужно от порта: вложения — обычные файлы. */
 export type AttachmentIo = Pick<CommandIo, "readRegularFile">;

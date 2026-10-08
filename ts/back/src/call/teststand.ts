@@ -7,8 +7,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CacheDb, DomainError, type EnvFile } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { type CacheDb, DomainError, type EnvFile } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
 
 /** Адрес и креды PG сервера sl-1 стенда. */
 export const ENV: Readonly<Record<string, string>> = {

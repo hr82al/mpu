@@ -13,15 +13,15 @@ import { assert, expect, it, vi } from "vitest";
 import process from "node:process";
 import { thrown } from "@mpu/testing/thrown";
 import { commands, findCommand, findGroup } from "./mod.ts";
-import { openCacheDb as openStoreDb } from "../store/mod.ts";
+import { openCacheDb as openStoreDb } from "@mpu/command/store";
 import {
   type Command,
   type CommandIo,
   NEVER_STOPPED,
   NO_ONE,
   UsageError,
-} from "../command/mod.ts";
-import { SelectorError } from "../selector/mod.ts";
+} from "@mpu/command";
+import { SelectorError } from "@mpu/command/selector";
 import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
 import { type FieldSpec, pathParams } from "../api/endpoint.ts";
 
@@ -2472,7 +2472,7 @@ it("инвариант 4: имена входа совпадают со схем
     // Имя неопознанной опции называется у любой команды, включая
     // помеченную: прячется значение после «=», а не имя — оператор
     // набрал его руками и без него не увидит своей опечатки
-    // (`command/args.ts`, `shownOption`).
+    // (`tslibs/command/src/command/args.ts`, `shownOption`).
     const err = thrown(() => {
       command.parseArgs([...requiredArgv(command), "--нет-такого-входа"]);
     }, UsageError);

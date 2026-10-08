@@ -3,7 +3,7 @@
  * контейнеров сервера и хвосты stderr-логов «виновников».
  */
 
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { renderHealth } from "./render.ts";
 import { argsSchema, type HealthIo, resultSchema, runHealth } from "./run.ts";
 

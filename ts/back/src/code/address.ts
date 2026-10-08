@@ -7,7 +7,7 @@
  * которому известно дерево.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Разобранный адрес; репозиторий опущен — `undefined`. */
 export interface Address {

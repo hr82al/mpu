@@ -7,7 +7,7 @@
  * 2026-09-26), сам токен — приватная память ключа на время строки.
  */
 
-import { DomainError, UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
 import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { FixedHost } from "./address.ts";

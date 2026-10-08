@@ -13,7 +13,7 @@ import {
   readTextStdin,
   type RemoteOutput,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   chooseTransport,
   detachOverPortainer,
@@ -27,7 +27,7 @@ import {
   type RunProcess,
   viaOf,
 } from "../exec/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+import type { CacheReader } from "@mpu/command/selector";
 import { previewOf } from "./preview.ts";
 import { type Scope, type Target, targetsOf } from "./targets.ts";
 

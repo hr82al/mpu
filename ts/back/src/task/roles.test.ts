@@ -4,7 +4,7 @@
  */
 
 import { expect, it, vi } from "vitest";
-import { fakeTimers } from "../testing/scope.ts";
+import { fakeTimers } from "../vitest/scope.ts";
 import { expectRun, setUp, type Stand, withStand } from "./teststand.ts";
 
 const QUESTION = "изменить профиль роли: demo exec? [y/N] ";

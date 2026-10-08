@@ -7,7 +7,7 @@
  * `Лист 'один'` уходило бы в webapp неразличимо с чужим.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Имя листа, не требующее кавычек. */
 const PLAIN_NAME = /^[A-Za-z0-9_]+$/;

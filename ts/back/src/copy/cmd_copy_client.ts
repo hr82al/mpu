@@ -12,12 +12,12 @@
  */
 
 import { z } from "zod";
-import { type CacheDb, type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CacheDb, type CommandIo, defineCommand } from "@mpu/command";
 import {
   type CacheReader,
   requireSingleClient,
   resolveSelector,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import { openPgSession } from "../sql/pg.ts";
 import { StatementError } from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";

@@ -8,12 +8,12 @@
  * env-файла, а пустой результат один раз пробуется догнать синком.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import {
   isServerAddressLike,
   searchCandidates,
   type SelectorSources,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import { rowsOf, type SearchRow } from "./row.ts";
 
 /** Порт исполнения глазами локального режима. */

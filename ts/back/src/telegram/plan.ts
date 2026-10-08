@@ -6,7 +6,7 @@
  * одного сетевого обращения, поэтому модуль ничего не знает о сеансе.
  */
 
-import { type CommandIo, readTextStdin } from "../command/mod.ts";
+import { type CommandIo, readTextStdin } from "@mpu/command";
 import { readAttachment } from "./attachment.ts";
 import { inputError } from "./errors.ts";
 import {

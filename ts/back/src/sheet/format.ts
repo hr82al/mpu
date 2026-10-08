@@ -7,7 +7,7 @@
  * нельзя — маска, разошедшаяся с телом, стирает соседний формат.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { fraction } from "./emit.ts";
 import { isQuoted, unquote } from "./script.ts";
 

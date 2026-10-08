@@ -9,7 +9,7 @@
  * (порция 97).
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import { endpointCommand } from "./command.ts";
 import { READ_ENDPOINTS } from "./endpoints.ts";
 import { WRITE_ENDPOINTS } from "./endpoints_write.ts";

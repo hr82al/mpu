@@ -7,7 +7,7 @@
  * собирается в одном месте, а не литералами по ветвям команды.
  */
 
-import type { Candidate } from "../selector/mod.ts";
+import type { Candidate } from "@mpu/command/selector";
 
 /** Адреса серверов из env-файла глазами сборки строки. */
 export interface AddressLookup {

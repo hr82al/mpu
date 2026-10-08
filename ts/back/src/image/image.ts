@@ -6,7 +6,7 @@
 
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, statSync } from "node:fs";
-import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
+import { BUSY_TIMEOUT_MS } from "@mpu/command/store";
 import { hasErrorCode } from "@mpu/base/oserror";
 import { ImageMethod } from "./method.ts";
 

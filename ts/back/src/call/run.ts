@@ -10,12 +10,12 @@ import {
   type CommandIo,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   type CacheReader,
   requireSingleClient,
   resolveSelector,
-} from "../selector/mod.ts";
+} from "@mpu/command/selector";
 import {
   DbError,
   devTarget,

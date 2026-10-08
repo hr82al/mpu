@@ -4,7 +4,7 @@
  */
 
 import { expect, it } from "vitest";
-import { fakeConfigDb } from "../testing/mod.ts";
+import { fakeConfigDb } from "@mpu/command/testing";
 import { Card } from "./card.ts";
 import { StoredMessages } from "./shown.ts";
 

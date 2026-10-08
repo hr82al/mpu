@@ -6,8 +6,8 @@
  * уведомления и своих актёров между шагами.
  */
 
-import type { CacheDb } from "../../command/mod.ts";
-import { configValue, TASK_MAX_BUSY } from "../../config/mod.ts";
+import type { CacheDb } from "@mpu/command";
+import { configValue, TASK_MAX_BUSY } from "@mpu/command/config";
 import { DECISIONS_LIMIT, decisionsText } from "../cmd_read.ts";
 import { type Project, Projects } from "../project.ts";
 import type { Role } from "../roles.ts";

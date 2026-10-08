@@ -12,7 +12,7 @@ import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { NO_PARAMS, TYPED } from "@mpu/language/program";
 import { findCommand } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { NO_MARKERS, ProcessLauncher, Workers } from "./mod.ts";
 import { encode, workerFrameOf } from "./frames.ts";
 

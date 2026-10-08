@@ -3,7 +3,7 @@
  * журналы сообщений в кэш-БД, команды группы `mpu task`.
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command } from "@mpu/command";
 import {
   CLEAR,
   REAL_TIME,

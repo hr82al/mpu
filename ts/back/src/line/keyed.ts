@@ -5,7 +5,7 @@
  * которую получает нынешняя диспетчеризация.
  */
 
-import type { Command, CommandMode } from "../command/mod.ts";
+import type { Command, CommandMode } from "@mpu/command";
 import {
   atAddress,
   type Call,

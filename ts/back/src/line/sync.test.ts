@@ -14,7 +14,7 @@ import {
 } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
 import { Image, imageSyncCommand } from "../image/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   CARDS_IN_FILE,
   conflicted,

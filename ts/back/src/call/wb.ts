@@ -5,7 +5,7 @@
  * взять (с `read_only` или без), решает предпочтение сообщения.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import type { Address, Aim } from "./address.ts";

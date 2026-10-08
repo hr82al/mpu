@@ -14,11 +14,11 @@ import {
   type McpResponse,
   PROFILE_INSTRUCTIONS,
 } from "./mod.ts";
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 
 /** Фикстура спеки: класс, запрос и ожидаемый ответ. */
 interface Fixture {

@@ -5,7 +5,7 @@
  * и отпускает его умирать — память возвращается вместе с процессом.
  */
 
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
 import type { InvokeJournal, Invoker, Output } from "../entrypoint/mod.ts";
 import type { Evaluator } from "../line/mod.ts";
 import type {

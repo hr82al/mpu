@@ -7,7 +7,7 @@
  */
 
 import type { SlbackCredentials } from "@mpu/slback";
-import { DomainError, type EnvFile } from "../command/mod.ts";
+import { DomainError, type EnvFile } from "@mpu/command";
 
 /**
  * Путь env-файла в текстах отказов. Литералом, как у соседей

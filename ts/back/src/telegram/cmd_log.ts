@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
 import { readAttachment } from "./attachment.ts";
 import { type BotMessage, sendBotMessage } from "@mpu/telegram";
 import { botConfig } from "./config.ts";

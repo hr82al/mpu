@@ -4,7 +4,7 @@
  * только ручки реестра чтения, `call` — любой запрос известного хоста.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { Aim } from "./address.ts";
 import { type Method, type ReadRule } from "./reads.ts";
 

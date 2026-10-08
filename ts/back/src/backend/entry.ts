@@ -4,7 +4,7 @@
  * (`platform/line-executor.md`), токен, сервер до сигнала остановки.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";

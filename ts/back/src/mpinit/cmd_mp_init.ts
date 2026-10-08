@@ -15,7 +15,7 @@
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import { checkAnswers, Health } from "./answers.ts";
 import { reportContainers } from "./containers.ts";
 import {

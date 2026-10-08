@@ -7,7 +7,7 @@
  */
 
 import process from "node:process";
-import { openCacheDb } from "./src/store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import {
   Orchestra,
   runSteps,

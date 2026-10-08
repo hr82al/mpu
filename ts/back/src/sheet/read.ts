@@ -7,8 +7,8 @@
  * узнать, что он слишком велик для кэша, значит заплатить дважды.
  */
 
-import { DomainError } from "../command/mod.ts";
-import type { CacheDb } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
+import type { CacheDb } from "@mpu/command";
 import {
   boxOf,
   closedAddress,

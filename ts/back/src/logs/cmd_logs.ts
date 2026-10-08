@@ -15,9 +15,9 @@ import {
   defineCommand,
   items,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { type LokiAccess, LokiError, requireLokiAccess } from "@mpu/loki";
-import { resolveSelector } from "../selector/mod.ts";
+import { resolveSelector } from "@mpu/command/selector";
 import { type LogsCache, openLogsCache } from "./cache.ts";
 import { lokiFailure } from "./failure.ts";
 import { followEntries } from "./follow.ts";

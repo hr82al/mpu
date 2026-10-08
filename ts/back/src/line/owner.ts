@@ -4,9 +4,9 @@
  * (`Session`), поэтому обход его пропускает, не требуя двери.
  */
 
-import { RULES_GATE } from "../command/mod.ts";
+import { RULES_GATE } from "@mpu/command";
 import { ARGS } from "./tree.ts";
-import type { RuleBook, Ruling } from "../policy/mod.ts";
+import type { RuleBook, Ruling } from "@mpu/command/policy";
 import { findCommand } from "../registry/mod.ts";
 
 /** Решение обхода «спросит исполнение»: строка допускается дальше. */

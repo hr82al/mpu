@@ -7,7 +7,7 @@
  * своего каталога ни тот, ни другой не подставляет.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import type { CallContext } from "@mpu/language/frames";
 import { Workdir } from "@mpu/base/workdir";
 

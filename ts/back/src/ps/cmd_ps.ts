@@ -3,7 +3,7 @@
  * либо живой с Portainer выбранного сервера.
  */
 
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { renderPs } from "./render.ts";
 import { argsSchema, type PsIo, resultSchema, runPs } from "./run.ts";
 

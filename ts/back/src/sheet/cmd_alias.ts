@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
+import { defineCommand, DomainError, UsageError } from "@mpu/command";
 import { aliasRows, aliasSsId, removeAlias, setAlias } from "./registry.ts";
 import { looksLikeSpreadsheetId, spreadsheetIdOf } from "./target.ts";
 

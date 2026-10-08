@@ -7,17 +7,16 @@
 
 import { readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { openTempCache } from "../testing/cache.ts";
+import { makeFakeIo, openTempCache } from "@mpu/command/testing";
 import { rejected } from "@mpu/testing/thrown";
 import {
   type CacheDb,
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { ContainerLogsQuery, PortainerContainer } from "@mpu/portainer";
 import { PortainerError } from "@mpu/portainer";
-import { makeFakeIo } from "../testing/mod.ts";
 import { healthCommand } from "./cmd_health.ts";
 import {
   type HealthArgs,

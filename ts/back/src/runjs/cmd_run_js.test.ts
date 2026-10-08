@@ -16,10 +16,10 @@ import {
   NotFoundIoError,
   type RemoteOutput,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { HttpCall, OpenChannel, RunProcess } from "../exec/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { runJsCommand } from "./cmd_run_js.ts";
 import {
   type RunJsArgs,

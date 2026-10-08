@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
+import { defineCommand, DomainError, UsageError } from "@mpu/command";
 import {
   type Checklist,
   createCardChecklist,

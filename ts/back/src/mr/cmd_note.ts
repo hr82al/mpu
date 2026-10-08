@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand } from "@mpu/command";
 import { createDiscussion, mergeRequest } from "@mpu/gitlab";
 import { type BodyIo, commentBody } from "./body.ts";
 import {

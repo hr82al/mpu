@@ -10,8 +10,8 @@
  * над ними, без знания о том, из какой команды пришёл вызов.
  */
 
-import type { CacheDb } from "../command/mod.ts";
-import { UsageError } from "../command/mod.ts";
+import type { CacheDb } from "@mpu/command";
+import { UsageError } from "@mpu/command";
 import {
   type Card,
   type CardLocation,

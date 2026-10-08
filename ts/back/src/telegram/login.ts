@@ -20,7 +20,7 @@ import {
   type LoginClient,
   type LoginPrompts,
 } from "@mpu/telegram";
-import type { Answer, EnvFile, Prompt } from "../command/mod.ts";
+import type { Answer, EnvFile, Prompt } from "@mpu/command";
 
 /** Ключи env-файла, которыми распоряжается вход. */
 export const SESSION_KEY = "TELEGRAM_SESSION";

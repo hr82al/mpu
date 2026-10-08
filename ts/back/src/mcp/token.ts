@@ -4,7 +4,7 @@
  * является — это отдельный файл конфиг-каталога с правами 0600.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 
 /** Срез порта исполнения: токену нужны только чтение и запись файла. */
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;

@@ -23,7 +23,7 @@
  * переписывал бы роль в каждом вызове. `roleNameOf` — для вывода.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { type KaitenAccess, type KaitenRole, listUserRoles } from "@mpu/kaiten";
 
 /** Ключ env-файла с ролью по умолчанию. */

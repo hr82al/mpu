@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, DomainError } from "@mpu/command";
 import { openPgSession } from "../sql/pg.ts";
 import type { PgTarget } from "../sql/target.ts";
 import { copyClientData, type OpenSession } from "./client_copy.ts";

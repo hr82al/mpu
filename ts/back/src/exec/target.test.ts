@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
 import { readFile } from "node:fs/promises";
-import { formatCommandError, UsageError } from "../command/mod.ts";
-import type { CacheReader } from "../selector/mod.ts";
+import { formatCommandError, UsageError } from "@mpu/command";
+import type { CacheReader } from "@mpu/command/selector";
 import { chooseTransport, type ExecPlace, type Via, viaOf } from "./target.ts";
 
 const API_KEY = "portainer-key";

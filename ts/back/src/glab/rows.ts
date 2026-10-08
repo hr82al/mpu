@@ -7,7 +7,7 @@
  * каком порядке они стоят и что означает «данных о ветках нет».
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import type { MergeRequest } from "@mpu/gitlab";
 
 /**

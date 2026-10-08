@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
 import { fileInsideRepo } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";
 import { renderUnresolved } from "./cmd_refs.ts";

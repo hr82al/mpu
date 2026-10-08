@@ -14,7 +14,7 @@ import {
   defineCommand,
   items,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { windowStart } from "@mpu/base/dates";
 import {
   type Column,

@@ -8,7 +8,7 @@
 import { KaitenInputError } from "@mpu/kaiten";
 import { thrown } from "@mpu/testing/thrown";
 import { describe, expect, it } from "vitest";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { cardIdOf } from "./access.ts";
 
 describe("cardIdOf: селектор карточки аргумента команды", () => {

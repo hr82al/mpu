@@ -6,9 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import { runCli } from "./mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { commands } from "../registry/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 
 function makeCli(overrides: Partial<CommandIo> = {}) {
   const out: string[] = [];

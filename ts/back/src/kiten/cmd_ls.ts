@@ -19,7 +19,7 @@ import {
   items,
   type SqlParam,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   type CardCondition,
   type CardFilter,

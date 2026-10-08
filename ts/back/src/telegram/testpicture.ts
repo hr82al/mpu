@@ -5,7 +5,7 @@
  * Telegram, файлы ложатся во временный каталог теста.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import {
   documentFile,
   type MessageFile,

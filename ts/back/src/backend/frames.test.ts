@@ -20,8 +20,8 @@ import {
   rulesOf,
 } from "../line/mod.ts";
 import { withPolicyFile } from "../line/testconsent.ts";
-import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { Agent, type Channel, Human, NOBODY } from "@mpu/command/policy";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   Client,
   type Frame,

@@ -4,7 +4,7 @@
  * отдельная реализация, отвечающая отказом на любой вопрос, без опроса.
  */
 
-import { type CacheDb, DomainError } from "../command/mod.ts";
+import { type CacheDb, DomainError } from "@mpu/command";
 import { botConfig, type EnvKeys, TELEGRAM_API_BASE } from "../telegram/mod.ts";
 import { type BotApi, HttpBotApi } from "./bot_api.ts";
 import { Chat, type Posted } from "./chat.ts";

@@ -3,13 +3,13 @@
  * коротких имён. Наполнение `sl_spreadsheets` командой `sync` — не
  * здесь: у неё сеть и замена реестра целиком, и приедет она отдельно.
  *
- * Таблица `sheet_aliases` заводится общим bootstrap'ом (`src/store`);
+ * Таблица `sheet_aliases` заводится общим bootstrap'ом (`@mpu/command/store`);
  * её отсутствие — не ошибка, а свежая БД: у резолва оно уже значит
  * «алиасов нет» (`sources.ts`), и здесь значит то же.
  */
 
-import type { CacheDb } from "../command/mod.ts";
-import { isMissingTable } from "../store/mod.ts";
+import type { CacheDb } from "@mpu/command";
+import { isMissingTable } from "@mpu/command/store";
 
 /**
  * Строка реестра алиасов в порядке вывода. Наружу не выводится:

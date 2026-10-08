@@ -15,8 +15,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { configDirOf, localStackDirOf, runMpInit } from "./cmd_mp_init.ts";
 import type { Clock, Docker, ProcessOutcome, RunInput } from "./docker.ts";
 import { CONFLICTING, coreStacks, type PlanFacts, stepLine } from "./plan.ts";

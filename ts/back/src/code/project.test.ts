@@ -8,7 +8,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { buildProgram, dirOf, findProjects } from "./project.ts";
 
 it("проекты — только tsconfig.json и только вне артефактов", async () => {

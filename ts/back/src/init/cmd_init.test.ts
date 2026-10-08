@@ -13,13 +13,12 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CommandIo, type EnvFile } from "../command/mod.ts";
-import { plainRows } from "../testing/cache.ts";
+import { type CommandIo, type EnvFile } from "@mpu/command";
+import { makeFakeIo, plainRows } from "@mpu/command/testing";
 import { serveFetch } from "@mpu/testing";
-import { makeFakeIo } from "../testing/mod.ts";
-import { NO_ONE } from "../command/mod.ts";
+import { NO_ONE } from "@mpu/command";
 import { runCli } from "../entrypoint/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
 import { runTelegramLogin } from "./telegram.ts";
 import { runTelegramLoginStep } from "../telegram/mod.ts";
 import {

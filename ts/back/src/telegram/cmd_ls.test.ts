@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import type { Command, CommandIo } from "../command/mod.ts";
-import { formatCommandError, UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import type { Command, CommandIo } from "@mpu/command";
+import { formatCommandError, UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type RawChat } from "@mpu/telegram";
 import { telegramLsCommand } from "./cmd_ls.ts";
 

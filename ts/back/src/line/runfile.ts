@@ -6,7 +6,7 @@
  */
 
 import { readFile, realpath, stat } from "node:fs/promises";
-import { configHomeDir } from "../env/mod.ts";
+import { configHomeDir } from "@mpu/command/env";
 import { NotUtf8, utf8Of, wordsOf } from "@mpu/language/frames";
 import { ASK_WORD, GRAMMAR, MessageParseError } from "@mpu/language/messages";
 import { hasErrorCode } from "@mpu/base/oserror";

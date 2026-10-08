@@ -12,7 +12,7 @@ import {
   type RemoteOutput,
   VerbatimError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import { contextFieldsOf } from "@mpu/language/frames";
 import type {

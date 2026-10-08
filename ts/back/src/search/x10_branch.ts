@@ -5,8 +5,8 @@
  * из них собирается в результат.
  */
 
-import { type CacheDb, DomainError, type SqlRow } from "../command/mod.ts";
-import { clientIdsOfSid } from "../selector/cache.ts";
+import { type CacheDb, DomainError, type SqlRow } from "@mpu/command";
+import { clientIdsOfSid } from "@mpu/command/selector";
 import { effectiveScope, isEmail, type Scope } from "./mode.ts";
 import type { SearchRow } from "./row.ts";
 import type { Session } from "./session.ts";

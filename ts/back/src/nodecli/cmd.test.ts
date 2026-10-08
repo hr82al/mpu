@@ -17,11 +17,11 @@ import {
   formatCommandError,
   type RemoteOutput,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { RunProcess } from "../exec/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { heldScope } from "../testing/scope.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { openCacheDb } from "@mpu/command/store";
+import { heldScope } from "../vitest/scope.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { dataLoaderCommand } from "./cmd_data_loader.ts";
 import { jobsCommands } from "./cmd_jobs.ts";
 import { migrationsCommands } from "./cmd_migrations.ts";

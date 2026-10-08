@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
 import { type BatchIo, scriptOf } from "./batch_io.ts";
 import { housekeeping, invalidateTabs } from "./cache.ts";
 import { compileScript } from "./compile.ts";

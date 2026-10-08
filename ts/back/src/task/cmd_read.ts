@@ -12,7 +12,7 @@ import {
   items,
   record,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { kindNamed, KINDS } from "./kind.ts";
 import { contractError, PROJECT, type TaskIo, withJournal } from "./glue.ts";
 import {

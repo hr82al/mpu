@@ -8,7 +8,7 @@
  * (точное совпадение побеждает подстроку) → запрос логов.
  */
 
-import { type EnvFile, UsageError } from "../command/mod.ts";
+import { type EnvFile, UsageError } from "@mpu/command";
 import type { ContainerLogsQuery, PortainerAccess } from "@mpu/portainer";
 import type { LogsCache, PortainerTarget } from "./cache.ts";
 import { portainerFailure } from "./failure.ts";

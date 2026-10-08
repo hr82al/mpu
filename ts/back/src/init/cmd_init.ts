@@ -24,7 +24,7 @@ import {
   defineCommand,
   DomainError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   DEFAULT_TIMEOUTS,
   firstLine,

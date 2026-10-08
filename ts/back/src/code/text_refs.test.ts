@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rejected, thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { codeRefsCommand, renderRefs, runRefs } from "./cmd_refs.ts";
 import { parseAddress } from "./address.ts";
 import type { Repo } from "./workspace.ts";

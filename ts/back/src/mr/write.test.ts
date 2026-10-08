@@ -17,10 +17,10 @@ import {
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { RunGit } from "@mpu/gitlab";
 import { type FakeGitlab, startFakeGitlab } from "@mpu/gitlab/testing";
-import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
+import { makeFakeIo, promptAnswering } from "@mpu/command/testing";
 import { renderComment, runComment } from "./cmd_comment.ts";
 import { renderCreate, runCreate } from "./cmd_create.ts";
 import { renderDelete, runDelete } from "./cmd_delete.ts";

@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import type { Items } from "../command/mod.ts";
+import type { Items } from "@mpu/command";
 import type { SqlResult } from "./run.ts";
 
 /** Записи отбора — от него же: колонка → значение JSON. */

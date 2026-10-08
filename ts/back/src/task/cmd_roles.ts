@@ -5,12 +5,7 @@
  */
 
 import { z } from "zod";
-import {
-  type Command,
-  defineCommand,
-  items,
-  UsageError,
-} from "../command/mod.ts";
+import { type Command, defineCommand, items, UsageError } from "@mpu/command";
 import { age } from "./cmd_read.ts";
 import { PROJECT, type TaskIo, withJournal } from "./glue.ts";
 import {

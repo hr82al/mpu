@@ -9,7 +9,7 @@
  */
 
 import type TS from "typescript";
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { walkFiles } from "./tree.ts";
 
 /**

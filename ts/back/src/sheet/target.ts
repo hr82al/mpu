@@ -7,7 +7,7 @@
  * цель, которую никто не называл.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /**
  * Откуда пришло значение цели. Переменных окружения среди источников

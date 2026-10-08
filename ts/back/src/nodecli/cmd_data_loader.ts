@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { defineCommand, UsageError } from "../command/mod.ts";
+import { defineCommand, UsageError } from "@mpu/command";
 import {
   commonArgs,
   commonArgsOf,

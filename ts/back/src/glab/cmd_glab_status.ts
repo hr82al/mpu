@@ -13,12 +13,7 @@
  */
 
 import { z } from "zod";
-import {
-  type CommandIo,
-  defineCommand,
-  items,
-  UsageError,
-} from "../command/mod.ts";
+import { type CommandIo, defineCommand, items, UsageError } from "@mpu/command";
 import {
   commitBranches,
   type GitlabAccess,

@@ -8,7 +8,7 @@
  * обязаны доехать до компилятора целыми — этим и заняты обе функции.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Одна инструкция скрипта: текст и её порядковый номер. */
 export interface Instruction {

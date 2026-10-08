@@ -18,9 +18,9 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { commands, surfaces } from "./mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo } from "@mpu/command";
 import { VERSION } from "../version.ts";
 
 /** Прогон CLI с захватом обоих потоков и кода возврата. */

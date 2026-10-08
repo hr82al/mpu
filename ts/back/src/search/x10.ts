@@ -9,7 +9,7 @@
  * подстрочными совпадениями, а impersonate пишет прод-аудит).
  */
 
-import { type CacheDb, DomainError, type SqlRow } from "../command/mod.ts";
+import { type CacheDb, DomainError, type SqlRow } from "@mpu/command";
 import {
   type EnvKeys,
   x10Call,

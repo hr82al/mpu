@@ -5,7 +5,7 @@
  * блоке `--dry-run`.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import {
   ambiguous,
   containerLocations,

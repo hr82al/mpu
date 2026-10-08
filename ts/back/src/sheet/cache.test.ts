@@ -7,9 +7,9 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type CacheDb, NotFoundIoError, UsageError } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { type CacheDb, NotFoundIoError, UsageError } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   housekeeping,
   infoKey,
@@ -19,7 +19,7 @@ import {
   writeInfo,
   writeTab,
 } from "./cache.ts";
-import { setConfigValue, unsetConfigValue } from "../config/mod.ts";
+import { setConfigValue, unsetConfigValue } from "@mpu/command/config";
 import { cacheSettings } from "./settings.ts";
 import { cacheSources, rangeStrings } from "./sources.ts";
 import type { TargetSources } from "./target.ts";

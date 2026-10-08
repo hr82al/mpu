@@ -3,11 +3,7 @@
  * переводом ошибок нижних слоёв в доменные с текстами спеки.
  */
 
-import {
-  type CommandIo,
-  DomainError,
-  NotFoundIoError,
-} from "../command/mod.ts";
+import { type CommandIo, DomainError, NotFoundIoError } from "@mpu/command";
 import { parseWorkbook, type Workbook, WorkbookError } from "./workbook.ts";
 
 /** Срез порта исполнения: открытию книги нужно только чтение файла. */

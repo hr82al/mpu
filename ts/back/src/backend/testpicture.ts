@@ -11,7 +11,7 @@ import {
   DomainError,
   formatCommandError,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import { telegramFileCommand } from "../telegram/cmd_file.ts";
 import { savedOnStand } from "../telegram/testpicture.ts";
 import {

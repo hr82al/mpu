@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
 import { dedupeById, dialogOf } from "@mpu/telegram";
 import { telegramConfig } from "./config.ts";
 import { asCommand } from "./errors.ts";

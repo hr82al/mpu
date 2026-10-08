@@ -5,7 +5,7 @@
  * или запись — допуск; справку о ключах и выводе строит одна функция.
  */
 
-import { defineCommand, record } from "../command/mod.ts";
+import { defineCommand, record } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
 import { denoSession } from "../sql/mod.ts";
 import type { Access } from "./access.ts";

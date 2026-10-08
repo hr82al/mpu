@@ -11,10 +11,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import { NO_INVOKE_LOG, type OutputPolicy } from "../invokelog/mod.ts";
-import { type CommandIo, DomainError } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { type CommandIo, DomainError } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
 
 /** Прогон CLI с подсчётом отметок журналу о native-вызове. */
 async function cli(argv: readonly string[], io: CommandIo) {

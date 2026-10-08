@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { resolveTarget, type TargetSources } from "./target.ts";
 
 const ID = "1SyntheticSpreadsheetIdForGoldens0000000000";

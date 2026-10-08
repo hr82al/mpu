@@ -7,7 +7,7 @@
  * одно на все пять, и второй его экземпляр разошёлся бы с первым.
  */
 
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 
 /** Вид справочника; он же стоит в текстах отказа. */
 export type RefKind = "space" | "board" | "lane" | "column" | "role";

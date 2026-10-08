@@ -7,7 +7,7 @@
  * текст слоя env-файла сохраняется дословно, меняется только класс.
  */
 
-import { DomainError, type EnvFile, UsageError } from "../command/mod.ts";
+import { DomainError, type EnvFile, UsageError } from "@mpu/command";
 
 /** Порт PG стенда по умолчанию (`platform/env-file.md`). */
 const DEFAULT_PORT = 5432;

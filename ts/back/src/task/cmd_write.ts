@@ -10,7 +10,7 @@ import {
   defineCommand,
   type OwnerOnly,
   UsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import {
   ANSWER,
   DECISION,

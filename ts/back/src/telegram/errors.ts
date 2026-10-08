@@ -15,7 +15,7 @@ import {
   type ErrorDetails,
   VerbatimError,
   VerbatimUsageError,
-} from "../command/mod.ts";
+} from "@mpu/command";
 
 /**
  * Ошибка ввода, которую находит сама команда (флаги, текст заметки): форма

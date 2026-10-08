@@ -12,16 +12,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { plainRows } from "../testing/cache.ts";
+import { makeFakeIo, plainRows } from "@mpu/command/testing";
 import {
   type CacheDb,
   type CommandIo,
   DomainError,
   NotFoundIoError,
   UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+} from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
 import { infoKey } from "./cache.ts";
 import {
   sheetAliasAddCommand,

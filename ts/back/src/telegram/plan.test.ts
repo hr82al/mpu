@@ -1,8 +1,8 @@
 import { assert, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { NotFoundIoError, UsageError } from "../command/mod.ts";
-import { VerbatimUsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { NotFoundIoError, UsageError } from "@mpu/command";
+import { VerbatimUsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import { type PlanIo, sendPlan } from "./plan.ts";
 
 const FILES: Readonly<Record<string, string>> = {

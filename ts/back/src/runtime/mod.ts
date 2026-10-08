@@ -28,15 +28,15 @@ import {
   NO_ONE,
   NotFoundIoError,
   type RemoteOutput,
-} from "../command/mod.ts";
+} from "@mpu/command";
 import type { Output } from "../entrypoint/mod.ts";
 import {
   configHomeDir,
   envFilePath,
   type EnvFileStore,
   makeEnvFile,
-} from "../env/mod.ts";
-import { openCacheDb as openStoreDb } from "../store/mod.ts";
+} from "@mpu/command/env";
+import { openCacheDb as openStoreDb } from "@mpu/command/store";
 
 /** Дескрипторы потоков процесса. */
 const STDIN = 0;
@@ -118,7 +118,7 @@ export function makeDenoOutput(): Output {
  * Каталог конфигурации (`XDG_CONFIG_HOME`, дефолт `~/.config/mpu`):
  * env-файл с кредами и выведенный из них токен-кэш sl-back. Правило
  * одно на оба файла и живёт в одном месте — `configHomeDir`
- * (`src/env/mod.ts`).
+ * (`@mpu/command/env`).
  */
 export function defaultCredsDir(): string | undefined {
   return configHomeDir((name) => process.env[name]);

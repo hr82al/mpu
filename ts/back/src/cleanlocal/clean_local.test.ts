@@ -12,12 +12,12 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { rejected, thrown } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
-import { makeEnvFile } from "../env/mod.ts";
+import { UsageError } from "@mpu/command";
+import { makeEnvFile } from "@mpu/command/env";
 import type { SqlOutcome } from "../sql/render.ts";
 import type { SqlSession } from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 import {
   type CleanIo,
   renderCleanLocal,

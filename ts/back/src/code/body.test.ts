@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { UsageError } from "../command/mod.ts";
+import { UsageError } from "@mpu/command";
 import { renderTwins, runTwins } from "./cmd_twins.ts";
 import type { Repo } from "./workspace.ts";
 

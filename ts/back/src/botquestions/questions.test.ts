@@ -5,8 +5,8 @@
  */
 
 import { expect, it } from "vitest";
-import { DomainError } from "../command/mod.ts";
-import { fakeConfigDb } from "../testing/mod.ts";
+import { DomainError } from "@mpu/command";
+import { fakeConfigDb } from "@mpu/command/testing";
 import { BotFailure } from "./bot_api.ts";
 import { Card } from "./card.ts";
 import type { Clock } from "./poller.ts";

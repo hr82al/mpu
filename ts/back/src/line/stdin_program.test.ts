@@ -7,8 +7,8 @@
  */
 
 import { assert, beforeAll, describe, expect, it } from "vitest";
-import type { CommandIo } from "../command/mod.ts";
-import { ASK, DENY, Human, RuleBook, RulePath } from "../policy/mod.ts";
+import type { CommandIo } from "@mpu/command";
+import { ASK, DENY, Human, RuleBook, RulePath } from "@mpu/command/policy";
 import type { ChannelOf } from "./mod.ts";
 import { within } from "../backend/testback.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";

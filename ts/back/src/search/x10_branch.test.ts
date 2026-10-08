@@ -16,9 +16,9 @@ import { rejected } from "@mpu/testing/thrown";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CacheDb, DomainError } from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { type CacheDb, DomainError } from "@mpu/command";
+import { openCacheDb } from "@mpu/command/store";
+import { makeFakeIo } from "@mpu/command/testing";
 import { localDate } from "@mpu/base/dates";
 import {
   renderSearch,

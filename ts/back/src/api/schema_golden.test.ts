@@ -19,7 +19,7 @@ import {
   schemaGoldens,
   skipReason,
 } from "./schema_golden.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
 
 it("обходится весь каталог, а не первый файл", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));

@@ -15,7 +15,7 @@ import {
   RulePath,
   Rules,
   type Ruling,
-} from "../policy/mod.ts";
+} from "@mpu/command/policy";
 import { Ahead, entryOf } from "./ahead.ts";
 import { typedLine } from "./origin.ts";
 

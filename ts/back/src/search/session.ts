@@ -8,7 +8,7 @@
  * без ключа всё равно нечем.
  */
 
-import type { CacheDb, SqlRow } from "../command/mod.ts";
+import type { CacheDb, SqlRow } from "@mpu/command";
 
 /** Запас: сессия считается негодной за минуту до истечения (спека). */
 const EXPIRY_MARGIN_SECONDS = 60;

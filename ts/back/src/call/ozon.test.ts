@@ -12,8 +12,8 @@
 
 import { assert, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
-import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { DomainError, formatCommandError, UsageError } from "@mpu/command";
+import { makeFakeIo } from "@mpu/command/testing";
 import type { OpenSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { OZON_SELLER, ozonCallCommand, ozonCallRoCommand } from "./ozon.ts";

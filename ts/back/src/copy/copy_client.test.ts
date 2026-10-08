@@ -14,7 +14,7 @@ import { rejected } from "@mpu/testing/thrown";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "@mpu/command";
 import type { SqlOutcome } from "../sql/render.ts";
 import {
   type SqlSession,
@@ -22,8 +22,8 @@ import {
   StatementError,
 } from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";
-import { makeFakeIo } from "../testing/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { makeFakeIo } from "@mpu/command/testing";
+import { openCacheDb } from "@mpu/command/store";
 import {
   type CopyIo,
   redisRunner,

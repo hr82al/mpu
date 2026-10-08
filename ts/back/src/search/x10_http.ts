@@ -9,7 +9,7 @@
  * протокола 10X.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { DomainError } from "@mpu/command";
 import { HttpCallError, httpSend } from "@mpu/http";
 
 /** Дефолт базового URL, когда ни одна переменная не задана (спека). */
