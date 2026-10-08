@@ -1,0 +1,28 @@
+{
+  "id": 10000001,
+  "key": null,
+  "title": "тест",
+  "state": "in progress",
+  "condition": 1,
+  "due_date": null,
+  "board": "Разработка",
+  "column": "Бэклог",
+  "lane": "Основная",
+  "size_text": null,
+  "created": "2026-08-14T16:32:53.473Z",
+  "updated": "2026-08-14T16:32:53.473Z",
+  "type": null,
+  "tags": [],
+  "url": "https://kaiten.example.test/10000001",
+  "owner": {
+    "id": 700001,
+    "full_name": "Иванов Иван",
+    "email": "owner@example.test",
+    "username": "ivanov"
+  },
+  "members": [],
+  "properties": {},
+  "description": null,
+  "files": [],
+  "comments": []
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "id": 3001,
+    "title": "Пространство 1",
+    "archived": false
+  },
+  {
+    "id": 3002,
+    "title": "Пространство 2",
+    "archived": false
+  },
+  {
+    "id": 3003,
+    "title": "Пространство 3",
+    "archived": false
+  }
+]

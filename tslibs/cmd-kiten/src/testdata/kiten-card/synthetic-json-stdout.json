@@ -1,0 +1,80 @@
+{
+  "id": 10000001,
+  "key": "DEMO-42",
+  "title": "Синтетическая карточка для голдена",
+  "state": "in progress",
+  "condition": 1,
+  "due_date": "2026-09-01T12:00:00.000Z",
+  "board": "Разработка",
+  "column": "В работе",
+  "lane": "Основная",
+  "size_text": "3",
+  "created": "2026-08-01T09:15:00.000Z",
+  "updated": "2026-08-12T18:30:00.000Z",
+  "type": "Задача",
+  "tags": [
+    "срочно",
+    "бэкенд"
+  ],
+  "url": "https://kaiten.example.test/10000001",
+  "owner": {
+    "id": 7001,
+    "full_name": "Иванов Иван",
+    "email": "owner@example.test",
+    "username": "ivanov"
+  },
+  "members": [
+    {
+      "id": 7002,
+      "full_name": "Петрова Мария",
+      "email": "member@example.test",
+      "username": "petrova"
+    }
+  ],
+  "properties": {
+    "id_398965": "https://gitlab.example.test/team/repo/-/merge_requests/999",
+    "id_291984": "Гипотеза: расход растёт из-за повтора запроса",
+    "id_999999": "значение поля, которого нет в справочнике"
+  },
+  "description": "Первый абзац описания.\n\n- пункт списка\n- второй пункт\n",
+  "files": [
+    {
+      "id": 90001,
+      "name": "schema.png",
+      "url": "https://kaiten.example.test/files/90001/schema.png",
+      "mime_type": "image/png",
+      "comment_id": null,
+      "card_cover": false
+    },
+    {
+      "id": 90002,
+      "name": "log.txt",
+      "url": "https://kaiten.example.test/files/90002/log.txt",
+      "mime_type": "text/plain",
+      "comment_id": 80002,
+      "card_cover": false
+    },
+    {
+      "id": 90003,
+      "name": "razbor.md",
+      "url": "https://kaiten.example.test/files/90003/razbor.md",
+      "mime_type": "text/markdown",
+      "comment_id": null,
+      "card_cover": false
+    }
+  ],
+  "comments": [
+    {
+      "id": 80001,
+      "author": "Иванов Иван",
+      "created": "2026-08-02T10:00:00.000Z",
+      "text": "Первый комментарий: **жирный** и [ссылка](https://example.test)."
+    },
+    {
+      "id": 80002,
+      "author": "Петрова Мария",
+      "created": "2026-08-03T11:20:00.000Z",
+      "text": "@ivanov лог во вложении"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+ok: комментарий 88017938 → https://kaiten.example.test/10000001
+   адресаты: @teststub

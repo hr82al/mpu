@@ -1,0 +1,93 @@
+{
+  "id": 10000001,
+  "key": null,
+  "title": "тест",
+  "state": "in progress",
+  "condition": 1,
+  "due_date": "2026-09-01T12:00:00.000Z",
+  "board": "Разработка",
+  "column": "Бэклог",
+  "lane": "Основная",
+  "size_text": "3",
+  "created": "2026-08-14T16:32:53.473Z",
+  "updated": "2026-08-14T16:44:18.152Z",
+  "type": "Development",
+  "tags": [],
+  "url": "https://kaiten.example.test/10000001",
+  "owner": {
+    "id": 700001,
+    "full_name": "Иванов Иван",
+    "email": "owner@example.test",
+    "username": "ivanov"
+  },
+  "members": [],
+  "properties": {
+    "id_291984": "Гипотеза: расход растёт из-за повтора запроса",
+    "id_291985": "Что сделано: снят голден",
+    "id_291990": "Результат: спека сверена",
+    "id_398965": "https://gitlab.example.test/team/repo/-/merge_requests/999"
+  },
+  "description": "Первый абзац описания.\n\n- пункт списка\n- второй пункт\n\n- [ ] markdown-чекбокс, снят\n- [x] markdown-чекбокс, отмечен\n",
+  "files": [
+    {
+      "id": 62289606,
+      "name": "probe.txt",
+      "url": "https://files.example.test/c4c3cd26-fa60-452a-924d-c26383ee3e64.txt",
+      "mime_type": null,
+      "comment_id": 88017935,
+      "card_cover": false
+    },
+    {
+      "id": 62289607,
+      "name": "probe.txt",
+      "url": "https://files.example.test/dba0e960-4080-40f2-8e7f-d926883e2f2a.txt",
+      "mime_type": null,
+      "comment_id": 88017942,
+      "card_cover": false
+    }
+  ],
+  "comments": [
+    {
+      "id": 88017902,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:33:42.672Z",
+      "text": "первый комментарий: **жирный** и [ссылка](https://example.test)."
+    },
+    {
+      "id": 88017903,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:33:45.141Z",
+      "text": "@ivanov @teststub\n\nтекст с @ivanov внутри"
+    },
+    {
+      "id": 88017904,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:33:45.948Z",
+      "text": "тело из stdin\n"
+    },
+    {
+      "id": 88017935,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:35:38.592Z",
+      "text": "текст и вложение"
+    },
+    {
+      "id": 88017938,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:35:40.221Z",
+      "text": "@teststub"
+    },
+    {
+      "id": 88017942,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:35:55.191Z",
+      "text": "@teststub"
+    },
+    {
+      "id": 88018076,
+      "author": "Иванов Иван",
+      "created": "2026-08-14T16:44:19.114Z",
+      "text": "комментарий с чекбоксами:\n\n- [ ] не сделано\n- [x] сделано"
+    }
+  ]
+}

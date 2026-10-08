@@ -1,0 +1,5 @@
+dry-run close · https://kaiten.example.test/10000001
+  таймер: не запущен
+  поля: записать [hypothesis, done, result]
+  ответ: запостить (@all → @ivanov)
+dry-run: перемещение → «Готово» (колонка 5000001); сейчас Проекты · Бэклог · Разработка; PATCH не отправлен

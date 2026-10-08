@@ -1,0 +1,348 @@
+/**
+ * Прогрев справочников Kaiten (`docs/specs/platform/kaiten-http.md`,
+ * раздел «Прогрев справочников»; `docs/specs/init.md`, шаг 4): четыре
+ * независимые best-effort части и запись каждой в свою таблицу кэша
+ * (`platform/store.md`).
+ *
+ * О команде `init` файл не знает — только о справочниках Kaiten и о
+ * таблицах `kaiten_spaces`/`kaiten_boards`/`kaiten_lanes`/
+ * `kaiten_columns`/`kaiten_roles`, в которые пишет. Сами запросы и разбор
+ * ответов — каталоги внешнего API (`@mpu/kaiten`); здесь —
+ * состав прогрева и бюджет шага целиком (обход досок в частях 2–3).
+ */
+
+import type { RequestTimeouts } from "@mpu/http";
+import {
+  type Board,
+  type Column,
+  KAITEN_TIMEOUTS,
+  type KaitenAccess,
+  type KaitenCallOptions,
+  KaitenError,
+  type KaitenRole,
+  listBoardColumns,
+  listBoardLanes,
+  listSpaces,
+  listUserRoles,
+  type Space,
+} from "@mpu/kaiten";
+import type { CacheDb } from "@mpu/command";
+
+/**
+ * Строка пространства в кэше: вложенных досок в ней нет — они уходят своей
+ * таблицей, а кэш хранит плоские строки, а не дерево каталога.
+ */
+export interface KaitenSpace {
+  readonly id: number;
+  readonly title: string;
+  readonly archived: boolean;
+}
+
+/** Строка дорожки или колонки: у обеих один набор полей. */
+export interface BoardRow {
+  readonly id: number;
+  readonly boardId: number;
+  readonly title: string;
+}
+
+/** Пропуск одной доски в частях 2–3: причина видна потребителю. */
+export interface BoardSkip {
+  readonly boardId: number;
+  readonly reason: string;
+}
+
+/** Собранное по обойдённым доскам: замена строк только этих досок. */
+export interface BoardRows {
+  readonly boardIds: readonly number[];
+  readonly rows: readonly BoardRow[];
+}
+
+/** Итог прогрева. `null` у части — она упала целиком (в сводке init её счётчик `?`). */
+export interface KaitenWarmup {
+  readonly spaces: readonly KaitenSpace[];
+  readonly boards: readonly Board[];
+  readonly lanes: BoardRows | null;
+  readonly columns: BoardRows | null;
+  readonly roles: readonly KaitenRole[] | null;
+  /** Строки `# kaiten: доска <id>: пропущена (<причина>)` собирает потребитель — здесь только данные. */
+  readonly skips: readonly BoardSkip[];
+  /** Служебные строки атома, которые потребитель печатает как есть (retry 429). */
+  readonly notes: readonly string[];
+}
+
+/** Пределы шага. */
+export interface KaitenLimits {
+  readonly timeouts: RequestTimeouts;
+  /** Бюджет шага в мс: паузы retry его не отменяют (`init.md`, шаг 4). */
+  readonly budgetMs: number;
+}
+
+/**
+ * Бюджет шага по умолчанию; число видно в `--help` init. Не меньше
+ * 60 с (`kaiten-http.md`): бюджет короче предела одного вызова отдал бы
+ * в пропуски всё недообойдённое из-за единственного медленного ответа.
+ */
+export const WARMUP_BUDGET_MS = 60_000;
+
+/** Пределы прогрева по умолчанию: числа названы в `--help` команды init. */
+export const DEFAULT_KAITEN_LIMITS: KaitenLimits = {
+  timeouts: KAITEN_TIMEOUTS,
+  budgetMs: WARMUP_BUDGET_MS,
+};
+
+/**
+ * Прогрев: части 1 и 4 конкурентно, затем части 2 и 3 конкурентно по
+ * доскам. Ошибка части 1 (нет списка досок) бросает `KaitenError` и
+ * отменяет части 2–3 целиком; ошибка части 4 не трогает остальные —
+ * `roles` становится `null`. Бюджет шага (`limits.budgetMs`) ограничивает
+ * только обход досок: части 1 и 4 бюджет не проверяют — они всегда нужны
+ * целиком, и им попросту нечего «частично пропустить» (в отличие от
+ * доски, у частей 1 и 4 нет меньшей единицы работы).
+ */
+export async function collectKaitenWarmup(
+  access: KaitenAccess,
+  limits: KaitenLimits = DEFAULT_KAITEN_LIMITS,
+  nowMs: () => number = Date.now,
+): Promise<KaitenWarmup> {
+  const deadlineMs = nowMs() + limits.budgetMs;
+
+  // `notes` — мутируемые накопители retry-строк, переданные внутрь
+  // вызова: попытки 429 обязаны остаться видимыми, даже если запрос
+  // в итоге упал (после исчерпания попыток или из-за бюджета) — при
+  // возврате значения только на успехе эти строки терялись бы вместе с
+  // отклонённым промисом.
+  const spacesNotes: string[] = [];
+  const rolesNotes: string[] = [];
+  // Все четыре части ходят вызовами каталогов, а не своими запросами:
+  // разбор одной внешней границы живёт в одном месте, иначе второй
+  // разошёлся бы с первым.
+  const [spacesOutcome, rolesOutcome] = await Promise.allSettled([
+    listSpaces(access, { timeouts: limits.timeouts, notes: spacesNotes }),
+    listUserRoles(access, { timeouts: limits.timeouts, notes: rolesNotes }),
+  ]);
+
+  if (spacesOutcome.status === "rejected") {
+    // Вызов бросает только KaitenError — сужение вместо `as`, чтобы
+    // не терять cause-цепочку исходной ошибки.
+    throw spacesOutcome.reason instanceof KaitenError
+      ? spacesOutcome.reason
+      : new KaitenError(reasonOf(spacesOutcome.reason));
+  }
+  const { spaces, boards } = splitSpaces(spacesOutcome.value);
+
+  const notes: string[] = [...spacesNotes, ...rolesNotes];
+  const roles = rolesOutcome.status === "fulfilled" ? rolesOutcome.value : null;
+
+  // Дорожка каталога — ровно строка кэша, у колонки лишний вес сортировки:
+  // столбца под него в таблице `kaiten_columns` нет.
+  const [lanesPart, columnsPart] = await Promise.all([
+    collectBoardPart(
+      boards,
+      (boardId, options) => listBoardLanes(access, boardId, options),
+      limits.timeouts,
+      deadlineMs,
+      nowMs,
+    ),
+    collectBoardPart(
+      boards,
+      async (boardId, options) =>
+        (await listBoardColumns(access, boardId, options)).map(boardRow),
+      limits.timeouts,
+      deadlineMs,
+      nowMs,
+    ),
+  ]);
+  notes.push(...lanesPart.notes, ...columnsPart.notes);
+
+  return {
+    spaces,
+    boards,
+    lanes: lanesPart.rows,
+    columns: columnsPart.rows,
+    roles,
+    skips: [...lanesPart.skips, ...columnsPart.skips],
+    notes,
+  };
+}
+
+/**
+ * Записывает собранное в кэш-БД; каждая часть — своя транзакция
+ * (`kaiten-http.md`: ошибка записи одной части не трогает остальные).
+ * Части 2–3 (`lanes`/`columns`) при `null` таблицу не трогают вовсе —
+ * `null` означает «часть упала целиком», а не «досок не найдено».
+ */
+export function writeKaitenWarmup(
+  db: CacheDb,
+  warmup: KaitenWarmup,
+  discoveredAt: number,
+): void {
+  // Часть 1: пространства и доски — одна транзакция на обе таблицы
+  // (kaiten-http.md, «Прогрев справочников», п.1).
+  db.transaction(() => {
+    db.execute("DELETE FROM kaiten_spaces");
+    for (const space of warmup.spaces) {
+      db.execute(
+        "INSERT INTO kaiten_spaces (id, title, archived, discovered_at) VALUES (?, ?, ?, ?)",
+        space.id,
+        space.title,
+        space.archived ? 1 : 0,
+        discoveredAt,
+      );
+    }
+    db.execute("DELETE FROM kaiten_boards");
+    for (const board of warmup.boards) {
+      db.execute(
+        "INSERT INTO kaiten_boards (id, space_id, title, discovered_at) VALUES (?, ?, ?, ?)",
+        board.id,
+        board.spaceId,
+        board.title,
+        discoveredAt,
+      );
+    }
+  });
+
+  writeBoardRows(db, "kaiten_lanes", warmup.lanes, discoveredAt);
+  writeBoardRows(db, "kaiten_columns", warmup.columns, discoveredAt);
+
+  // Часть 4: роли — своя транзакция; `null` (часть упала) таблицу не трогает.
+  const roles = warmup.roles;
+  if (roles !== null) {
+    db.transaction(() => {
+      db.execute("DELETE FROM kaiten_roles");
+      for (const role of roles) {
+        db.execute(
+          "INSERT INTO kaiten_roles (id, name, discovered_at) VALUES (?, ?, ?)",
+          role.id,
+          role.name,
+          discoveredAt,
+        );
+      }
+    });
+  }
+}
+
+/**
+ * Scoped-замена одной таблицы дорожек/колонок: удаляются и переписываются
+ * только строки обойдённых досок (`data.boardIds`) — кэш остальных досок
+ * не трогается. Экспортируется ради подкоманд `kiten lanes`/`columns`
+ * (`specs/kiten-refs.md`): пространства и доски они уже записали до
+ * резолва `REF`, и второй полной перезаписи тех же таблиц им не нужно (`kaiten-http.md`: «частичный рефреш не стирает кэш
+ * остальных досок»). `data === null` — часть упала целиком, таблица не
+ * трогается вовсе (в отличие от `{ boardIds: [], rows: [] }` — пустого,
+ * но успешного обхода нулевых досок).
+ */
+export function writeBoardRows(
+  db: CacheDb,
+  table: "kaiten_lanes" | "kaiten_columns",
+  data: BoardRows | null,
+  discoveredAt: number,
+): void {
+  if (data === null) return;
+  db.transaction(() => {
+    for (const boardId of data.boardIds) {
+      db.execute(`DELETE FROM ${table} WHERE board_id = ?`, boardId);
+    }
+    for (const row of data.rows) {
+      db.execute(
+        `INSERT INTO ${table} (id, board_id, title, discovered_at) VALUES (?, ?, ?, ?)`,
+        row.id,
+        row.boardId,
+        row.title,
+        discoveredAt,
+      );
+    }
+  });
+}
+
+/** Итог обхода досок одной части (дорожки либо колонки). */
+interface BoardPartOutcome {
+  readonly rows: BoardRows | null;
+  readonly skips: readonly BoardSkip[];
+  readonly notes: readonly string[];
+}
+
+/**
+ * Обходит доски конкурентно (`Promise.allSettled`) для одной части:
+ * ошибка одной доски не прерывает остальные (отклонение-fix атома) и
+ * попадает в `skips`, а не проходит молча. Часть становится `null`,
+ * только когда досок было больше нуля и ни одна не обошлась
+ * (`kaiten-http.md`); пустой список досок даёт пустой, но не `null` итог.
+ *
+ * `notes` собирается в общий мутируемый массив, переданный каждому
+ * вызову: retry-строки упавшей доски не должны теряться вместе с
+ * отклонённым промисом (см. `KaitenCallOptions` в `@mpu/kaiten`).
+ */
+async function collectBoardPart(
+  boards: readonly Board[],
+  fetchRows: (
+    boardId: number,
+    options: KaitenCallOptions,
+  ) => Promise<readonly BoardRow[]>,
+  timeouts: RequestTimeouts,
+  deadlineMs: number,
+  nowMs: () => number,
+): Promise<BoardPartOutcome> {
+  if (boards.length === 0) {
+    return { rows: { boardIds: [], rows: [] }, skips: [], notes: [] };
+  }
+
+  // Накопитель на каждую доску, а не один общий: доски опрашиваются
+  // конкурентно, и в общий массив строки повторов ложились бы в порядке
+  // ответов сервера. Порядок вывода обязан зависеть только от порядка
+  // досок (`init.md`: конкурентность ненаблюдаема ничем, кроме времени),
+  // поэтому склейка идёт по индексу доски уже после обхода.
+  const notesPerBoard = boards.map((): string[] => []);
+  const outcomes = await Promise.allSettled(
+    boards.map((board, index) =>
+      fetchRows(board.id, {
+        timeouts,
+        deadlineMs,
+        nowMs,
+        notes: notesPerBoard[index],
+      }),
+    ),
+  );
+
+  const boardIds: number[] = [];
+  const rows: BoardRow[] = [];
+  const skips: BoardSkip[] = [];
+  outcomes.forEach((outcome, index) => {
+    const board = boards[index];
+    if (outcome.status === "rejected") {
+      skips.push({ boardId: board.id, reason: reasonOf(outcome.reason) });
+      return;
+    }
+    boardIds.push(board.id);
+    rows.push(...outcome.value);
+  });
+
+  return {
+    rows: boardIds.length === 0 ? null : { boardIds, rows },
+    skips,
+    notes: notesPerBoard.flat(),
+  };
+}
+
+/** Причина отказа одной строкой: у наших ошибок это всегда `message`. */
+function reasonOf(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
+}
+
+/**
+ * Ответ части 1 — по строке на таблицу: доски приходят вложенными в
+ * пространства, а в кэше лежат отдельной таблицей.
+ */
+function splitSpaces(spaces: readonly Space[]): {
+  readonly spaces: readonly KaitenSpace[];
+  readonly boards: readonly Board[];
+} {
+  return {
+    spaces: spaces.map(({ id, title, archived }) => ({ id, title, archived })),
+    boards: spaces.flatMap((space) => space.boards),
+  };
+}
+
+/** Строка кэша из колонки: столбца веса сортировки в таблице нет. */
+function boardRow({ id, boardId, title }: Column): BoardRow {
+  return { id, boardId, title };
+}

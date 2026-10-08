@@ -1,0 +1,1 @@
+mpu kiten move: нужно хотя бы одно из --lane / --column / --board
