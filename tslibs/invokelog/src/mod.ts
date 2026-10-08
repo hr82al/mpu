@@ -1,0 +1,314 @@
+/**
+ * Журнал вызовов (`platform/invoke-log.md`): каждое исполнение команды
+ * оставляет ровно одну запись — что запускали, вывод, ошибки, код,
+ * длительность. Журналируются обе точки входа бинаря: CLI-вызов и вызов
+ * тула MCP-сервером.
+ *
+ * Запись делает обвязка, и другого её источника у бинаря нет: маршрут
+ * `legacy`, у которого запись оставлял сам Python-подпроцесс, снят
+ * целиком (порция 97).
+ *
+ * Вывод перехватывается копией на слое вывода команд: дескрипторы 1/2
+ * не подменяются, поэтому isatty у команды и её подпроцессов — как при
+ * прямом вызове.
+ */
+
+import type { InputSpec } from "@mpu/command";
+import { appendRecord } from "./file.ts";
+import {
+  commandLine,
+  type KnownOption,
+  REDACTED,
+  toolCommandLine,
+} from "./mask.ts";
+import { formatRecord, runIdOf } from "./record.ts";
+import { type LogEnv, readSettings } from "./settings.ts";
+
+export type { LogEnv } from "./settings.ts";
+// Число архивов ротации читает и команда чтения журнала (`specs/log.md`):
+// искать их обеим сторонам надо по одному правилу.
+export { DEFAULT_KEEP } from "./settings.ts";
+
+/** Приёмник вывода процесса — то, что журнал оборачивает копией. */
+export interface OutputSink {
+  readonly stdout: (text: string) => void;
+  readonly stderr: (text: string) => void;
+}
+
+/**
+ * Что журналируется: вызов CLI либо вызов тула MCP-сервером — и откуда
+ * он пришёл. Каталог приходит вместе с вызовом, а не спрашивается у
+ * процесса в момент записи: у сервера строк каталог принадлежит строке,
+ * а не процессу (`platform/line-concurrency.md`).
+ */
+export type InvokeCommand = { readonly cwd: string } & (
+  | { readonly kind: "argv"; readonly argv: readonly string[] }
+  | {
+      readonly kind: "tool";
+      readonly path: readonly string[];
+      readonly input: unknown;
+    }
+);
+
+/** Пометка команды: пишутся ли в её запись секции out/err и аргументы. */
+export interface OutputPolicy {
+  readonly logsOutput: boolean;
+  /** Пишутся ли аргументы; `false` — они заменяются маской. */
+  readonly logsArguments: boolean;
+  /**
+   * Пишется ли секция out при `logsOutput`; `false` — только она
+   * пропадает, err остаётся (`docs/specs/call.md` [D.3]).
+   */
+  readonly logsStdout: boolean;
+  /**
+   * Путь команды: маска сопоставляет с ним argv и оставляет нетронутыми
+   * только сегменты пути — не длину префикса, потому что путь в argv не
+   * обязан идти сплошным блоком (`mask.ts`, `maskAfterPath`).
+   */
+  readonly path: readonly string[];
+  /**
+   * Входы команды из argv. По ним журнал отличает объявленную опцию от
+   * неизвестной и пишет значение только у первой
+   * (`platform/invoke-log.md`). Поле необязательное: запись делается и
+   * для вызова, которого реестр не знает, — тогда действует прежнее
+   * правило по виду токена.
+   */
+  readonly inputs?: readonly InputSpec[];
+}
+
+/**
+ * Незаконченная запись. Ни один её метод не бросает и не меняет исход
+ * команды: журнал работает на копии байт вывода (спека, «Инварианты»).
+ */
+export interface InvokeRecording {
+  /**
+   * `run_id` записи (`YYYYMMDD-HHMMSS.mmm-<pid>`): им названа и запись, и
+   * файл большого вывода строки (`platform/long-output.md`, §4). У
+   * вызова без журнала — пусто. Спрашивается после исполнения: pid в нём
+   * — исполнителя строки, если она его получила.
+   */
+  readonly runId: () => string;
+  /**
+   * Строку исполнил процесс `pid` (`platform/line-executor.md`): его pid
+   * в шапке записи и в `run_id`, а не pid того, кто ведёт журнал.
+   */
+  readonly executedBy: (pid: number) => void;
+  /**
+   * Вызов пошёл маршрутом `native` — только такие журналирует обвязка.
+   * Не вызвано ни разу — записи не будет.
+   */
+  readonly nativeCall: (command: OutputPolicy) => void;
+  /** Приёмник вывода, копирующий печатаемое в запись. */
+  readonly capture: (output: OutputSink) => OutputSink;
+  /** Прямая запись в секции — для точки входа без печати (MCP-сервер). */
+  readonly out: (text: string) => void;
+  readonly err: (text: string) => void;
+  /**
+   * Заметка о ходе вызова: повтор запроса, нечисловое значение ключа
+   * конфигурации и прочее, чему место в записи, а не на экране
+   * (`platform/invoke-log.md`, секция `note`).
+   */
+  readonly note: (text: string) => void;
+  /** Дописывает запись в файл журнала. */
+  readonly finish: (exitCode: number) => Promise<void>;
+}
+
+/** Журнал: одна запись на вызов. */
+export interface InvokeLog {
+  readonly begin: (command: InvokeCommand) => InvokeRecording;
+}
+
+/** Зависимости журнала: настройки, тождество процесса и время. */
+export interface InvokeLogDeps {
+  /** Ключи `MPU_LOG_*` (`platform/env-file.md`): только env-файл. */
+  readonly env: LogEnv;
+  /** Путь файла журнала по умолчанию; неизвестен — записей нет. */
+  readonly defaultFile: string | undefined;
+  readonly pid: number;
+  readonly now: () => Date;
+}
+
+/** Журнал, который ничего не пишет: точка входа без журналирования. */
+export const NO_INVOKE_LOG: InvokeLog = { begin: () => SILENT };
+
+const SILENT: InvokeRecording = {
+  runId: () => "",
+  executedBy: () => {},
+  nativeCall: () => {},
+  capture: (output) => output,
+  out: () => {},
+  err: () => {},
+  note: () => {},
+  finish: () => Promise.resolve(),
+};
+
+/**
+ * Собирает журнал. Настройки читаются в момент завершения записи и
+ * только для журналируемого вызова: справке и completion незачем
+ * трогать env-файл ради журнала, которого у них не будет.
+ */
+export function makeInvokeLog(deps: InvokeLogDeps): InvokeLog {
+  // Время последней начатой записи: два вызова тула в одну миллисекунду
+  // обязаны получить разные run_id (спека, «Граничные случаи»), а он
+  // выводится из времени и pid — у долгоживущего сервера pid один.
+  let lastStamp = 0;
+  return {
+    begin: (command) => {
+      const started = deps.now().getTime();
+      const stamp = new Date(Math.max(started, lastStamp + 1));
+      lastStamp = stamp.getTime();
+      return recording(deps, command, stamp, started);
+    },
+  };
+}
+
+function recording(
+  deps: InvokeLogDeps,
+  command: InvokeCommand,
+  stamp: Date,
+  startedMs: number,
+): InvokeRecording {
+  const out: string[] = [];
+  const err: string[] = [];
+  const notes: string[] = [];
+  let policy: OutputPolicy | undefined;
+  let pid = deps.pid;
+  return {
+    runId: () => runIdOf(stamp, -stamp.getTimezoneOffset(), pid),
+    executedBy: (executor) => {
+      pid = executor;
+    },
+    nativeCall: (marked) => {
+      policy = marked;
+    },
+    capture: (output) => ({
+      // Сначала пользователю, потом в копию: журнал не может исказить
+      // или задержать то, что видно на экране (спека, «Инварианты»).
+      // Копия копится только у помеченного вызова: у непомеченного
+      // записи не будет, а процесс бывает долгим — `mpu mcp` живёт до
+      // остановки сервера, и его вывод рос бы в памяти без конца.
+      stdout: (text) => {
+        output.stdout(text);
+        if (policy !== undefined) out.push(text);
+      },
+      stderr: (text) => {
+        output.stderr(text);
+        if (policy !== undefined) err.push(text);
+      },
+    }),
+    out: (text) => {
+      if (policy !== undefined) out.push(text);
+    },
+    err: (text) => {
+      if (policy !== undefined) err.push(text);
+    },
+    // Заметки копятся независимо от пометки: команда пишет их по ходу,
+    // а решение о записи принимается в `finish`.
+    note: (text) => void notes.push(text),
+    finish: async (exitCode) => {
+      if (policy === undefined) return;
+      const logsOutput = policy.logsOutput;
+      try {
+        const settings = readSettings(deps.env, deps.defaultFile);
+        if (!settings.enabled || settings.file === undefined) return;
+        await appendRecord(
+          settings.file,
+          formatRecord({
+            startedAt: stamp,
+            offsetMinutes: -stamp.getTimezoneOffset(),
+            pid,
+            cwd: command.cwd,
+            commandLine: lineOf(command, policy),
+            note: [...settings.notes, ...notes]
+              .map((note) => `${note}\n`)
+              .join(""),
+            out: logsOutput && policy.logsStdout ? out.join("") : "",
+            err: logsOutput ? errSection(err.join(""), policy, exitCode) : "",
+            exitCode,
+            durationMs: Math.max(0, deps.now().getTime() - startedMs),
+            maxOutputBytes: settings.maxOutputBytes,
+          }),
+          settings,
+        );
+      } catch {
+        // Fail-open: ошибка журнала (права, диск, лок) не меняет ни
+        // результат команды, ни её код возврата (спека, «Инварианты»).
+        // Сообщить о ней некуда — вывод команды принадлежит команде.
+      }
+    },
+  };
+}
+
+/**
+ * Код выхода ошибки ввода: `UsageError` любого слоя завершается им, и у
+ * помеченной команды другого источника кода 2 нет
+ * (`specs/telegram-log.md`, «Граничные случаи»).
+ */
+const USAGE_EXIT_CODE = 2;
+
+/**
+ * Секция `err` записи. У помеченной команды ошибка ввода маскируется
+ * целиком: её текст по построению может нести сам ввод — путь файла в
+ * «файл-вложение не найден» у `telegram log` (`specs/telegram-log.md`), —
+ * и через `err` он вернулся бы в запись, обойдя маску строки `$ mpu …`
+ * (спека, «Инварианты»). Отказы внешней системы приходят с кодом 1 и
+ * остаются в записи как были: там нет ввода, а без них запись
+ * бесполезна.
+ */
+function errSection(
+  text: string,
+  policy: OutputPolicy,
+  exitCode: number,
+): string {
+  if (policy.logsArguments || exitCode !== USAGE_EXIT_CODE) return text;
+  return text === "" ? "" : `${REDACTED}\n`;
+}
+
+/**
+ * Объявленные опции команды глазами маски. Позиционные входы сюда не
+ * попадают: у них нет имени в argv, и значение у них своё. Вход с
+ * чужой командной строкой снимает правило целиком — её хвост не наш.
+ */
+function optionsOf(policy: OutputPolicy): {
+  options?: readonly KnownOption[];
+  foreignTail?: boolean;
+} {
+  const inputs = policy.inputs;
+  if (inputs === undefined) return {};
+  if (inputs.some((input) => input.form.keepsUnknown === true)) {
+    return { foreignTail: true };
+  }
+
+  const options: KnownOption[] = [];
+  for (const input of inputs) {
+    if (input.form.positional !== undefined) continue;
+    const names = [`--${input.name}`];
+    if (input.form.short !== undefined) names.push(`-${input.form.short}`);
+    // Отрицательная форма булева входа — его же имя (`--no-images`).
+    if (input.kind === "boolean") names.push(`--no-${input.name}`);
+    options.push({ names, takesValue: input.kind !== "boolean" });
+  }
+  return { options };
+}
+
+function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
+  const masked = !policy.logsArguments;
+  switch (command.kind) {
+    case "argv":
+      // Сегменты пути в argv не обязаны идти сплошным префиксом —
+      // общий `--json` встаёт между ними (тест точки входа `ts/`,
+      // `back/src/entrypoint/mod.test.ts`, `xlsx --json alias ls`), поэтому
+      // граница ищется сопоставлением с путём, а не длиной (`mask.ts`,
+      // `maskAfterPath`).
+      return commandLine(
+        command.argv,
+        masked ? { path: policy.path } : optionsOf(policy),
+      );
+    case "tool":
+      return toolCommandLine(command.path, command.input, { masked });
+    default: {
+      const unknown: never = command;
+      throw new TypeError(`неизвестный вид вызова: ${JSON.stringify(unknown)}`);
+    }
+  }
+}

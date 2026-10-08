@@ -1,0 +1,10 @@
+### 2026-08-05 07:39:45.017 +03:00 run=20260805-073945.017-385927 pid=385927 cwd=<cwd>
+$ mpu sql-ro sl-1 'SELECT 1' --dry --token=REDACTED
+--- err run=20260805-073945.017-385927 ---
+Usage: mpu sql-ro [OPTIONS] {selector} [sql]
+Try 'mpu sql-ro -h' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ No such option: --token (Possible options: --json)                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+--- end run=20260805-073945.017-385927 exit=2 dur=0.265s ---
+

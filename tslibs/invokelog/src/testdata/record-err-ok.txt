@@ -1,0 +1,12 @@
+### 2026-08-05 07:39:44.525 +03:00 run=20260805-073944.525-385900 pid=385900 cwd=<cwd>
+$ mpu sql-ro sl-1 'SELECT 1' --dry
+--- err run=20260805-073944.525-385900 ---
+server: sl-1
+pg_host: <pg_host>
+pg_port: 5432
+database: wb
+mode: read-only
+sql:
+SELECT 1
+--- end run=20260805-073944.525-385900 exit=0 dur=0.286s ---
+
