@@ -1,1 +1,0 @@
-mpu xlsx: no ranges provided; попробуй: mpu xlsx get range: ДИАПАЗОН... [from: FILE] [sheet: ЛИСТ]

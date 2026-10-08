@@ -5,7 +5,7 @@
  * раз, вопрос — на каждую запись в момент, когда до неё дошло вычисление.
  */
 
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
@@ -318,17 +318,10 @@ const FILES: Partial<CommandIo> = {
 async function withSample(fn: (file: string) => Promise<void>) {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    const b64 = await readFile(
-      new URL("../xlsx/testdata/sample.xlsx.b64", import.meta.url),
-      "utf8",
-    );
     const file = `${dir}/sample.xlsx`;
-    await writeFile(
+    await copyFile(
+      new URL("../../../docs/specs/fixtures/xlsx/sample.xlsx", import.meta.url),
       file,
-      Uint8Array.from(
-        atob(b64.replaceAll(/\s+/g, "")),
-        (ch) => ch.codePointAt(0) ?? 0,
-      ),
     );
     await fn(file);
   } finally {

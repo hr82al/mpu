@@ -16,7 +16,7 @@ import {
   SYSTEM_RUN,
   SystemNotices,
   TmuxWindows,
-} from "./src/task/orchestra/mod.ts";
+} from "@mpu/cmd-task/orchestra";
 import { VERSION } from "./src/version.ts";
 
 if (import.meta.main) {

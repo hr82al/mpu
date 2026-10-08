@@ -22,7 +22,7 @@ import {
   type Verdict,
 } from "@mpu/command/policy";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
-import { HISTORY_CLEAR_PATH } from "../task/mod.ts";
+import { HISTORY_CLEAR_PATH } from "@mpu/cmd-task";
 
 /** Путь сообщения корня `policy` — его посев `allow`. */
 export const POLICY_SELECTOR = "policy";

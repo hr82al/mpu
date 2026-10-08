@@ -27,11 +27,15 @@
         "@mpu/cmd-nodecli": "file:../tslibs/cmd-nodecli/release/mpu-cmd-nodecli-0.1.0.tgz",
         "@mpu/cmd-ps": "file:../tslibs/cmd-ps/release/mpu-cmd-ps-0.2.0.tgz",
         "@mpu/cmd-runjs": "file:../tslibs/cmd-runjs/release/mpu-cmd-runjs-0.1.0.tgz",
+        "@mpu/cmd-search": "file:../tslibs/cmd-search/release/mpu-cmd-search-0.1.0.tgz",
+        "@mpu/cmd-sheet": "file:../tslibs/cmd-sheet/release/mpu-cmd-sheet-0.1.0.tgz",
         "@mpu/cmd-sql": "file:../tslibs/cmd-sql/release/mpu-cmd-sql-0.1.0.tgz",
         "@mpu/cmd-ssh": "file:../tslibs/cmd-ssh/release/mpu-cmd-ssh-0.1.0.tgz",
         "@mpu/cmd-sun": "file:../tslibs/cmd-sun/release/mpu-cmd-sun-0.1.0.tgz",
+        "@mpu/cmd-task": "file:../tslibs/cmd-task/release/mpu-cmd-task-0.1.0.tgz",
         "@mpu/cmd-update": "file:../tslibs/cmd-update/release/mpu-cmd-update-0.1.0.tgz",
-        "@mpu/command": "file:../tslibs/command/release/mpu-command-0.2.0.tgz",
+        "@mpu/cmd-xlsx": "file:../tslibs/cmd-xlsx/release/mpu-cmd-xlsx-0.1.0.tgz",
+        "@mpu/command": "file:../tslibs/command/release/mpu-command-0.3.0.tgz",
         "@mpu/exec": "file:../tslibs/exec/release/mpu-exec-0.1.0.tgz",
         "@mpu/gitlab": "file:../tslibs/gitlab/release/mpu-gitlab-0.1.0.tgz",
         "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
@@ -250,15 +254,23 @@
 
     "@mpu/cmd-runjs": ["@mpu/cmd-runjs@../tslibs/cmd-runjs/release/mpu-cmd-runjs-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-exec": "0.1.0", "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-exec", "@mpu/command", "@mpu/exec"] }, "sha512-Iq3WwUtpe7vsElGan8cLBfaetb4zZpoPUFJEqYuDCnB3+lxhEC3HK/6S2KaYBEYIg6VUUqv/Dp8rWA0gLfdXOg=="],
 
+    "@mpu/cmd-search": ["@mpu/cmd-search@../tslibs/cmd-search/release/mpu-cmd-search-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/cmd-update": "0.1.0", "@mpu/command": "0.3.0", "@mpu/http": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/cmd-update", "@mpu/command", "@mpu/http"] }, "sha512-mrkR81NoXhMe2hMXH9TieQM20Fx0Uj/T39kHOkJwPxfDHhYk/TitOtD3+Fl2raR6o1XVbBN5Hj7EACBd63AhAA=="],
+
+    "@mpu/cmd-sheet": ["@mpu/cmd-sheet@../tslibs/cmd-sheet/release/mpu-cmd-sheet-0.1.0.tgz", { "peerDependencies": { "@mpu/command": "0.3.0", "@mpu/http": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command", "@mpu/http"] }, "sha512-hIhNA2yFjTVKZrruviHQQfQVvtLNtVYPCFtYzsAkiC0lt9fYZbLwiW8cB4UO7TNzX1NZg1C1jQu0+1QHyp3V8g=="],
+
     "@mpu/cmd-sql": ["@mpu/cmd-sql@../tslibs/cmd-sql/release/mpu-cmd-sql-0.1.0.tgz", { "dependencies": { "pg": "8.22.0" }, "peerDependencies": { "@mpu/command": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command", "@mpu/language"] }, "sha512-JYooJYkeFbrLq6vidR/ZOufaVFfjI1Jwb1ju7jDlvec9fTTJo7Xtw3fr37Omj+RICk6nDVSO2i9Vk2yTmqCEmg=="],
 
     "@mpu/cmd-ssh": ["@mpu/cmd-ssh@../tslibs/cmd-ssh/release/mpu-cmd-ssh-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-exec": "0.1.0", "@mpu/command": "0.1.0", "@mpu/exec": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-exec", "@mpu/command", "@mpu/exec"] }, "sha512-KPiaKU2K+rGG6JLa7xNWOV2IMEZQiIuBJlgaVyQmK64MJeTAKak+1Lb8veeREpSRTmFzUyldjq8OZKmFejDbYQ=="],
 
     "@mpu/cmd-sun": ["@mpu/cmd-sun@../tslibs/cmd-sun/release/mpu-cmd-sun-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command"] }, "sha512-PnnC1fz2+oLuM55HFJE+A4HvkfLsvJ7K/Jd4R6gew+FlGlkNLgT5rOW8IIZdiutJmmK2RFlygNrmj3gAY2QEWA=="],
 
+    "@mpu/cmd-task": ["@mpu/cmd-task@../tslibs/cmd-task/release/mpu-cmd-task-0.1.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.3.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/subprocess"] }, "sha512-mgsXrk2EhSBSvW7NazQQsu4G9NFxUJvCST0mt3uORZ7CQ5pwF2cctcL27qzX/mnyidMNetNgyvztjLqUMC1iqQ=="],
+
     "@mpu/cmd-update": ["@mpu/cmd-update@../tslibs/cmd-update/release/mpu-cmd-update-0.1.0.tgz", { "dependencies": { "pg": "8.22.0" }, "peerDependencies": { "@mpu/cmd-logs": "0.1.0", "@mpu/command": "0.1.0", "@mpu/http": "0.1.0", "@mpu/loki": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-logs", "@mpu/command", "@mpu/http", "@mpu/loki"] }, "sha512-mIWj69VZRwcOoaFVxUWKuaMymA6kCMiJBkHSTV55UHPdltR8rP4s13dRuHdriDxg7Ycf43HaooEJ/aHJmhvghQ=="],
 
-    "@mpu/command": ["@mpu/command@../tslibs/command/release/mpu-command-0.2.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-Osb6ysryZ1IsxTkNP54y9aWessinqfAv65WLpobWsb0t6t7vwY6Zj2pjhv5OktAnlqKCxfonjDQGEXPIMfQr0A=="],
+    "@mpu/cmd-xlsx": ["@mpu/cmd-xlsx@../tslibs/cmd-xlsx/release/mpu-cmd-xlsx-0.1.0.tgz", { "peerDependencies": { "@mpu/command": "0.3.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/command"] }, "sha512-wIGeJwUQE+WblPw+3KRDTOXq3C3m6LwgRhykFjvzCmt5FCMT0sBkUETwmblLCmALOHRrStvqshYSK+QIuKhfhA=="],
+
+    "@mpu/command": ["@mpu/command@../tslibs/command/release/mpu-command-0.3.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/language": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/language"] }, "sha512-msup9D6vJlnJTW5jqK28xmPCMzaKpl92cAacA4/sd5OE/iwJdb/bs9Y5d9kP0oCWPPtSkXsGKBD/sMMcesE/0g=="],
 
     "@mpu/exec": ["@mpu/exec@../tslibs/exec/release/mpu-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/portainer": "0.1.0", "@mpu/subprocess": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/portainer", "@mpu/subprocess"] }, "sha512-h73/jXLKGPWkHtxEgxqYy2m5SeIiXAt+eLfVaa5Lrtc5++/0C3kn5jhraIpNE6RsjTGHsnskRbxMssfXVjL/8A=="],
 
@@ -704,7 +716,7 @@
 
     "node-abi": ["node-abi@3.98.0", "", { "dependencies": { "semver": "^7.3.5" } }, "sha512-Llh8noNw7s15m+rmIrZnZQbe4gLyasL9loT74rC92PkmwWKeEedKvc7o6pjp8B3MhrYT/Cl846NOYZbz1wmddw=="],
 
-    "node-releases": ["node-releases@2.0.57", "", {}, "sha512-kQK9LGGFiHtrWiNhZtA7Qbw17AQz+dmsEKODRIVTXA9+e5MS/2gZEBhYJt13GrAz5/IOZKddH/0Z3TP/Zgo+yw=="],
+    "node-releases": ["node-releases@2.0.58", "", {}, "sha512-BdiKAgbfRlvfMq/XzO/AF9NPmaA8a+YpLAyAFTVFBj3gARrAIfWvNq7Q7NE4se3KgFu0KkrvQMxTS0XVnsGzHg=="],
 
     "nwsapi": ["nwsapi@2.2.28", "", {}, "sha512-IlVB7OS7qrOsVYlpnFIkETjMwT9jwvmocJmmM+GZU/PAB3uGi9Ezd7vcWhWBUnSc0ya4ppmQITOyP1ez9gg8cg=="],
 

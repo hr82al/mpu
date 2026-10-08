@@ -4,7 +4,7 @@
  * и без сети (`platform/mcp-server.md`, правила модуля).
  */
 
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,18 +49,11 @@ function handle(
 
 /** Временный каталог с sample.xlsx: та же книга, что в golden xlsx. */
 async function withSampleDir(fn: (dir: string) => Promise<void>) {
-  const b64 = await readFile(
-    new URL("../xlsx/testdata/sample.xlsx.b64", import.meta.url),
-    "utf8",
-  );
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    await writeFile(
+    await copyFile(
+      new URL("../../../docs/specs/fixtures/xlsx/sample.xlsx", import.meta.url),
       `${dir}/sample.xlsx`,
-      Uint8Array.from(
-        atob(b64.replaceAll(/\s+/g, "")),
-        (ch) => ch.codePointAt(0) ?? 0,
-      ),
     );
     await fn(dir);
   } finally {

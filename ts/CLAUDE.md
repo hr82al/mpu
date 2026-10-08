@@ -788,6 +788,21 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `back/src/line/call.test.ts`, `back/src/line/call_wb.test.ts` (сообщения
   `wb` над стендом `@mpu/cmd-call/testing`),
   `back/src/entrypoint/backup_wiring.test.ts`.
+- `@mpu/cmd-search`, `@mpu/cmd-sheet`, `@mpu/cmd-xlsx`, `@mpu/cmd-task` —
+  команды `search`, семейство `sheet`, `xlsx`, канал `task` и оркестратор
+  ролей пакетами (`docs/specs/platform/tslibs-commands.md`, D6);
+  библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Ключи `mpu config`
+  объявляет их домен (`sheet.*` — `@mpu/cmd-sheet`, `xlsx.default` —
+  `@mpu/cmd-xlsx`, `task.*` — `@mpu/cmd-task`, `image.dir` —
+  `back/src/line/imagedir.ts`), список в порядке спеки собирает
+  `back/src/registry/mod.ts` (`CONFIG_REGISTRY`, команда —
+  `configCommand(CONFIG_REGISTRY)`); сверка собранного списка с голденом —
+  `back/src/registry/config.test.ts`. Кроме реестра: `HISTORY_CLEAR_PATH`
+  `@mpu/cmd-task` берёт `line/seeds.ts`, оркестратор — точка входа
+  `back/task.ts` (вход `@mpu/cmd-task/orchestra`). Тесты со стендом
+  приложения — `back/src/line/task/` (сценарии `task` и оркестратора
+  строкой целиком), `back/src/entrypoint/xlsx.test.ts` (эталоны — канал
+  `docs/specs/fixtures/xlsx/`).
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
@@ -953,7 +968,8 @@ git commit -m "…" -- ts/              # коммит с pathspec
 «Команды» зовутся из `ts/`. Подпроектов
 шесть: `back/` (сервер строк: `back.ts`, исполнитель строк `worker.ts`
 (`platform/line-executor.md`, модули — `src/worker/`), оркестратор ролей
-`task.ts` (`task-orchestrator.md`, модули — `src/task/orchestra/`), `src/`,
+`task.ts` (`task-orchestrator.md`, модули — пакет `@mpu/cmd-task`, вход
+`/orchestra`), `src/`,
 `scripts/` — `smoke.ts`, генераторы голденов (`gen-*.ts`) и
 `worker.sh` для `bun run back` из исходников), `cli/` (клиент `mpu`), `mcp/`,
 `complete/`, `supervisor/`, `web/`. Общими остаются `docs/`, `handoff/`,

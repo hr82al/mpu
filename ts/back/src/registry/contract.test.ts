@@ -6,7 +6,14 @@
  * названии шага.
  */
 
-import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  copyFile,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, expect, it, vi } from "vitest";
@@ -2642,16 +2649,12 @@ async function withSampleDir(
 ): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    // Книга-фикстура лежит в тестовом каталоге команды xlsx: копировать
-    // её второй раз незачем, источник истины у обеих копий один —
-    // docs/specs/fixtures/xlsx.
-    const base64 = await readFile(
-      new URL("../xlsx/testdata/sample.xlsx.b64", import.meta.url),
-      "utf8",
+    // Книга-фикстура — из канала docs/specs/fixtures/xlsx: копировать её
+    // в дерево второй раз незачем.
+    await copyFile(
+      new URL("../../../docs/specs/fixtures/xlsx/sample.xlsx", import.meta.url),
+      `${dir}/sample.xlsx`,
     );
-    const binary = atob(base64.replaceAll(/\s+/g, ""));
-    const bytes = Uint8Array.from(binary, (ch) => ch.codePointAt(0) ?? 0);
-    await writeFile(`${dir}/sample.xlsx`, bytes);
     await fn(dir);
   } finally {
     await rm(dir, { recursive: true });

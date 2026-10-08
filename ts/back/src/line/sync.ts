@@ -15,7 +15,7 @@ import {
   formatCommandError,
   UsageError,
 } from "@mpu/command";
-import { configValue, IMAGE_DIR, readPreferences } from "@mpu/command/config";
+import { configValue, readPreferences } from "@mpu/command/config";
 import {
   type Applier,
   BaseMethod,
@@ -67,6 +67,7 @@ import {
   RulePath,
 } from "@mpu/command/policy";
 import { atExecution } from "../claudehook/mod.ts";
+import { IMAGE_DIR } from "./imagedir.ts";
 import { UNNAMED_REFUSAL } from "@mpu/language/messages";
 import { programCommands } from "./program.ts";
 import {

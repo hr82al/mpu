@@ -17,7 +17,7 @@
  */
 
 import type { Command } from "@mpu/command";
-import { xlsxCommands } from "../xlsx/mod.ts";
+import { XLSX_DEFAULT, xlsxCommands } from "@mpu/cmd-xlsx";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "@mpu/cmd-update";
 import { sqlCommand, sqlRoCommand } from "@mpu/cmd-sql";
@@ -42,7 +42,7 @@ import {
 } from "@mpu/cmd-nodecli";
 import { logCommand } from "@mpu/cmd-log";
 import { psCommand } from "@mpu/cmd-ps";
-import { searchCommand } from "../search/mod.ts";
+import { searchCommand } from "@mpu/cmd-search";
 import { runJsCommand } from "@mpu/cmd-runjs";
 import { jsdateCommand } from "@mpu/command/jsdate";
 import { sshCommand } from "@mpu/cmd-ssh";
@@ -98,6 +98,10 @@ import {
 import { backupCommands } from "@mpu/cmd-backup";
 import { makeSchemaCommand } from "@mpu/cmd-makeschema";
 import {
+  SHEET_CACHE_MAX_TAB_BYTES,
+  SHEET_CACHE_MAX_TOTAL_MB,
+  SHEET_CACHE_TAB_TTL,
+  SHEET_DEFAULT,
   sheetAliasAddCommand,
   sheetAliasLsCommand,
   sheetAliasRmCommand,
@@ -110,14 +114,14 @@ import {
   sheetOpenCommand,
   sheetResolveCommand,
   sheetSetCommand,
-} from "../sheet/mod.ts";
+} from "@mpu/cmd-sheet";
 import { cleanLocalClientsCommand } from "@mpu/cmd-cleanlocal";
 import {
   copyClientCommand,
   copyDevCommand,
   copySharedCommand,
 } from "@mpu/cmd-copy";
-import { configCommand } from "@mpu/command/config";
+import { ConfigRegistry, configCommand } from "@mpu/command/config";
 import { imageExportCommand, imageSyncCommand } from "@mpu/cmd-image";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "@mpu/cmd-api";
@@ -149,7 +153,8 @@ import {
 } from "../mr/mod.ts";
 import { confirmCommand } from "@mpu/command/confirm";
 import { sunCommand } from "@mpu/cmd-sun";
-import { taskCommands } from "../task/mod.ts";
+import { TASK_HISTORY, TASK_MAX_BUSY, taskCommands } from "@mpu/cmd-task";
+import { IMAGE_DIR } from "../line/imagedir.ts";
 import { ozonCommands, ozonPerfCommands, wbCommands } from "@mpu/cmd-call";
 
 /**
@@ -183,6 +188,23 @@ export interface CommandGroup {
    */
   readonly layout?: "selector-first";
 }
+
+/**
+ * Ключи `mpu config` в порядке спеки (`platform/config.md`,
+ * «CLI-контракт»): объявляет каждый его домен, список собирается здесь.
+ * Поимённо, а не сцепкой списков доменов: порядок вывода — контракт, и
+ * `xlsx.default` в нём стоит между ключами `sheet`.
+ */
+export const CONFIG_REGISTRY: ConfigRegistry = new ConfigRegistry([
+  SHEET_DEFAULT,
+  XLSX_DEFAULT,
+  SHEET_CACHE_TAB_TTL,
+  SHEET_CACHE_MAX_TAB_BYTES,
+  SHEET_CACHE_MAX_TOTAL_MB,
+  IMAGE_DIR,
+  TASK_HISTORY,
+  TASK_MAX_BUSY,
+]);
 
 /** Все команды CLI в порядке показа в справке. */
 export const commands: readonly Command[] = [
@@ -315,7 +337,7 @@ export const commands: readonly Command[] = [
   // Локальные предпочтения (`platform/config.md`): хранилищем
   // пользуются пять команд, а задать ключ до переезда этой можно было
   // только прежней реализацией.
-  configCommand,
+  configCommand(CONFIG_REGISTRY),
   imageSyncCommand,
   imageExportCommand,
   // Локальный стенд: поднять его целиком и убрать данные клиентов.
