@@ -44,7 +44,7 @@
 |---|---|---|
 | D1 | `code`, `d2miro`, `mpclone`, `sun` | потребитель — только `registry` |
 | D2 | `sql`, `logs` + адаптер `loki`, `update`, `log`, `mcp` | `log`, `mcp` — после N4 |
-| D3 | `kiten` + адаптер `kaiten`, `image` | |
+| D3 | `kiten` + адаптер `kaiten` | пакет `@mpu/cmd-image` снят порцией L1 |
 | D4 | `exec` (адаптер), `ps`, `ssh`, `runjs`, `makeschema`, `nodecli`, `mpinit` | |
 | D5 | `api` + адаптер `slback`, `backup`, `call`, `copy`, `cleanlocal` | |
 | D6 | `search`, `sheet`, `xlsx`, `task`; ключи доменов в реестре `config` объявляет домен (вопрос N3 п. 4) | |

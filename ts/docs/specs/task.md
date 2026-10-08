@@ -37,7 +37,7 @@ T1 заменяет ячейку `deno task handoff` каналом; оркес�
 ## CLI-контракт
 
 Проект — ключ `project:` (имя проекта не номер сущности, поэтому не `id:`).
-Тело — ключ `text:` (одно слово; из нескольких — `^…^`; `stdin` — ввод
+Тело — ключ `text:` (одно слово; из нескольких — в кавычках оболочки; `stdin` — ввод
 строки) или `file:` (путь файла), ровно одно из двух — как у `run-js`.
 
 ```
@@ -83,7 +83,7 @@ mpu task decisions project: <имя> [query: <слово>] [limit: <порций
 `read`, `wait`, `status`, `history`, `decisions`) — `allow`; `post`,
 `report`, `question`, `answer`, `decision`, `owner` — `allow` (роли пишут
 без человека; запись — в локальный журнал, не наружу; строки таблицы посева
-`platform/policy.md`, как `image export`); `setup`, `history clear` —
+`platform/policy.md`); `setup`, `history clear` —
 `ask`. `rule` и `owner-answer` — жёсткий запрет вне правил, как `allow:`
 (`platform/policy.md`): всегда вопрос каналу, текст `записать от имени
 владельца: <вид> в <проект>? [y/N] `; канал без человека — отказ `писать
@@ -160,23 +160,23 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 | # | Дано | Строка | stdout | stderr | код |
 |---|---|---|---|---|---|
 | T1 | — | `mpu task post project: demo text: x` | | `mpu task post: нет проекта demo — заведи: mpu ask task setup project: demo\n` (объекта `refusal` у отказа команды пока нет — платформа, отдельная порция) | 2 |
-| T2 | — | `mpu ask task setup project: demo note: ^игрушечный проект^` | инструкция (голден `setup.txt`) | `выполнить mpu task setup project: demo note: игрушечный проект? [y/N] ` (вопрос печатает группу раскрытой) | 0 |
+| T2 | — | `mpu ask task setup project: demo note: "игрушечный проект"` | инструкция (голден `setup.txt`) | `выполнить mpu task setup project: demo note: игрушечный проект? [y/N] ` (вопрос печатает группу раскрытой) | 0 |
 | T3 | после T2 | `mpu task report project: demo text: готово` | | `mpu task report: порций ещё нет — начни с mpu task post project: demo …\n` | 2 |
-| T4 | после T2 | `mpu task post project: demo text: ^сделай x^` | | | 0 |
+| T4 | после T2 | `mpu task post project: demo text: "сделай x"` | | | 0 |
 | T5 | после T4 | `mpu task status` | `demo  порция 1  ждёт исполнителя  task  <возраст>  непрочитано  игрушечный проект\n` | | 0 |
 | T6 | после T4 | `mpu task read project: demo` | `сделай x` | | 0 |
 | T7 | после T6 | `mpu task post project: demo text: y` | | `mpu task post: порция 1 не отработана — заменить: mpu task post force project: demo …\n` | 1 |
 | T8 | после T6 | `mpu task post force project: demo text: y` | | | 0; порция 1, тело `y` |
-| T9 | после T8 | `mpu task question project: demo text: ^почему y?^`; `mpu task status` | вторая: `demo  порция 1  ждёт хоста  question  …` | | 0 |
-| T10 | после T9 | `mpu task owner project: demo text: ^нужен ли y?^`; `status` | `demo  порция 1  ждёт владельца  owner  …` | | 0 |
+| T9 | после T8 | `mpu task question project: demo text: "почему y?"`; `mpu task status` | вторая: `demo  порция 1  ждёт хоста  question  …` | | 0 |
+| T10 | после T9 | `mpu task owner project: demo text: "нужен ли y?"`; `status` | `demo  порция 1  ждёт владельца  owner  …` | | 0 |
 | T11 | после T10, агент | `mpu task owner-answer project: demo text: да` | | `писать owner-answer может только человек\n` | 1; журнал прежний |
 | T12 | после T10, человек | `mpu task owner-answer project: demo text: да` | | `записать от имени владельца: owner-answer в demo? [y/N] ` | 0; `status` — `ждёт хоста` |
-| T13 | после T12, человек | `mpu task rule project: demo text: ^мерж — никогда^`, затем `mpu task decisions project: demo` | вторая: `## Правила\n\nмерж — никогда\n\n## Порция 1\n\n- owner: нужен ли y?\n- owner-answer: да\n` | вопрос как T12 | 0 |
-| T14 | после T13 | `mpu task decision project: demo text: ^y вместо x: правило 3^`; `mpu task decisions project: demo query: правило` | `## Правила\n\nмерж — никогда\n\n## Порция 1\n\n- decision: y вместо x: правило 3\n` | | 0 |
+| T13 | после T12, человек | `mpu task rule project: demo text: "мерж — никогда"`, затем `mpu task decisions project: demo` | вторая: `## Правила\n\nмерж — никогда\n\n## Порция 1\n\n- owner: нужен ли y?\n- owner-answer: да\n` | вопрос как T12 | 0 |
+| T14 | после T13 | `mpu task decision project: demo text: "y вместо x: правило 3"`; `mpu task decisions project: demo query: правило` | `## Правила\n\nмерж — никогда\n\n## Порция 1\n\n- decision: y вместо x: правило 3\n` | | 0 |
 | T15 | после T8 | `mpu task wait project: demo kind: report timeout: 1` | | `mpu task wait: report в demo не пришёл за 1 с\n` | 1 |
 | T16 | после T8, фоном `wait … kind: report`; затем `mpu task report project: demo text: сделано` | — | у `wait`: `сделано` | | 0 |
 | T17 | — | `mpu task read project: demo kind: ask` | | `mpu task read: неизвестный вид ask — допустимо: task, report, question, answer, decision, owner, owner-answer, rule\n` | 2 |
-| T18 | — | `mpu task post project: demo text: ^   ^` | | `mpu task post: пустое тело сообщения\n` | 2 |
+| T18 | — | `mpu task post project: demo text: "   "` | | `mpu task post: пустое тело сообщения\n` | 2 |
 | T19 | — | `mpu task post project: demo text: x file: a.md` | | `mpu task post: тело — text: или file:, не оба\n` | 2 |
 | T20 | `printf 'a\n\n' \| …` | `mpu task post project: demo text: stdin`, затем `read` | `a\n` (значение `stdin` строка раскрывает без хвостового перевода строки — `value-expression.md` [D.2]) | | 0 |
 | T21 | пять порций, `task.history` = 3 | `mpu task history project: demo end json` | массив записей только порций 3–5 | | 0 |

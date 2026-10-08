@@ -25,13 +25,13 @@
 | `model:` | модель Claude Code | `opus` |
 | `mode:` | режим разрешений | `auto` |
 | `add-dir:` | каталог вне каталога запуска; вход-список | нет |
-| `powers:` | полномочия текстом (`^…^`) — вкладываются в первое сообщение дословно | обязателен |
+| `powers:` | полномочия текстом (в кавычках оболочки) — вкладываются в первое сообщение дословно | обязателен |
 | `read:` | файл, который роль читает первым; вход-список | нет |
 
 ## CLI-контракт
 
 ```
-mpu task role project: <имя> role: host|exec dir: … powers: ^…^ [прочие ключи профиля]
+mpu task role project: <имя> role: host|exec dir: … powers: "…" [прочие ключи профиля]
 mpu task role forget project: <имя> role: host|exec
 mpu task roles project: <имя>
 mpu task busy project: <имя> role: host|exec
@@ -96,17 +96,17 @@ T1).
 
 | # | Дано | Строка | stdout | stderr | код |
 |---|---|---|---|---|---|
-| R1 | — | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: ^прод — только чтение^` | | `изменить профиль роли: demo exec? [y/N] ` | 0 |
+| R1 | — | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: "прод — только чтение"` | | `изменить профиль роли: demo exec? [y/N] ` | 0 |
 | R2 | после R1 | `mpu task roles project: demo` | `exec  -  -\n  session: w  window: demo-exec  model: opus  mode: auto\n  dir: /tmp/demo/ts\n  powers: прод — только чтение\n` | | 0 |
-| R3 | после R1, агент | `mpu task role project: demo role: exec dir: /tmp/x powers: ^всё можно^` | | `менять профиль роли может только человек\n` | 1; профиль прежний |
+| R3 | после R1, агент | `mpu task role project: demo role: exec dir: /tmp/x powers: "всё можно"` | | `менять профиль роли может только человек\n` | 1; профиль прежний |
 | R4 | после R1, агент | `mpu task busy project: demo role: exec`; `mpu task roles project: demo` | вторая: первая строка `exec  busy  0s` | | 0 |
 | R5 | после R4 | `mpu task idle project: demo role: exec`; `roles` | `exec  idle  0s` | | 0 |
-| R6 | после R1 | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: ^x^ model: sonnet add-dir: /tmp/a add-dir: /tmp/b` | | вопрос как R1 | 0; `roles` — `model: sonnet`, две строки `add-dir:` |
+| R6 | после R1 | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: "x" model: sonnet add-dir: /tmp/a add-dir: /tmp/b` | | вопрос как R1 | 0; `roles` — `model: sonnet`, две строки `add-dir:` |
 | R7 | после R6 | то же без `model:` | | | 0; `roles` — `model: opus` (замена целиком) |
-| R8 | проект `other` заведён | `mpu task role project: other role: exec dir: /tmp/demo/ts powers: ^x^` | | вопрос `изменить профиль роли: other exec? [y/N] `, затем `mpu task role: каталог /tmp/demo/ts уже у роли demo exec\n` | 2 |
-| R9 | — | `mpu task role project: demo role: dialog dir: /tmp powers: ^x^` | | вопрос `изменить профиль роли: demo dialog? [y/N] `, затем `mpu task role: роль dialog — допустимо: host, exec\n` | 2 |
-| R10 | — | `mpu task role project: demo role: exec powers: ^x^` | | вопрос как R1, затем `mpu task role: нет dir: — каталог запуска обязателен\n` | 2 |
-| R11 | — | `mpu task role project: demo role: exec dir: rel/ts powers: ^x^` | | вопрос как R1, затем `mpu task role: dir: — абсолютный путь, получено rel/ts\n` | 2 |
+| R8 | проект `other` заведён | `mpu task role project: other role: exec dir: /tmp/demo/ts powers: "x"` | | вопрос `изменить профиль роли: other exec? [y/N] `, затем `mpu task role: каталог /tmp/demo/ts уже у роли demo exec\n` | 2 |
+| R9 | — | `mpu task role project: demo role: dialog dir: /tmp powers: "x"` | | вопрос `изменить профиль роли: demo dialog? [y/N] `, затем `mpu task role: роль dialog — допустимо: host, exec\n` | 2 |
+| R10 | — | `mpu task role project: demo role: exec powers: "x"` | | вопрос как R1, затем `mpu task role: нет dir: — каталог запуска обязателен\n` | 2 |
+| R11 | — | `mpu task role project: demo role: exec dir: rel/ts powers: "x"` | | вопрос как R1, затем `mpu task role: dir: — абсолютный путь, получено rel/ts\n` | 2 |
 | R12 | — | `mpu task busy project: nope role: exec` | | `mpu task busy: нет проекта nope — заведи: mpu ask task setup project: nope\n` | 2 |
 | R13 | после R1, человек | `mpu task role forget project: demo role: exec`; `roles` | вторая: пусто | вопрос как R1 | 0 |
 | R14 | — | `mpu task roles project: demo end json` после R4 | `[{"role":"exec","mark":"busy","mark_age_s":0,"session":"w","window":"demo-exec","dir":"/tmp/demo/ts","model":"opus","mode":"auto","add_dir":[],"read":[],"powers":"прод — только чтение"}]\n` | | 0 |

@@ -1,13 +1,12 @@
 # Запись результата: команда, отдающая одну сущность
 
-Статус: реализовано — порция 166b (`32a4130`, `2726314`); принято 2026-09-23 хостом: гейты зелёные (тестов 2412, smoke 19/1), мутации красные (M9 — инвариант «`record` не схлопывает запись с одним полем» на сегодняшнем реестре не наблюдаем). Живьём: `kiten card id: 67485366 end title` → название, `end comments size` → 2; программа `kiten ls … each: do :c kiten card id: @c id end title print done` → два названия; `kiten status end size` → 16.
+Статус: реализовано — порция 166b (`32a4130`, `2726314`); принято 2026-09-23 хостом: гейты зелёные (тестов 2412, smoke 19/1), мутации красные (M9 — инвариант «`record` не схлопывает запись с одним полем» на сегодняшнем реестре не наблюдаем). Живьём: `kiten card id: 67485366 end title` → название, `end comments size` → 2; `kiten status end size` → 16.
 
 ## Назначение
 
-Живьём после установки 166: `kiten ls … each: do :c kiten card id: @c id end
-title print done` → «запись не понимает title; ближайшие: view, card,
+Живьём после установки 166: `kiten card id: … end title` на конверте → «запись не понимает title; ближайшие: view, card,
 propertyNames». Результат `kiten card` — конверт (`{view, card, …}`), а
-отбор и программа видят конверт, а не карточку; в однокомандной строке `mpu
+отбор видит конверт, а не карточку; в однокомандной строке `mpu
 kiten card id: 1 end title` — «не понимает title; есть: json, md, first, …»
 (конверт принят за коллекцию). `end json` при этом печатает саму карточку.
 Команда, чей результат — одна сущность, объявляет её так же, как коллекция
@@ -45,9 +44,7 @@ kiten card id: 1 end title` — «не понимает title; есть: json, m
 | `mpu kiten card id: 67485366 end title` | название карточки |
 | `mpu kiten card id: 67485366 end comments size` | число комментариев |
 | `mpu kiten card id: 67485366 end size` | «запись не понимает size; ближайшие: …», код 2 |
-| `kiten ls first: 2 end each: do :c kiten card id: @c id end title print done` | два названия |
 | `mpu kiten card id: 67485366` и `… end json` | как до порции (голдены) |
-| `x := kiten card id: 67485366 . x state` | `done` |
 
 ## Известные отклонения
 

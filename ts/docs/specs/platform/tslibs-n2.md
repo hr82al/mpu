@@ -9,11 +9,11 @@
 
 ## Граница (наблюдаемая, снято с `main` 2026-10-08)
 
-`tslibs/language` ← `back/src/{frames,messages,picture,objects,program}`
-(~11.2k строк; потребителей в `ts/`: 53, 73, 5, 39, 19 файлов). Каталоги
+`tslibs/language` ← `back/src/{frames,messages,picture,objects}`
+(~11.2k строк, до снятия программ порцией L1, `stage6-l1.md`; потребителей в `ts/`: 53, 73, 5, 39, 19 файлов). Каталоги
 зависят только друг от друга; внешние зависимости — `fastest-levenshtein`
 (`objects`); тестовые — `@mpu/testing`. Точки входа — по одной на каталог
-(`@mpu/language/frames`, `/messages`, `/picture`, `/objects`, `/program`):
+(`@mpu/language/frames`, `/messages`, `/picture`, `/objects`; версия 0.2.0 — без вычислителя, входа `/program` нет):
 потребители берут их порознь, а связь между ними — внутренняя. Фейки, если
 тестам `ts/` нужны, — `./testing`.
 
@@ -25,7 +25,7 @@
 2. Списки листовых случаев пяти каталогов до = после (пакет + `ts/`), строка
    в строку.
 3. `rg -n 'Deno\.|Bun\.' tslibs/language/src` → пусто; в пакете нет импорта из
-   `ts/`; каталогов `ts/back/src/{frames,messages,picture,objects,program}` нет.
+   `ts/`; каталогов `ts/back/src/{frames,messages,picture,objects}` нет.
 4. `ts/package.json` — архив; `cd ts && rm -rf node_modules/@mpu && bun
    install --frozen-lockfile` проходит; гейты `ts/` и `bun run smoke` зелёные.
 5. Все голдены `ts/` — без изменений и зелёные (язык — под всеми командами).

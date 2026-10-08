@@ -136,7 +136,6 @@ stderr — терминалы: вопрос печатается в stderr бе�
 | группа с селектором перед подкомандой (`ozon-jobs`) | самое строгое из посевных решений её детей: хоть один `rw` — `ask`, иначе `allow` (с порции 159 строка решается правилом подкоманды — `keys-translation.md`; правило группы действует на подкоманды без своего) |
 | `policy` | `allow` |
 | `version` (поверхность, не команда реестра) | `allow` |
-| `image export` (порция 169b, `image-export.md`) | `allow` — вместо посева по признаку `rw`, одной строкой: пишет только файлы каталога образа |
 | `task post`, `task report`, `task question`, `task answer`, `task decision`, `task owner` (порция T1, `task.md`) | `allow` — вместо посева по признаку `rw`: роли пишут в локальный журнал без человека |
 | `task rule`, `task owner-answer` | посева нет: жёсткий запрет вне правил, как у `allow:` (`task.md`, «Правила») |
 | `task roles`, `task busy`, `task idle` (порция T2, `task-roles.md`) | `allow` |

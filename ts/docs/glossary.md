@@ -195,7 +195,7 @@
 | поле `file` выдачи | `ListedFile` | имя, размер, MIME-тип вложения в выдаче `telegram search` |
 | скачанный файл | `SavedFile` | вывод `telegram file`: путь, имя, записанный размер, MIME-тип |
 | каталог-получатель | `Inbox` | каталог, куда `telegram file` атомарно пишет вложения (`/tmp/mpu-telegram/`) |
-| картинка | `Picture` | растровое изображение (JPEG, PNG, GIF, WebP) в ответе строки: кадр `picture`, блок `image` MCP; не путать с «образом» (`platform/image.md`) (`platform/picture-frame.md`) |
+| картинка | `Picture` | растровое изображение (JPEG, PNG, GIF, WebP) в ответе строки: кадр `picture`, блок `image` MCP (`platform/picture-frame.md`) |
 | галерея ответа строки | `Gallery` | картинки результатов строки по порядку и предел суммы байтов; кадры — перед `exit`, строке с кодом ≠ 0 — ни одного (`platform/picture-frame.md`) |
 | вид картинки | `PictureMime` | формат по первым байтам файла: JPEG, PNG, GIF, WebP (`platform/picture-frame.md`) |
 | сообщение клиента | `ClientMessage` | сообщение, как о нём отчитался клиент, до проверок: идентификатор чата и время могут отсутствовать |
@@ -390,26 +390,13 @@
 | смерть исполнителя | `deathOf`, `unlaunched`, `killedStatus`, `WorkerStopped`, `STOP_GRACE_MS` (166a) | текст и код исхода без `result` |
 | сторож памяти | `Watchdog`, `WatchSetup`, `ProcSource`, `Snapshot`, `Proc`, `Hands`, `MARKLESS_HANDS`, `SYSTEM_PROCS`, `defaultThreshold`, `DEFAULT_MIN_BYTES`, `WATCH_INTERVAL_MS` (166a) | такт супервизора: мало памяти — убить самого большого исполнителя |
 | порт строки из контекста | `callIo` (166a) | каталог, окружение, ввод, терминалы строки — одним портом |
-| программа строки | `Program`, `isProgram`, `parseProgram`, `runProgram` (166) | строка из выражений, переменных, блоков — исполняет исполнитель |
-| значение программы | `Value`, `Protocol`, `Operand`, `Num`, `Text`, `TRUE`/`FALSE`, `NIL`, `Block`, `List`, `Printed` (166) | объекты вычислителя |
-| машина программы | `Machine`, `Answer`, `Request`, `Stack`, `BlockCall`, `Every`, `Pace`, `Placed`, `Misstep`, `Cancelled` (166) | трамплин со стеком в куче и уступкой по часам |
-| узлы программы | `Statements`, `Chain`, `Keyword`, `Unary`, `Assignment`, `Group`, `BlockLiteral`, `Variable`, `Constant`, `Command` (166) | разобранная программа |
-| данные программы | `Items`, `Fields`, `CommandResult`, `fromData`, `RESULT` (166) | результат команды глазами программы |
-| область имён | `Scope`, `Names` (166) | переменные программы и параметры блоков |
-| подстрока программы | кадры `evaluate`/`line`/`lined`, `LineReply`, `Capture`, `shown`, `Evaluator` (166) | команда программы — отдельной строкой через ядро |
 | файл ключом | `fromFile`, `body-file` (166) | значение из файла — отдельным ключом, не `@путь` |
-| вид данных результата | `ResultData`, `data`, `items`, `record`, `WHOLE` (166b) | как отбор, `it` и программа видят результат команды |
+| вид данных результата | `ResultData`, `data`, `items`, `record`, `WHOLE` (166b) | как отбор и `it` видят результат команды |
 | поле результата после закрытия | `field`, `Field`, `NO_FIELD`, `fieldOf`, `unknownWord` (166b) | `kiten card id: 1 end title` |
-| обход до исполнения | `Reach`, `reach`, `Ahead`, `verdict`, `Addressee`, `Known`, `UNKNOWN` (167) | сбор достижимых команд программы и решение правил до исполнения |
+| обход до исполнения | `Reach`, `reach`, `Ahead`, `verdict`, `Addressee`, `Known`, `UNKNOWN` (167) | сбор достижимых команд строки и решение правил до исполнения |
 | итог обхода | `Finding`, `CLEAR`, `NeedsDoor`, `RuledOut` (167) | исполнять / нужен `ask` / запрещено |
-| вход строки | `Entry`, `entryOf`, `needsDoor`, `redirected`, `outward` (167) | дверь строки, отказ всей строки, код программы наружу |
-| образ, метод образа | `Image`, `ImageMethod`, `ImageError`, `MethodRecord`, `MethodSnapshot` (168) | методы пользователя в `image.db` |
-| строка образа | `ImageLine`, `imageLineOf`, `Definition`, `Forgetting`, `ImageContext` (168) | `define:`/`forget:` |
-| вызов метода | `MethodCall`, `MethodBody`, `MethodSource`, `parseMethodBody`, `nameParts`, `callWord`, `Line.consent`, `Consent` (168) | согласие ядра, затем тело в исполнителе |
-| посев по надобности | `RuleBook.sow` (168) | правило пути ставится при первом касании |
-| автор метода | `Door.author`, `Caller.author` (168) | human / agent / web |
+| вход строки | `Entry`, `entryOf`, `needsDoor`, `redirected`, `outward` (167) | дверь строки, отказ всей строки |
 | ключ-текст | `texts`, `TEXT_KEYS`, `textKeysOf`, `TEXT_KINDS`, `textual`, `textFor` (167b) | ключ, чьё слово берётся как есть |
-| закрытие текста `^…^` | `lateCloser`, `closedEarly`, `unclosed`, `doubled` (167b) | счёт `^` на краю слова и отказы с готовой строкой |
 | ответ хука PreToolUse | `HookReply`: `Allowed`, `Denied`, `Undecided` (P1) | `allow`/`deny` — JSON в stdout, без решения — строка в stderr; код всегда 0 |
 | вызов инструмента из payload | `ToolCall`: `BashCall`, `McpCall`, `NotMpu`, `Unparsed`, `toolCallOf` (P1) | слова строки `mpu` или готовый ответ хука |
 | проба строки без исполнения | `Consultation` (реализация `Line`), `consulted`, `hookLineOf` (P1) | обход той же цепочкой на месте сессии: слушает исход решения правил |
