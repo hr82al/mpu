@@ -366,7 +366,7 @@ it("O14: stop — окна не трогаются; resume — шаги идут
     await demo(rig);
     await settled(rig);
     await rig.say("post", "x");
-    await rig.say("stop", "^нет ключа^");
+    await rig.say("stop", "нет ключа");
     rig.tmux.kill("demo-host");
     await rig.step();
     await rig.step();
@@ -435,7 +435,7 @@ it("O16: task.max_busy = 1 — очищен один, второй после id
 it("O17: полномочия дословно и вывод decisions в первом сообщении", () =>
   withRig(async (rig) => {
     await rig.stand.human("ask", "task", "setup", "project:", "demo");
-    await rig.profile("exec", "demo", "powers:", "^мерж", "—", "никогда^");
+    await rig.profile("exec", "demo", "powers:", "мерж — никогда");
     await rig.say("post", "x");
     await rig.stand.human(
       "task",
@@ -443,7 +443,7 @@ it("O17: полномочия дословно и вывод decisions в пер
       "project:",
       "demo",
       "text:",
-      "^ревью — всегда^",
+      "ревью — всегда",
     );
     await rig.say("owner", "y?");
     await rig.stand.human(

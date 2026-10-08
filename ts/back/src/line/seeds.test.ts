@@ -12,17 +12,6 @@ it("пути посева попарно различны", () => {
   expect(repeated).toStrictEqual([]);
 });
 
-it("image export — allow вместо посева по признаку rw", () => {
-  const image = registrySeeds()
-    .map((rule) => rule.entry())
-    .filter((entry) => entry.path.startsWith("image"))
-    .sort((a, b) => a.path.localeCompare(b.path));
-  expect(image).toStrictEqual([
-    { path: "image export", verdict: "allow" },
-    { path: "image sync", verdict: "ask" },
-  ]);
-});
-
 it("claude-hook permission-request, stop, elicitation — allow вместо посева по признаку rw", () => {
   const hooks = registrySeeds()
     .map((rule) => rule.entry())

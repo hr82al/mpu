@@ -525,7 +525,7 @@
     "command": "mpu run: x.mpu"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "S17b",
@@ -545,7 +545,7 @@
     "command": "mpu"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
   },
   {
    "id": "S17d",
@@ -555,7 +555,7 @@
     "command": "mpu ask"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
   },
   {
    "id": "S17e",
@@ -569,7 +569,7 @@
     ]
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "S18a",
@@ -840,7 +840,7 @@
     "command": "mpu 2 plus: 2 . kiten ls"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "E6",
@@ -870,7 +870,7 @@
     "command": "mpu image sync dry"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "E9",
@@ -914,7 +914,7 @@
     "command": "mpu kiten define: x"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "E13",
@@ -924,7 +924,7 @@
     "command": "mpu kiten ls forget: x"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "E14",
@@ -934,7 +934,7 @@
     "command": "mpu ask kiten forget: ls"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   },
   {
    "id": "E15",
@@ -954,7 +954,7 @@
     "command": "mpu run:"
    },
    "stdout": "",
-   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: отказ\n"
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не команда mpu\n"
   }
  ],
  "environment": [

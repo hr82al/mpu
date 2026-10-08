@@ -122,7 +122,6 @@ import {
   copySharedCommand,
 } from "@mpu/cmd-copy";
 import { ConfigRegistry, configCommand } from "@mpu/command/config";
-import { imageExportCommand, imageSyncCommand } from "@mpu/cmd-image";
 import { glabStatusCommand } from "@mpu/cmd-glab";
 import { apiCommands } from "@mpu/cmd-api";
 import { d2MiroCommand } from "@mpu/cmd-d2miro";
@@ -338,8 +337,6 @@ export const commands: readonly Command[] = [
   // пользуются пять команд, а задать ключ до переезда этой можно было
   // только прежней реализацией.
   configCommand(CONFIG_REGISTRY),
-  imageSyncCommand,
-  imageExportCommand,
   // Локальный стенд: поднять его целиком и убрать данные клиентов.
   // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
   mpInitCommand,
@@ -414,11 +411,6 @@ export const groups: readonly CommandGroup[] = [
     path: ["task"],
     summary: "канал работы между ролями проекта: постановки, отчёты, решения",
     usage: "mpu task <подкоманда> [аргументы]",
-  },
-  {
-    path: ["image"],
-    summary: "методы образа и файлы каталога",
-    usage: "mpu image <подкоманда> [аргументы]",
   },
   {
     path: ["xlsx"],

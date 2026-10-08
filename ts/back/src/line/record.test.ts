@@ -115,29 +115,3 @@ it("it: поле прошлой карточки, команда не испол
       expect([it.exit, it.stdout, it.native]).toStrictEqual([0, "один\n", []]);
     }),
   ));
-
-it("программа: поле карточки в блоке и в переменной", () =>
-  withPolicyFile((file) =>
-    withStand(async (stand) => {
-      allowEverything(file);
-      const cases: readonly [string, string][] = [
-        [
-          "kiten ls first: 2 {end} each: {do} {:}c kiten card id: {@}c id {end} title print {done}",
-          "один\nдва\n",
-        ],
-        ["x {:=} kiten card id: 13 {.} x state", "done\n"],
-        ["x {:=} kiten card id: 11 {.} x comments size", "7\n"],
-      ];
-      for (const [line, stdout] of cases) {
-        const ran = await runOnStand(file, words(line), stand);
-        expect(
-          { stdout: ran.stdout, stderr: ran.stderr, exit: ran.exit },
-          line,
-        ).toStrictEqual({
-          stdout,
-          stderr: "",
-          exit: 0,
-        });
-      }
-    }),
-  ));

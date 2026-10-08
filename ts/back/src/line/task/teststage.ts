@@ -274,7 +274,7 @@ export class Rig {
   async profile(role: string, project = "demo", ...more: string[]) {
     const powers = more.includes("powers:")
       ? []
-      : ["powers:", "^прод", "—", "только", "чтение^"];
+      : ["powers:", "прод — только чтение"];
     const run = await this.stand.human(
       "task",
       "role",

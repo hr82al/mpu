@@ -1287,8 +1287,8 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { id: 5000001 },
   },
   {
-    // Строку исполняет ядро (`line/hook.ts`), как `image sync`: у самой
-    // команды реестра исполнения нет, обход получает отказ.
+    // Строку исполняет ядро (`line/hook.ts`): у самой команды реестра
+    // исполнения нет, обход получает отказ.
     path: "claude-hook pre-tool-use",
     argv: [],
     sampleResult: {},
@@ -1503,19 +1503,6 @@ const CASES: readonly CommandCase[] = [
       ],
       action: "get",
     },
-  },
-  {
-    // Строку исполняет ядро (`line/sync.ts`): у самой команды реестра
-    // исполнения нет, обход получает отказ — печати нет и в нём.
-    path: "image sync",
-    argv: ["--dry-run"],
-    sampleResult: { report: "совпало 0, изменено 0, конфликтов 0\n" },
-  },
-  {
-    // Строку исполняет ядро, как `image sync`.
-    path: "image export",
-    argv: [],
-    sampleResult: { report: "совпало 0, изменено 0, конфликтов 0\n" },
   },
   {
     // Локальный стенд: у обхода нет ни каталога mp-config-local, ни

@@ -79,6 +79,7 @@ import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
 import type { OwnerHooks } from "./hook.ts";
 import { routeOf } from "./route.ts";
+import { formerOf } from "./former.ts";
 
 export type { RootMethod } from "./rules.ts";
 export {
@@ -313,204 +314,219 @@ export function lineEntry(ports: LinePorts): CliEntry {
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
     const typedEntry = entryOf(walked);
-    const origin = await sourceOf(argv, walked, typedEntry.words.length).origin(
-      io,
-      ports.files,
-    );
-    // Дверь объявляет строка или текст её файла (`ask` первым словом).
-    const entry = origin.entry(typedEntry);
-    const door = entry.words;
-    const said = origin.words;
-    // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
-    const stdin = origin.stdin(io);
-    const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
-    const channel = ports.channel(io, output);
-    const parts = {
-      own: [
-        ...ports.rootMethods.map(rootMethod),
-        itMethod(ports.memory, output.stderr),
-      ],
-      targets: (like: string) => {
-        using db = io.openCacheDb();
-        return Promise.resolve(targetValues(db, like));
-      },
-      image: methods,
-    };
-    /** Как исполняется команда самой строки: её журнал, очередь, печать. */
-    const own: Running = {
-      journal,
-      execute: ports.execute,
-      delivery: PRINT,
-      redirect: () => toDoor(),
-    };
-    /**
-     * Строка `words` с выводом `out`: её собственная сессия; результат
-     * команды запоминает `memory`, исполняется она так, как велит
-     * `running`.
-     */
-    const sessionOf = (
-      words: readonly string[],
-      out: Speech,
-      memory: Memory,
-      running: Running = own,
-    ) =>
-      new Session({
-        book,
-        channel,
-        output: out,
-        dispatch: (view, order, delivery) =>
-          running.execute(() =>
-            runLine(
-              order.argv(view.executed(words)),
-              lineIo,
-              out,
-              running.journal,
-              picturing(
-                remembering(delivery ?? running.delivery, memory),
-                pictures,
+    // Прежняя форма отказывает раньше всего, что строка читает сама:
+    // файла `run:`, ввода, маршрута (`platform/stage6-l1.md`).
+    const typed = walked.slice(typedEntry.words.length);
+    return await formerOf(argv, typed).settle(
+      { io, speech, journal },
+      async () => {
+        const origin = await sourceOf(
+          argv,
+          walked,
+          typedEntry.words.length,
+        ).origin(io, ports.files);
+        // Дверь объявляет строка или текст её файла (`ask` первым словом).
+        const entry = origin.entry(typedEntry);
+        const door = entry.words;
+        const said = origin.words;
+        // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
+        const stdin = origin.stdin(io);
+        const lineIo: CommandIo = {
+          ...io,
+          readStdin: () => stdin.forCommand(),
+        };
+        const channel = ports.channel(io, output);
+        const parts = {
+          own: [
+            ...ports.rootMethods.map(rootMethod),
+            itMethod(ports.memory, output.stderr),
+          ],
+          targets: (like: string) => {
+            using db = io.openCacheDb();
+            return Promise.resolve(targetValues(db, like));
+          },
+          image: methods,
+        };
+        /** Как исполняется команда самой строки: её журнал, очередь, печать. */
+        const own: Running = {
+          journal,
+          execute: ports.execute,
+          delivery: PRINT,
+          redirect: () => toDoor(),
+        };
+        /**
+         * Строка `words` с выводом `out`: её собственная сессия; результат
+         * команды запоминает `memory`, исполняется она так, как велит
+         * `running`.
+         */
+        const sessionOf = (
+          words: readonly string[],
+          out: Speech,
+          memory: Memory,
+          running: Running = own,
+        ) =>
+          new Session({
+            book,
+            channel,
+            output: out,
+            dispatch: (view, order, delivery) =>
+              running.execute(() =>
+                runLine(
+                  order.argv(view.executed(words)),
+                  lineIo,
+                  out,
+                  running.journal,
+                  picturing(
+                    remembering(delivery ?? running.delivery, memory),
+                    pictures,
+                  ),
+                  ports.invoker,
+                ),
               ),
-              ports.invoker,
-            ),
-          ),
-        streams: (view, order) => streams(order.argv(view.executed(words))),
-        consent: (view, order) => consentAt(order.argv(view.executed(words))),
-        terminal: io.stdinIsTerminal(),
-        redirect: running.redirect,
-      });
-    const values: LineValues = new LineValues(async (words) => {
-      const texts: string[] = [];
-      const captured: Speech = {
-        stdout: (text) => void texts.push(text),
-        stderr: speech.stderr,
-        refusal: speech.refusal,
-      };
-      const group = [...door, ...words];
-      // Результат группы — значение ключа, а не результат строки.
-      const root = registryRoot(
-        sessionOf(group, captured, NO_CALLER),
-        book,
-        parts,
-      );
-      const outcome = await runChain(group, root, values);
-      return { outcome, printed: texts.join("") };
-    }, stdin);
-    /** Корень строки, чью сессию `wrap` может подменить. */
-    const rootOf = (wrap: (session: Line) => Line) =>
-      registryRoot(wrap(sessionOf(argv, speech, ports.memory)), book, {
-        ...parts,
-        stripped: strippedOf(argv),
-      });
-    const root = rootOf((session) => session);
-    /**
-     * Команда программы — отдельной строкой той же дверью: правила в
-     * момент отправки, своя запись журнала, `it`; место в очереди строк
-     * у неё то же, что у программы.
-     */
-    const core = async (words: readonly string[]): Promise<LineReply> => {
-      const line = [...door, ...words];
-      const capture = new Capture();
-      let reply: LineReply = { exit: 1 };
-      await runJournaled(
-        line,
-        async (sub, _io, out, subJournal) => {
+            streams: (view, order) => streams(order.argv(view.executed(words))),
+            consent: (view, order) =>
+              consentAt(order.argv(view.executed(words))),
+            terminal: io.stdinIsTerminal(),
+            redirect: running.redirect,
+          });
+        const values: LineValues = new LineValues(async (words) => {
           const texts: string[] = [];
-          const heard: Speech = {
+          const captured: Speech = {
             stdout: (text) => void texts.push(text),
-            stderr: out.stderr,
+            stderr: speech.stderr,
             refusal: speech.refusal,
           };
-          const running = {
-            journal: subJournal,
-            execute: immediately,
-            delivery: capture,
-            redirect: redirected(origin, heard),
-          };
-          const subRoot = registryRoot(
-            sessionOf(sub, heard, ports.memory, running),
+          const group = [...door, ...words];
+          // Результат группы — значение ключа, а не результат строки.
+          const root = registryRoot(
+            sessionOf(group, captured, NO_CALLER),
             book,
             parts,
           );
-          const code = printed(await runChain(sub, subRoot, values), heard);
-          reply = capture.reply(code, texts.join(""));
-          return code;
-        },
-        lineIo,
-        journal.log,
-        output,
-      );
-      return reply;
-    };
-    const commands = programCommands(sources);
-    /**
-     * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
-     * — с окружением клиента и сигналом обрыва строки.
-     */
-    const asking = ports.owner ?? UNASKED;
-    const owner: OwnerHooks = {
-      permission: (text) => asking.permission(text, lineIo.signal),
-      stop: (text) => asking.stop(text),
-      notification: (text) => asking.notification(text),
-      elicitation: (text) => asking.elicitation(text, lineIo.signal),
-    };
-    const hook = {
-      readStdin: lineIo.readStdin,
-      owner,
-      consulting: new LineConsulting({
-        book,
-        commands,
-        methods,
-        rootMethods: ports.rootMethods,
-        targets: parts.targets,
-        readStdin: lineIo.readStdin,
-        owner,
-      }),
-    };
-    const context = {
-      said,
-      view: entry.view,
-      book,
-      channel,
-      speech,
-      image: imaging.image,
-      methods,
-      commands,
-      root: programRoot(root),
-      author: imaging.author,
-      now: imaging.now,
-      changed: imaging.changed,
-      journaled: () => journal.nativeCall(programPolicy(said)),
-      io: lineIo,
-      walk: async (wrap: (session: Line, words: readonly string[]) => Line) =>
-        printed(
-          await runChain(
-            walked,
-            rootOf((session) => wrap(session, argv)),
-            values,
-          ),
+          const outcome = await runChain(group, root, values);
+          return { outcome, printed: texts.join("") };
+        }, stdin);
+        /** Корень строки, чью сессию `wrap` может подменить. */
+        const rootOf = (wrap: (session: Line) => Line) =>
+          registryRoot(wrap(sessionOf(argv, speech, ports.memory)), book, {
+            ...parts,
+            stripped: strippedOf(argv),
+          });
+        const root = rootOf((session) => session);
+        /**
+         * Команда программы — отдельной строкой той же дверью: правила в
+         * момент отправки, своя запись журнала, `it`; место в очереди строк
+         * у неё то же, что у программы.
+         */
+        const core = async (words: readonly string[]): Promise<LineReply> => {
+          const line = [...door, ...words];
+          const capture = new Capture();
+          let reply: LineReply = { exit: 1 };
+          await runJournaled(
+            line,
+            async (sub, _io, out, subJournal) => {
+              const texts: string[] = [];
+              const heard: Speech = {
+                stdout: (text) => void texts.push(text),
+                stderr: out.stderr,
+                refusal: speech.refusal,
+              };
+              const running = {
+                journal: subJournal,
+                execute: immediately,
+                delivery: capture,
+                redirect: redirected(origin, heard),
+              };
+              const subRoot = registryRoot(
+                sessionOf(sub, heard, ports.memory, running),
+                book,
+                parts,
+              );
+              const code = printed(await runChain(sub, subRoot, values), heard);
+              reply = capture.reply(code, texts.join(""));
+              return code;
+            },
+            lineIo,
+            journal.log,
+            output,
+          );
+          return reply;
+        };
+        const commands = programCommands(sources);
+        /**
+         * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
+         * — с окружением клиента и сигналом обрыва строки.
+         */
+        const asking = ports.owner ?? UNASKED;
+        const owner: OwnerHooks = {
+          permission: (text) => asking.permission(text, lineIo.signal),
+          stop: (text) => asking.stop(text),
+          notification: (text) => asking.notification(text),
+          elicitation: (text) => asking.elicitation(text, lineIo.signal),
+        };
+        const hook = {
+          readStdin: lineIo.readStdin,
+          owner,
+          consulting: new LineConsulting({
+            book,
+            commands,
+            methods,
+            rootMethods: ports.rootMethods,
+            targets: parts.targets,
+            readStdin: lineIo.readStdin,
+            owner,
+          }),
+        };
+        const context = {
+          said,
+          view: entry.view,
+          book,
+          channel,
           speech,
-        ),
-    };
-    const program = () =>
-      runProgramLine(origin, context.root, {
-        ports,
-        speech,
-        io: lineIo,
-        journal,
-        core,
-        decide: (links) => aheadRuling(book, links),
-        ahead: entry.ahead,
-        commands,
-        sources,
-      });
-    return await origin.route(
-      program,
-      () =>
-        routeOf(said, { commands, methods, hook }).settle(context, {
-          chain: async () =>
-            printed(await runChain(walked, root, values), speech),
+          image: imaging.image,
+          methods,
+          commands,
+          root: programRoot(root),
+          author: imaging.author,
+          now: imaging.now,
+          changed: imaging.changed,
+          journaled: () => journal.nativeCall(programPolicy(said)),
+          io: lineIo,
+          walk: async (
+            wrap: (session: Line, words: readonly string[]) => Line,
+          ) =>
+            printed(
+              await runChain(
+                walked,
+                rootOf((session) => wrap(session, argv)),
+                values,
+              ),
+              speech,
+            ),
+        };
+        const program = () =>
+          runProgramLine(origin, context.root, {
+            ports,
+            speech,
+            io: lineIo,
+            journal,
+            core,
+            decide: (links) => aheadRuling(book, links),
+            ahead: entry.ahead,
+            commands,
+            sources,
+          });
+        return await origin.route(
           program,
-        }),
-      speech,
+          () =>
+            routeOf(said, { commands, methods, hook }).settle(context, {
+              chain: async () =>
+                printed(await runChain(walked, root, values), speech),
+              program,
+            }),
+          speech,
+        );
+      },
     );
   };
 }

@@ -1,14 +1,14 @@
 /**
  * Картинка результата на уровне строки (`platform/picture-frame.md`,
- * P2, P5–P16, P19, P20): настоящие разбор, доставка, программа и
- * галерея; подменено только исполнение `telegram file` — сеанс Telegram
- * стенда и временный каталог вместо `/tmp/mpu-telegram`.
+ * P2, P5–P12, P15, P16): настоящие разбор, доставка и галерея;
+ * подменено только исполнение `telegram file` — сеанс Telegram стенда и
+ * временный каталог вместо `/tmp/mpu-telegram`.
  */
 
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { IN_PLACE, type Invoker } from "../entrypoint/mod.ts";
 import type { PictureData } from "@mpu/language/frames";
 import { asInbox, PICTURE_CHAT, savedOnStand } from "@mpu/cmd-telegram/testing";
@@ -116,50 +116,10 @@ describe("граница предела на строку (P11, P12)", () => {
   }
 });
 
-describe("сумма по программе: блок у той, что помещается первой (P13, P14)", () => {
-  const cases = [
-    { name: "P13: 43, затем 56", ids: [43, 56], sizes: [10] },
-    { name: "P14: 56, затем 43", ids: [56, 43], sizes: [3_750_000] },
-  ];
-  for (const { name, ids, sizes } of cases) {
-    it(name, () =>
-      onStand(async (run, dir) => {
-        const ran = await run(ids.map(file).join(" . "));
-        expect(ran.exit, ran.stderr).toBe(0);
-        expect(ran.pictures.map((one) => atob(one.data).length)).toStrictEqual(
-          sizes,
-        );
-        for (const name of ["43-photo-43.jpg", "56-photo-56.jpg"]) {
-          await stat(`${dir}/-1000000000101-${name}`);
-        }
-      }),
-    );
-  }
-});
-
-it("P20: программа — картинки в порядке команд", () =>
-  onStand(async (run) => {
-    const ran = await run(`${file(43)} . ${file(50)}`);
-    expect(ran.exit, ran.stderr).toBe(0);
-    expect(ran.pictures.map((one) => one.mime)).toStrictEqual([
-      "image/jpeg",
-      "image/png",
-    ]);
-  }));
-
 it("P15: нет файла — код 1, картинки нет", () =>
   onStand(async (run) => {
     const ran = await run(file(45));
     expect([ran.exit, ran.pictures]).toStrictEqual([1, []]);
-  }));
-
-it("P19: программа с отказом — картинок нет, файл 43 записан", () =>
-  onStand(async (run, dir) => {
-    const ran = await run(`${file(43)} . ${file(46)}`);
-    assert(ran.exit !== 0);
-    expect(ran.stderr).toContain("telegram: сообщение 46 не найдено");
-    expect(ran.pictures).toStrictEqual([]);
-    await stat(`${dir}/-1000000000101-43-photo-43.jpg`);
   }));
 
 it("P16: it после P1 — тот же JSON, картинки нет", () =>

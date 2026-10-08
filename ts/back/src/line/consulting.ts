@@ -16,7 +16,7 @@ import {
   probedReply,
   standingMethods,
 } from "./hook.ts";
-import { sourceOf } from "./origin.ts";
+import { formerOf } from "./former.ts";
 import { routeOf } from "./route.ts";
 import type { RootMethod } from "./rules.ts";
 import type { Targets } from "./keyed.ts";
@@ -54,7 +54,7 @@ export class LineConsulting implements Consulting {
     const walked = walkedWords(words);
     const door = entryOf(walked).words.length;
     const hook = { readStdin, consulting: this, owner };
-    return sourceOf(words, walked, door).consult(() =>
+    return formerOf(words, walked.slice(door)).consult(() =>
       routeOf(walked.slice(door), { commands, methods, hook }).consult(() =>
         this.#probed(words, walked),
       ),

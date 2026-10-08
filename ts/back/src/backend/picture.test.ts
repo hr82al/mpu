@@ -1,11 +1,11 @@
 /**
  * Картинка в ответе строки через настоящий сервер
- * (`platform/picture-frame.md`, P3, P4, P17, P19, P20): кадр `picture`
+ * (`platform/picture-frame.md`, P3, P4, P17): кадр `picture`
  * перед `exit` в потоке, поле `pictures` собранного ответа, журнал без
  * base64. Подменено только исполнение `telegram file` (`testpicture.ts`).
  */
 
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, expect, it } from "vitest";
@@ -65,11 +65,6 @@ async function agentLine(
 const NDJSON = "application/x-ndjson";
 const JSON_TYPE = "application/json";
 
-/** Строка программы из команд `telegram file` по сообщениям `ids`. */
-function program(...ids: number[]): string[] {
-  return ids.flatMap((id, at) => (at === 0 ? file(id) : [".", ...file(id)]));
-}
-
 it("P4: поток — out, picture, exit; голден", () =>
   withPictures(async (back, dir) => {
     const text = await agentLine(back, dir, file(43), NDJSON);
@@ -80,43 +75,6 @@ it("P3: собранный ответ — поле pictures после exit; г�
   withPictures(async (back, dir) => {
     const text = await agentLine(back, dir, file(43), JSON_TYPE);
     expect(`${text}\n`).toStrictEqual(await golden("collected-p3.json"));
-  }));
-
-it("P20: картинки программы — все после вывода, перед exit", () =>
-  withPictures(async (back, dir) => {
-    const text = await agentLine(back, dir, program(43, 50), NDJSON);
-    const kinds = text
-      .trimEnd()
-      .split("\n")
-      .map((row) => Object.keys(JSON.parse(row))[0]);
-    // Программа печатает результат последнего оператора; картинку даёт
-    // каждый успешный результат ([D.5]).
-    expect(kinds).toStrictEqual(["out", "picture", "picture", "exit"]);
-    const pictures = text
-      .trimEnd()
-      .split("\n")
-      .map((row) => JSON.parse(row))
-      .filter((frame) => "picture" in frame)
-      .map((frame) => frame.picture);
-    expect(pictures.map((one) => one.mime)).toStrictEqual([
-      "image/jpeg",
-      "image/png",
-    ]);
-    expect(JSON.parse(text.trimEnd().split("\n").at(-1) ?? "")).toStrictEqual({
-      exit: 0,
-    });
-  }));
-
-it("P19: строка с отказом — ни кадра, ни поля картинки", () =>
-  withPictures(async (back, dir) => {
-    const stream = await agentLine(back, dir, program(43, 46), NDJSON);
-    assert(!stream.includes('"picture"'), stream);
-    const whole = JSON.parse(
-      await agentLine(back, dir, program(43, 46), JSON_TYPE),
-    );
-    assert(whole.exit !== 0);
-    expect("pictures" in whole).toBe(false);
-    await stat(`${dir}/-1000000000101-43-photo-43.jpg`);
   }));
 
 it("P8: строка без картинок — поля pictures нет", () =>

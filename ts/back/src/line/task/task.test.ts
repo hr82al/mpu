@@ -18,15 +18,7 @@ import {
 async function postedAndRead(stand: Stand) {
   await setUp(stand);
   expectRun(
-    await stand.agent(
-      "task",
-      "post",
-      "project:",
-      "demo",
-      "text:",
-      "^сделай",
-      "x^",
-    ),
+    await stand.agent("task", "post", "project:", "demo", "text:", "сделай x"),
     0,
     "",
     "",
@@ -67,8 +59,7 @@ async function ownerAsked(stand: Stand) {
     "project:",
     "demo",
     "text:",
-    "^почему",
-    "y?^",
+    "почему y?",
   );
   await stand.agent(
     "task",
@@ -76,9 +67,7 @@ async function ownerAsked(stand: Stand) {
     "project:",
     "demo",
     "text:",
-    "^нужен",
-    "ли",
-    "y?^",
+    "нужен ли y?",
   );
 }
 
@@ -207,8 +196,7 @@ it("T9, T10: ход выводится из журнала", () =>
       "project:",
       "demo",
       "text:",
-      "^почему",
-      "y?^",
+      "почему y?",
     );
     expect(await statusLine(stand)).toMatch(
       /^demo {2}порция 1 {2}ждёт хоста {2}question {2}/,
@@ -219,9 +207,7 @@ it("T9, T10: ход выводится из журнала", () =>
       "project:",
       "demo",
       "text:",
-      "^нужен",
-      "ли",
-      "y?^",
+      "нужен ли y?",
     );
     expect(await statusLine(stand)).toMatch(
       /^demo {2}порция 1 {2}ждёт владельца {2}owner {2}/,
@@ -311,9 +297,7 @@ it("T13, T14: правило, решение и документ decisions", () 
         "project:",
         "demo",
         "text:",
-        "^мерж",
-        "—",
-        "никогда^",
+        "мерж — никогда",
       ),
       0,
       "",
@@ -331,11 +315,7 @@ it("T13, T14: правило, решение и документ decisions", () 
       "project:",
       "demo",
       "text:",
-      "^y",
-      "вместо",
-      "x:",
-      "правило",
-      "3^",
+      "y вместо x: правило 3",
     );
     expectRun(
       await stand.agent(
@@ -434,17 +414,7 @@ it("T17: неизвестный вид — отказ со списком", () =
 it("T18, T19: пустое тело и тело дважды", () =>
   withStand(async (stand) => {
     expectRun(
-      await stand.agent(
-        "task",
-        "post",
-        "project:",
-        "demo",
-        "text:",
-        "^",
-        "",
-        "",
-        "^",
-      ),
+      await stand.agent("task", "post", "project:", "demo", "text:", "   "),
       2,
       "",
       "mpu task post: пустое тело сообщения\n",
@@ -730,9 +700,7 @@ it("агент в строке-программе (^…^) не пишет rule �
         "project:",
         "demo",
         "text:",
-        "^мерж",
-        "—",
-        "никогда^",
+        "мерж — никогда",
       ),
       1,
       "",

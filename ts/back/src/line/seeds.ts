@@ -11,7 +11,6 @@ import {
   PERMISSION_REQUEST,
   STOP,
 } from "@mpu/language/frames";
-import { EXPORT_PATH } from "@mpu/cmd-image";
 import {
   ALLOW,
   ASK,
@@ -38,8 +37,7 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
 /**
  * Команды, чей посев — не по признаку `ro`/`rw` (`platform/policy.md`,
  * «Посев»): решение отсюда заменяет посев по признаку, а не встаёт рядом —
- * второе правило того же пути уронило бы посев целиком. `image export`
- * пишет только файлы каталога образа (`image-export.md`); записи ролей
+ * второе правило того же пути уронило бы посев целиком. Записи ролей
  * канала `task` и его журнал — только локальный журнал (`task.md`);
  * отметки ролей ставит сама роль без человека (`task-roles.md`); стоп
  * проекта ставит хост на блокере (`task-orchestrator.md`); хук
@@ -49,7 +47,6 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * «Посев»).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
-  [EXPORT_PATH.join(" "), ALLOW],
   [PERMISSION_REQUEST.words.join(" "), ALLOW],
   [STOP.words.join(" "), ALLOW],
   [NOTIFICATION.words.join(" "), ALLOW],
