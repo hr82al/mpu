@@ -122,15 +122,15 @@ import { imageSyncCommand } from "../image/cmd_sync.ts";
 import { imageExportCommand } from "../image/cmd_export.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
-import { d2MiroCommand } from "../d2miro/mod.ts";
+import { d2MiroCommand } from "@mpu/cmd-d2miro";
 import {
   codeMentionsCommand,
   codeNameCommand,
   codeRefsCommand,
   codeTwinsCommand,
-} from "../code/mod.ts";
+} from "@mpu/cmd-code";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
-import { mpCloneCommand } from "../mpclone/mod.ts";
+import { mpCloneCommand } from "@mpu/cmd-mpclone";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
   mrCommentCommand,
@@ -149,7 +149,7 @@ import {
   mrViewCommand,
 } from "../mr/mod.ts";
 import { confirmCommand } from "@mpu/command/confirm";
-import { sunCommand } from "../sun/mod.ts";
+import { sunCommand } from "@mpu/cmd-sun";
 import { taskCommands } from "../task/mod.ts";
 import { ozonCommands, ozonPerfCommands, wbCommands } from "../call/mod.ts";
 

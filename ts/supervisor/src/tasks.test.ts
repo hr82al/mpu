@@ -32,15 +32,16 @@ function build(words: readonly string[]): readonly string[] {
  * Входы программы с воркером разбора кода. Воркер — вторым входом:
  * `new Worker(new URL(…))` статическим импортом не является, и без
  * входа программа отвечает «модуль не найден» на вопрос по нескольким
- * репозиториям (smoke «code: разбор дерева…»). `--root` — его каталог:
- * вход ложится в корень файловой системы бинаря, куда указывает
- * `new URL("./repo_worker.ts", import.meta.url)` собранного кода.
+ * репозиториям (smoke «code: разбор дерева…»). Вход — сборка пакета
+ * `@mpu/cmd-code`, `--root` — её каталог: вход ложится в корень файловой
+ * системы бинаря, куда указывает `new URL("./repo_worker.js",
+ * import.meta.url)` собранного кода.
  */
 const WITH_WORKER = (entry: string) => [
   entry,
-  "back/src/code/repo_worker.ts",
+  "node_modules/@mpu/cmd-code/dist/repo_worker.js",
   "--root",
-  "back/src/code",
+  "node_modules/@mpu/cmd-code/dist",
 ];
 
 describe("compile:* — bun build --compile точки входа в $MPU_OUT", () => {

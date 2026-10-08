@@ -36,11 +36,11 @@ async function embedded(): Promise<readonly (readonly [string, Uint8Array])[]> {
     encoder.encode(text.slice(text.length / 2, text.length / 2 + 256));
   return [
     // Второй вход сборки лежит в корне файловой системы бинаря
-    // (`--root back/src/code`): там его ищет `new URL("./repo_worker.ts",
-    // import.meta.url)` собранного кода. Без входа пути в бинаре нет
-    // (проба 2026-10-07).
+    // (`--root node_modules/@mpu/cmd-code/dist`): там его ищет
+    // `new URL("./repo_worker.js", import.meta.url)` собранного кода. Без
+    // входа пути в бинаре нет (проба 2026-10-07).
     [
-      "back/src/code/repo_worker.ts",
+      "node_modules/@mpu/cmd-code/dist/repo_worker.js",
       encoder.encode("$bunfs/root/repo_worker.js"),
     ],
     ["mtcute.wasm", middle(await wasmBase64("mtcute.wasm"))],

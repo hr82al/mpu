@@ -1,4 +1,0 @@
-{
-  "exports": "./mod.ts",
-  "exclude": ["scratch"]
-}

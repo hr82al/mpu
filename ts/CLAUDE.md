@@ -91,7 +91,8 @@ code in this repository.
 фронта браузерный, рантайм здесь — лишь носитель jsdom (решение хоста).
 Новая переиспользуемая библиотека, в том числе тестовая, — папкой
 `mpu/tslibs/<имя>`, не внутри `ts/`. Мест на API Deno в `ts/` после порции E4
-этапа 3 не осталось (кроме голденов анализатора кода — это данные).
+этапа 3 не осталось; голдены анализатора кода с ним (это данные) с порции D1
+лежат в `tslibs/cmd-code`.
 
 Если задача решается чище и короче с подходящей библиотекой или известным
 паттерном — **предлагать это явно**, с обоснованием: что она устраняет, чем она
@@ -735,6 +736,13 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   подсказками переводит `back/src/mr/common.ts` (`asCommandError`), селектор
   `glab-status` (`MrRefError` → `UsageError`) — `back/src/glab/cmd_glab_status.ts`;
   env-файл (`GLAB_TOKEN`, `GITLAB_BASE_URL`) читается в `mr/common.ts`.
+- `@mpu/cmd-code`, `@mpu/cmd-d2miro`, `@mpu/cmd-mpclone`, `@mpu/cmd-sun` —
+  команды `mpu code …`, `d2-miro`, `mp-clone`, `sun` пакетами
+  (`docs/specs/platform/tslibs-commands.md`, D1); библиотеки
+  `tslibs/cmd-<каталог>`, архивом `release/`. Берёт их только реестр
+  (`back/src/registry/mod.ts`). Воркер разбора кода — второй вход сборки
+  пакета (`dist/repo_worker.js`); `compile:back` и `compile:worker`
+  встраивают его из `node_modules/@mpu/cmd-code/dist`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
@@ -767,6 +775,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   «переименовать → посчитать сломавшееся», совпасть с ним может только тот же
   разбор. Ветка 5.x: npm-пакет 7.x — нативный порт без `createProgram`.
   Загружается лениво: пакет весит десяток мегабайт, а старт — ценность `mpu`.
+  Он же обязательный peer `@mpu/cmd-code`: разбор живёт в пакете, а
+  `typescript` ставится здесь.
 - `@modelcontextprotocol/sdk` — переводчик MCP `mpu-mcp`
   (`platform/mcp-objects.md`): Streamable HTTP с сессиями и elicitation; на этой
   версии снят голден подтверждения в Claude Code (решение владельца
