@@ -1,0 +1,1 @@
+mpu telegram send: файл-вложение не найден: /no/such/file

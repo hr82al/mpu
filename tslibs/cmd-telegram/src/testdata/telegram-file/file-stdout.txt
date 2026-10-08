@@ -1,0 +1,1 @@
+{"path": "/tmp/mpu-telegram/-1000000000101-42-разбор.md", "name": "разбор.md", "size": 1234, "mime": "text/markdown"}
