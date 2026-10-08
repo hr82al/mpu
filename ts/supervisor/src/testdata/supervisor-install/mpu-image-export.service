@@ -1,7 +1,0 @@
-[Unit]
-Description=mpu: образ → файлы каталога образа
-After=mpu.service
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/mpu image export

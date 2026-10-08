@@ -3,10 +3,11 @@
 # переключение имён — platform/cutover.md): mpu-back, mpu-worker
 # (исполнитель строк — platform/line-executor.md), mpu-mcp, mpu,
 # mpu-supervisor, mpu-task (оркестратор ролей — task-orchestrator.md),
-# mpu-complete, каталог фронта, служба mpu.service
+# mpu-complete, каталог фронта и служба mpu.service
 # (mpu-complete и фронт — без службы: первого зовёт оболочка, второй
-# читает mpu-back через ссылку current) и суточный таймер образа
-# mpu-image-export (docs/specs/image-export.md, «Суточный таймер»). Старых служб на машине быть не
+# читает mpu-back через ссылку current). Юниты прежнего суточного таймера
+# образа mpu-image-export, если стоят, установка выключает и удаляет
+# (docs/specs/platform/stage6-l1.md). Старых служб на машине быть не
 # должно: если они есть, установка не начинается — иначе машина
 # осталась бы наполовину переключённой. Последними шагами — дополнение
 # в оболочках и подключение к Claude Code пользователя.
@@ -32,7 +33,8 @@ nu=${MPU_NU:-nu}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
 mcp_url=${MPU_MCP_URL:-http://127.0.0.1:7339}
 unit=mpu.service
-# Суточный таймер образа: юнит и таймер, ставятся тем же шагом, что служба.
+# Прежний суточный таймер образа: образа больше нет — стоящие юниты
+# снимаются тем же шагом, что пишется служба.
 timer=mpu-image-export.timer
 timer_units=(mpu-image-export.service "$timer")
 # Службы, оставшиеся от старой установки: рядом с новой они дерутся за
@@ -170,28 +172,29 @@ for part in "${changed[@]}"; do
   say "установка $part: поставлено"
 done
 
-# 5. Служба и таймер образа: изменившиеся файлы записываются, затем одна
-# daemon-reload на оба. Таймер mpu не перезапускает — перезапуск ниже
-# смотрит только на службу и программы.
-differs() { ! cmp -s "$here/supervisor/$1" "$unit_dir/$1"; }
+# 5. Служба: изменившийся файл записывается; стоящие юниты прежнего
+# таймера образа выключаются и удаляются; затем одна daemon-reload на
+# всё. Снятие таймера mpu не перезапускает — перезапуск ниже смотрит
+# только на службу и программы.
 unit_changed=0
-differs "$unit" && unit_changed=1
-timer_changed=0
+cmp -s "$here/supervisor/$unit" "$unit_dir/$unit" || unit_changed=1
+timer_left=0
 for file in "${timer_units[@]}"; do
-  differs "$file" && timer_changed=1
+  [[ -e $unit_dir/$file ]] && timer_left=1
 done
-if ((unit_changed || timer_changed)); then
-  mkdir -p "$unit_dir" || fail "служба" "нет каталога $unit_dir"
-fi
 if ((unit_changed)); then
+  mkdir -p "$unit_dir" || fail "служба" "нет каталога $unit_dir"
   cp "$here/supervisor/$unit" "$unit_dir/$unit" || fail "служба" "не записана"
 fi
-if ((timer_changed)); then
+if [[ -e $unit_dir/$timer ]]; then
+  "$systemctl" --user disable --now "$timer" || fail "таймер образа" "disable"
+fi
+if ((timer_left)); then
   for file in "${timer_units[@]}"; do
-    cp "$here/supervisor/$file" "$unit_dir/$file" || fail "таймер образа" "$file не записан"
+    rm -f "$unit_dir/$file" || fail "таймер образа" "$file не удалён"
   done
 fi
-if ((unit_changed || timer_changed)); then
+if ((unit_changed || timer_left)); then
   "$systemctl" --user daemon-reload || fail "служба" "daemon-reload"
 fi
 if ((unit_changed)); then
@@ -200,11 +203,8 @@ if ((unit_changed)); then
 else
   say "служба: без изменений"
 fi
-if ((timer_changed)); then
-  "$systemctl" --user enable --now "$timer" || fail "таймер образа" "enable"
-  say "таймер образа: записан"
-else
-  say "таймер образа: без изменений"
+if ((timer_left)); then
+  say "таймер образа: снят"
 fi
 
 # 6. Перезапуск: не активна — start; изменились супервизор, mpu-task или

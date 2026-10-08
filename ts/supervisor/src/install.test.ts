@@ -36,17 +36,30 @@ function install(
   return runScript(place, "install.sh", args, env, where);
 }
 
-/** Файлы суточного таймера образа (`image-export.md`, «Суточный таймер»). */
+/**
+ * Юниты прежнего суточного таймера образа: установка, найдя их, выключает
+ * и удаляет (`platform/stage6-l1.md`, сценарий 6).
+ */
 const TIMER_UNITS = ["mpu-image-export.service", "mpu-image-export.timer"];
 
-/** Юнит в каталоге служб побайтово как эталон `testdata/supervisor-install/`. */
-async function assertUnit(place: Place, name: string) {
-  expect(await readFile(`${place.unit}/${name}`, "utf8"), name).toStrictEqual(
-    await readFile(
-      new URL(`testdata/supervisor-install/${name}`, import.meta.url),
-      "utf8",
-    ),
-  );
+/** Юниты прежнего таймера на машине — как их ставила прежняя установка. */
+async function oldTimer(place: Place, names: readonly string[] = TIMER_UNITS) {
+  for (const name of names) {
+    await writeFile(`${place.unit}/${name}`, `[Unit]\nDescription=${name}\n`);
+  }
+}
+
+/** Есть ли файл в каталоге служб. */
+async function present(place: Place, name: string): Promise<boolean> {
+  try {
+    await stat(`${place.unit}/${name}`);
+    return true;
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
 }
 
 /** Строки шагов службы, таймера и перезапуска. */
@@ -79,17 +92,16 @@ it("первая установка: всё собрано и поставлен
         "utf8",
       ),
     );
-    for (const name of TIMER_UNITS) await assertUnit(place, name);
-    // Юниты службы и таймера записаны до одной daemon-reload.
+    for (const name of TIMER_UNITS) {
+      expect(await present(place, name), name).toBe(false);
+    }
     expect(run.calls).toStrictEqual([
       "--user daemon-reload",
       "--user enable mpu",
-      "--user enable --now mpu-image-export.timer",
       "--user start mpu",
     ]);
     expect(unitLines(run)).toStrictEqual([
       "install: служба: записана",
-      "install: таймер образа: записан",
       "install: перезапуск: служба запущена",
     ]);
     expect(run.lines.every((line) => line.startsWith("install: "))).toBe(true);
@@ -119,32 +131,50 @@ it("второй запуск без изменений: ничего не ст�
     expect(run.calls).toStrictEqual([]);
     expect(unitLines(run)).toStrictEqual([
       "install: служба: без изменений",
-      "install: таймер образа: без изменений",
       "install: перезапуск: не нужен",
     ]);
     expect(await snapshot(place.bin)).toStrictEqual(before);
     expect(run.lines.at(-1)).toBe("install: готово");
   }));
 
-it("таймера нет, служба без изменений: таймер поставлен, mpu не перезапущен", () =>
+it("стоит таймер образа: выключен и снят одной daemon-reload, повтор — без изменений", () =>
   withPlace(async (place) => {
     await install(place);
-    for (const name of TIMER_UNITS) await rm(`${place.unit}/${name}`);
+    await oldTimer(place);
     const run = await install(place);
     expect(run.code, run.lines.join("\n")).toBe(0);
-    for (const name of TIMER_UNITS) await assertUnit(place, name);
+    for (const name of TIMER_UNITS) {
+      expect(await present(place, name), name).toBe(false);
+    }
     expect(run.calls).toStrictEqual([
+      "--user disable --now mpu-image-export.timer",
       "--user daemon-reload",
-      "--user enable --now mpu-image-export.timer",
     ]);
     expect(unitLines(run)).toStrictEqual([
       "install: служба: без изменений",
-      "install: таймер образа: записан",
+      "install: таймер образа: снят",
+      "install: перезапуск: не нужен",
+    ]);
+    const again = await install(place);
+    expect(again.calls).toStrictEqual([]);
+    expect(unitLines(again)).toStrictEqual([
+      "install: служба: без изменений",
       "install: перезапуск: не нужен",
     ]);
   }));
 
-it("служба изменена, таймер без изменений: служба перезапущена, таймер не тронут", () =>
+it("остался только юнит службы таймера: снят без disable", () =>
+  withPlace(async (place) => {
+    await install(place);
+    await oldTimer(place, ["mpu-image-export.service"]);
+    const run = await install(place);
+    expect(run.code, run.lines.join("\n")).toBe(0);
+    expect(await present(place, "mpu-image-export.service")).toBe(false);
+    expect(run.calls).toStrictEqual(["--user daemon-reload"]);
+    expect(unitLines(run)).toContain("install: таймер образа: снят");
+  }));
+
+it("служба изменена: служба перезапущена", () =>
   withPlace(async (place) => {
     await install(place);
     await writeFile(`${place.unit}/mpu.service`, "[Unit]\n");
@@ -157,7 +187,6 @@ it("служба изменена, таймер без изменений: сл�
     ]);
     expect(unitLines(run)).toStrictEqual([
       "install: служба: записана",
-      "install: таймер образа: без изменений",
       "install: перезапуск: служба перезапущена",
     ]);
   }));
@@ -521,9 +550,10 @@ async function fakeTree(at: string): Promise<string> {
   await mkdir(`${at}/supervisor`, { recursive: true });
   await copyFile(`${ROOT}install.sh`, `${at}/install.sh`);
   await chmod(`${at}/install.sh`, 0o755);
-  for (const name of ["mpu.service", ...TIMER_UNITS]) {
-    await copyFile(`${ROOT}supervisor/${name}`, `${at}/supervisor/${name}`);
-  }
+  await copyFile(
+    `${ROOT}supervisor/mpu.service`,
+    `${at}/supervisor/mpu.service`,
+  );
   return `${at}/`;
 }
 

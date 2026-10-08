@@ -1,9 +1,0 @@
-[Unit]
-Description=mpu: раз в сутки образ → файлы
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
