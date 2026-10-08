@@ -12,7 +12,7 @@ import {
   RPC_METHOD_NOT_FOUND,
   RPC_PARSE_ERROR,
   type RpcBody,
-} from "../mcp/mod.ts";
+} from "@mpu/cmd-mcp";
 
 /** Методы по имени: у каждого нет параметров, результат — данные. */
 export type Methods = ReadonlyMap<string, () => unknown>;

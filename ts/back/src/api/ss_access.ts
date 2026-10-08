@@ -11,7 +11,7 @@
  */
 
 import { UsageError } from "@mpu/command";
-import type { SqlSession } from "../sql/session.ts";
+import type { SqlSession } from "@mpu/cmd-sql";
 
 /**
  * Статусы, входящие в частичный уникальный индекс активной выдачи.

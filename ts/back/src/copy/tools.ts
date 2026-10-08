@@ -19,7 +19,7 @@ import { closeSync, openSync, rmSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { PgTarget } from "../sql/mod.ts";
+import type { PgTarget } from "@mpu/cmd-sql";
 import { type ProgramOutput, startProgram } from "@mpu/subprocess";
 
 /** Итог запуска инструмента. */

@@ -11,11 +11,11 @@
 
 import { DomainError } from "@mpu/command";
 import {
+  type PgTarget,
   type SqlSession,
   type Statement,
   StatementError,
-} from "../sql/session.ts";
-import type { PgTarget } from "../sql/target.ts";
+} from "@mpu/cmd-sql";
 import {
   clientWhere,
   SL0_CLIENT_TABLES,

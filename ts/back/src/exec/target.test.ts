@@ -217,7 +217,7 @@ describe("env-fallback sl_<N>_portainer", () => {
 
   it("битое значение — таргета нет", () => {
     // `Number` принял бы `1e3`, `0x4`, ` 7` и пустой хвост — правило
-    // спеки строже, и такое же в `../logs/snapshot.ts`.
+    // спеки строже, и такое же в `@mpu/cmd-logs` (`src/snapshot.ts`).
     for (const broken of [
       `${BASE}/abc`,
       "no-slash",

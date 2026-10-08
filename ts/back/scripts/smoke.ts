@@ -44,7 +44,7 @@ import { ALLOW, RuleBook, RulePath } from "@mpu/command/policy";
 import { policyFile } from "../src/line/mod.ts";
 import { Image, imageFile, ImageMethod } from "@mpu/cmd-image";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
-import { denoSession } from "../src/sql/mod.ts";
+import { denoSession } from "@mpu/cmd-sql";
 import { hasErrorCode } from "@mpu/base/oserror";
 import { type ProgramOutput, runProgram, startProgram } from "@mpu/subprocess";
 import { listenLoopback, serveFetch } from "@mpu/testing";

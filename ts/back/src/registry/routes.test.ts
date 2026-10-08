@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { childrenOf, commands, surfaces } from "./mod.ts";
-import { type Profile, profileTools } from "../mcp/mod.ts";
+import { type Profile, profileTools } from "@mpu/cmd-mcp";
+import { PUBLICATION } from "./publication.ts";
 import toolPolicies from "../../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
@@ -110,7 +111,9 @@ describe("тулом становится команда из закрытого
   // Публикацию решает закрытый список (`platform/mcp-server.md`), а не
   // способ исполнения; способов с порции 97 остался один.
   const names = PROFILES.flatMap((profile) =>
-    profileTools(commands, profile).map((entry) => entry.tool.name),
+    profileTools(commands, profile, PUBLICATION).map(
+      (entry) => entry.tool.name,
+    ),
   );
 
   it("команда контракта — из объявления в коде", () => {

@@ -6,7 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { lokiBody, withFakeLoki } from "../../back/src/logs/testloki.ts";
+import { lokiBody, withFakeLoki } from "@mpu/cmd-logs/testing";
 import { call, withClient, withStack } from "./testkit.ts";
 
 const LINES = Array.from({ length: 300 }, (_, i) => `строка ${i}`);

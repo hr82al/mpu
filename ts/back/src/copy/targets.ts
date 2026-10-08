@@ -10,7 +10,7 @@
 
 import { UsageError } from "@mpu/command";
 import type { EnvFile } from "@mpu/command";
-import type { PgTarget } from "../sql/mod.ts";
+import type { PgTarget } from "@mpu/cmd-sql";
 
 /** Хост локальных приёмников; не настраивается (спека). */
 export const LOCAL_HOST = "127.0.0.1";

@@ -14,9 +14,7 @@ import { describe, expect, it } from "vitest";
 import { rejected, thrown } from "@mpu/testing/thrown";
 import { UsageError } from "@mpu/command";
 import { makeEnvFile } from "@mpu/command/env";
-import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession } from "../sql/session.ts";
-import type { PgTarget } from "../sql/target.ts";
+import type { PgTarget, SqlOutcome, SqlSession } from "@mpu/cmd-sql";
 import { makeFakeIo } from "@mpu/command/testing";
 import {
   type CleanIo,

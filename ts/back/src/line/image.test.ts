@@ -9,7 +9,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
 import { Image } from "@mpu/cmd-image";
 import { makeInvokeLog } from "@mpu/invokelog";
-import { runLog } from "../log/mod.ts";
+import { runLog } from "@mpu/cmd-log";
 import { makeFakeIo } from "@mpu/command/testing";
 import { ALLOW, DENY, RuleBook, RulePath } from "@mpu/command/policy";
 import { type ImagePorts, registryNodes } from "./mod.ts";

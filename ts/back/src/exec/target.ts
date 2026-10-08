@@ -249,7 +249,7 @@ function fallbackLocation(
   // Только десятичные цифры: `Number` принял бы и пустую строку (ноль), и
   // `1e3`, и `0x4`, а спека знает лишь «числовой id или таргета нет».
   // Одно и то же значение env-файла обязано давать один ответ здесь и в
-  // `../logs/snapshot.ts`, где правило записано так же.
+  // `@mpu/cmd-logs` (`src/snapshot.ts`), где правило записано так же.
   if (!/^\d+$/.test(tail)) return null;
   return { portainerUrl: raw.slice(0, cut), endpointId: Number(tail) };
 }

@@ -13,10 +13,11 @@ import {
   type McpRequest,
   type McpResponse,
   PROFILE_INSTRUCTIONS,
-} from "./mod.ts";
+} from "@mpu/cmd-mcp";
 import type { Command, CommandIo } from "@mpu/command";
 import { makeDenoIo } from "../runtime/mod.ts";
-import { commands } from "../registry/mod.ts";
+import { commands } from "./mod.ts";
+import { PUBLICATION } from "./publication.ts";
 import { NO_INVOKE_LOG } from "@mpu/invokelog";
 import { makeFakeIo } from "@mpu/command/testing";
 
@@ -28,7 +29,7 @@ interface Fixture {
 }
 
 async function fixture(name: string): Promise<Fixture> {
-  const url = new URL(`testdata/${name}`, import.meta.url);
+  const url = new URL(`testdata/mcp/${name}`, import.meta.url);
   return JSON.parse(await readFile(url, "utf8"));
 }
 
@@ -40,6 +41,7 @@ function handle(
   return handleMcp(request, {
     io,
     commands: known,
+    publication: PUBLICATION,
     version: "0.1.0",
     log: NO_INVOKE_LOG,
   });

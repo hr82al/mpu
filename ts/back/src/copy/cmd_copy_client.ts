@@ -18,9 +18,8 @@ import {
   requireSingleClient,
   resolveSelector,
 } from "@mpu/command/selector";
-import { openPgSession } from "../sql/pg.ts";
-import { StatementError } from "../sql/session.ts";
-import type { PgTarget } from "../sql/target.ts";
+import { openPgSession } from "@mpu/cmd-sql/pg";
+import { type PgTarget, StatementError } from "@mpu/cmd-sql";
 import { copyClientData, type OpenSession } from "./client_copy.ts";
 import {
   clientCacheJson,

@@ -8,7 +8,7 @@
  */
 
 import { DomainError, UsageError } from "@mpu/command";
-import type { SqlSession } from "../sql/mod.ts";
+import type { SqlSession } from "@mpu/cmd-sql";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { FixedHost } from "./address.ts";
 import { type CabinetKey, MASK } from "./key.ts";

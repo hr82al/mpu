@@ -1,1 +1,0 @@
-mpu logs: follow не поддерживается с portainer

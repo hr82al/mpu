@@ -8,9 +8,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession } from "../sql/session.ts";
-import { clientOptions } from "../sql/pg.ts";
+import type { SqlOutcome, SqlSession } from "@mpu/cmd-sql";
+import { clientOptions } from "@mpu/cmd-sql/pg";
 import {
   clientWhere,
   insertsOf,
@@ -118,7 +117,7 @@ describe("значение параметра: json сериализуется, 
 
   it("прочие значения не трогаются вовсе", () => {
     // bytea приходит сюда уже текстовой формой PostgreSQL: в значение
-    // ячейки его переводит `toValue` (`sql/pg.ts`), а не эта функция.
+    // ячейки его переводит `toValue` (`@mpu/cmd-sql`, `src/pg.ts`), а не эта функция.
     expect(paramOf("\\x000fff", 17)).toBe("\\x000fff");
     expect(paramOf(42, 23)).toBe(42);
     expect(paramOf("д'Артаньян", TEXT_OID)).toBe("д'Артаньян");

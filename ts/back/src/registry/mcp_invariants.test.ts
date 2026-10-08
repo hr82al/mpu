@@ -7,23 +7,24 @@ import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
 import { thrown } from "@mpu/testing/thrown";
 import type { Command } from "@mpu/command";
-import { commands } from "../registry/mod.ts";
+import { commands } from "./mod.ts";
 import {
+  // Предел клиента — один на сервер и на его проверку: второе число
+  // разошлось бы с первым молча.
+  DESCRIPTION_LIMIT,
   type Profile,
   PROFILE_INSTRUCTIONS,
   profileTools,
+  Publication,
   toolName,
   ToolPolicyError,
   toolsSnapshot,
-} from "./mod.ts";
+} from "@mpu/cmd-mcp";
 import toolPolicies from "../../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
-import { readManifest } from "../registry/manifest.ts";
-import { assertDestructivePublished } from "./tools.ts";
-// Предел клиента — один на сервер и на его проверку: второе число
-// разошлось бы с первым молча.
-import { DESCRIPTION_LIMIT } from "./tool.ts";
+import { readManifest } from "./manifest.ts";
+import { PUBLICATION } from "./publication.ts";
 import treeManifest from "../../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -38,8 +39,8 @@ function byPath() {
 }
 
 it("профили не пересекаются и на /ro нет политики rw", () => {
-  const ro = profileTools(commands, "ro");
-  const rw = profileTools(commands, "rw");
+  const ro = profileTools(commands, "ro", PUBLICATION);
+  const rw = profileTools(commands, "rw", PUBLICATION);
   const rwNames = new Set(rw.map((entry) => entry.tool.name));
   expect(
     ro.filter((entry) => rwNames.has(entry.tool.name)).map((e) => e.tool.name),
@@ -61,7 +62,7 @@ it("профили не пересекаются и на /ro нет полити
 
 it("имя тула уникально в профиле и восстанавливает путь", () => {
   for (const profile of PROFILES) {
-    const entries = profileTools(commands, profile);
+    const entries = profileTools(commands, profile, PUBLICATION);
     // Пустой профиль не проверил бы ничего: тело цикла не выполнилось
     // бы ни разу, а шаг остался бы зелёным. То же рассуждение у
     // соседних проверок профилей ниже.
@@ -79,7 +80,7 @@ it("имя тула уникально в профиле и восстанавл
 
 it("схема аргументов не ветвится на верхнем уровне", () => {
   for (const profile of PROFILES) {
-    const entries = profileTools(commands, profile);
+    const entries = profileTools(commands, profile, PUBLICATION);
     expect(entries.length > 0, `профиль ${profile} пуст`).toBe(true);
     for (const { tool } of entries) {
       const keys = Object.keys(tool.inputSchema);
@@ -100,7 +101,7 @@ it("описание тула и инструкции профиля уклад�
       utf8.encode(PROFILE_INSTRUCTIONS[profile]).length,
       `инструкции профиля ${profile} длиннее предела`,
     ).toBeLessThanOrEqual(DESCRIPTION_LIMIT);
-    const entries = profileTools(commands, profile);
+    const entries = profileTools(commands, profile, PUBLICATION);
     expect(entries.length > 0, `профиль ${profile} пуст`).toBe(true);
     for (const { tool } of entries) {
       expect(
@@ -116,7 +117,7 @@ it("усечение видно, а не молчаливо", () => {
   // усекает сам сервер. Проверять надо вторую половину требования:
   // уложившееся не тронуто, а усечённое названо усечённым.
   for (const profile of PROFILES) {
-    for (const { tool, path } of profileTools(commands, profile)) {
+    for (const { tool, path } of profileTools(commands, profile, PUBLICATION)) {
       const command = byPath().get(path.join(" "));
       assert.exists(command, `${tool.name}: нет в реестре`);
       const full = `${command.summary}\n\n${command.help}`;
@@ -141,7 +142,7 @@ it("усечение оставляет повод звать и контрак�
   // Без этой проверки строка спеки держится на внимательности.
   let truncated = 0;
   for (const profile of PROFILES) {
-    for (const { tool, path } of profileTools(commands, profile)) {
+    for (const { tool, path } of profileTools(commands, profile, PUBLICATION)) {
       const command = byPath().get(path.join(" "));
       assert.exists(command, `${tool.name}: нет в реестре`);
       const full = `${command.summary}\n\n${command.help}`;
@@ -245,7 +246,7 @@ it("у тула с ограничителем признак усечения н
   // не формы, а того, что об усечении СКАЗАНО.
   const found: string[] = [];
   for (const profile of PROFILES) {
-    for (const { tool } of profileTools(commands, profile)) {
+    for (const { tool } of profileTools(commands, profile, PUBLICATION)) {
       const inputs = tool.inputSchema["properties"];
       if (typeof inputs !== "object" || inputs === null) continue;
       const limiter = Object.keys(inputs).filter((name) =>
@@ -291,7 +292,7 @@ it("у перечня, объявившего total, признак усечен
   // результата, а не описаний полей.
   let found = 0;
   for (const profile of PROFILES) {
-    for (const { tool } of profileTools(commands, profile)) {
+    for (const { tool } of profileTools(commands, profile, PUBLICATION)) {
       for (const [at, said] of countedLists(tool.outputSchema, tool.name)) {
         found++;
         expect(said, `${at}: признак не назван`).toContain("усечён");
@@ -305,14 +306,14 @@ it("у перечня, объявившего total, признак усечен
 it("список тулов профиля побитово одинаков между вызовами", () => {
   for (const profile of PROFILES) {
     expect(
-      profileTools(commands, profile).length > 0,
+      profileTools(commands, profile, PUBLICATION).length > 0,
       `профиль ${profile} пуст: сравнивать нечего`,
     ).toBe(true);
     const first = JSON.stringify(
-      profileTools(commands, profile).map((entry) => entry.tool),
+      profileTools(commands, profile, PUBLICATION).map((entry) => entry.tool),
     );
     const second = JSON.stringify(
-      profileTools(commands, profile).map((entry) => entry.tool),
+      profileTools(commands, profile, PUBLICATION).map((entry) => entry.tool),
     );
     expect(first).toStrictEqual(second);
   }
@@ -327,7 +328,7 @@ it("у каждого публикуемого тула есть схема ре
   // команде, и схема результата у него есть.
   const native = new Set(commands.map((command) => command.path.join(" ")));
   for (const profile of PROFILES) {
-    for (const entry of profileTools(commands, profile)) {
+    for (const entry of profileTools(commands, profile, PUBLICATION)) {
       expect(
         native.has(entry.path.join(" ")),
         `${entry.tool.name}: тул не из объявления команды`,
@@ -340,7 +341,7 @@ it("у каждого публикуемого тула есть схема ре
   }
   // И один поимённо, чтобы проверка не выродилась в обход пустого
   // списка: `kiten card` публикуется читающим профилем.
-  const card = profileTools(commands, "ro").find(
+  const card = profileTools(commands, "ro", PUBLICATION).find(
     (entry) => entry.tool.name === "kiten_card",
   );
   expect(card?.path).toStrictEqual(["kiten", "card"]);
@@ -349,8 +350,11 @@ it("у каждого публикуемого тула есть схема ре
 describe("snapshot списка тулов по каждому профилю", () => {
   for (const profile of PROFILES) {
     it(profile, async () => {
-      const url = new URL(`testdata/tools-${profile}.json`, import.meta.url);
-      expect(toolsSnapshot(commands, profile)).toStrictEqual(
+      const url = new URL(
+        `testdata/mcp/tools-${profile}.json`,
+        import.meta.url,
+      );
+      expect(toolsSnapshot(commands, profile, PUBLICATION)).toStrictEqual(
         await readFile(url, "utf8"),
       );
     });
@@ -360,7 +364,10 @@ describe("snapshot списка тулов по каждому профилю", 
 describe("необратимые тулы требуют подтверждения", () => {
   const destructive = new Set(toolPolicies.destructive);
   const entries = PROFILES.flatMap((profile) =>
-    profileTools(commands, profile).map((entry) => ({ profile, entry })),
+    profileTools(commands, profile, PUBLICATION).map((entry) => ({
+      profile,
+      entry,
+    })),
   );
 
   it("секция destructive непуста и лежит в rw", () => {
@@ -431,13 +438,12 @@ describe("необратимые тулы требуют подтвержден�
   it("имя в секции вне публикуемых — отказ сборки", () => {
     // Молчаливый пропуск означал бы, что переименование команды тихо
     // снимает подтверждение с необратимого действия.
+    const listed = new Publication({
+      ...toolPolicies,
+      destructive: [...toolPolicies.destructive, "нет-такой-команды"],
+    });
     thrown(
-      () =>
-        assertDestructivePublished(
-          ["нет-такой-команды"],
-          entries.map((item) => item.entry),
-          "rw",
-        ),
+      () => profileTools(commands, "rw", listed),
       ToolPolicyError,
       "нет-такой-команды",
     );
@@ -447,7 +453,7 @@ describe("необратимые тулы требуют подтвержден�
 describe("публикация подчинена закрытому списку", () => {
   const policies = loadPolicies();
   const published = PROFILES.flatMap((profile) =>
-    profileTools(commands, profile).map((entry) => ({
+    profileTools(commands, profile, PUBLICATION).map((entry) => ({
       profile,
       name: entry.tool.name,
       command: entry.path.join(" "),
@@ -520,7 +526,7 @@ describe("публикация подчинена закрытому списк�
     const misdeclared: Command = { ...commands[0], policy: "rw" };
     expect(misdeclared.path.join(" ")).toBe("xlsx ls");
     thrown(
-      () => profileTools([misdeclared], "rw"),
+      () => profileTools([misdeclared], "rw", PUBLICATION),
       ToolPolicyError,
       "расходится",
     );

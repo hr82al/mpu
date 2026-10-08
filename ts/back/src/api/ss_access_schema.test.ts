@@ -20,7 +20,7 @@ import {
   GRANTS_TABLE,
   RESOLVE_COLUMNS,
 } from "./ss_access.ts";
-import type { SqlSession } from "../sql/session.ts";
+import type { SqlSession } from "@mpu/cmd-sql";
 import { schemaGoldens } from "./schema_golden.ts";
 
 /** Состав колонок из голдена — общим загрузчиком, без второй копии. */

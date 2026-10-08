@@ -11,7 +11,7 @@ import { DomainError, type EnvFile } from "@mpu/command";
 
 /**
  * Путь env-файла в текстах отказов. Литералом, как у соседей
- * (`src/logs/cmd_logs.ts`, `src/init/cmd_init.ts`): слой env-файла
+ * (`@mpu/cmd-logs`, `src/init/cmd_init.ts`): слой env-файла
  * своего пути наружу не отдаёт, а вычислять его второй раз из
  * окружения значило бы завести второе правило рядом с
  * `envFilePath` — и разойтись с ним.

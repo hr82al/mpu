@@ -10,8 +10,8 @@
  * `src/env/fixtures_test.ts` и `src/store/fixtures_test.ts`.
  *
  * Здесь — только свои golden команды. Копии форм ответов внешних систем,
- * которые разбирают библиотеки `@mpu/loki` и `@mpu/kaiten`, — не здесь:
- * `src/loki/` сверяет свои, копии Kaiten живут в пакете `@mpu/cmd-kiten`.
+ * которые разбирают библиотеки `@mpu/loki` и `@mpu/kaiten`, сверяются не
+ * здесь: правилом копии в самих пакетах (`@mpu/cmd-logs`, `@mpu/cmd-kiten`).
  */
 
 import { describe, expect, it } from "vitest";

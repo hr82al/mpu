@@ -11,7 +11,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import type { EnvFile } from "@mpu/command";
-import { type PgTarget, serverTarget } from "../sql/mod.ts";
+import { type PgTarget, serverTarget } from "@mpu/cmd-sql";
 
 /** Каталог голденов; единица — файл, а не список имён в коде. */
 export const SCHEMA_DIR = "../../../docs/specs/fixtures/api/schema/";

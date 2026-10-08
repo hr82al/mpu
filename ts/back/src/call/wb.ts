@@ -6,7 +6,7 @@
  */
 
 import { UsageError } from "@mpu/command";
-import type { SqlSession } from "../sql/mod.ts";
+import type { SqlSession } from "@mpu/cmd-sql";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import type { Address, Aim } from "./address.ts";
 import { type CallArgs, urlArgs } from "./args.ts";

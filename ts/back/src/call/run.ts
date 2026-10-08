@@ -24,7 +24,7 @@ import {
   routeOf,
   serverTarget,
   type SqlSession,
-} from "../sql/mod.ts";
+} from "@mpu/cmd-sql";
 import type { Access } from "./access.ts";
 import type { Address, Aim } from "./address.ts";
 import { type CallArgs, DEFAULT_TIMEOUT_S, MAX_TIMEOUT_S } from "./args.ts";

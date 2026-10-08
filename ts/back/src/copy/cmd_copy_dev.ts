@@ -13,8 +13,8 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, DomainError } from "@mpu/command";
-import { openPgSession } from "../sql/pg.ts";
-import type { PgTarget } from "../sql/target.ts";
+import { openPgSession } from "@mpu/cmd-sql/pg";
+import type { PgTarget } from "@mpu/cmd-sql";
 import { copyClientData, type OpenSession } from "./client_copy.ts";
 import {
   devSourceTarget,

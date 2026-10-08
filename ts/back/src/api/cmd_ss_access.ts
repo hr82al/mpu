@@ -23,8 +23,12 @@ import {
 import type { SlbackSession } from "@mpu/slback";
 import { openSlback } from "../slback/mod.ts";
 import { slbackCredentials } from "../slback/config.ts";
-import { denoSession, type OpenSession, serverTarget } from "../sql/mod.ts";
-import type { SqlSession } from "../sql/session.ts";
+import {
+  denoSession,
+  type OpenSession,
+  serverTarget,
+  type SqlSession,
+} from "@mpu/cmd-sql";
 import { asDomainError } from "./command.ts";
 import {
   activeGrants,

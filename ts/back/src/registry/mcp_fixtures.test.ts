@@ -29,7 +29,7 @@ const channelDir = new URL(
   "../../../docs/specs/fixtures/mcp-server/",
   import.meta.url,
 );
-const copyDir = new URL("testdata/", import.meta.url);
+const copyDir = new URL("testdata/mcp/", import.meta.url);
 
 describe("копии фикстур совпадают с каналом спецификаций", () => {
   for (const name of FIXTURES) {

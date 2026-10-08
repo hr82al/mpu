@@ -154,7 +154,7 @@ function read(
   return cache.query(sql, ...params);
 }
 
-/** Есть ли таблица в схеме (приём `../logs/cache.ts`). */
+/** Есть ли таблица в схеме (приём `@mpu/cmd-logs`, `src/cache.ts`). */
 function hasTable(cache: CacheReader): boolean {
   try {
     return (

@@ -15,7 +15,7 @@ import { DomainError, formatCommandError, UsageError } from "@mpu/command";
 import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
-import type { OpenSession } from "../sql/mod.ts";
+import type { OpenSession } from "@mpu/cmd-sql";
 import { makeFakeIo } from "@mpu/command/testing";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import type { CallArgs } from "./args.ts";

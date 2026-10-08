@@ -12,10 +12,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { runCli } from "../entrypoint/mod.ts";
-import { handleMcp } from "../mcp/mod.ts";
-import { nativeEntry } from "../mcp/native_tool.ts";
+import { handleMcp, nativeEntry } from "@mpu/cmd-mcp";
 import { type Command, defineCommand, DomainError, NO_ONE } from "@mpu/command";
 import { commands } from "../registry/mod.ts";
+import { PUBLICATION } from "../registry/publication.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { type InvokeLog, makeInvokeLog } from "@mpu/invokelog";
 
@@ -293,7 +293,13 @@ function toolCall(
         params: { name, arguments: args },
       },
     },
-    { io, commands: published, version: "0.0.0-test", log },
+    {
+      io,
+      commands: published,
+      publication: PUBLICATION,
+      version: "0.0.0-test",
+      log,
+    },
   );
 }
 

@@ -17,7 +17,7 @@ import {
 } from "@mpu/command";
 import { openCacheDb } from "@mpu/command/store";
 import { makeFakeIo } from "@mpu/command/testing";
-import { DbError, type OpenSession } from "../sql/mod.ts";
+import { DbError, type OpenSession } from "@mpu/cmd-sql";
 import { backupCommands, runBackup } from "./cmd_backup.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { backupSql, dateSuffix, mskDateSuffix, schemaIdOf } from "./plan.ts";

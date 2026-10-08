@@ -13,8 +13,7 @@
  * (спека, шаг 3: «Один commit на весь посев»).
  */
 
-import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession, Statement } from "../sql/session.ts";
+import type { SqlOutcome, SqlSession, Statement } from "@mpu/cmd-sql";
 
 /** Таблицы sl-1, где строки клиента лежат по `client_id`. */
 export const SL1_CLIENT_TABLES: readonly string[] = [
@@ -54,7 +53,7 @@ export interface TableCount {
 
 /**
  * Типы json и jsonb. Драйвер разбирает их **сам**: в списке типов,
- * читаемых текстом (`TEXT_OIDS` в `sql/pg.ts`), только дата и время, —
+ * читаемых текстом (`TEXT_OIDS` в `@mpu/cmd-sql`, `src/pg.ts`), только дата и время, —
  * поэтому значение такой колонки приходит готовым значением JS,
  * объектом или массивом.
  *

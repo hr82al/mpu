@@ -7,7 +7,7 @@
 
 import { defineCommand, record } from "@mpu/command";
 import { GRAMMAR } from "@mpu/language/messages";
-import { denoSession } from "../sql/mod.ts";
+import { denoSession } from "@mpu/cmd-sql";
 import type { Access } from "./access.ts";
 import {
   callExitCode,

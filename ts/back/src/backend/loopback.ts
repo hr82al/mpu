@@ -73,7 +73,7 @@ type WsServerClass = new (options: {
 }) => WsServer;
 
 // Своих типов `ws` не несёт (`ts/CLAUDE.md`, «Зависимости»): поверхность
-// объявлена выше, как у `pg` в `src/sql/pg.ts`.
+// объявлена выше, как у `pg` в `@mpu/cmd-sql` (`src/pg.ts`).
 const WsServerOf = WebSocketServer as WsServerClass;
 
 /** `readyState` открытого сокета (одинаков у `ws` и веб-API). */

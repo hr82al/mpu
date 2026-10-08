@@ -44,7 +44,7 @@ import {
   type LokiSeries,
   requireLokiAccess,
 } from "@mpu/loki";
-import { writeLokiCache } from "../loki/mod.ts";
+import { writeLokiCache } from "@mpu/cmd-logs";
 import { KAITEN_TIMEOUTS, requireKaitenAccess } from "@mpu/kaiten";
 import {
   collectKaitenWarmup,

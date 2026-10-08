@@ -10,11 +10,7 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
-import {
-  ClientNotFoundError,
-  runClientSync,
-  runUpdate,
-} from "../update/mod.ts";
+import { ClientNotFoundError, runClientSync, runUpdate } from "@mpu/cmd-update";
 import { searchCandidates } from "@mpu/command/selector";
 import { effectiveScope, modeOf, type Scope } from "./mode.ts";
 import { localDate } from "@mpu/base/dates";

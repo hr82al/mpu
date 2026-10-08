@@ -5,7 +5,7 @@
  * Ход — прямым соединением с PostgreSQL, а не через контейнер: это не
  * обёртка над sl-back CLI, и в семейство `platform/portainer.md` она не
  * входит. Адрес сервера и креды берутся тем же слоем, что у `mpu sql`
- * (`src/sql/mod.ts`), — второй копии правил подключения не заводится.
+ * (`@mpu/cmd-sql`), — второй копии правил подключения не заводится.
  */
 
 import { z } from "zod";
@@ -23,7 +23,7 @@ import {
   type OpenSession,
   type PgTarget,
   serverTarget,
-} from "../sql/mod.ts";
+} from "@mpu/cmd-sql";
 import {
   type BackupPlan,
   backupPlan,

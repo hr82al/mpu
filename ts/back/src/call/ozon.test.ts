@@ -14,7 +14,7 @@ import { assert, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
 import { DomainError, formatCommandError, UsageError } from "@mpu/command";
 import { makeFakeIo } from "@mpu/command/testing";
-import type { OpenSession } from "../sql/mod.ts";
+import type { OpenSession } from "@mpu/cmd-sql";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { OZON_SELLER, ozonCallCommand, ozonCallRoCommand } from "./ozon.ts";
 import { READS } from "./reads.ts";
@@ -503,7 +503,7 @@ it("dev:<client_id> — ключ из схемы клиента на dev-сте�
 });
 
 it("отказ БД при чтении ключа — ошибка БД, код 1", async () => {
-  const { DbError } = await import("../sql/mod.ts");
+  const { DbError } = await import("@mpu/cmd-sql");
   await withCache(async (open) => {
     const err = await rejected(
       () =>

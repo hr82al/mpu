@@ -18,10 +18,8 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
-import { openPgSession } from "../sql/pg.ts";
-import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession } from "../sql/session.ts";
-import type { PgTarget } from "../sql/target.ts";
+import { openPgSession } from "@mpu/cmd-sql/pg";
+import type { PgTarget, SqlOutcome, SqlSession } from "@mpu/cmd-sql";
 import {
   clientsOf,
   DRY_RUN_TAIL,
@@ -96,7 +94,7 @@ function value(io: CleanIo, name: string): string | undefined {
 /**
  * Обязательный ключ. Отказ слоя env-файла — доменная ошибка, а спека
  * велит отвечать на неполную конфигурацию кодом 2: переворачиваем
- * класс, сохранив текст слоя (тот же приём, что у `sql/target.ts`).
+ * класс, сохранив текст слоя (тот же приём, что у `@mpu/cmd-sql`, `src/target.ts`).
  */
 function required(io: CleanIo, name: string): string {
   try {

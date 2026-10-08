@@ -10,8 +10,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession } from "../sql/session.ts";
+import type { SqlOutcome, SqlSession } from "@mpu/cmd-sql";
 import {
   cabinetsOf,
   DETACH_SQL,

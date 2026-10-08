@@ -18,7 +18,7 @@
  * ошибка вылезет только на живой базе, отказом вставки.
  */
 
-import type { SqlSession, Statement } from "../sql/session.ts";
+import type { SqlSession, Statement } from "@mpu/cmd-sql";
 import { firstColumn } from "./rows.ts";
 
 /** Пароль локального входа; он же печатается оператору. */

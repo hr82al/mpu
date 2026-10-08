@@ -9,16 +9,12 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { CommandIo } from "@mpu/command";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { LastResults, lineEntry, type Memory } from "../line/mod.ts";
-import {
-  allowEverything,
-  consentOf,
-  withPolicyFile,
-} from "../line/testconsent.ts";
+import { LastResults, lineEntry, type Memory } from "./mod.ts";
+import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 import { GRAMMAR } from "@mpu/language/messages";
 import { heldScope } from "../vitest/scope.ts";
 import { makeFakeIo } from "@mpu/command/testing";
-import { lokiBody, withFakeLoki } from "./testloki.ts";
+import { lokiBody, withFakeLoki } from "@mpu/cmd-logs/testing";
 
 const END = GRAMMAR.close;
 

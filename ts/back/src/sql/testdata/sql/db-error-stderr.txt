@@ -1,3 +1,0 @@
-db error: syntax error at or near "SELEC"
-LINE 1: SELEC 1
-        ^

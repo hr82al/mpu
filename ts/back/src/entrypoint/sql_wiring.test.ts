@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runCli } from "../entrypoint/mod.ts";
+import { runCli } from "./mod.ts";
 import { makeFakeIo } from "@mpu/command/testing";
 import { NO_INVOKE_LOG, type OutputPolicy } from "@mpu/invokelog";
 import { type CommandIo, DomainError } from "@mpu/command";

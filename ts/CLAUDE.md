@@ -70,11 +70,12 @@ code in this repository.
 
 ### Образец стиля
 
-Новый код пишется как `back/src/sql/target.ts`: JSDoc на каждом экспорте,
-`readonly` на полях данных, ранние выходы, узкий интерфейс потребителя
+Новый код пишется как `tslibs/cmd-sql/src/target.ts`: JSDoc на каждом
+экспорте, `readonly` на полях данных, ранние выходы, узкий интерфейс потребителя
 (`EnvKeys` — `Pick<EnvFile, …>` вместо всего типа), discriminated union вместо
-флагов, ошибка с `cause`. Теми же свойствами обладают `back/src/sql/render.ts` и
-`back/src/logs/query.ts`. Образец устарел — заменить ссылку, а не оставлять её.
+флагов, ошибка с `cause`. Теми же свойствами обладают
+`tslibs/cmd-sql/src/render.ts` и `tslibs/cmd-logs/src/query.ts`. Образец
+устарел — заменить ссылку, а не оставлять её.
 
 ### Библиотеки и приёмы
 
@@ -680,8 +681,8 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
 - `@mpu/loki` — разговор с Loki для `init`, `update`, `logs`: discovery
   хостов и сервисов, чтение `query_range`
   (`docs/specs/platform/tslibs-ops.md`); библиотека `tslibs/loki`, архивом
-  `release/`. Запись discovery в кэш-БД (`back/src/loki/mod.ts`,
-  `writeLokiCache`) остаётся в `ts/`.
+  `release/`. Запись discovery в кэш-БД (`writeLokiCache`) — в
+  `@mpu/cmd-logs`: таблицы читает `logs`.
 - `@mpu/slback` — разговор с sl-back для `mpu api …`, `get-token`,
   `ss-access`, `wb-cards-reset`, `wb-loader`: вызов, отказ с телом, токен
   через кэш или логин (`docs/specs/platform/tslibs-slback.md`); библиотека
@@ -749,6 +750,22 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   кэш-БД) и `telegram status` (журнал перемещений, московский день);
   `@mpu/cmd-image` — ядро строк `back/src/line`, сервер приложения и
   `back/back.ts` (образ `image.db`: методы пользователя, план синхронизации).
+- `@mpu/cmd-sql`, `@mpu/cmd-logs`, `@mpu/cmd-update`, `@mpu/cmd-log`,
+  `@mpu/cmd-mcp` — команды `sql-ro`/`sql`, `logs`, `update`, `log` и ядро
+  MCP-сервера пакетами (`docs/specs/platform/tslibs-commands.md`, D2);
+  библиотеки `tslibs/cmd-<каталог>`, архивом `release/`. Кроме реестра:
+  сессию, цель и сводку ответа PostgreSQL из `@mpu/cmd-sql` берут соседние
+  команды того же сервера (`backup`, `call`, `copy`, `cleanlocal`, `api`) и
+  `smoke`, драйвер — вход `@mpu/cmd-sql/pg` (вход `.` грузит его лениво);
+  `writeLokiCache` из `@mpu/cmd-logs` — `init` и `@mpu/cmd-update`, Loki на
+  петле для тестов строки и большого вывода (`line`, `backend`, подпроект
+  `mcp/`) — вход `@mpu/cmd-logs/testing`; синк из
+  `@mpu/cmd-update` — `search`; ядро MCP и помощники JSON-RPC из
+  `@mpu/cmd-mcp` — `backend`. Закрытый список публикации тулов пакет не
+  знает: его читает из канала `back/src/registry/publication.ts` и передаёт
+  объектом `Publication`. Тесты со стендом приложения —
+  `back/src/entrypoint/{sql,update}_wiring.test.ts`,
+  `back/src/line/logs_collection.test.ts`, `back/src/registry/mcp*.test.ts`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси
@@ -771,14 +788,15 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   библиотека `tslibs/invokelog`, архивом `release/`. Лок ротации
   (`proper-lockfile`) — её зависимость, «зачем» — в
   `tslibs/invokelog/CLAUDE.md`. Проводка журнала в точки входа
-  (`back/src/invokelog/wiring.test.ts` — тест на стенде приложения) и
-  чтение журнала (`mpu log`) остаются в `ts/`.
-- `pg` — единственный клиент PostgreSQL: `mpu sql-ro` (`docs/specs/sql-ro.md`) и
-  `mpu update`. Выбран живой проверкой на PostgreSQL 16: текст пользователя
-  уходит серверу одним вызовом, расширенный протокол запрещает
-  многооператорный текст (на этом держится «Граница чтения и записи»). Своих
-  типов не несёт — поверхность объявляет потребитель (`back/src/sql/pg.ts`,
-  `back/src/update/pg.ts`).
+  (`back/src/invokelog/wiring.test.ts` — тест на стенде приложения) остаётся
+  в `ts/`; чтение журнала (`mpu log`) — пакет `@mpu/cmd-log`.
+- `pg` — прямой зависимостью `ts/` больше не является: единственный клиент
+  PostgreSQL `mpu sql-ro` (`docs/specs/sql-ro.md`), `mpu sql` и `mpu update`
+  — зависимость пакетов `@mpu/cmd-sql` и `@mpu/cmd-update` (D2). Выбран живой
+  проверкой на PostgreSQL 16: текст пользователя уходит серверу одним вызовом,
+  расширенный протокол запрещает многооператорный текст (на этом держится
+  «Граница чтения и записи»). Своих типов не несёт — поверхность объявляет
+  потребитель (`src/pg.ts` обоих пакетов).
 - `typescript` (5.x) — разбор кода семейства `mpu code`
   (`platform/code-analyzer.md`) и `tsc` гейта: полнота ответа меряется оракулом
   «переименовать → посчитать сломавшееся», совпасть с ним может только тот же
@@ -921,9 +939,9 @@ git commit -m "…" -- ts/              # коммит с pathspec
 
 Каркас собран целиком: реестр команд (`src/registry/`,
 `docs/specs/platform/registry.md`), MCP-сервер с профилями `ro`/`rw`
-(`src/mcp/`), журнал вызовов (`@mpu/invokelog`), локальный конфиг и
-кэш-БД (`@mpu/command/config`, `@mpu/command/store`). Точка входа —
-`src/entrypoint/`.
+(`@mpu/cmd-mcp`, закрытый список — `src/registry/publication.ts`), журнал
+вызовов (`@mpu/invokelog`), локальный конфиг и кэш-БД (`@mpu/command/config`,
+`@mpu/command/store`). Точка входа — `src/entrypoint/`.
 
 Способ исполнения один: команда объявлена контрактом. Маршрут `legacy`,
 отдававший непереехавшие команды подпроцессу Python-версии, снят целиком

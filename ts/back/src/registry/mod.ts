@@ -19,8 +19,8 @@
 import type { Command } from "@mpu/command";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
-import { updateCommand } from "../update/mod.ts";
-import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
+import { updateCommand } from "@mpu/cmd-update";
+import { sqlCommand, sqlRoCommand } from "@mpu/cmd-sql";
 import { healthCommand } from "../health/mod.ts";
 import {
   dataLoaderCommand,
@@ -40,13 +40,13 @@ import {
   wbUnitCalcCommand,
   wbUnitProtoNewCommand,
 } from "../nodecli/mod.ts";
-import { logCommand } from "../log/mod.ts";
+import { logCommand } from "@mpu/cmd-log";
 import { psCommand } from "../ps/mod.ts";
 import { searchCommand } from "../search/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
 import { jsdateCommand } from "@mpu/command/jsdate";
 import { sshCommand } from "../ssh/mod.ts";
-import { logsCommand } from "../logs/mod.ts";
+import { logsCommand } from "@mpu/cmd-logs";
 import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,
