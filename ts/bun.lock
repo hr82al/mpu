@@ -190,7 +190,7 @@
 
     "@mpu/exec": ["@mpu/exec@../tslibs/exec/release/mpu-exec-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/portainer": "0.1.0", "@mpu/subprocess": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/portainer", "@mpu/subprocess"] }, "sha512-h73/jXLKGPWkHtxEgxqYy2m5SeIiXAt+eLfVaa5Lrtc5++/0C3kn5jhraIpNE6RsjTGHsnskRbxMssfXVjL/8A=="],
 
-    "@mpu/http": ["@mpu/http@../tslibs/http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-+hY7JHme3toSSMpYpWS7IXRAAGZvUIh0DFiMX0FIsbeWYrzrE/IXO5xb16zmWUdgJDMoqr61/e+Bj1MmnWIS7w=="],
+    "@mpu/http": ["@mpu/http@../tslibs/http/release/mpu-http-0.1.0.tgz", { "dependencies": { "https-proxy-agent": "7.0.6", "socks-proxy-agent": "8.0.5" } }, "sha512-UQJVeD/OBMke5ILXb6/8fxX3n6UU+xSw85QpQyp/LeHA0/OQd8YqM3byoGjUMzL5Ip1f0HfAAL6JB9YIDGJVhA=="],
 
     "@mpu/kaiten": ["@mpu/kaiten@../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz", { "peerDependencies": { "@mpu/http": "0.1.0", "@mpu/testing": "0.1.0" }, "optionalPeers": ["@mpu/http", "@mpu/testing"] }, "sha512-BC56UycclecNwfe+odhkpjnL5biDwjKwNiMeK7wG+Xos2WGyDqcrpk79UuJKIPVN27myNb8sN/hlB+hWRtOrFg=="],
 
@@ -202,9 +202,9 @@
 
     "@mpu/subprocess": ["@mpu/subprocess@../tslibs/subprocess/release/mpu-subprocess-0.1.0.tgz", {}, "sha512-rNTQg5er9saOribajHJZub0XtW6EZvGME/DexKKVGGCCUcoN9d6XPucsjF7BfcxjgMnwlzGCjegB5odsEvJkHg=="],
 
-    "@mpu/telegram": ["@mpu/telegram@../tslibs/telegram/release/mpu-telegram-0.1.0.tgz", { "dependencies": { "@mtcute/convert": "0.31.0", "@mtcute/markdown-parser": "0.31.0", "@mtcute/node": "0.31.0", "@mtcute/wasm": "0.31.0" }, "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-MIgubWwfMaOkJ1HxTcWNRMoF4c757vHC5s0xd0IQGYbc50ESnOX8v1eNu2n6Ix7L6X4zzBNipQvNu9Y+QdDFCw=="],
+    "@mpu/telegram": ["@mpu/telegram@../tslibs/telegram/release/mpu-telegram-0.1.0.tgz", { "dependencies": { "@mtcute/convert": "0.31.0", "@mtcute/markdown-parser": "0.31.0", "@mtcute/node": "0.31.0", "@mtcute/wasm": "0.31.0" }, "peerDependencies": { "@mpu/http": "0.1.0" }, "optionalPeers": ["@mpu/http"] }, "sha512-KA8aebG4PTR5zEHI0KwJvouxTtZfHeYzDWZze0Fi/HeV+txxWxZ21wHCrYkBS8xWFnDCzqDSsSXas8vnyTVp7w=="],
 
-    "@mpu/testing": ["@mpu/testing@../tslibs/testing/release/mpu-testing-0.1.0.tgz", { "peerDependencies": { "vitest": "3.2.4" } }, "sha512-XbYVOwseidP3zPdI40/k3EQ92ZN7SjXmEtyzRT3c9YpG7jAkDvOlCS51jMe+xWFOeDGtKQGQMuJswFgQJmwgPg=="],
+    "@mpu/testing": ["@mpu/testing@../tslibs/testing/release/mpu-testing-0.1.0.tgz", { "peerDependencies": { "vitest": "3.2.4" } }, "sha512-cTzuWfUFS8/UTNOS0m6Jwu/dzrw2eWxVbM6wdqh7YSyg5aorTmBVwP7Fw2+xtbk6dFbfMVrkNawIpU8wSlefpg=="],
 
     "@mtcute/convert": ["@mtcute/convert@0.31.0", "", { "dependencies": { "@fuman/io": "0.0.21", "@fuman/net": "0.0.21", "@fuman/utils": "0.0.21", "@mtcute/core": "^0.31.0" }, "peerDependencies": { "@mtcute/node": "^0.31.0" }, "optionalPeers": ["@mtcute/node"] }, "sha512-ulDGnfI0iK1ORPa/Vqt80rqH2VgrY4rx7T3acD46kgYunVKpuMG8QxkReI+2y9gwwE4++Qe6f/l6ux0m1zKTVA=="],
 
