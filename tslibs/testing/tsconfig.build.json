@@ -1,7 +1,7 @@
 {
-  // Объявления типов поверхности: только графы `index.ts` и `thrown.ts`,
-  // без тестов. Пути в `.d.ts` остаются с `.ts` — `tsc` потребителя находит
-  // по ним соседние `.d.ts`.
+  // Объявления типов поверхности: только графы `index.ts`, `thrown.ts` и
+  // `scope.ts`, без тестов. Пути в `.d.ts` остаются с `.ts` — `tsc`
+  // потребителя находит по ним соседние `.d.ts`.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
@@ -10,5 +10,5 @@
     "outDir": "dist"
   },
   "include": [],
-  "files": ["index.ts", "thrown.ts"]
+  "files": ["index.ts", "thrown.ts", "scope.ts"]
 }

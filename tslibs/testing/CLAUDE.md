@@ -1,14 +1,14 @@
 # CLAUDE.md — `@mpu/testing`
 
-Общие тестовые помощники mpu: подставной HTTP-сервер на петле и пойманная
-ошибка. Ставится архивом из `release/` в `devDependencies` — `ts/` и пакетов
-`tslibs/*`; в бою не участвует.
+Общие тестовые помощники mpu: подставной HTTP-сервер на петле, пойманная
+ошибка и области Vitest. Ставится архивом из `release/` в `devDependencies` —
+`ts/` и пакетов `tslibs/*`; в бою не участвует.
 
 Спеки — в `ts/docs/specs/` mpu: пакет `platform/tslibs-testing.md`, договор
 пакета `platform/tslibs-package.md`. Ссылки на спеки в комментариях — от
 `ts/docs/specs/`.
 
-## Поверхность — две точки входа
+## Поверхность — три точки входа
 
 - `@mpu/testing` (`index.ts`) — `serveFetch`, `listenLoopback`, `closedPort`,
   типы `FetchHandler`, `FakeHttp`, `Tls`. Без `vitest`: её берёт и обычный
@@ -16,6 +16,11 @@
 - `@mpu/testing/thrown` (`thrown.ts`) — `thrown`, `rejected`. Импортирует
   `vitest` (`peerDependencies`: экземпляр потребителя), а `vitest` вне своего
   раннера бросает при загрузке — поэтому отдельно.
+- `@mpu/testing/vitest` (`scope.ts`) — `heldScope` (ресурс области
+  `with…(body)` на время `describe`), `fakeTimers` (поддельные часы до конца
+  `it`). Импортирует `vitest` — отдельно по той же причине. Файл входа
+  назван `scope.ts`, а не `vitest.ts`: `bun --bun vitest run` (скрипт
+  `test:bun`) запустил бы файл `./vitest.ts` вместо раннера.
 
 Расширение поверхности — решение, а не попутная правка. Помощники, знающие о
 домене `ts/` (стенд `back`, журнал, клиент строк), сюда не идут.
@@ -25,7 +30,7 @@
 ```bash
 bun install
 VITEST_MAX_FORKS=2 bun run gate   # biome → tsc → тесты Bun, Node, Deno → check:release
-bun run build                     # dist/{index,thrown}.js и .d.ts
+bun run build                     # dist/{index,thrown,scope}.js и .d.ts
 bun run release                   # release/mpu-testing-<версия>.tgz
 bun run check:release             # сборка и упаковка = архив в release/
 ```
@@ -33,11 +38,13 @@ bun run check:release             # сборка и упаковка = архи�
 Рантаймы гейт гонит по одному. Поменялись исходники или `package.json` —
 `bun run release` и архив в тот же коммит, иначе `check:release` красный.
 Новая версия — `version` в `package.json` и новый архив одним коммитом,
-прежний удаляется.
+прежний удаляется. Исключение 0.2.0 (D5): `mpu-testing-0.1.0.tgz` лежит
+рядом, пока его берут пакеты `tslibs/*`, не перешедшие на 0.2.0, — иначе их
+установка падает.
 
 ## Раскладка
 
-- `index.ts`, `thrown.ts` — поверхности; `src/` — устройство и тесты
+- `index.ts`, `thrown.ts`, `scope.ts` — поверхности; `src/` — устройство и тесты
   `*.test.ts` рядом с кодом.
 - `release/` — архивы версий, коммитятся; `dist/` — нет.
 
@@ -68,8 +75,8 @@ bun run check:release             # сборка и упаковка = архи�
 
 Версии точные, без `^`; `bun.lock` коммитится.
 
-- `vitest` 3.2.4 — `peerDependencies` точки `./thrown` (её `assert`/`expect`
-  должны быть экземпляром раннера потребителя) и `devDependencies` — тесты
-  пакета под тремя рантаймами.
+- `vitest` 3.2.4 — необязательный peer точек `./thrown` и `./vitest` (их
+  `assert`/`expect` и хуки должны быть экземпляром раннера потребителя; точке
+  `.` он не нужен) и `devDependencies` — тесты пакета под тремя рантаймами.
 - `@biomejs/biome` — формат и линт; `typescript`, `@types/node` — проверка
   типов и `.d.ts` сборки.

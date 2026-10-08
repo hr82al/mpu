@@ -13,6 +13,9 @@
       "peerDependencies": {
         "vitest": "3.2.4",
       },
+      "optionalPeers": [
+        "vitest",
+      ],
     },
   },
   "packages": {
