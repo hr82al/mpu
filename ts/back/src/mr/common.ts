@@ -20,8 +20,8 @@ import {
   type ResolveContext,
   resolveMr,
   type RunGit,
-} from "../gitlab/mod.ts";
-import { spawnGit } from "../gitlab/git.ts";
+  spawnGit,
+} from "@mpu/gitlab";
 import { envFilePath } from "../env/mod.ts";
 
 /** Срез порта: env-файл (доступ) и каталог вызова (git-резолв). */

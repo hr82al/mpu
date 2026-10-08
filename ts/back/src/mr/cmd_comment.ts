@@ -21,7 +21,7 @@ import {
   mergeRequest,
   positionForm,
   rangesText,
-} from "../gitlab/mod.ts";
+} from "@mpu/gitlab";
 import { type BodyIo, commentBody } from "./body.ts";
 import {
   asCommandError,

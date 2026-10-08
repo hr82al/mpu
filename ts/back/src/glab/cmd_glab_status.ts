@@ -33,8 +33,8 @@ import {
   type RawObject,
   type ResolveContext,
   type RunGit,
-} from "../gitlab/mod.ts";
-import { spawnGit } from "../gitlab/git.ts";
+  spawnGit,
+} from "@mpu/gitlab";
 import { asCommandError, gitlabAccess, type MrIo } from "../mr/common.ts";
 import {
   DEFAULT_REPOS,

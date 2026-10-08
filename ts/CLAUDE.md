@@ -695,10 +695,10 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   одинаково под тремя рантаймами: отказ запуска кодом ОС, код по сигналу
   `128 + номер`, отмена статусом (`docs/specs/platform/tslibs-exec.md`);
   библиотека `tslibs/subprocess`, архивом `release/`. Потребители — git
-  (`code`, `gitlab`), docker (`mp-init`, `copy-shared`), `pg_dump`,
+  (`code`), docker (`mp-init`, `copy-shared`), `pg_dump`,
   `pg_restore` и `redis-cli` (`copy`), `d2` (`d2-miro`), `mp-clone`,
   `mpu-worker`, `tmux` (хук окна, `mpu-task`), `notify-send` (`mpu-task`),
-  `smoke` и `@mpu/exec`.
+  `smoke`, `@mpu/exec` и `@mpu/gitlab` (git резолва MR).
 - `@mpu/exec` — исполнение команды в контейнере фермы для `ssh`, `run-js`,
   `node cli`, `move-client`; shell-строка — ещё `copy-shared`, `mp-init`;
   локальный подпроцесс `spawnProcess` — `make-schema` (`docker exec`):
@@ -715,6 +715,15 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   бинаря (`back/src/version.ts`) остаётся в `ts/`. `fastest-levenshtein`
   (ближайшие селекторы непонятого) — её зависимость, «зачем» — в
   `tslibs/language/CLAUDE.md`.
+- `@mpu/gitlab` — клиент GitLab MR API для `mpu mr …` и `mpu glab-status`:
+  доступ, резолв адреса MR (с git), вызовы REST API v4, формы ответов,
+  position комментария (`docs/specs/platform/tslibs-n1.md`, поведение —
+  `platform/gitlab-api.md`); библиотека `tslibs/gitlab`, архивом `release/`.
+  Фейковый GitLab тестов — вход `@mpu/gitlab/testing`. Отказы пакета
+  (`GitlabError`, `MrRefError`, `DiscussionRefError`) в ошибки команды с
+  подсказками переводит `back/src/mr/common.ts` (`asCommandError`), селектор
+  `glab-status` (`MrRefError` → `UsageError`) — `back/src/glab/cmd_glab_status.ts`;
+  env-файл (`GLAB_TOKEN`, `GITLAB_BASE_URL`) читается в `mr/common.ts`.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
-import { discussions, matchDiscussion } from "../gitlab/mod.ts";
+import { discussions, matchDiscussion } from "@mpu/gitlab";
 import {
   asCommandError,
   gitlabAccess,

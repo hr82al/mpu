@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand, items } from "../command/mod.ts";
-import { type ChangedFile, changedFiles } from "../gitlab/mod.ts";
+import { type ChangedFile, changedFiles } from "@mpu/gitlab";
 import { renderTable } from "../ps/table.ts";
 import {
   asCommandError,

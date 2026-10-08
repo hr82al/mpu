@@ -11,8 +11,8 @@ import { readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
 import { DomainError, UsageError } from "../command/mod.ts";
-import { type FakeGitlab, startFakeGitlab } from "../gitlab/testing.ts";
-import type { RunGit } from "../gitlab/mod.ts";
+import { type FakeGitlab, startFakeGitlab } from "@mpu/gitlab/testing";
+import type { RunGit } from "@mpu/gitlab";
 import { makeFakeIo } from "../testing/mod.ts";
 import {
   renderGlabStatus,

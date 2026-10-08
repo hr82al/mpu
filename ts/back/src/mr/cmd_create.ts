@@ -14,8 +14,8 @@ import {
   projectFromRemote,
   type ResolveContext,
   type RunGit,
-} from "../gitlab/mod.ts";
-import { spawnGit } from "../gitlab/git.ts";
+  spawnGit,
+} from "@mpu/gitlab";
 import { type BodyIo, commentBody, stripAssistantFooter } from "./body.ts";
 import {
   asCommandError,

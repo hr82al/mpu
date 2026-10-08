@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
-import { mergeRequest } from "../gitlab/mod.ts";
+import { mergeRequest } from "@mpu/gitlab";
 import {
   asCommandError,
   gitlabAccess,

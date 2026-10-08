@@ -8,7 +8,7 @@
  */
 
 import { UsageError } from "../command/mod.ts";
-import type { MergeRequest } from "../gitlab/mod.ts";
+import type { MergeRequest } from "@mpu/gitlab";
 
 /**
  * Ветки деплой-пайплайна в порядке колонок. Порядок — не оформление:

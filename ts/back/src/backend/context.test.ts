@@ -12,7 +12,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { CommandIo } from "../command/mod.ts";
 import { MAX_STDIN_BYTES } from "@mpu/language/frames";
-import { startFakeGitlab } from "../gitlab/testing.ts";
+import { startFakeGitlab } from "@mpu/gitlab/testing";
 import {
   Client,
   collected,

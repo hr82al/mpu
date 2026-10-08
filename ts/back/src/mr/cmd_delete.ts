@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
-import { deleteNote } from "../gitlab/mod.ts";
+import { deleteNote } from "@mpu/gitlab";
 import { isYes } from "../confirm/gate.ts";
 import {
   asCommandError,

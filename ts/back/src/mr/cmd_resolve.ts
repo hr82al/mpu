@@ -15,7 +15,7 @@ import {
   discussions,
   matchDiscussion,
   setDiscussionResolved,
-} from "../gitlab/mod.ts";
+} from "@mpu/gitlab";
 import {
   asCommandError,
   gitlabAccess,

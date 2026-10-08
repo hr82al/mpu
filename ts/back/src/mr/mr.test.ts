@@ -19,8 +19,8 @@ import {
   formatCommandError,
   UsageError,
 } from "../command/mod.ts";
-import { type FakeGitlab, startFakeGitlab } from "../gitlab/testing.ts";
-import type { RunGit } from "../gitlab/mod.ts";
+import { type FakeGitlab, startFakeGitlab } from "@mpu/gitlab/testing";
+import type { RunGit } from "@mpu/gitlab";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runComments } from "./cmd_comments.ts";
 import { renderComments } from "./cmd_comments.ts";
@@ -623,7 +623,7 @@ describe("show: тред по префиксу, полный id в заголо�
 
   it("короткий и ненайденный селектор — exit 1", async () => {
     // Неоднозначный префикс проверен на уровне атома вместе с
-    // текстом перечня (`gitlab/discussion.test.ts`).
+    // текстом перечня (`@mpu/gitlab`, `src/discussion.test.ts`).
     for (const ref of ["953d3", "ffffff"]) {
       await expect(
         runShow({ discussion: ref, mr: REF, json: false }, io, {

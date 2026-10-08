@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand, items, UsageError } from "../command/mod.ts";
-import { discussions, mergeRequest } from "../gitlab/mod.ts";
+import { discussions, mergeRequest } from "@mpu/gitlab";
 import {
   asCommandError,
   gitlabAccess,

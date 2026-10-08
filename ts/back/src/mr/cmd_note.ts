@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
-import { createDiscussion, mergeRequest } from "../gitlab/mod.ts";
+import { createDiscussion, mergeRequest } from "@mpu/gitlab";
 import { type BodyIo, commentBody } from "./body.ts";
 import {
   asCommandError,

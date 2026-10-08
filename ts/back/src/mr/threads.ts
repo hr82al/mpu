@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import type { Discussion } from "../gitlab/mod.ts";
+import type { Discussion } from "@mpu/gitlab";
 import { renderTable } from "../ps/table.ts";
 import { locationOf } from "./location.ts";
 

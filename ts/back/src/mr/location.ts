@@ -8,7 +8,7 @@
  * версии файла, то есть указывал бы не туда.
  */
 
-import type { NotePosition } from "../gitlab/mod.ts";
+import type { NotePosition } from "@mpu/gitlab";
 
 /** Строка LOCATION; у треда без позиции её нет вовсе. */
 export function locationOf(position: NotePosition | null): string | null {

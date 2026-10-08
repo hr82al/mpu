@@ -18,8 +18,8 @@ import {
   formatCommandError,
   UsageError,
 } from "../command/mod.ts";
-import type { RunGit } from "../gitlab/mod.ts";
-import { type FakeGitlab, startFakeGitlab } from "../gitlab/testing.ts";
+import type { RunGit } from "@mpu/gitlab";
+import { type FakeGitlab, startFakeGitlab } from "@mpu/gitlab/testing";
 import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
 import { renderComment, runComment } from "./cmd_comment.ts";
 import { renderCreate, runCreate } from "./cmd_create.ts";

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
-import { updateNote } from "../gitlab/mod.ts";
+import { updateNote } from "@mpu/gitlab";
 import { type BodyIo, commentBody } from "./body.ts";
 import {
   asCommandError,

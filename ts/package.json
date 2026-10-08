@@ -36,6 +36,7 @@
     "@modelcontextprotocol/sdk": "1.30.0",
     "@mpu/base": "file:../tslibs/base/release/mpu-base-0.1.0.tgz",
     "@mpu/exec": "file:../tslibs/exec/release/mpu-exec-0.1.0.tgz",
+    "@mpu/gitlab": "file:../tslibs/gitlab/release/mpu-gitlab-0.1.0.tgz",
     "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
     "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
     "@mpu/language": "file:../tslibs/language/release/mpu-language-0.1.0.tgz",
