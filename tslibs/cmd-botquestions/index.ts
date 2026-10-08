@@ -7,7 +7,7 @@
  * домен вопросов, вынесенный серией пакетов команд вместе с `telegram`.
  */
 
-export { CHECKED, EXPIRED_LINE, Written } from "./src/outcome.ts";
+export { CHECKED, Written } from "./src/outcome.ts";
 export type {
   AnswerLine,
   Outcome,
