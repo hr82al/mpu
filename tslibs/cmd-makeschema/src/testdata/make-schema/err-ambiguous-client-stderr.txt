@@ -1,0 +1,3 @@
+mpu make-schema: cannot resolve --client-id from selector; pass --client-id
+  client_id=777  server=sl-9  title="Таблица 0"  spreadsheet_id=SHEET123-0
+  client_id=778  server=sl-9  title="Таблица 1"  spreadsheet_id=SHEET123-1

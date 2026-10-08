@@ -1,0 +1,1 @@
+docker exec mp-sl-1-cli node cli service:clientsMigrations init --client-id 777 --server sl-1

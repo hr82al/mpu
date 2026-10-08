@@ -1,0 +1,21 @@
+# local-stack override (применяется mpu mp-init) — отключает OpenTelemetry для sl-main.
+# См. sl-base.observability-off.yaml. Сервисы из compose.sl-main.yaml (sl-0 / main).
+services:
+  internal-api:
+    environment:
+      OBSERVABILITY_ENABLED: "false"
+  api:
+    environment:
+      OBSERVABILITY_ENABLED: "false"
+  ss-jobs:
+    environment:
+      OBSERVABILITY_ENABLED: "false"
+  # Точка входа src/currenciesRatesParser.js удалена из sl-back (98af83ebc): курсы ЦБ теперь парсит
+  # жилец currencyRatesParser процесса jobsHost (src/jobs.js, роль из SERVER_TYPE=sl-main). Сервис
+  # compose mp-config-local ещё называется по-старому — ключ оставлен им, меняются команда и имя
+  # контейнера; без этого контейнер в петле ERR_MODULE_NOT_FOUND.
+  currencies-rates-parser:
+    container_name: ${SERVER_NAME}-main-jobs
+    command: "/bin/sh -c 'node --inspect=0.0.0.0 ./src/jobs.js'"
+    environment:
+      OBSERVABILITY_ENABLED: "false"
