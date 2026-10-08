@@ -16,7 +16,7 @@ import {
 } from "./definition.ts";
 import type { ImageMethod } from "./method.ts";
 import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 
 /** Хэш отсутствующей стороны — null-объект решения: sha256 пустым не бывает. */
 export const NONE = "";

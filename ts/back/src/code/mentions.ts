@@ -20,7 +20,7 @@ import {
   unresolvedSchema,
 } from "./answer.ts";
 import { UsageError } from "../command/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
 import { jobsOf, type MentionsJob, sectionsOf } from "./sweep.ts";

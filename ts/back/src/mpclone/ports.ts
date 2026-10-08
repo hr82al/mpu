@@ -11,7 +11,7 @@ import {
   realpathSync,
   writeFileSync,
 } from "node:fs";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { startProgram } from "../subprocess/mod.ts";
 
 /** Итог подпроцесса: код и собранные потоки. */

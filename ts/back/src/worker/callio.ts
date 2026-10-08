@@ -9,7 +9,7 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import type { CallContext } from "../frames/mod.ts";
-import { Workdir } from "../workdir/mod.ts";
+import { Workdir } from "@mpu/base/workdir";
 
 /**
  * Порт строки с контекстом `context` в каталоге `cwd`.

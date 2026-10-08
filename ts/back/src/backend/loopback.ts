@@ -11,7 +11,7 @@ import { STATUS_CODES } from "node:http";
 import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import { WebSocketServer } from "ws";
-import { LOOPBACK } from "../access/mod.ts";
+import { LOOPBACK } from "@mpu/base/access";
 
 /**
  * Сокет, принятый сервером, — то, чем пользуются строка и канал.

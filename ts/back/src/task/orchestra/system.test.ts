@@ -8,7 +8,7 @@ import { expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { osError } from "../../oserror/mod.ts";
+import { osError } from "@mpu/base/oserror";
 import { fakeTimers } from "../../testing/scope.ts";
 import { pause, runSteps, STEP_MS } from "./run.ts";
 import {

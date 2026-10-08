@@ -7,7 +7,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, statSync } from "node:fs";
 import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { ImageMethod } from "./method.ts";
 
 /** Файл образа нельзя открыть, прочитать или записать: готовый отказ строки. */

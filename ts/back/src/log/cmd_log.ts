@@ -16,7 +16,7 @@ import {
   NotFoundIoError,
   UsageError,
 } from "../command/mod.ts";
-import { windowStart } from "../dates/mod.ts";
+import { windowStart } from "@mpu/base/dates";
 import { DEFAULT_KEEP } from "../invokelog/mod.ts";
 import { type LogRecord, parseRecords } from "./parse.ts";
 import { recordOfRun, selectRecords } from "./select.ts";
@@ -221,7 +221,7 @@ function keepOf(io: LogIo): number {
 }
 
 /**
- * Граница `--since`: разбор общий (`../dates/mod.ts`), а текст отказа —
+ * Граница `--since`: разбор общий (`@mpu/base/dates`), а текст отказа —
  * этой команды: он назван её спекой дословно.
  */
 export function sinceOf(raw: string, nowSeconds: number): number {

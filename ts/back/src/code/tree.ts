@@ -9,7 +9,7 @@
  */
 
 import { type Dirent, readdirSync } from "node:fs";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 
 /**
  * Каталоги, внутрь которых обход не идёт: зависимости и артефакты

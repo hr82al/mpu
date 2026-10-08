@@ -4,7 +4,7 @@
  * подставляют свою `RunGit` и настоящий git не запускают вовсе.
  */
 
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { runProgram } from "../subprocess/mod.ts";
 import type { GitOutcome, RunGit } from "./resolve.ts";
 

@@ -34,6 +34,7 @@
   "dependencies": {
     "@hono/node-server": "1.19.5",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@mpu/base": "file:../tslibs/base/release/mpu-base-0.1.0.tgz",
     "@mpu/http": "file:../tslibs/http/release/mpu-http-0.1.0.tgz",
     "@mpu/kaiten": "file:../tslibs/kaiten/release/mpu-kaiten-0.1.0.tgz",
     "@mpu/loki": "file:../tslibs/loki/release/mpu-loki-0.1.0.tgz",

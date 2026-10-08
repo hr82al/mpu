@@ -8,7 +8,7 @@
  */
 
 import { readdirSync, statSync } from "node:fs";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { VerbatimError } from "../command/mod.ts";
 import { gitTreeMark, type MarkSource, type RunGit } from "./mark.ts";
 

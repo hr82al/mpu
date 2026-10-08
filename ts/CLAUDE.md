@@ -686,6 +686,12 @@ Vite/Vitest. В JSON комментариев нет, поэтому «заче�
   `tslibs/slback`, архивом `release/`. Подставной sl-back тестов — вход
   `@mpu/slback/testing`. Адрес и креды из env-файла и порт сеанса над io
   команды (`back/src/slback/`) остаются в `ts/`.
+- `@mpu/base` — мелкие листья, общие для `ts/` и пакетов: доступ к серверам
+  на петле (`@mpu/base/access`), календарная дата (`@mpu/base/dates`),
+  ошибки ОС по коду (`@mpu/base/oserror`), каталог вызова
+  (`@mpu/base/workdir`) — `docs/specs/platform/tslibs-n1.md`; библиотека
+  `tslibs/base`, архивом `release/`. Входа `.` нет: общей предметной
+  области у четырёх модулей нет. Зависимостей у пакета нет.
 - `@mpu/http` — транспорт HTTP внешних систем (Kaiten, GitLab, Loki,
   Portainer, Sheets, sl-back, Telegram): библиотека `tslibs/http`, ставится
   архивом `release/` (`docs/specs/platform/tslibs-http.md`). Агенты прокси

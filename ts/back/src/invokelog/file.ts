@@ -7,7 +7,7 @@
 
 import { Buffer } from "node:buffer";
 import { lstat, mkdir, open, rename, rm, stat, unlink } from "node:fs/promises";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 
 /**
  * Имя лока ротации — сосед журнала. Без суффикса `.log` осознанно: под

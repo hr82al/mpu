@@ -4,7 +4,7 @@
  * исполнителя в памяти — кодек кадров у обоих вариантов общий.
  */
 
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 
 /** Один конец провода. */
 export interface Wire {

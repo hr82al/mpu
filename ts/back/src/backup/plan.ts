@@ -8,7 +8,7 @@
 
 import { UsageError } from "../command/mod.ts";
 import { type Candidate, formatCandidates } from "../selector/mod.ts";
-import { localDate } from "../dates/mod.ts";
+import { localDate } from "@mpu/base/dates";
 
 /** Суффикс даты: ровно восемь цифр, `YYYYMMDD`. */
 const DATE = /^\d{8}$/;

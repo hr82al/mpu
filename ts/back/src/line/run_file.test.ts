@@ -25,7 +25,7 @@ import { type CommandIo, DomainError } from "../command/mod.ts";
 import { makeInvokeLog } from "../invokelog/mod.ts";
 import { ASK, DENY, Human, NOBODY, RuleBook, RulePath } from "../policy/mod.ts";
 import { type ChannelOf, type ProgramFiles, programFiles } from "./mod.ts";
-import { osError } from "../oserror/mod.ts";
+import { osError } from "@mpu/base/oserror";
 import { within } from "../backend/testback.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { type Ran, runOnStand, withStand } from "./testprogram.ts";

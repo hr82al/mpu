@@ -10,9 +10,9 @@
  */
 
 import { stat } from "node:fs/promises";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { runProgram } from "../subprocess/mod.ts";
-import { Workdir } from "../workdir/mod.ts";
+import { Workdir } from "@mpu/base/workdir";
 import type { FetchLike } from "./miro.ts";
 
 /** Внешний мир глазами команды. */

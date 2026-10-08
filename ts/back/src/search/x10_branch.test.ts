@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { type CacheDb, DomainError } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { localDate } from "../dates/mod.ts";
+import { localDate } from "@mpu/base/dates";
 import {
   renderSearch,
   runSearch,

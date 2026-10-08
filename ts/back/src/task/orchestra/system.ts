@@ -6,7 +6,7 @@
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
-import { hasErrorCode } from "../../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { runProgram } from "../../subprocess/mod.ts";
 import type { Letters, Notices, Place, Windows } from "./ports.ts";
 

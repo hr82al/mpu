@@ -5,7 +5,7 @@
  * клиента хука, принесённого строкой.
  */
 
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { type ProgramOutput, runProgram } from "../subprocess/mod.ts";
 
 /** Программа tmux: абсолютным путём [D.7]. */

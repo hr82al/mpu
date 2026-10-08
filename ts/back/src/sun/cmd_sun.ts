@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand, DomainError, UsageError } from "../command/mod.ts";
-import { localDate } from "../dates/mod.ts";
+import { localDate } from "@mpu/base/dates";
 import {
   duration,
   NoSunriseError,

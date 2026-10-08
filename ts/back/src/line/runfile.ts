@@ -9,7 +9,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { configHomeDir } from "../env/mod.ts";
 import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
 import { ASK_WORD, GRAMMAR, MessageParseError } from "../messages/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import {
   type Doc,
   keyword,

@@ -38,7 +38,7 @@ import { wbRecalculateExpensesCommand } from "./cmd_wb_recalculate_expenses.ts";
 import { wbSaveExpensesCommand } from "./cmd_wb_save_expenses.ts";
 import { wbUnitCalcCommand } from "./cmd_wb_unit_calc.ts";
 import { wbUnitProtoNewCommand } from "./cmd_wb_unit_proto_new.ts";
-import { localDate, today } from "../dates/mod.ts";
+import { localDate, today } from "@mpu/base/dates";
 import {
   runWrap,
   type WrapArgs,

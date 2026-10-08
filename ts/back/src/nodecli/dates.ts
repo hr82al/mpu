@@ -2,11 +2,11 @@
  * Доменные флаги периода семейства обёрток
  * (`docs/specs/portainer-wrappers.md`): их объявляют четыре команды
  * дословно одинаково, поэтому объявление одно. Сама календарная дата —
- * в `../dates/mod.ts`: её просит и поиск.
+ * в `@mpu/base/dates`: её просит и поиск.
  */
 
 import { z } from "zod";
-import { today } from "../dates/mod.ts";
+import { today } from "@mpu/base/dates";
 import type { Flag } from "./inner.ts";
 
 /** Начало периода по умолчанию — одно на все обёртки семейства. */

@@ -15,7 +15,7 @@ import {
   items,
   UsageError,
 } from "../command/mod.ts";
-import { windowStart } from "../dates/mod.ts";
+import { windowStart } from "@mpu/base/dates";
 import {
   type Column,
   getCurrentUser,

@@ -17,7 +17,7 @@ import {
 } from "../update/mod.ts";
 import { searchCandidates } from "../selector/mod.ts";
 import { effectiveScope, modeOf, type Scope } from "./mode.ts";
-import { localDate } from "../dates/mod.ts";
+import { localDate } from "@mpu/base/dates";
 import { type LocalIo, searchLocal, type SyncCache } from "./local.ts";
 import {
   type Projection,

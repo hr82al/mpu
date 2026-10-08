@@ -45,7 +45,7 @@ import { policyFile } from "../src/line/mod.ts";
 import { Image, imageFile, ImageMethod } from "../src/image/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
-import { hasErrorCode } from "../src/oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import {
   type ProgramOutput,
   runProgram,

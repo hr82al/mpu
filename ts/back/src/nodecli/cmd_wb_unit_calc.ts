@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { defineCommand } from "../command/mod.ts";
-import { today } from "../dates/mod.ts";
+import { today } from "@mpu/base/dates";
 import {
   commonArgs,
   commonArgsOf,

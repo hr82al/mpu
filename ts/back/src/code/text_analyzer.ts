@@ -15,7 +15,7 @@
  */
 
 import { readFileSync, statSync } from "node:fs";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import type { Analyzer, Place, Target } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import type { MarkSource } from "./mark.ts";

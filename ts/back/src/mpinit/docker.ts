@@ -10,7 +10,7 @@
  */
 
 import { writeSync } from "node:fs";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { runProgram, startProgram } from "../subprocess/mod.ts";
 
 /** Дескриптор stderr процесса: эхо пишется в него синхронно. */

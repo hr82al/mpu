@@ -11,7 +11,7 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import type { Analyzer } from "./analyzer.ts";
 import {
   asMark,

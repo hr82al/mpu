@@ -14,7 +14,7 @@
 import { chmodSync, closeSync, mkdirSync, openSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { CacheDb, SqlRow } from "../command/mod.ts";
-import { hasErrorCode } from "../oserror/mod.ts";
+import { hasErrorCode } from "@mpu/base/oserror";
 import { SCHEMA_STATEMENTS } from "./schema.ts";
 
 /**
