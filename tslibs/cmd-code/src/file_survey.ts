@@ -41,6 +41,19 @@ export const surveyArgsSchema = z.object({
     .default(DEFAULT_LIMIT),
 });
 
+/** Абзац справки об адресе: одинаков у команд по файлам. */
+export const ADDRESS_HELP = `address: — [РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки;
+адресов может быть несколько. Разделы — по одному на репозиторий,
+файлы внутри — в порядке путей.`;
+
+/** Строка справки о ключе `limit:`; умолчание — из схемы ключей. */
+export const LIMIT_HELP = `  limit: N    предел записей в разделе, не строк (по умолчанию ${DEFAULT_LIMIT})`;
+
+/** Абзац справки о кодах выхода: отказы ввода — общего прогона. */
+export const EXIT_HELP = `Exit: 0 — ответ, включая пустые разделы, файл с синтаксической
+ошибкой и усечение; 2 — ошибка ввода (нет адреса, адрес со строкой,
+нет файла, не .ts/.tsx, база не разрешается).`;
+
 /** Разобранные ключи прогона. */
 export interface SurveyArgs {
   readonly addresses: readonly string[];
@@ -118,11 +131,13 @@ export interface Wording {
 export interface Survey<F> {
   readonly wording: Wording;
   /**
-   * Раздел файла: записи, задевшие строки `lines`, каждая часть — до
-   * предела. Запись печатается целиком или не печатается.
+   * Раздел файла `path` (путь адреса — тот же, что у «не разрешено»):
+   * записи, задевшие строки `lines`, каждая часть — до предела. Запись
+   * печатается целиком или не печатается.
    */
   measure(
     ts: typeof TS,
+    path: string,
     source: TS.SourceFile,
     lines: LineFilter,
     limit: Limit,
@@ -267,7 +282,7 @@ class RepoAnswer<F> {
     return {
       parsed: (source) => {
         this.#files.push(
-          this.survey.measure(this.ts, source, lines, this.limit),
+          this.survey.measure(this.ts, path, source, lines, this.limit),
         );
       },
       unparsed: (reason) => {
@@ -285,6 +300,12 @@ class RepoAnswer<F> {
   }
 }
 
+/**
+ * `setParentNodes` компилятора: правила обоих обходов спрашивают о месте
+ * узла в родителе, без ссылок на родителя они молчали бы.
+ */
+const WITH_PARENTS = true;
+
 /** Исход разбора файла: дерево синтаксиса или причина, почему его нет. */
 interface ParsedSource {
   report(answer: SourceAnswer): void;
@@ -299,7 +320,7 @@ function parseSource(ts: typeof TS, path: string, text: string): ParsedSource {
     path,
     text,
     ts.ScriptTarget.Latest,
-    true,
+    WITH_PARENTS,
     path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const errors = syntaxErrors(ts, file);

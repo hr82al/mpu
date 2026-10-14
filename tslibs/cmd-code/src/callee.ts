@@ -20,3 +20,8 @@ export function calleeName(ts: typeof TS, expression: TS.Expression): string {
   }
   return "";
 }
+
+/** Первое имя цепочки вызываемого: `describe` у `describe.each`. */
+export function calleeHead(ts: typeof TS, expression: TS.Expression): string {
+  return calleeName(ts, expression).split(".")[0];
+}

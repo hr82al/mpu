@@ -219,6 +219,7 @@ const LIMITED = [
   "code_mentions",
   "code_name",
   "code_refs",
+  "code_shape",
   "code_twins",
   "health",
   "logs",

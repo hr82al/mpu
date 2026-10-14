@@ -130,6 +130,7 @@ import {
   codeMentionsCommand,
   codeNameCommand,
   codeRefsCommand,
+  codeShapeCommand,
   codeTwinsCommand,
 } from "@mpu/cmd-code";
 import { moveClientBackCommand, moveClientCommand } from "@mpu/cmd-move";
@@ -371,6 +372,8 @@ export const commands: readonly Command[] = [
   codeMentionsCommand,
   // Повторы литералов данных в файле (`docs/specs/code-literals.md`).
   codeLiteralsCommand,
+  // Длинные и глубокие функции, флаги true/false (`docs/specs/code-shape.md`).
+  codeShapeCommand,
   // Вызов API маркетплейса под ключом кабинета (`docs/specs/call.md`):
   // получатели `ozon`, `ozon perf` и `wb`, сообщения `call-ro` и `call`.
   ...ozonCommands,

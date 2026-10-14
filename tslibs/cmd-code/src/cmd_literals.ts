@@ -11,6 +11,9 @@
 import { z } from "zod";
 import { type CommandIo, defineCommand } from "@mpu/command";
 import {
+  ADDRESS_HELP,
+  EXIT_HELP,
+  LIMIT_HELP,
   partSchema,
   type Survey,
   type SurveyArgs,
@@ -67,14 +70,12 @@ export const codeLiteralsCommand = defineCommand({
 видит одну величину в двух записях — '101' и 101, '2026-09-04' и
 '04.09.2026'.
 
-address: — [РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки;
-адресов может быть несколько. Разделы — по одному на репозиторий,
-файлы внутри — в порядке путей.
+${ADDRESS_HELP}
 
   base: REF   только записи, задевшие строку, изменённую против
               merge-base REF HEAD в рабочем дереве (файл вне базы —
               целиком); запись печатается со всеми вхождениями
-  limit: N    предел записей в разделе, не строк (по умолчанию 200)
+${LIMIT_HELP}
 
 Разделов у файла два. «повторы» — значение, встреченное больше одного
 раза: ЗНАЧЕНИЕ ×K и строки. «две формы» — число и его строка, дата
@@ -89,9 +90,7 @@ queryBy…/findBy… (кроме дат), спецификаторы модул�
 литеральные типы, значения '', 0, 1, -1. Даты ГГГГ-ММ-ДД и ДД.ММ.ГГГГ
 считаются и внутри строки.
 
-Exit: 0 — ответ, включая пустые разделы, файл с синтаксической
-ошибкой и усечение; 2 — ошибка ввода (нет адреса, адрес со строкой,
-нет файла, не .ts/.tsx, база не разрешается).`,
+${EXIT_HELP}`,
   examples: [
     "mpu code literals address: sl-front:src/app/checklist/ChecklistClient.spec.tsx",
     "mpu code literals address: sl-front:src/app/checklist/ChecklistClient.spec.tsx base: main",
@@ -114,10 +113,10 @@ const LITERALS: Survey<FileSection> = {
     example: "mpu code literals ПУТЬ.spec.tsx",
     measured: "литералы считаются",
   },
-  measure: (ts, source, lines, limit) => {
+  measure: (ts, path, source, lines, limit) => {
     const tally = readLiterals(ts, source);
     return {
-      path: source.fileName,
+      path,
       repeats: limit.cut(tally.repeats().filter((r) => lines.touches(r.lines))),
       pairs: limit.cut(tally.pairs().filter((p) => lines.touches(p.lines))),
     };

@@ -79,6 +79,19 @@ export async function openLiteralsFixture(temp: string): Promise<Repo> {
   );
 }
 
+/**
+ * Дерево формы функций (`specs/code-shape.md`, «Сценарии») под именем
+ * `fixture`: своё по той же причине, что и у литералов.
+ */
+export async function openShapeFixture(temp: string): Promise<Repo> {
+  return await materialize(
+    temp,
+    "fixture",
+    "testdata/code/shape-tree/",
+    OUT_OF_GIT,
+  );
+}
+
 /** Раскладывает дерево канала во временный каталог под именем `name`. */
 async function materialize(
   temp: string,
@@ -161,4 +174,21 @@ export async function git(cwd: string, args: readonly string[]): Promise<void> {
 export async function commitAll(root: string): Promise<void> {
   await git(root, ["add", "."]);
   await git(root, ["commit", "--quiet", "--message", "seed"]);
+}
+
+/** Адрес файла в репозитории. */
+export function at(repo: Repo, path: string): string {
+  return `${repo.name}:${path}`;
+}
+
+/** Файл `testdata/code/` пакета. */
+export async function testdata(name: string): Promise<string> {
+  return await readFile(new URL(`testdata/code/${name}`, import.meta.url), {
+    encoding: "utf8",
+  });
+}
+
+/** Отказ неразрешимой базы (спека, «Граничные случаи»). */
+export function noBase(ref: string): string {
+  return `базу ${ref} не найти: git merge-base ${ref} HEAD не ответил`;
 }

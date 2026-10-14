@@ -8,19 +8,22 @@
  * спека описывает дерево одним файлом.
  */
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
 import { UsageError } from "@mpu/command";
 import { DEFAULT_LIMIT, renderLiterals, runLiterals } from "./cmd_literals.ts";
 import { spawnGit } from "./git.ts";
 import {
+  at,
   commitAll,
   git,
+  noBase,
   openDenoFixture,
   openLiteralsFixture,
   put,
   TEMP_PREFIX,
+  testdata,
   treeOf,
 } from "./testing.ts";
 import { readRepos, type Repo } from "./workspace.ts";
@@ -49,18 +52,6 @@ async function literals(
     { repos: known },
   );
   return renderLiterals(result);
-}
-
-/** Адрес файла в репозитории. */
-function at(repo: Repo, path: string): string {
-  return `${repo.name}:${path}`;
-}
-
-/** Файл `testdata/code/` пакета. */
-async function testdata(name: string): Promise<string> {
-  return await readFile(new URL(`testdata/code/${name}`, import.meta.url), {
-    encoding: "utf8",
-  });
 }
 
 /** Голден сценария 1 — копия канала. */
@@ -293,11 +284,6 @@ async function openProbe(workspace: string): Promise<Repo> {
 /** База сценария 2 и ссылка, которой нет. */
 const BASE = "HEAD";
 const NO_REF = "nowhere";
-
-/** Отказ неразрешимой базы (спека, «Граничные случаи»). */
-function noBase(ref: string): string {
-  return `базу ${ref} не найти: git merge-base ${ref} HEAD не ответил`;
-}
 
 describe("сценарий 2: --base оставляет записи с изменённой строкой", () => {
   const repo = treeOf(openProbe);

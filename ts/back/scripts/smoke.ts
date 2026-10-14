@@ -1300,6 +1300,23 @@ function checks(subject: Subject): readonly Check[] {
           ),
           `не те разделы: ${JSON.stringify(literals.stdout)}`,
         );
+        // Форма функций — тот же прогон по файлам и тот же ленивый
+        // компилятор: в файле один флаг, функций нет вовсе.
+        await writeFile(`${repo}/src/f.ts`, "f(x, true);\n");
+        const shape = await run(
+          subject,
+          ["code", "shape", "address:", "probe:src/f.ts"],
+          {},
+          repo,
+        );
+        assert.deepStrictEqual(shape.code, 0, `stderr: ${shape.stderr}`);
+        assert(
+          shape.stdout.endsWith(
+            "длинные: 0\nглубокие: 0\nфлаги: 1\n  1  f(…)  аргумент: 2\n" +
+              "не разрешено: 0\n",
+          ),
+          `не те разделы: ${JSON.stringify(shape.stdout)}`,
+        );
         // Второй репозиторий заводится ради воркеров: вопрос по всей
         // рабочей области считается по репозиторию в отдельном потоке,
         // и модуль воркера обязан попасть в собранный бинарь. Тесты

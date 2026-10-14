@@ -48,6 +48,9 @@ interface CommandCase {
 /** Файл образца `code literals`: путь адреса и путь раздела ответа. */
 const LITERALS_FILE = "front/src/sample.spec.tsx";
 
+/** Файл образца `code shape`: путь адреса и путь раздела ответа. */
+const SHAPE_FILE = "src/sample.ts";
+
 /** Запись учёта времени в форме вывода: общий образец трёх листьев `time`. */
 const SAMPLE_TIME_LOG = {
   id: 7000001,
@@ -2093,6 +2096,37 @@ const CASES: readonly CommandCase[] = [
               pairs: {
                 total: 1,
                 items: [{ first: "101", second: "'101'", lines: [9, 16] }],
+              },
+            },
+          ],
+          unresolved: { total: 0, items: [] },
+        },
+      ],
+    },
+  },
+  {
+    // Синтаксис одного файла, без анализатора: вызов и состав — как в
+    // сценарии 1 спеки (`code-shape.md`), по записи в каждом разделе.
+    path: "code shape",
+    argv: [`fixture:${SHAPE_FILE}`],
+    sampleResult: {
+      sections: [
+        {
+          mark: { repo: "fixture", git: null },
+          files: [
+            {
+              path: SHAPE_FILE,
+              long: {
+                total: 1,
+                items: [{ line: 1, name: "grid", length: 41 }],
+              },
+              deep: {
+                total: 1,
+                items: [{ line: 84, name: "walk", depth: 4 }],
+              },
+              flags: {
+                total: 1,
+                items: [{ line: 130, call: "render", argument: 2 }],
               },
             },
           ],

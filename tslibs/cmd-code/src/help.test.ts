@@ -1,6 +1,6 @@
 /**
  * Состав справок семейства (`specs/code-refs.md`, `specs/code-twins.md`,
- * `specs/code-literals.md`, раздел «CLI-контракт»).
+ * `specs/code-literals.md`, `specs/code-shape.md`, раздел «CLI-контракт»).
  *
  * Спеки больше не цитируют текст справки — они задают её состав: два
  * источника одного текста расходятся молча, и проверить расхождение
@@ -12,10 +12,28 @@ import { describe, expect, it } from "vitest";
 import { parseAddress } from "./address.ts";
 import { codeLiteralsCommand } from "./cmd_literals.ts";
 import { codeRefsCommand } from "./cmd_refs.ts";
+import { codeShapeCommand } from "./cmd_shape.ts";
 import { codeTwinsCommand } from "./cmd_twins.ts";
 import { codeMentionsCommand } from "./cmd_mentions.ts";
 import { codeNameCommand } from "./cmd_name.ts";
 import { parseWindow } from "./cmd_name.ts";
+
+/**
+ * Общее у команд по файлам (`literals`, `shape`): чем лучше грепа,
+ * форма адреса, ключи, «не разрешено» и коды выхода. Кодов два: отказа
+ * раздела у них нет — анализатора они не открывают.
+ */
+const FILE_SURVEY: readonly string[] = [
+  "Лучше грепа",
+  "[РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки",
+  "не разрешено",
+  "base: REF",
+  "limit: N",
+  "предел записей в разделе, не строк",
+  "по умолчанию 200",
+  "0 —",
+  "2 —",
+];
 
 /** Что справка обязана назвать; по фразе на пункт состава. */
 const REQUIRED: Readonly<Record<string, readonly string[]>> = {
@@ -70,27 +88,36 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "2 —",
   ],
   "code literals": [
-    // момент и чем лучше грепа
+    // момент
     "на приёмке и рецензии теста",
-    "Лучше грепа",
     "от адресов экрана",
     "одну величину в двух записях",
-    // форма адреса; что считается и что исключено
-    "[РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки",
+    // что считается и что исключено
     "Литерал данных —",
     "Не считаются:",
-    // оба раздела и «не разрешено»
+    // оба раздела
     "«повторы»",
     "«две формы»",
-    "не разрешено",
-    "base: REF",
-    "limit: N",
-    "предел записей в разделе, не строк",
-    "по умолчанию 200",
-    // Кодов два: отказа раздела у этой поверхности нет — анализатора
-    // она не открывает.
-    "0 —",
-    "2 —",
+    ...FILE_SURVEY,
+  ],
+  "code shape": [
+    // момент и чего греп не видит
+    "на приёмке и рецензии диффа",
+    "длины функции",
+    "в ассерте теста",
+    // три раздела с пределами
+    "«длинные»",
+    "«глубокие»",
+    "«флаги»",
+    "длиннее 40 строк",
+    "глубже 3 уровней",
+    "пределы включительные",
+    // что исключено
+    "Не меряются:",
+    "describe",
+    "вызов с одним",
+    "expect(…)",
+    ...FILE_SURVEY,
   ],
   "code name": [
     // форма окна и что без него отвечает каждый репозиторий
@@ -114,6 +141,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
 
 const COMMANDS = [
   codeLiteralsCommand,
+  codeShapeCommand,
   codeRefsCommand,
   codeTwinsCommand,
   codeNameCommand,
