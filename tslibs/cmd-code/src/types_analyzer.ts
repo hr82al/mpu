@@ -83,12 +83,16 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
       };
     },
     declarationsRefusal: () => null,
-    bodiesOf: () => ({
-      kind: "known",
-      bodies: files.flatMap((file) =>
+    bodiesOf: () => {
+      const found = files.map((file) =>
         bodiesIn(ts, checker, file, rel(file.fileName)),
-      ),
-    }),
+      );
+      return {
+        kind: "known",
+        bodies: found.flatMap((each) => each.bodies),
+        empty: found.flatMap((each) => each.empty),
+      };
+    },
     consumersOf: (target) => placesFor(ts, checker, files, fileOf, rel, target),
     unresolvedOf: () => unresolvedIn(ts, checker, files, rel),
   };

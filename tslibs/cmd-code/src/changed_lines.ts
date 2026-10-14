@@ -166,4 +166,9 @@ export class RepoChanges {
   touches(path: string, span: TextSpan): boolean {
     return (this.#files.get(path) ?? UNCHANGED).touches(span);
   }
+
+  /** Изменённые файлы, которых разбор не знает. */
+  outside(parsed: (path: string) => boolean): readonly string[] {
+    return [...this.#files.keys()].filter((path) => !parsed(path));
+  }
 }

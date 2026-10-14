@@ -120,5 +120,13 @@ export interface Analyzer {
 
 /** Порядок строк слоя: `(репозиторий, путь, строка)`. */
 export function byPathAndLine(a: Place, b: Place): number {
-  return a.path === b.path ? a.line - b.line : a.path < b.path ? -1 : 1;
+  return byPath(a, b) || a.line - b.line;
+}
+
+/** Порядок по пути — первая часть порядка слоя. */
+export function byPath(
+  a: { readonly path: string },
+  b: { readonly path: string },
+): number {
+  return a.path === b.path ? 0 : a.path < b.path ? -1 : 1;
 }

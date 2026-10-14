@@ -41,7 +41,7 @@
     "@mpu/cmd-call": "file:../tslibs/cmd-call/release/mpu-cmd-call-0.1.0.tgz",
     "@mpu/cmd-claudehook": "file:../tslibs/cmd-claudehook/release/mpu-cmd-claudehook-0.3.0.tgz",
     "@mpu/cmd-cleanlocal": "file:../tslibs/cmd-cleanlocal/release/mpu-cmd-cleanlocal-0.1.0.tgz",
-    "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.6.0.tgz",
+    "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.7.0.tgz",
     "@mpu/cmd-copy": "file:../tslibs/cmd-copy/release/mpu-cmd-copy-0.1.0.tgz",
     "@mpu/cmd-d2miro": "file:../tslibs/cmd-d2miro/release/mpu-cmd-d2miro-0.1.0.tgz",
     "@mpu/cmd-exec": "file:../tslibs/cmd-exec/release/mpu-cmd-exec-0.1.0.tgz",

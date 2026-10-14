@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { DomainError, UsageError } from "@mpu/command";
 import type { Analyzer } from "./analyzer.ts";
-import type { Body } from "./body.ts";
+import type { Body, EmptyBody, FoundBodies } from "./body.ts";
 import { difference } from "./body.ts";
 import { markLabel, type TreeMark } from "./mark.ts";
 import {
@@ -21,8 +21,9 @@ import {
   unresolvedOf,
   unresolvedSchema,
 } from "./answer.ts";
-import { byPathAndLine } from "./analyzer.ts";
+import { byPath, byPathAndLine } from "./analyzer.ts";
 import type { RepoChanges } from "./changed_lines.ts";
+import type { TextSpan } from "./patch.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Совпадение: где лежит тело-близнец и под каким именем. */
@@ -38,6 +39,29 @@ const twinSchema = z.object({
 const sectionSchema = z.object({
   total: z.number().int().nonnegative(),
   twins: z.array(twinSchema).describe(TRUNCATION_NOTE),
+});
+
+/**
+ * «Не разрешено» ответа по диффу: неразрешённые ссылки и тронутые
+ * файлы, которых не разбирает ни один проект (`specs/code-twins.md`,
+ * «Доводка CT1b»).
+ */
+const diffUnresolvedSchema = z.object({
+  total: z.number().int().nonnegative(),
+  items: z
+    .array(
+      z.discriminatedUnion("kind", [
+        unresolvedSchema.shape.items.element.extend({
+          kind: z.literal("reference"),
+        }),
+        z.object({
+          kind: z.literal("outside"),
+          path: z.string(),
+          reason: z.string(),
+        }),
+      ]),
+    )
+    .describe(TRUNCATION_NOTE),
 });
 
 /** Объявление, чьё тело взято. */
@@ -81,7 +105,7 @@ const answerSchema = z.discriminatedUnion("kind", [
       .describe(
         "только тронутые тела с близнецами, по (путь, строка); само тело в своих разделах не повторяется",
       ),
-    unresolved: unresolvedSchema,
+    unresolved: diffUnresolvedSchema,
   }),
   z.object({
     kind: z.literal("refused"),
@@ -105,7 +129,7 @@ export type TwinsResult = z.infer<typeof resultSchema>;
 export { resultSchema as twinsResultSchema };
 
 /** Поля ответа, общие у обоих источников тел запроса. */
-type Common = "mark" | "guarantee" | "unresolved";
+type Common = "mark" | "guarantee";
 
 /** Ответивший раздел по адресу. */
 type AddressSection = Extract<TwinsResult["section"], { kind: "answer" }>;
@@ -127,15 +151,15 @@ export interface Asking {
   check(analyzer: Analyzer, mark: TreeMark): void;
   /** Своя часть ответа по телам репозитория. */
   part(
-    bodies: readonly Body[],
+    found: FoundBodies,
     analyzer: Analyzer,
     limit: number,
   ): Promise<AnswerPart>;
 }
 
 /**
- * Собирает ответ: отметка, гарантия и «не разрешено» — общие у обоих
- * источников, найденное — часть источника.
+ * Собирает ответ: отметка, гарантия и отказ раздела — общие у обоих
+ * источников, найденное и «не разрешено» — часть источника.
  */
 export async function collectTwins(
   asking: Asking,
@@ -153,10 +177,9 @@ export async function collectTwins(
   if (answer.kind === "unknown") return refusedTwins(mark, answer.reason);
   return {
     section: {
-      ...(await asking.part(answer.bodies, analyzer, limit)),
+      ...(await asking.part(answer, analyzer, limit)),
       mark: asMark(mark),
       guarantee: analyzer.guarantee,
-      unresolved: unresolvedOf(analyzer, limit),
     },
   };
 }
@@ -181,12 +204,12 @@ export function checkFile(
 export function addressPart(
   path: string,
   line: number,
-  bodies: readonly Body[],
+  found: FoundBodies,
   analyzer: Analyzer,
   limit: number,
 ): Omit<AddressSection, Common> {
-  const query = queryBody(bodies, path, line, analyzer);
-  const twins = new Twins(query, bodies);
+  const query = queryBody(found, path, line, analyzer);
+  const twins = new Twins(query, found.bodies);
   return {
     kind: "answer",
     query: queryOf(query),
@@ -197,28 +220,50 @@ export function addressPart(
     // собственного ответа.
     exact: withQuery(query, twins.exact(limit - 1)),
     similar: twins.similar(limit),
+    unresolved: unresolvedOf(analyzer, limit),
   };
 }
 
 /**
  * Часть ответа по диффу: тела, тронутые изменением против базы, и
  * близнецы каждого. Тело без близнецов блока не получает и остаётся
- * только в счёте тронутых.
+ * только в счёте тронутых. Тронутый файл, которого не разбирает ни один
+ * проект, тел не даёт — и называется в «не разрешено», а не выпадает.
  */
 export function diffPart(
   changes: RepoChanges,
-  bodies: readonly Body[],
+  found: FoundBodies,
+  analyzer: Analyzer,
   limit: number,
 ): Omit<DiffSection, Common> {
+  const bodies = found.bodies;
   const touched = bodies
     .filter((body) => changes.touches(body.path, body.span))
     .sort(byPathAndLine);
+  // Разбирает ли проект файл, знает анализатор: `.d.ts` в программе есть,
+  // хотя тел в нём нет, и «вне проектов» он не лежит.
+  const outside = changes
+    .outside(analyzer.hasFile)
+    .map((path) => ({ kind: "outside" as const, path, reason: OUTSIDE }));
+  const references = analyzer
+    .unresolvedOf()
+    .map((item) => ({ kind: "reference" as const, ...item }));
+  // Сортировка устойчива: у файла вне проектов ссылок нет, и строка
+  // файла стоит раньше ссылок того же пути только по порядку склейки.
+  const unresolved = [...outside, ...references].sort(byPath);
   return {
     kind: "diff",
     touched: touched.length,
     blocks: touched.flatMap((body) => new Twins(body, bodies).blocks(limit)),
+    unresolved: {
+      total: unresolved.length,
+      items: unresolved.slice(0, limit),
+    },
   };
 }
+
+/** Причина строки «не разрешено» у тронутого файла вне проектов. */
+const OUTSIDE = "файл вне проектов — тела не разбираются";
 
 /** Строка запроса ответа: имя, сигнатура и место тела. */
 function queryOf(body: Body): z.infer<typeof querySchema> {
@@ -230,24 +275,51 @@ function queryOf(body: Body): z.infer<typeof querySchema> {
   };
 }
 
+/** Место объявления-функции: файл, строка объявления, отрезок тела. */
+type Located = Pick<EmptyBody, "path" | "line" | "span">;
+
 /**
- * Тело объявления, охватывающего строку адреса. Ошибки ввода здесь две
- * и они разные: строка не покрыта объявлением-функцией вовсе — и
- * покрыта объявлением, у которого тела нет (перегрузка, `declare`).
+ * Объявление-функция, охватывающее строку адреса: отдаёт тело запроса
+ * либо отказывает, если тело пустое.
+ */
+interface Covering {
+  readonly line: number;
+  readonly span: TextSpan;
+  query(): Body;
+}
+
+/**
+ * Тело объявления, охватывающего строку адреса. Ошибки ввода здесь три
+ * и они разные: строка не покрыта объявлением-функцией вовсе, покрыта
+ * объявлением без тела (перегрузка, `declare`) и объявлением с пустым
+ * телом.
  */
 function queryBody(
-  bodies: readonly Body[],
+  found: FoundBodies,
   path: string,
   line: number,
   analyzer: Analyzer,
 ): Body {
-  const inFile = bodies.filter((body) => body.path === path);
+  const covers = (body: Located): boolean =>
+    body.path === path && body.line <= line && line <= body.span.end.line;
+  const covering: Covering[] = [
+    ...found.bodies.filter(covers).map((body) => ({
+      line: body.line,
+      span: body.span,
+      query: () => body,
+    })),
+    ...found.empty.filter(covers).map((body) => ({
+      line: body.line,
+      span: body.span,
+      query: emptyQuery(body),
+    })),
+  ];
   // Охватывающих может быть несколько (стрелка внутри функции); берётся
-  // самое внутреннее — то, чьё объявление ближе к строке.
-  const covering = inFile
-    .filter((body) => body.line <= line && line <= body.span.end.line)
-    .sort((a, b) => b.line - a.line);
-  if (covering.length > 0) return covering[0];
+  // то, чьё объявление ближе к строке. На одной строке сортировка
+  // устойчива: тела идут в порядке обхода, внешнее раньше вложенного, и
+  // берётся внешнее — как до правила о пустых телах.
+  covering.sort((a, b) => b.line - a.line);
+  if (covering.length > 0) return covering[0].query();
   const answer = analyzer.declarationsOf(path);
   if (answer.kind === "unknown") throw new DomainError(answer.reason);
   // Объявление-функция в строке есть, а тела у него нет: перегрузка и
@@ -264,6 +336,15 @@ function queryBody(
       .map((entry) => `  ${path}:${entry.line}  ${entry.name}`)
       .join("\n"),
   });
+}
+
+/** Запрос пустого тела: сравнивать в нём нечего — отказ ввода. */
+function emptyQuery(body: EmptyBody): () => Body {
+  return () => {
+    throw new UsageError(
+      `у объявления в строке ${body.line} пустое тело — близнецов не ищем`,
+    );
+  };
 }
 
 /**

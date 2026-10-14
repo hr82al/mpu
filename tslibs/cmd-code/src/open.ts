@@ -19,7 +19,7 @@ import type {
   Target,
   Unresolved,
 } from "./analyzer.ts";
-import type { Bodies, Body } from "./body.ts";
+import type { Bodies, Body, EmptyBody } from "./body.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import type TS from "typescript";
 import type { MarkSource } from "./mark.ts";
@@ -240,6 +240,7 @@ function declarationsOf(
 /** Тела всех проектов без повторов: файл может входить в два проекта. */
 function bodiesOf(analyzers: readonly Analyzer[]): Bodies {
   const bodies = new Map<string, Body>();
+  const empty = new Map<string, EmptyBody>();
   for (const analyzer of analyzers) {
     const answer = analyzer.bodiesOf();
     // Незнание одного проекта и есть ответ операции: молча заменить его
@@ -251,8 +252,18 @@ function bodiesOf(analyzers: readonly Analyzer[]): Bodies {
       // колбэка в одном вызове) — разные тела, а не одно.
       bodies.set(`${body.path}:${body.line}:${body.name}:${body.text}`, body);
     }
+    for (const body of answer.empty) {
+      // У пустых тел текста для ключа нет; одно от другого на той же
+      // строке отличает начало отрезка.
+      const { line, column } = body.span.start;
+      empty.set(`${body.path}:${line}:${column}`, body);
+    }
   }
-  return { kind: "known", bodies: [...bodies.values()] };
+  return {
+    kind: "known",
+    bodies: [...bodies.values()],
+    empty: [...empty.values()],
+  };
 }
 
 /** Объединение перечней всех проектов без повторов. */

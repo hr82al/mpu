@@ -167,15 +167,32 @@ function renderSection(section: AnsweredRefs): string {
 export function renderUnresolved(
   unresolved: AnsweredRefs["unresolved"],
 ): string {
-  const { total, items } = unresolved;
-  const lines = items.map(
-    (item) =>
-      `  ${item.path}:${item.line} → ${item.specifier} — ${item.reason}`,
+  return renderUnresolvedLines(
+    unresolved.total,
+    unresolved.items.map(unresolvedLine),
   );
-  if (items.length < total) {
-    lines.push(`  усечено: показано ${items.length} из ${total}`);
-  }
-  return [`не разрешено: ${total}`, ...lines].join("\n");
+}
+
+/** Строка неразрешённой ссылки: место, как записана, причина. */
+export function unresolvedLine(
+  item: AnsweredRefs["unresolved"]["items"][number],
+): string {
+  return `  ${item.path}:${item.line} → ${item.specifier} — ${item.reason}`;
+}
+
+/**
+ * Раздел «не разрешено» из готовых строк: счёт, строки до предела и
+ * усечение, если строк меньше счёта.
+ */
+export function renderUnresolvedLines(
+  total: number,
+  lines: readonly string[],
+): string {
+  const truncated =
+    lines.length < total
+      ? [`  усечено: показано ${lines.length} из ${total}`]
+      : [];
+  return [`не разрешено: ${total}`, ...lines, ...truncated].join("\n");
 }
 
 /** Согласование слова «файл» с числом. */

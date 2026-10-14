@@ -131,6 +131,9 @@ const HEADER = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 /** Путь новой стороны: `+++ b/путь`; у удалённого файла — `/dev/null`. */
 const NEW_SIDE = "+++ ";
 
+/** Новая сторона удалённого файла. */
+const DELETED = "+++ /dev/null";
+
 /** Строка-примечание `\ No newline at end of file` в счёт куска не входит. */
 const NOTE = "\\";
 
@@ -146,7 +149,9 @@ export function readPatch(text: string): readonly FilePatch[] {
     const line = lines[index++];
     if (line.startsWith(NEW_SIDE)) {
       file = new FilePatch(newPath(line.slice(NEW_SIDE.length)));
-      files.push(file);
+      // Удалённый файл новой стороны не имеет: его куски уходят в патч,
+      // которого нет в ответе.
+      if (line !== DELETED) files.push(file);
       continue;
     }
     const header = HEADER.exec(line);

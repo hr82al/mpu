@@ -53,8 +53,29 @@ export interface Body {
  * (`platform/code-analyzer.md`).
  */
 export type Bodies =
-  | { readonly kind: "known"; readonly bodies: readonly Body[] }
+  | ({ readonly kind: "known" } & FoundBodies)
   | { readonly kind: "unknown"; readonly reason: string };
+
+/**
+ * Объявление-функция с пустым телом — без единого оператора (`{}`,
+ * `constructor(private x: number) {}`). Сравнивать в нём нечего: все
+ * такие тела равны друг другу, и близнецами они были бы шумом
+ * (`specs/code-twins.md`, «Доводка CT1b»). Адрес на него — отказ, для
+ * этого тело и помнится.
+ */
+export interface EmptyBody {
+  readonly path: string;
+  /** Строка объявления, считая с единицы. */
+  readonly line: number;
+  /** Отрезок тела от `{` до `}` включительно. */
+  readonly span: TextSpan;
+}
+
+/** Найденные тела — файла или репозитория: сравниваемые и пустые порознь. */
+export interface FoundBodies {
+  readonly bodies: readonly Body[];
+  readonly empty: readonly EmptyBody[];
+}
 
 /** Узел-функция с телом-блоком: объявление, стрелка, метод. */
 export type FunctionNode = TS.FunctionLikeDeclaration & {
@@ -78,22 +99,36 @@ export function isFunctionWithBody(
   return body !== undefined && ts.isBlock(body as TS.Node);
 }
 
-/** Тела всех объявлений-функций файла. */
+/**
+ * Тела всех объявлений-функций файла. Здесь — единственное место
+ * правила «пустое тело не сравнивается»: тело без операторов в
+ * сравниваемые не попадает и потому не бывает ни запросом, ни
+ * близнецом, ни тронутым телом.
+ */
 export function bodiesIn(
   ts: typeof TS,
   checker: TS.TypeChecker,
   file: TS.SourceFile,
   path: string,
-): readonly Body[] {
-  const found: Body[] = [];
+): FoundBodies {
+  const bodies: Body[] = [];
+  const empty: EmptyBody[] = [];
   const visit = (node: TS.Node): void => {
     if (isFunctionWithBody(ts, node)) {
-      found.push(bodyOf(ts, checker, node, file, path));
+      if (node.body.statements.length === 0) {
+        empty.push({
+          path,
+          line: lineAt(file, ownerOf(ts, node).getStart(file)),
+          span: spanOf(file, node),
+        });
+      } else {
+        bodies.push(bodyOf(ts, checker, node, file, path));
+      }
     }
     ts.forEachChild(node, visit);
   };
   visit(file);
-  return found;
+  return { bodies, empty };
 }
 
 /** Тело узла со всем, чем его сравнивают. */
@@ -108,10 +143,7 @@ export function bodyOf(
   return {
     path,
     line: lineAt(file, ownerOf(ts, node).getStart(file)),
-    span: {
-      start: positionAt(file, node.body.getStart(file)),
-      end: positionAt(file, node.body.getEnd()),
-    },
+    span: spanOf(file, node),
     name: nameOf(ts, node),
     signature: signatureOf(checker, node),
     text: node.body.getText(file),
@@ -131,6 +163,14 @@ function ownerOf(ts: typeof TS, node: FunctionNode): TS.Node {
     ts.isPropertyAssignment(node.parent)
     ? node.parent
     : node;
+}
+
+/** Отрезок тела узла от `{` до `}` включительно. */
+function spanOf(file: TS.SourceFile, node: FunctionNode): TextSpan {
+  return {
+    start: positionAt(file, node.body.getStart(file)),
+    end: positionAt(file, node.body.getEnd()),
+  };
 }
 
 /** Строка позиции, считая с единицы. */

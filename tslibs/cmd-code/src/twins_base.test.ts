@@ -31,9 +31,21 @@ const BASE = "HEAD";
 /** Имя репозитория дерева голденов. */
 const REPO = "fixture";
 
+/** Раздел «не разрешено» из строк, без усечения. */
+function unresolved(...lines: readonly string[]): string {
+  return [`не разрешено: ${lines.length}`, ...lines, ""].join("\n");
+}
+
+/** Неразрешённая ссылка дерева голденов. */
+const BROKEN = "  src/broken.ts:3 → ./nowhere — модуль не найден";
+
 /** Хвост ответа: «не разрешено» дерева голденов. */
-const UNRESOLVED =
-  "не разрешено: 1\n  src/broken.ts:3 → ./nowhere — модуль не найден\n";
+const UNRESOLVED = unresolved(BROKEN);
+
+/** Строка «не разрешено» тронутого файла вне проектов. */
+function outsideLine(path: string): string {
+  return `  ${path}: файл вне проектов — тела не разбираются`;
+}
 
 /** Похожая пара `utcDayList` дерева: `loaderA` и `loaderB`. */
 const LOADER_A = "src/loaderA.ts";
@@ -129,6 +141,11 @@ function both(first: Edit, second: Edit): Edit {
   };
 }
 
+/** Кладёт в дерево файл `path` с текстом `text`. */
+function putting(path: string, text: string): Edit {
+  return async (repo) => put(repo, path, text);
+}
+
 /** Индексирует файл дерева: новый файл, о котором git уже знает. */
 function staging(path: string): Edit {
   return async (repo) => git(repo.root, ["add", "--", path]);
@@ -179,6 +196,25 @@ const SCENARIO_2 = oneBlock(
 /** Тело, которого нет больше нигде в дереве. */
 const UNIQUE = "{\n  return 'единственное';\n}";
 
+/** Файл с телами без операторов (спека, «Доводка CT1b»). */
+const EMPTY = "src/empty.ts";
+const EMPTY_BODIES = [
+  "export class A {",
+  "  constructor(",
+  "    private x: number,",
+  "  ) {}",
+  "}",
+  "export const f = async () => {};",
+  "export function h() { /* нет */ }",
+  "",
+].join("\n");
+/** Строка объявления пустого конструктора и строка внутри него. */
+const EMPTY_DECLARED = 2;
+const EMPTY_INSIDE = 3;
+
+/** Файл вне всех проектов дерева: `tsconfig.json` берёт только `src/`. */
+const OUTSIDE = "scripts/tool.ts";
+
 /** Две новые функции с одинаковым телом (сценарий 4). */
 const [ONE, TWO] = ["one", "two"];
 
@@ -205,6 +241,26 @@ describe("ответ по диффу", () => {
       name: "сценарий 2: новый файл с копией loaderA",
       edit: copying(LOADER_A, LOADER_C),
       expected: SCENARIO_2,
+    },
+    {
+      name: "пустые тела рядом с копией loaderA — не в N и не в блоках",
+      edit: both(copying(LOADER_A, LOADER_C), putting(EMPTY, EMPTY_BODIES)),
+      expected: SCENARIO_2,
+    },
+    {
+      name: "новый .ts вне всех проектов — в «не разрешено», не в N",
+      edit: putting(OUTSIDE, `export function g() ${UNIQUE}\n`),
+      expected: `${touched(0, 0)}\n\n${unresolved(outsideLine(OUTSIDE), BROKEN)}`,
+    },
+    {
+      name: "правка .d.ts проекта — не «вне проектов»",
+      edit: putting("src/types.d.ts", "export type Day = string;\n"),
+      expected: NOTHING_TOUCHED,
+    },
+    {
+      name: "удалённый файл — не тронут и не в «не разрешено»",
+      edit: async (tree) => rm(`${tree.root}/${LOADER_B}`),
+      expected: NOTHING_TOUCHED,
     },
     {
       name: "новый файл в индексе — так же, как неотслеженный",
@@ -364,6 +420,62 @@ describe("отказы ввода", () => {
       outside(repo()),
     );
     expect(afterMark(answer)).toStrictEqual(NOTHING_TOUCHED);
+  });
+});
+
+describe("адрес на пустое тело", () => {
+  const repo = treeOf(probe(putting(EMPTY, EMPTY_BODIES)));
+
+  it("отказ ввода со строкой объявления, ответа нет", async () => {
+    const err = await rejected(
+      () => twins(repo(), { address: `${REPO}:${EMPTY}:${EMPTY_INSIDE}` }),
+      UsageError,
+    );
+    expect(err.message).toStrictEqual(
+      `у объявления в строке ${EMPTY_DECLARED} пустое тело — близнецов не ищем`,
+    );
+  });
+});
+
+describe("несколько функций на одной строке адреса — берётся внешняя", () => {
+  const same = "src/same.ts";
+  const repo = treeOf(
+    probe(
+      putting(
+        same,
+        [
+          "export function g(xs: number[]) { return xs.map((x) => { return x * 2; }); }",
+          "export function k(p: Promise<void>) { p.catch(() => {}); }",
+          "",
+        ].join("\n"),
+      ),
+    ),
+  );
+  const cases: readonly (readonly [number, string])[] = [
+    [1, "g (xs: number[]): number[]"],
+    [2, "k (p: Promise<void>): void"],
+  ];
+  for (const [line, query] of cases) {
+    it(`строка ${line}`, async () => {
+      const answer = afterMark(
+        await twins(repo(), { address: `${REPO}:${same}:${line}` }),
+      );
+      expect(answer.split("\n")[0]).toStrictEqual(query);
+    });
+  }
+});
+
+describe("предел режет «не разрешено» вместе с файлом вне проектов", () => {
+  const repo = treeOf(
+    probe(putting(OUTSIDE, `export function g() ${UNIQUE}\n`)),
+  );
+
+  it("показано 1 из 2", async () => {
+    expect(
+      afterMark(await twins(repo(), { base: BASE, limit: 1 })),
+    ).toStrictEqual(
+      `${touched(0, 0)}\n\nне разрешено: 2\n${outsideLine(OUTSIDE)}\n  усечено: показано 1 из 2\n`,
+    );
   });
 });
 

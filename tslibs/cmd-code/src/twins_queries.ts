@@ -8,7 +8,7 @@
 import { type CommandIo, UsageError } from "@mpu/command";
 import { parseAddress } from "./address.ts";
 import type { Analyzer } from "./analyzer.ts";
-import type { Body } from "./body.ts";
+import type { FoundBodies } from "./body.ts";
 import { type MergeBase, mergeBase } from "./changed_lines.ts";
 import { spawnGit } from "./git.ts";
 import type { TreeMark } from "./mark.ts";
@@ -60,12 +60,12 @@ class AddressQueries implements Queries {
   }
 
   part(
-    bodies: readonly Body[],
+    found: FoundBodies,
     analyzer: Analyzer,
     limit: number,
   ): Promise<AnswerPart> {
     return Promise.resolve(
-      addressPart(this.path, this.line, bodies, analyzer, limit),
+      addressPart(this.path, this.line, found, analyzer, limit),
     );
   }
 }
@@ -84,8 +84,12 @@ class DiffQueries implements Queries {
   /** Файла у вопроса нет — проверять до разбора нечего. */
   check(): void {}
 
-  async part(bodies: readonly Body[], _: Analyzer, limit: number) {
-    return diffPart(await this.base.changes(), bodies, limit);
+  async part(
+    found: FoundBodies,
+    analyzer: Analyzer,
+    limit: number,
+  ): Promise<AnswerPart> {
+    return diffPart(await this.base.changes(), found, analyzer, limit);
   }
 }
 

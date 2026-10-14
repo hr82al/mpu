@@ -11,7 +11,11 @@ import { z } from "zod";
 import { type CommandIo, defineCommand } from "@mpu/command";
 import { treeMarkOf } from "./answer.ts";
 import { renderMark, renderMarkOnly } from "./mark.ts";
-import { renderUnresolved } from "./cmd_refs.ts";
+import {
+  renderUnresolved,
+  renderUnresolvedLines,
+  unresolvedLine,
+} from "./cmd_refs.ts";
 import {
   collectTwins,
   refusedTwins,
@@ -73,15 +77,19 @@ address: — [РЕПОЗИТОРИЙ:]ПУТЬ:СТРОКА, строка обя
 строка внутри — тоже; переименование файла или функции — нет). Ответ:
 «тронуто тел: N, с близнецами: M», затем по блоку на тело с
 близнецами — путь:строка, имя и сигнатура, непустые разделы без него
-самого. Тело без близнецов есть только в N.
+самого. Тело без близнецов есть только в N. Тронутый файл вне всех
+проектов тел не даёт — он строкой в «не разрешено».
+
+Тело без операторов ({}) не сравнивается: оно не бывает ни запросом,
+ни близнецом и в N не входит; адрес на него — ошибка ввода.
 
 Имя объявления в сравнении не участвует — сравниваются тела. Раздел
 «не разрешено» печатается всегда, в том числе нулевой.
 
 Exit: 0 — ответ, включая усечение; 2 — ошибка ввода (нет строки, в
-строке нет объявления-функции, нет файла или репозитория, адрес вместе
-с base, in без base, base без in вне репозитория, база не
-разрешается); 1 — тела здесь не разбираются: в
+строке нет объявления-функции, у объявления пустое тело, нет файла
+или репозитория, адрес вместе с base, in без base, base без in вне
+репозитория, база не разрешается); 1 — тела здесь не разбираются: в
 репозитории нет проектов, либо ни одна его программа не собралась
 непустой, либо файл не входит ни в одну из них. Отказ печатается
 разделом — с отметкой дерева и причиной, — а не строкой ошибки.`,
@@ -158,7 +166,15 @@ function renderDiff(section: DiffTwins): string {
     renderMark(treeMarkOf(section.mark), section.guarantee),
     `тронуто тел: ${section.touched}, с близнецами: ${section.blocks.length}`,
     ...section.blocks.flatMap(renderBlock),
-    renderUnresolved(section.unresolved),
+    renderUnresolvedLines(
+      section.unresolved.total,
+      section.unresolved.items.map((item) =>
+        // Вид строки — данные ответа на границе контракта.
+        item.kind === "outside"
+          ? `  ${item.path}: ${item.reason}`
+          : unresolvedLine(item),
+      ),
+    ),
   ];
   return `${blocks.join("\n\n")}\n`;
 }
