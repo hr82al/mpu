@@ -440,3 +440,8 @@
 | стол формы MCP | `ElicitationDesk`, `ElicitQuestion`, вид выбора `oneClosing` (R3) | шаг на поле; `В терминале` — без решения |
 | следующее событие сессии | `SessionKey.movedOn`, `seatPermission`, `heldWhile` (R3) | снимает висящее право сессии |
 | охрана окна | `PaneGuard` (`gone`/`left`), `KeysReader`, `ScreenReader` | клавиши и текст в окно — только пока там `claude`; иначе «Claude Code закрыт» |
+| прогон по файлам | `Survey`, `surveyFiles`, `Wording`, `tslibs/cmd-code/src/file_survey.ts` (CS1) | общий прогон `code literals` и `code shape`: адрес, `--base`, разбор, «не разрешено», предел; что меряется в файле — реализация `Survey` |
+| форма функций | `Shape`, `tslibs/cmd-code/src/shape.ts` (CS1) | учёт файла `code shape`: длинные, глубокие функции и флаги. Не путать с «видом объекта» `Shape` языка |
+| измеренная функция | `Measured` (CS1) | функция файла с отрезком тела и наибольшей глубиной операторов управления |
+| флаг-вызов | `FlagCall`, `Flag`, `tslibs/cmd-code/src/shape.ts` (CS1) | вызов с ≥ 2 аргументами, где позиционный аргумент — литерал `true`/`false`; каждый литерал — своя запись. Не путать с `Flag` значения разбора |
+| владелец глубины | `Owner`, `NO_OWNER` (CS1) | кто узнаёт уровень операторов управления внутри себя; вне функции — никто |
