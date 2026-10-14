@@ -1163,6 +1163,15 @@
   {
     "path": [
       "code",
+      "shape"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "code",
       "twins"
     ],
     "verdict": "deny",
