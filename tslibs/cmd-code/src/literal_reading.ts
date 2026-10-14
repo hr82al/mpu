@@ -10,6 +10,7 @@
  */
 
 import type TS from "typescript";
+import { calleeName } from "./callee.ts";
 import { Tally } from "./literals.ts";
 
 /** Как литерал этого места попадает в учёт. */
@@ -168,53 +169,10 @@ function lastName(ts: typeof TS, expression: TS.Expression): string {
 }
 
 /**
- * Имя вызываемого через точку (`vi.mock`, `screen.getByRole`); у
- * `within(…).getByText` — от вызова дальше. Прочие формы — пусто.
+ * Учёт литералов разобранного файла. Синтаксическую ошибку отсекает
+ * общий прогон (`file_survey.ts`): сюда приходит только разобранное.
  */
-function calleeName(ts: typeof TS, expression: TS.Expression): string {
-  if (ts.isIdentifier(expression)) return expression.text;
-  if (ts.isPropertyAccessExpression(expression)) {
-    const head = calleeName(ts, expression.expression);
-    return head === ""
-      ? expression.name.text
-      : `${head}.${expression.name.text}`;
-  }
-  return "";
-}
-
-/** Исход разбора файла: учёт литералов или причина, почему его нет. */
-export interface FileReading {
-  /** Отдаёт себя ответу: разделом файла либо строкой «не разрешено». */
-  report(answer: FileAnswer): void;
-}
-
-/** Куда файл отдаёт свой исход. */
-export interface FileAnswer {
-  parsed(path: string, tally: Tally): void;
-  unparsed(path: string, reason: string): void;
-}
-
-/**
- * Разбирает текст файла. Синтаксическая ошибка — не отказ всего ответа,
- * а строка «не разрешено»: остальные адреса отвечают.
- */
-export function readLiterals(
-  ts: typeof TS,
-  path: string,
-  text: string,
-): FileReading {
-  const file = ts.createSourceFile(
-    path,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-  const errors = syntaxErrors(ts, file);
-  if (errors.length > 0) {
-    const reason = describeError(ts, file, errors[0]);
-    return { report: (answer) => answer.unparsed(path, reason) };
-  }
+export function readLiterals(ts: typeof TS, file: TS.SourceFile): Tally {
   const tally = new Tally();
   const rules = exclusionRules(ts);
   const visit = (node: TS.Node, inherited: Reading): void => {
@@ -228,7 +186,7 @@ export function readLiterals(
   // С детей, а не с самого файла: у корня нет родителя, а правила
   // спрашивают о месте узла в родителе.
   ts.forEachChild(file, (child) => visit(child, DATA));
-  return { report: (answer) => answer.parsed(path, tally) };
+  return tally;
 }
 
 /**
@@ -261,36 +219,4 @@ function readLiteral(
     return true;
   }
   return false;
-}
-
-/**
- * Синтаксические ошибки файла. Публичный путь к ним — программа из
- * одного файла: собственный перечень ошибок разбора у `SourceFile`
- * закрыт. Ни библиотек, ни импортов программа не грузит.
- */
-function syntaxErrors(
-  ts: typeof TS,
-  file: TS.SourceFile,
-): readonly TS.DiagnosticWithLocation[] {
-  // `types: []` — иначе программа обходит `node_modules/@types` на
-  // каждый файл, хотя типы разбору синтаксиса не нужны.
-  const options: TS.CompilerOptions = {
-    noLib: true,
-    noResolve: true,
-    types: [],
-  };
-  const host = ts.createCompilerHost(options);
-  host.getSourceFile = (name) => (name === file.fileName ? file : undefined);
-  const program = ts.createProgram([file.fileName], options, host);
-  return program.getSyntacticDiagnostics(file);
-}
-
-/** Причина разбора: строка первой ошибки и текст компилятора. */
-function describeError(
-  ts: typeof TS,
-  file: TS.SourceFile,
-  error: TS.DiagnosticWithLocation,
-): string {
-  const line = file.getLineAndCharacterOfPosition(error.start).line + 1;
-  return `строка ${line}: ${ts.flattenDiagnosticMessageText(error.messageText, " ")}`;
 }

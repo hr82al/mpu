@@ -3,41 +3,27 @@
  * данных в файле повторены литералом и какая величина записана в двух
  * формах.
  *
- * Анализатор слоя она не открывает: разбирается синтаксис отдельных
- * файлов, и полнота перечня от проекта не зависит — поэтому в шапке нет
- * поля гарантии (`platform/code-analyzer.md`, «Исключение — `code
- * literals`»).
+ * Адрес, `--base`, разбор и шапка без гарантии — общий прогон по
+ * файлам (`file_survey.ts`); здесь — что считается в файле и как это
+ * печатается.
  */
 
-import { readFileSync, statSync } from "node:fs";
 import { z } from "zod";
-import { type CommandIo, defineCommand, UsageError } from "@mpu/command";
-import { parseAddress } from "./address.ts";
-import { asMark, markSchema, TRUNCATION_NOTE, treeMarkOf } from "./answer.ts";
-import { type LineFilter, mergeBase, NO_BASE } from "./changed_lines.ts";
-import { spawnGit } from "./git.ts";
-import { type FileAnswer, readLiterals } from "./literal_reading.ts";
-import type { Pair, Repeat, Tally } from "./literals.ts";
-import { renderMarkOnly, type RunGit, type TreeMark } from "./mark.ts";
-import { resolveRepo } from "./sweep.ts";
-import { isMissing } from "./tree.ts";
-import type { Repo } from "./workspace.ts";
+import { type CommandIo, defineCommand } from "@mpu/command";
+import {
+  partSchema,
+  type Survey,
+  type SurveyArgs,
+  type SurveyDeps,
+  surveyArgsSchema,
+  surveyFiles,
+  surveySchema,
+} from "./file_survey.ts";
+import { readLiterals } from "./literal_reading.ts";
+import type { Pair, Repeat } from "./literals.ts";
+import { block, renderSurvey } from "./survey_text.ts";
 
-/** Предел записей в разделе по умолчанию; запись — не строка. */
-export const DEFAULT_LIMIT = 200;
-
-/** Расширения, у которых считаются литералы. */
-const SUFFIXES: readonly string[] = [".ts", ".tsx"];
-
-const argsSchema = z.object({
-  addresses: z.array(z.string()).default([]),
-  base: z.string().optional(),
-  limit: z
-    .number()
-    .int()
-    .positive("--limit ожидает положительное целое")
-    .default(DEFAULT_LIMIT),
-});
+export { DEFAULT_LIMIT } from "./file_survey.ts";
 
 const repeatSchema = z.object({
   value: z.string(),
@@ -53,35 +39,15 @@ const pairSchema = z.object({
 
 const fileSchema = z.object({
   path: z.string(),
-  repeats: z.object({
-    total: z.number().int().nonnegative(),
-    items: z.array(repeatSchema).describe(TRUNCATION_NOTE),
-  }),
-  pairs: z.object({
-    total: z.number().int().nonnegative(),
-    items: z.array(pairSchema).describe(TRUNCATION_NOTE),
-  }),
+  repeats: partSchema(repeatSchema),
+  pairs: partSchema(pairSchema),
 });
 
-const unparsedSchema = z.object({
-  total: z.number().int().nonnegative(),
-  items: z
-    .array(z.object({ path: z.string(), reason: z.string() }))
-    .describe(TRUNCATION_NOTE),
-});
-
-const sectionSchema = z.object({
-  mark: markSchema,
-  files: z.array(fileSchema),
-  unresolved: unparsedSchema,
-});
-
-const resultSchema = z.object({ sections: z.array(sectionSchema) });
+const resultSchema = surveySchema(fileSchema);
 
 /** Ответ `mpu code literals`: по разделу на репозиторий. */
 export type LiteralsResult = z.infer<typeof resultSchema>;
 
-type Section = z.infer<typeof sectionSchema>;
 type FileSection = z.infer<typeof fileSchema>;
 
 export const codeLiteralsCommand = defineCommand({
@@ -131,166 +97,44 @@ Exit: 0 — ответ, включая пустые разделы, файл с 
     "mpu code literals address: sl-front:src/app/checklist/ChecklistClient.spec.tsx base: main",
   ],
   policy: "ro",
-  argsSchema,
+  argsSchema: surveyArgsSchema,
   forms: { addresses: { positional: "rest" } },
   resultSchema,
   run: (args, io) => runLiterals(args, io),
   render: renderLiterals,
 });
 
-/** Подстановки прогона: рабочая область фикстуры и запуск git. */
-export interface LiteralsDeps {
-  readonly repos?: readonly Repo[];
-  readonly runGit?: RunGit;
-}
-
-/** Файл адреса в своём репозитории. */
-interface Target {
-  readonly repo: Repo;
-  readonly path: string;
-}
+/**
+ * Литералы разобранного файла. Запись печатается целиком или не
+ * печатается: фильтр спрашивают о всех её строках, и вхождения вне
+ * изменённых строк в ней остаются.
+ */
+const LITERALS: Survey<FileSection> = {
+  wording: {
+    example: "mpu code literals ПУТЬ.spec.tsx",
+    measured: "литералы считаются",
+  },
+  measure: (ts, source, lines, limit) => {
+    const tally = readLiterals(ts, source);
+    return {
+      path: source.fileName,
+      repeats: limit.cut(tally.repeats().filter((r) => lines.touches(r.lines))),
+      pairs: limit.cut(tally.pairs().filter((p) => lines.touches(p.lines))),
+    };
+  },
+};
 
 /**
  * Прогон команды. Вынесен из объявления ради подмены рабочей области:
  * дерево-фикстура репозиторием по правилу «подкаталог с `.git`» не
- * является. Все адреса проверяются до разбора: ошибка ввода не должна
- * оставить половину ответа.
+ * является.
  */
 export async function runLiterals(
-  args: {
-    readonly addresses: readonly string[];
-    readonly base?: string;
-    readonly limit: number;
-  },
+  args: SurveyArgs,
   io: Pick<CommandIo, "cwd">,
-  { repos, runGit = spawnGit }: LiteralsDeps = {},
+  deps: SurveyDeps = {},
 ): Promise<LiteralsResult> {
-  if (args.addresses.length === 0) {
-    throw new UsageError(
-      "нужен хотя бы один адрес файла: mpu code literals ПУТЬ.spec.tsx",
-    );
-  }
-  const targets = args.addresses.map((raw) => targetOf(raw, io.cwd(), repos));
-  const ts = (await import("typescript")).default;
-  const sections: Section[] = [];
-  for (const [repo, paths] of byRepo(targets)) {
-    // Ключ необязателен: его отсутствие становится объектом «все строки
-    // изменены» здесь, на входе, и дальше не проверяется.
-    const base =
-      args.base === undefined
-        ? NO_BASE
-        : await mergeBase(runGit, repo.root, args.base);
-    const answer = new RepoAnswer(args.limit);
-    for (const path of paths) {
-      const text = readFileSync(`${repo.root}/${path}`, "utf8");
-      const lines = await base.linesOf(path);
-      readLiterals(ts, path, text).report(answer.file(lines));
-    }
-    sections.push(answer.section(await repo.mark()));
-  }
-  return { sections };
-}
-
-/**
- * Адрес — файл без строки, `.ts` или `.tsx`, существующий в репозитории.
- * Порядок проверок — от синтаксиса к диску: расширение видно без чтения.
- */
-function targetOf(raw: string, cwd: string, repos?: readonly Repo[]): Target {
-  const address = parseAddress(raw);
-  if (address.line !== undefined) {
-    throw new UsageError(
-      "адрес — файл без строки: литералы считаются по всему файлу",
-    );
-  }
-  if (!SUFFIXES.some((suffix) => address.path.endsWith(suffix))) {
-    throw new UsageError(
-      `литералы считаются только в .ts и .tsx: ${address.path}`,
-    );
-  }
-  const repo = resolveRepo(address, cwd, repos);
-  if (!isFile(`${repo.root}/${address.path}`)) {
-    throw new UsageError(
-      `файла ${address.path} нет в репозитории ${repo.name}`,
-    );
-  }
-  return { repo, path: address.path };
-}
-
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch (err) {
-    // `путь/файл.ts/x.ts` — `ENOTDIR`, и это тот же ответ «файла нет».
-    if (isMissing(err)) return false;
-    throw err;
-  }
-}
-
-/**
- * Файлы по репозиториям: репозитории — по имени, файлы — по пути, повтор
- * адреса — один файл (порядок слоя: репозиторий, путь, строка).
- */
-function byRepo(
-  targets: readonly Target[],
-): readonly (readonly [Repo, readonly string[]])[] {
-  const grouped = new Map<string, { repo: Repo; paths: Set<string> }>();
-  for (const { repo, path } of targets) {
-    const entry = grouped.get(repo.name) ?? { repo, paths: new Set() };
-    entry.paths.add(path);
-    grouped.set(repo.name, entry);
-  }
-  return [...grouped.values()]
-    .sort((a, b) => compare(a.repo.name, b.repo.name))
-    .map(({ repo, paths }) => [repo, [...paths].sort(compare)] as const);
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-/**
- * Ответ одного репозитория: файлы отдают ему свои исходы, а он режет
- * записи фильтром строк файла и пределом.
- */
-class RepoAnswer {
-  readonly #files: FileSection[] = [];
-  readonly #unparsed: { path: string; reason: string }[] = [];
-
-  constructor(private readonly limit: number) {}
-
-  /** Приёмник исхода одного файла с его фильтром строк. */
-  file(lines: LineFilter): FileAnswer {
-    return {
-      parsed: (path, tally) => this.#parsed(path, tally, lines),
-      unparsed: (path, reason) => {
-        this.#unparsed.push({ path, reason });
-      },
-    };
-  }
-
-  #parsed(path: string, tally: Tally, lines: LineFilter): void {
-    // Запись печатается целиком или не печатается: фильтр спрашивают о
-    // всех её строках, и вхождения вне изменённых строк в ней остаются.
-    const repeats = tally.repeats().filter((r) => lines.touches(r.lines));
-    const pairs = tally.pairs().filter((p) => lines.touches(p.lines));
-    this.#files.push({
-      path,
-      repeats: this.#cut(repeats),
-      pairs: this.#cut(pairs),
-    });
-  }
-
-  section(mark: TreeMark): Section {
-    return {
-      mark: asMark(mark),
-      files: [...this.#files],
-      unresolved: this.#cut(this.#unparsed),
-    };
-  }
-
-  #cut<T>(items: readonly T[]): { total: number; items: T[] } {
-    return { total: items.length, items: items.slice(0, this.limit) };
-  }
+  return await surveyFiles(args, io, LITERALS, deps);
 }
 
 /**
@@ -298,36 +142,11 @@ class RepoAnswer {
  * Внутри раздела — шапка без гарантии, файлы, «не разрешено».
  */
 export function renderLiterals(result: LiteralsResult): string {
-  return `${result.sections.map(renderSection).join("\n\n")}\n`;
-}
-
-function renderSection(section: Section): string {
-  return [
-    renderMarkOnly(treeMarkOf(section.mark)),
-    ...section.files.flatMap((file) => [
-      file.path,
-      ...block("повторы", file.repeats, repeatLine),
-      ...block("две формы", file.pairs, pairLine),
-    ]),
-    ...block(
-      "не разрешено",
-      section.unresolved,
-      (item) => `${item.path}: ${item.reason}`,
-    ),
-  ].join("\n");
-}
-
-/** Раздел: заголовок со счётчиком, записи с отступом, усечение. */
-function block<T>(
-  title: string,
-  part: { readonly total: number; readonly items: readonly T[] },
-  line: (item: T) => string,
-): readonly string[] {
-  const lines = part.items.map((item) => `  ${line(item)}`);
-  if (part.items.length < part.total) {
-    lines.push(`  усечено: показано ${part.items.length} из ${part.total}`);
-  }
-  return [`${title}: ${part.total}`, ...lines];
+  return renderSurvey(result, (file) => [
+    file.path,
+    ...block("повторы", file.repeats, repeatLine),
+    ...block("две формы", file.pairs, pairLine),
+  ]);
 }
 
 function repeatLine(repeat: Repeat): string {
