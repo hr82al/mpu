@@ -1,11 +1,23 @@
 /**
- * Дерево-фикстура спеки для тестов слоя `code`. Отдельным модулем, а не
+ * Деревья тестов слоя `code`: фикстуры спеки и временные репозитории
+ * (в том числе под git) на время `describe`. Отдельным модулем, а не
  * внутри `_test.ts`: помощник, импортированный из чужого теста,
  * регистрирует его случаи вторым прогоном — так же, как это делает
  * `@mpu/command/testing` для общих помощников.
  */
 
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, expect } from "vitest";
+import { spawnGit } from "./git.ts";
 import type { TreeMark } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
 
@@ -102,4 +114,51 @@ async function treeFiles(dir: URL, prefix: string): Promise<readonly string[]> {
     found.push(`${prefix}${entry.name}`);
   }
   return found;
+}
+
+/** Префикс временных каталогов теста. */
+export const TEMP_PREFIX = join(tmpdir(), "mpu-");
+
+/** Кладёт файл в дерево репозитория. */
+export async function put(
+  repo: Repo,
+  path: string,
+  text: string,
+): Promise<void> {
+  const target = `${repo.root}/${path}`;
+  await mkdir(target.slice(0, target.lastIndexOf("/")), { recursive: true });
+  await writeFile(target, text);
+}
+
+/**
+ * Репозиторий во временном каталоге на время `describe`, с уборкой;
+ * `open` раскладывает его в каталоге.
+ */
+export function treeOf(open: (temp: string) => Promise<Repo>): () => Repo {
+  let temp = "";
+  let repo = (): Repo => {
+    throw new Error("дерево теста не открыто");
+  };
+  beforeAll(async () => {
+    temp = await mkdtemp(TEMP_PREFIX);
+    const opened = await open(temp);
+    repo = () => opened;
+  });
+  afterAll(async () => {
+    await rm(temp, { recursive: true });
+  });
+  return () => repo();
+}
+
+/** Git с identity коммита в аргументах: глобального конфига может не быть. */
+export async function git(cwd: string, args: readonly string[]): Promise<void> {
+  const identity = ["-c", "user.name=t", "-c", "user.email=t@t"];
+  const result = await spawnGit([...identity, ...args], cwd);
+  expect(result?.code, `git ${args.join(" ")}`).toBe(0);
+}
+
+/** Первый коммит всего, что лежит в `root`. */
+export async function commitAll(root: string): Promise<void> {
+  await git(root, ["add", "."]);
+  await git(root, ["commit", "--quiet", "--message", "seed"]);
 }

@@ -9,22 +9,26 @@
  */
 
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { rejected } from "@mpu/testing/thrown";
 import { UsageError } from "@mpu/command";
 import { DEFAULT_LIMIT, renderLiterals, runLiterals } from "./cmd_literals.ts";
 import { spawnGit } from "./git.ts";
-import { openDenoFixture, openLiteralsFixture } from "./testing.ts";
+import {
+  commitAll,
+  git,
+  openDenoFixture,
+  openLiteralsFixture,
+  put,
+  TEMP_PREFIX,
+  treeOf,
+} from "./testing.ts";
 import { readRepos, type Repo } from "./workspace.ts";
 
 /** Файл сценариев от корня дерева. */
 const SAMPLE = "front/src/sample.spec.tsx";
 /** Адрес сценария 1 — дословно из спеки. */
 const SAMPLE_ADDRESS = `fixture:${SAMPLE}`;
-/** Префикс временных каталогов теста. */
-const TEMP_PREFIX = join(tmpdir(), "mpu-");
 /** Слово-данные случаев, где значение не важно. */
 const WORD = "q";
 /** Нулевые разделы ответа (спека, «Граничные случаи»). */
@@ -72,33 +76,6 @@ async function goldenLine(index: number): Promise<string> {
 /** Номера строк голдена: первый повтор и пара число/строка. */
 const FIRST_REPEAT = 3;
 const NUMBER_PAIR = 6;
-
-/** Кладёт файл в дерево репозитория. */
-async function put(repo: Repo, path: string, text: string): Promise<void> {
-  const target = `${repo.root}/${path}`;
-  await mkdir(target.slice(0, target.lastIndexOf("/")), { recursive: true });
-  await writeFile(target, text);
-}
-
-/**
- * Репозиторий во временном каталоге на время `describe`, с уборкой;
- * `open` раскладывает его в каталоге.
- */
-function treeOf(open: (temp: string) => Promise<Repo>): () => Repo {
-  let temp = "";
-  let repo = (): Repo => {
-    throw new Error("дерево теста не открыто");
-  };
-  beforeAll(async () => {
-    temp = await mkdtemp(TEMP_PREFIX);
-    const opened = await open(temp);
-    repo = () => opened;
-  });
-  afterAll(async () => {
-    await rm(temp, { recursive: true });
-  });
-  return () => repo();
-}
 
 describe("literals на дереве-фикстуре", () => {
   const repo = treeOf(openLiteralsFixture);
@@ -297,19 +274,6 @@ describe("отказы ввода", () => {
     });
   }
 });
-
-/** Git с identity коммита в аргументах: глобального конфига может не быть. */
-async function git(cwd: string, args: readonly string[]): Promise<void> {
-  const identity = ["-c", "user.name=t", "-c", "user.email=t@t"];
-  const result = await spawnGit([...identity, ...args], cwd);
-  expect(result?.code, `git ${args.join(" ")}`).toBe(0);
-}
-
-/** Первый коммит всего, что лежит в `root`. */
-async function commitAll(root: string): Promise<void> {
-  await git(root, ["add", "."]);
-  await git(root, ["commit", "--quiet", "--message", "seed"]);
-}
 
 /**
  * Репозиторий `probe` в рабочей области `workspace`: файл сценариев
