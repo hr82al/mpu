@@ -11,7 +11,6 @@
 import { z } from "zod";
 import { DomainError, UsageError } from "@mpu/command";
 import type { Analyzer } from "./analyzer.ts";
-import type { Address } from "./address.ts";
 import type { Body } from "./body.ts";
 import { difference } from "./body.ts";
 import { markLabel, type TreeMark } from "./mark.ts";
@@ -23,6 +22,7 @@ import {
   unresolvedSchema,
 } from "./answer.ts";
 import { byPathAndLine } from "./analyzer.ts";
+import type { RepoChanges } from "./changed_lines.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Совпадение: где лежит тело-близнец и под каким именем. */
@@ -40,26 +40,47 @@ const sectionSchema = z.object({
   twins: z.array(twinSchema).describe(TRUNCATION_NOTE),
 });
 
+/** Объявление, чьё тело взято. */
+const querySchema = z.object({
+  name: z.string(),
+  signature: z.string(),
+  path: z.string(),
+  line: z.number().int().positive(),
+});
+
 /**
- * Ответ поверхности: либо ответ, либо отказ. Размеченное объединение по
- * той же причине, что у остальных поверхностей семейства: у отказавшего
- * раздела нет ни гарантии, ни перечней, и состояния «отказ и при этом
- * перечень» существовать не должно.
+ * Ответ поверхности: по адресу, по диффу либо отказ. Размеченное
+ * объединение по той же причине, что у остальных поверхностей семейства:
+ * у отказавшего раздела нет ни гарантии, ни перечней, и состояния «отказ
+ * и при этом перечень» существовать не должно.
  */
 const answerSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("answer"),
     mark: markSchema,
     guarantee: z.enum(["types", "text"]),
-    /** Объявление, чьё тело взято. */
-    query: z.object({
-      name: z.string(),
-      signature: z.string(),
-      path: z.string(),
-      line: z.number().int().positive(),
-    }),
+    query: querySchema,
     exact: sectionSchema,
     similar: sectionSchema,
+    unresolved: unresolvedSchema,
+  }),
+  z.object({
+    kind: z.literal("diff"),
+    mark: markSchema,
+    guarantee: z.enum(["types", "text"]),
+    /** Сколько тел тронуто диффом — с близнецами и без. */
+    touched: z.number().int().nonnegative(),
+    blocks: z
+      .array(
+        z.object({
+          query: querySchema,
+          exact: sectionSchema,
+          similar: sectionSchema,
+        }),
+      )
+      .describe(
+        "только тронутые тела с близнецами, по (путь, строка); само тело в своих разделах не повторяется",
+      ),
     unresolved: unresolvedSchema,
   }),
   z.object({
@@ -83,27 +104,46 @@ export type TwinsResult = z.infer<typeof resultSchema>;
 
 export { resultSchema as twinsResultSchema };
 
+/** Поля ответа, общие у обоих источников тел запроса. */
+type Common = "mark" | "guarantee" | "unresolved";
+
+/** Ответивший раздел по адресу. */
+type AddressSection = Extract<TwinsResult["section"], { kind: "answer" }>;
+
+/** Ответивший раздел по диффу. */
+type DiffSection = Extract<TwinsResult["section"], { kind: "diff" }>;
+
+/** Часть ответа, которую даёт источник тел запроса. */
+export type AnswerPart =
+  | Omit<AddressSection, Common>
+  | Omit<DiffSection, Common>;
+
 /**
- * Собирает ответ по адресу. Тело берётся у объявления-функции,
- * охватывающего строку адреса; окно поиска — репозиторий адреса.
+ * Источник тел запроса глазами сборки ответа: что проверить до разбора
+ * тел и что ответить по ним.
+ */
+export interface Asking {
+  /** Ошибки ввода, которые видны по анализатору до разбора тел. */
+  check(analyzer: Analyzer, mark: TreeMark): void;
+  /** Своя часть ответа по телам репозитория. */
+  part(
+    bodies: readonly Body[],
+    analyzer: Analyzer,
+    limit: number,
+  ): Promise<AnswerPart>;
+}
+
+/**
+ * Собирает ответ: отметка, гарантия и «не разрешено» — общие у обоих
+ * источников, найденное — часть источника.
  */
 export async function collectTwins(
-  address: Address,
-  limit: number,
-  repo: Repo,
+  asking: Asking,
   analyzer: Analyzer,
+  limit: number,
 ): Promise<TwinsResult> {
   const mark = await analyzer.mark();
-  if (address.line === undefined) {
-    throw new UsageError(
-      "нужна строка: тело берётся у объявления, охватывающего её",
-    );
-  }
-  if (!analyzer.hasFile(address.path)) {
-    throw new UsageError(
-      `файла ${address.path} нет в ${repo.name} на ${markLabel(mark)}`,
-    );
-  }
+  asking.check(analyzer, mark);
   const answer = analyzer.bodiesOf();
   // Незнание — не пустой раздел: «близнецов нет» и «тела здесь не
   // разбираются» суть разные ответы (`platform/code-analyzer.md`). И
@@ -111,28 +151,82 @@ export async function collectTwins(
   // отметки дерева, ни структурного результата, тогда как у отказа
   // построения той же команды есть и то и другое.
   if (answer.kind === "unknown") return refusedTwins(mark, answer.reason);
-  const query = queryBody(answer.bodies, address.path, address.line, analyzer);
-  const twins = new Twins(query, answer.bodies);
   return {
     section: {
-      kind: "answer",
+      ...(await asking.part(answer.bodies, analyzer, limit)),
       mark: asMark(mark),
       guarantee: analyzer.guarantee,
-      query: {
-        name: query.name,
-        signature: query.signature,
-        path: query.path,
-        line: query.line,
-      },
-      // Запрошенное тело стоит ПЕРВОЙ строкой, вне общего порядка, и
-      // усечением не режется: инвариант «раздел содержит запрошенное»,
-      // который держится на счётчике, а не на самом разделе, — не
-      // инвариант, и при малом пределе запрошенное выпадало из
-      // собственного ответа.
-      exact: withQuery(query, twins.exact(limit - 1)),
-      similar: twins.similar(limit),
       unresolved: unresolvedOf(analyzer, limit),
     },
+  };
+}
+
+/** Файла адреса нет в дереве анализатора — ошибка ввода. */
+export function checkFile(
+  path: string,
+  repo: Repo,
+  analyzer: Analyzer,
+  mark: TreeMark,
+): void {
+  if (analyzer.hasFile(path)) return;
+  throw new UsageError(
+    `файла ${path} нет в ${repo.name} на ${markLabel(mark)}`,
+  );
+}
+
+/**
+ * Часть ответа по адресу. Тело берётся у объявления-функции,
+ * охватывающего строку адреса; окно поиска — репозиторий адреса.
+ */
+export function addressPart(
+  path: string,
+  line: number,
+  bodies: readonly Body[],
+  analyzer: Analyzer,
+  limit: number,
+): Omit<AddressSection, Common> {
+  const query = queryBody(bodies, path, line, analyzer);
+  const twins = new Twins(query, bodies);
+  return {
+    kind: "answer",
+    query: queryOf(query),
+    // Запрошенное тело стоит ПЕРВОЙ строкой, вне общего порядка, и
+    // усечением не режется: инвариант «раздел содержит запрошенное»,
+    // который держится на счётчике, а не на самом разделе, — не
+    // инвариант, и при малом пределе запрошенное выпадало из
+    // собственного ответа.
+    exact: withQuery(query, twins.exact(limit - 1)),
+    similar: twins.similar(limit),
+  };
+}
+
+/**
+ * Часть ответа по диффу: тела, тронутые изменением против базы, и
+ * близнецы каждого. Тело без близнецов блока не получает и остаётся
+ * только в счёте тронутых.
+ */
+export function diffPart(
+  changes: RepoChanges,
+  bodies: readonly Body[],
+  limit: number,
+): Omit<DiffSection, Common> {
+  const touched = bodies
+    .filter((body) => changes.touches(body.path, body.span))
+    .sort(byPathAndLine);
+  return {
+    kind: "diff",
+    touched: touched.length,
+    blocks: touched.flatMap((body) => new Twins(body, bodies).blocks(limit)),
+  };
+}
+
+/** Строка запроса ответа: имя, сигнатура и место тела. */
+function queryOf(body: Body): z.infer<typeof querySchema> {
+  return {
+    name: body.name,
+    signature: body.signature,
+    path: body.path,
+    line: body.line,
   };
 }
 
@@ -151,7 +245,7 @@ function queryBody(
   // Охватывающих может быть несколько (стрелка внутри функции); берётся
   // самое внутреннее — то, чьё объявление ближе к строке.
   const covering = inFile
-    .filter((body) => body.line <= line && line <= body.endLine)
+    .filter((body) => body.line <= line && line <= body.span.end.line)
     .sort((a, b) => b.line - a.line);
   if (covering.length > 0) return covering[0];
   const answer = analyzer.declarationsOf(path);
@@ -200,9 +294,13 @@ function withQuery(query: Body, rest: TwinsSection): TwinsSection {
 /** Раздел совпадений: полный счёт и записи до предела. */
 type TwinsSection = z.infer<typeof sectionSchema>;
 
+/** Блок тела в ответе по диффу. */
+type TwinsBlock = DiffSection["blocks"][number];
+
 /**
  * Тело и его близнецы среди тел репозитория — примитив команды: из него
- * выводится ответ по адресу. Само тело в свои разделы не входит.
+ * выводятся ответ по адресу и блоки ответа по диффу. Само тело в свои
+ * разделы не входит.
  */
 export class Twins {
   readonly #exact: readonly Body[];
@@ -220,6 +318,21 @@ export class Twins {
       (body) =>
         body.text !== query.text && body.normalized === query.normalized,
     );
+  }
+
+  /**
+   * Блоки тела в ответе по диффу: один — строка запроса и оба раздела,
+   * если близнец вне себя есть; без близнецов — ни одного.
+   */
+  blocks(limit: number): readonly TwinsBlock[] {
+    if (this.#exact.length + this.#similar.length === 0) return [];
+    return [
+      {
+        query: queryOf(this.query),
+        exact: this.exact(limit),
+        similar: this.similar(limit),
+      },
+    ];
   }
 
   /** Раздел «побайтово» без самого тела, до предела. */

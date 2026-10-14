@@ -21,14 +21,18 @@
  */
 
 import type TS from "typescript";
+import type { Position, TextSpan } from "./patch.ts";
 
 /** Тело одного объявления-функции вместе с тем, чем его сравнивают. */
 export interface Body {
   readonly path: string;
   /** Строка объявления, считая с единицы. */
   readonly line: number;
-  /** Последняя строка тела: объявление охватывает строки до неё. */
-  readonly endLine: number;
+  /**
+   * Отрезок тела от `{` до `}` включительно: им тело задевается диффом,
+   * и строки объявления до него охватывает адрес.
+   */
+  readonly span: TextSpan;
   readonly name: string;
   readonly signature: string;
   /** Текст от открывающей скобки до закрывающей включительно. */
@@ -104,7 +108,10 @@ export function bodyOf(
   return {
     path,
     line: lineAt(file, ownerOf(ts, node).getStart(file)),
-    endLine: lineAt(file, node.body.getEnd()),
+    span: {
+      start: positionAt(file, node.body.getStart(file)),
+      end: positionAt(file, node.body.getEnd()),
+    },
     name: nameOf(ts, node),
     signature: signatureOf(checker, node),
     text: node.body.getText(file),
@@ -128,7 +135,13 @@ function ownerOf(ts: typeof TS, node: FunctionNode): TS.Node {
 
 /** Строка позиции, считая с единицы. */
 function lineAt(file: TS.SourceFile, pos: number): number {
-  return file.getLineAndCharacterOfPosition(pos).line + 1;
+  return positionAt(file, pos).line;
+}
+
+/** Место позиции: строка с единицы, столбец с нуля. */
+function positionAt(file: TS.SourceFile, pos: number): Position {
+  const { line, character } = file.getLineAndCharacterOfPosition(pos);
+  return { line: line + 1, column: character };
 }
 
 /** Имя объявления; безымянному телу имени не выдумывается. */

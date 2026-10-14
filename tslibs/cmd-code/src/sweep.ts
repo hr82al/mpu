@@ -351,3 +351,23 @@ function currentRepo(repos: readonly Repo[], cwd: string): Repo {
     hint: "mpu code refs РЕПОЗИТОРИЙ:ПУТЬ",
   });
 }
+
+/**
+ * Репозиторий диффа: названный `--in` либо тот, внутри которого лежит
+ * рабочий каталог. Отказ свой, а не `resolveRepo`: адреса здесь нет, и
+ * назвать надо ключ, которого не хватило (`specs/code-twins.md`, «Режим
+ * по диффу»).
+ */
+export function diffRepo(
+  cwd: string,
+  name: string | undefined,
+  repos?: readonly Repo[],
+): Repo {
+  const known = knownRepos(cwd, repos);
+  if (name !== undefined) return named(known, name);
+  const found = repoOf(known, cwd);
+  if (found !== undefined) return found;
+  throw new UsageError(
+    "--base без --in: каталог вне репозитория рабочей области",
+  );
+}
