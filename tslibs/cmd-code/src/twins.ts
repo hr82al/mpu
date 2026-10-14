@@ -112,13 +112,7 @@ export async function collectTwins(
   // построения той же команды есть и то и другое.
   if (answer.kind === "unknown") return refusedTwins(mark, answer.reason);
   const query = queryBody(answer.bodies, address.path, address.line, analyzer);
-  const rest = answer.bodies.filter((body) => body !== query);
-  const exact = rest.filter((body) => body.text === query.text);
-  // Тело из «побайтово» в «похоже» не повторяется: нормализация их тоже
-  // сближает, и без этого вычитания одно совпадение читалось бы как два.
-  const similar = rest.filter(
-    (body) => body.text !== query.text && body.normalized === query.normalized,
-  );
+  const twins = new Twins(query, answer.bodies);
   return {
     section: {
       kind: "answer",
@@ -135,11 +129,8 @@ export async function collectTwins(
       // который держится на счётчике, а не на самом разделе, — не
       // инвариант, и при малом пределе запрошенное выпадало из
       // собственного ответа.
-      exact: withQuery(
-        query,
-        section(exact, limit - 1, () => null),
-      ),
-      similar: section(similar, limit, (body) => difference(query, body)),
+      exact: withQuery(query, twins.exact(limit - 1)),
+      similar: twins.similar(limit),
       unresolved: unresolvedOf(analyzer, limit),
     },
   };
@@ -191,10 +182,7 @@ function isCallable(signature: string): boolean {
 }
 
 /** Запрошенное тело первой строкой раздела, поверх усечения остальных. */
-function withQuery(
-  query: Body,
-  rest: z.infer<typeof sectionSchema>,
-): z.infer<typeof sectionSchema> {
+function withQuery(query: Body, rest: TwinsSection): TwinsSection {
   return {
     total: rest.total + 1,
     twins: [
@@ -209,12 +197,50 @@ function withQuery(
   };
 }
 
+/** Раздел совпадений: полный счёт и записи до предела. */
+type TwinsSection = z.infer<typeof sectionSchema>;
+
+/**
+ * Тело и его близнецы среди тел репозитория — примитив команды: из него
+ * выводится ответ по адресу. Само тело в свои разделы не входит.
+ */
+export class Twins {
+  readonly #exact: readonly Body[];
+  readonly #similar: readonly Body[];
+
+  constructor(
+    private readonly query: Body,
+    bodies: readonly Body[],
+  ) {
+    const rest = bodies.filter((body) => body !== query);
+    this.#exact = rest.filter((body) => body.text === query.text);
+    // Тело из «побайтово» в «похоже» не повторяется: нормализация их тоже
+    // сближает, и без этого вычитания одно совпадение читалось бы как два.
+    this.#similar = rest.filter(
+      (body) =>
+        body.text !== query.text && body.normalized === query.normalized,
+    );
+  }
+
+  /** Раздел «побайтово» без самого тела, до предела. */
+  exact(limit: number): TwinsSection {
+    return section(this.#exact, limit, () => null);
+  }
+
+  /** Раздел «похоже» с разницей у каждого тела, до предела. */
+  similar(limit: number): TwinsSection {
+    return section(this.#similar, limit, (body) =>
+      difference(this.query, body),
+    );
+  }
+}
+
 /** Раздел с усечением по пределу; описание разницы даёт вызывающий. */
 function section(
   bodies: readonly Body[],
   limit: number,
   describe: (body: Body) => string | null,
-): z.infer<typeof sectionSchema> {
+): TwinsSection {
   const sorted = [...bodies].sort(byPathAndLine);
   return {
     total: sorted.length,

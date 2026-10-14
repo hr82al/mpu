@@ -8,6 +8,7 @@
 
 import { DomainError, UsageError } from "@mpu/command";
 import { ownsRoot, type RunGit } from "./mark.ts";
+import { readHunks } from "./patch.ts";
 
 /** Строки файла, которые считаются изменёнными. */
 export interface LineFilter {
@@ -33,9 +34,6 @@ class ChangedLines implements LineFilter {
   }
 }
 
-/** Новая сторона хунка `git diff -U0`: `+начало[,число]`. */
-const HUNK = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm;
-
 /**
  * База `merge-base REF HEAD` репозитория. Неразрешимая ссылка — ошибка
  * ввода: опечатку в ветке надо назвать, а не ответить пустым фильтром.
@@ -47,7 +45,7 @@ export async function mergeBase(
   run: RunGit,
   root: string,
   ref: string,
-): Promise<Base> {
+): Promise<MergeBase> {
   const found = (await ownsRoot(run, root))
     ? await run(["merge-base", ref, "HEAD"], root)
     : null;
@@ -56,39 +54,37 @@ export async function mergeBase(
       `базу ${ref} не найти: git merge-base ${ref} HEAD не ответил`,
     );
   }
-  const commit = found.stdout.trim();
-  return { linesOf: (path) => changedSince(run, root, commit, path) };
+  return new MergeBase(run, root, found.stdout.trim());
 }
 
-/**
- * Изменённые строки файла рабочего дерева против коммита базы. Файла в
- * базе нет (новый, ещё не добавленный) — изменён целиком: `git diff` по
- * неотслеженному файлу пуст, и самый частый случай приёмки — новый файл
- * теста — молча выглядел бы чистым.
- */
-async function changedSince(
-  run: RunGit,
-  root: string,
-  commit: string,
-  path: string,
-): Promise<LineFilter> {
-  const inBase = await run(["cat-file", "-e", `${commit}:${path}`], root);
-  if (inBase === null || inBase.code !== 0) return EVERY_LINE;
-  const diff = await run(
-    ["diff", "-U0", "--no-color", "--no-ext-diff", commit, "--", path],
-    root,
-  );
-  if (diff === null || diff.code !== 0) {
-    throw new DomainError(`git diff ${commit} -- ${path} не ответил`);
-  }
-  const changed = new Set<number>();
-  for (const [, start, count] of diff.stdout.matchAll(HUNK)) {
-    // Без числа хунк — одна строка; `+N,0` — чистое удаление, новых
-    // строк у него нет.
-    const size = count === undefined ? 1 : Number(count);
-    for (let line = Number(start); line < Number(start) + size; line++) {
-      changed.add(line);
+/** Коммит базы в репозитории `root`. */
+export class MergeBase implements Base {
+  constructor(
+    private readonly run: RunGit,
+    private readonly root: string,
+    private readonly commit: string,
+  ) {}
+
+  /**
+   * Изменённые строки файла рабочего дерева против коммита базы. Файла в
+   * базе нет (новый, ещё не добавленный) — изменён целиком: `git diff` по
+   * неотслеженному файлу пуст, и самый частый случай приёмки — новый файл
+   * теста — молча выглядел бы чистым.
+   */
+  async linesOf(path: string): Promise<LineFilter> {
+    const { run, root, commit } = this;
+    const inBase = await run(["cat-file", "-e", `${commit}:${path}`], root);
+    if (inBase === null || inBase.code !== 0) return EVERY_LINE;
+    const diff = await run(
+      ["diff", "-U0", "--no-color", "--no-ext-diff", commit, "--", path],
+      root,
+    );
+    if (diff === null || diff.code !== 0) {
+      throw new DomainError(`git diff ${commit} -- ${path} не ответил`);
     }
+    // `+N,0` — чистое удаление, новых строк у него нет.
+    return new ChangedLines(
+      new Set(readHunks(diff.stdout).flatMap((hunk) => hunk.lines())),
+    );
   }
-  return new ChangedLines(changed);
 }
