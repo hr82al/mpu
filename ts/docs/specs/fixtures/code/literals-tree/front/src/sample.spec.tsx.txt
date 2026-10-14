@@ -1,0 +1,21 @@
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+vi.mock('next/navigation', () => ({}));
+
+const day = '2026-09-06';
+
+describe('экран', () => {
+  it('показывает день', () => {
+    render(<Day from='2026-09-06' sku={101} />);
+    expect(screen.getByTestId('cell-day').textContent).toBe('2026-09-06');
+    expect(screen.getByTestId('cell-day')).toBeTruthy();
+    expect(screen.getAllByTestId('cell-day').length).toBe(1);
+  });
+
+  it('показывает день', () => {
+    render(<Day from={day} sku='101' />);
+    expect(screen.getByRole('button', { name: '04.09.2026' })).toBeTruthy();
+    expect(url).toContain('from=2026-09-04');
+    expect({ from: '2026-09-04' }).toEqual({ from: '2026-09-04' });
+  });
+});
