@@ -45,6 +45,9 @@ interface CommandCase {
   readonly sampleResult: unknown;
 }
 
+/** Файл образца `code literals`: путь адреса и путь раздела ответа. */
+const LITERALS_FILE = "front/src/sample.spec.tsx";
+
 /** Запись учёта времени в форме вывода: общий образец трёх листьев `time`. */
 const SAMPLE_TIME_LOG = {
   id: 7000001,
@@ -2072,6 +2075,30 @@ const CASES: readonly CommandCase[] = [
           ],
         },
       },
+    },
+  },
+  {
+    // Синтаксис одного файла, без анализатора: вызов и состав — как в
+    // сценарии 2 спеки (`code-literals.md`), повторов нет, пара одна.
+    path: "code literals",
+    argv: [`fixture:${LITERALS_FILE}`, "--base", "HEAD"],
+    sampleResult: {
+      sections: [
+        {
+          mark: { repo: "fixture", git: null },
+          files: [
+            {
+              path: LITERALS_FILE,
+              repeats: { total: 0, items: [] },
+              pairs: {
+                total: 1,
+                items: [{ first: "101", second: "'101'", lines: [9, 16] }],
+              },
+            },
+          ],
+          unresolved: { total: 0, items: [] },
+        },
+      ],
     },
   },
   {

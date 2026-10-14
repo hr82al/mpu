@@ -1,6 +1,6 @@
 /**
  * Состав справок семейства (`specs/code-refs.md`, `specs/code-twins.md`,
- * раздел «CLI-контракт»).
+ * `specs/code-literals.md`, раздел «CLI-контракт»).
  *
  * Спеки больше не цитируют текст справки — они задают её состав: два
  * источника одного текста расходятся молча, и проверить расхождение
@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { parseAddress } from "./address.ts";
+import { codeLiteralsCommand } from "./cmd_literals.ts";
 import { codeRefsCommand } from "./cmd_refs.ts";
 import { codeTwinsCommand } from "./cmd_twins.ts";
 import { codeMentionsCommand } from "./cmd_mentions.ts";
@@ -68,6 +69,29 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "0 —",
     "2 —",
   ],
+  "code literals": [
+    // момент и чем лучше грепа
+    "на приёмке и рецензии теста",
+    "Лучше грепа",
+    "от адресов экрана",
+    "одну величину в двух записях",
+    // форма адреса; что считается и что исключено
+    "[РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки",
+    "Литерал данных —",
+    "Не считаются:",
+    // оба раздела и «не разрешено»
+    "«повторы»",
+    "«две формы»",
+    "не разрешено",
+    "base: REF",
+    "limit: N",
+    "предел записей в разделе, не строк",
+    "по умолчанию 200",
+    // Кодов два: отказа раздела у этой поверхности нет — анализатора
+    // она не открывает.
+    "0 —",
+    "2 —",
+  ],
   "code name": [
     // форма окна и что без него отвечает каждый репозиторий
     "РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ",
@@ -89,6 +113,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
 };
 
 const COMMANDS = [
+  codeLiteralsCommand,
   codeRefsCommand,
   codeTwinsCommand,
   codeNameCommand,

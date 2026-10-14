@@ -46,6 +46,17 @@ export type RunGit = (
 ) => Promise<{ readonly code: number; readonly stdout: string } | null>;
 
 /**
+ * Отвечает ли git именно за `root`. Сверяется первым: `git` от рабочего
+ * каталога поднимается вверх, и каталог с пустым или битым `.git`
+ * получил бы ветку, хэш и признак изменений СОСЕДНЕГО репозитория —
+ * ответ про чужое дерево под именем своего (замер 2026-09-08).
+ */
+export async function ownsRoot(run: RunGit, root: string): Promise<boolean> {
+  const top = await run(["rev-parse", "--show-toplevel"], root);
+  return top !== null && top.code === 0 && top.stdout.trim() === root;
+}
+
+/**
  * Отметка дерева `root` под именем `repo`. Дерево вне git — ответ
  * `вне git`, а не отказ: репозиторием рабочей области каталог быть
  * перестаёт, но прочитать его файлы это не мешает.
@@ -55,12 +66,7 @@ export async function gitTreeMark(
   root: string,
   repo: string,
 ): Promise<TreeMark> {
-  // Корень сверяется первым: `git` от рабочего каталога поднимается
-  // вверх, и каталог с пустым или битым `.git` получил бы ветку, хэш и
-  // признак изменений СОСЕДНЕГО репозитория — ответ про чужое дерево
-  // под именем своего (замер 2026-09-08).
-  const top = await run(["rev-parse", "--show-toplevel"], root);
-  if (top === null || top.code !== 0 || top.stdout.trim() !== root) {
+  if (!(await ownsRoot(run, root))) {
     return { repo, state: { kind: "out-of-git" } };
   }
   const head = await run(["rev-parse", "HEAD"], root);

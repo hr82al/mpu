@@ -76,6 +76,15 @@ function collect(
   }
 }
 
+/**
+ * Пути нет — в любом из смыслов. `src/days.ts/x` даёт не `NotFound`, а
+ * `NotADirectory`: спрашивали про несуществующий путь, и ответ тот же —
+ * «в коде нет», а не падение команды.
+ */
+export function isMissing(err: unknown): boolean {
+  return hasErrorCode(err, "ENOENT", "ENOTDIR", "EISDIR");
+}
+
 /** Записи каталога в стабильном порядке; каталога нет — пусто. */
 function readDirSorted(dir: string): readonly Dirent[] {
   try {

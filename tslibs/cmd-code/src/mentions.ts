@@ -20,11 +20,10 @@ import {
   unresolvedSchema,
 } from "./answer.ts";
 import { UsageError } from "@mpu/command";
-import { hasErrorCode } from "@mpu/base/oserror";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
 import { jobsOf, type MentionsJob, sectionsOf } from "./sweep.ts";
-import { walkFiles } from "./tree.ts";
+import { isMissing, walkFiles } from "./tree.ts";
 
 /** Расширение документов, которые команда просматривает. */
 const DOC_SUFFIXES: readonly string[] = [".md"];
@@ -192,13 +191,4 @@ function exists(path: string): boolean {
     if (isMissing(err)) return false;
     throw err;
   }
-}
-
-/**
- * Пути нет — в любом из смыслов. `src/days.ts/x` даёт не `NotFound`, а
- * `NotADirectory`: спрашивали про несуществующий путь, и ответ тот же —
- * «в коде нет», а не падение команды.
- */
-function isMissing(err: unknown): boolean {
-  return hasErrorCode(err, "ENOENT", "ENOTDIR", "EISDIR");
 }

@@ -53,6 +53,20 @@ export async function openBrokenFixture(temp: string): Promise<Repo> {
   );
 }
 
+/**
+ * Дерево литералов (`specs/code-literals.md`, «Сценарии») под именем
+ * `fixture`: своё, потому что общее дерево сканируют голдены `name`,
+ * `refs`, `twins`, `mentions`, и лишний файл в нём менял бы их ответы.
+ */
+export async function openLiteralsFixture(temp: string): Promise<Repo> {
+  return await materialize(
+    temp,
+    "fixture",
+    "testdata/code/literals-tree/",
+    OUT_OF_GIT,
+  );
+}
+
 /** Раскладывает дерево канала во временный каталог под именем `name`. */
 async function materialize(
   temp: string,

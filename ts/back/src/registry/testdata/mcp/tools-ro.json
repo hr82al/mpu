@@ -4771,5 +4771,240 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "code_literals",
+    "title": "mpu code literals",
+    "description": "на приёмке теста: какие данные повторены литералом и в двух формах\n\nСпрашивают на приёмке и рецензии теста: какие значения данных\nповторены литералом и какая величина записана в двух формах (правило\n«данные теста — именованная константа»). Лучше грепа: отличает данные\nот адресов экрана (data-testid, подписи, роли, названия тестов) и\nвидит одну величину в двух записях — '101' и 101, '2026-09-04' и\n'04.09.2026'.\n\naddress: — [РЕПОЗИТОРИЙ:]ПУТЬ к файлу .ts или .tsx, без строки;\nадресов может быть несколько. Разделы — по одному на репозиторий,\nфайлы внутри — в порядке путей.\n\n  base: REF   только записи, задевшие строку, изменённую против\n              merge-base REF HEAD в рабочем дереве (файл вне базы —\n              целиком); запись печатается со всеми вхождениями\n  limit: N    предел записей в разделе, не строк (по умолчанию 200)\n[справка усечена: отброшено 1534 байт; полностью — `mpu code literals --help`]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "base": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mark": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string"
+                  },
+                  "git": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "branch": {
+                            "type": "string"
+                          },
+                          "commit": {
+                            "type": "string"
+                          },
+                          "dirty": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "branch",
+                          "commit",
+                          "dirty"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "repo",
+                  "git"
+                ],
+                "additionalProperties": false
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "repeats": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "lines": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "count",
+                              "lines"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "перечень усечён, если короче total"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "pairs": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "first": {
+                                "type": "string"
+                              },
+                              "second": {
+                                "type": "string"
+                              },
+                              "lines": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "first",
+                              "second",
+                              "lines"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "перечень усечён, если короче total"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "repeats",
+                    "pairs"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "unresolved": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "перечень усечён, если короче total"
+                  }
+                },
+                "required": [
+                  "total",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "mark",
+              "files",
+              "unresolved"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "sections"
+      ],
+      "additionalProperties": false
+    }
   }
 ]

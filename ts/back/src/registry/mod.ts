@@ -126,6 +126,7 @@ import { glabStatusCommand } from "@mpu/cmd-glab";
 import { apiCommands } from "@mpu/cmd-api";
 import { d2MiroCommand } from "@mpu/cmd-d2miro";
 import {
+  codeLiteralsCommand,
   codeMentionsCommand,
   codeNameCommand,
   codeRefsCommand,
@@ -368,6 +369,8 @@ export const commands: readonly Command[] = [
   codeTwinsCommand,
   codeNameCommand,
   codeMentionsCommand,
+  // Повторы литералов данных в файле (`docs/specs/code-literals.md`).
+  codeLiteralsCommand,
   // Вызов API маркетплейса под ключом кабинета (`docs/specs/call.md`):
   // получатели `ozon`, `ozon perf` и `wb`, сообщения `call-ro` и `call`.
   ...ozonCommands,

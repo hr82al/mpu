@@ -1279,6 +1279,27 @@ function checks(subject: Subject): readonly Check[] {
           twins.stdout.includes("похоже: 0\n"),
           `нулевой раздел не напечатан: ${JSON.stringify(twins.stdout)}`,
         );
+        // Повторы литералов анализатора не открывают, а компилятор грузят
+        // сами — лениво, своим путём: собранный бинарь обязан его найти.
+        await writeFile(
+          `${repo}/src/d.ts`,
+          "export const days = ['2026-09-04', '04.09.2026', 'x', 'x'];\n",
+        );
+        const literals = await run(
+          subject,
+          ["code", "literals", "address:", "probe:src/d.ts"],
+          {},
+          repo,
+        );
+        assert.deepStrictEqual(literals.code, 0, `stderr: ${literals.stderr}`);
+        assert(
+          literals.stdout.endsWith(
+            "повторы: 1\n  'x' ×2  строки 1\n" +
+              "две формы: 1\n  '2026-09-04' ↔ '04.09.2026'  строки 1\n" +
+              "не разрешено: 0\n",
+          ),
+          `не те разделы: ${JSON.stringify(literals.stdout)}`,
+        );
         // Второй репозиторий заводится ради воркеров: вопрос по всей
         // рабочей области считается по репозиторию в отдельном потоке,
         // и модуль воркера обязан попасть в собранный бинарь. Тесты

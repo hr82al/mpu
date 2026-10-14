@@ -5,6 +5,7 @@
  * пути сборка бинаря потребителя.
  */
 
+export { codeLiteralsCommand } from "./src/cmd_literals.ts";
 export { codeMentionsCommand } from "./src/cmd_mentions.ts";
 export { codeNameCommand } from "./src/cmd_name.ts";
 export { codeRefsCommand } from "./src/cmd_refs.ts";
