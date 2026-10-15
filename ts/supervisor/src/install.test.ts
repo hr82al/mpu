@@ -18,6 +18,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import {
+  COMMIT,
+  LATER,
   type Place,
   ROOT,
   type Run,
@@ -325,6 +327,142 @@ it("--only с неизвестной частью — ошибка аргуме�
     expect(await snapshot(place.bin)).toStrictEqual({});
     expect(run.calls).toStrictEqual([]);
   }));
+
+/** Короткие sha дерева до и после подтягивания — как их печатает установщик. */
+const OLD = COMMIT.slice(0, 7);
+const NEW = LATER.slice(0, 7);
+
+/**
+ * Номер строки, начинающейся с `prefix`; строки нет — падение с выводом
+ * прогона: иначе сравнение порядка с `-1` прошло бы при пропавшем шаге.
+ */
+function lineAt(run: Run, prefix: string): number {
+  const at = run.lines.findIndex((line) => line.startsWith(prefix));
+  expect(at, `нет строки «${prefix}…»:\n${run.lines.join("\n")}`).not.toBe(-1);
+  return at;
+}
+
+/** Вызовы сборки поддельным `bun`. */
+function compiles(run: Run): string[] {
+  return run.bun.filter((call) => call.startsWith("run compile:"));
+}
+
+describe("шаг 0: исходники и зависимости не отстают", () => {
+  it("main совпадает с origin/main — свежие, дальше как обычно", () =>
+    withPlace(async (place) => {
+      const run = await install(place);
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.lines).toContain(`install: исходники: свежие (${OLD})`);
+      expect(run.git).toStrictEqual([
+        "rev-parse --abbrev-ref HEAD",
+        "status --porcelain --untracked-files=no",
+        "fetch origin main",
+        "rev-list --left-right --count HEAD...origin/main",
+        "rev-parse --short=7 HEAD",
+      ]);
+      expect(run.lines.at(-1)).toBe("install: готово");
+    }));
+
+  it("main отстаёт на 3, дерево чистое — подтянуто fast-forward, сборка после", () =>
+    withPlace(async (place) => {
+      const run = await install(place, [], {
+        FAKE_GIT_BEHIND: "3",
+        FAKE_GIT_ORIGIN: LATER,
+      });
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.git).toContain("merge --ff-only origin/main");
+      const pulled = lineAt(
+        run,
+        `install: исходники: подтянуто 3 (${OLD} → ${NEW})`,
+      );
+      expect(pulled).toBeLessThan(lineAt(run, "install: сборка "));
+    }));
+
+  it("main впереди origin/main на 2 — ставится как есть", () =>
+    withPlace(async (place) => {
+      const run = await install(place, [], {
+        FAKE_GIT_AHEAD: "2",
+        FAKE_GIT_HEAD: LATER,
+      });
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.lines).toContain(
+        `install: исходники: впереди origin/main на 2 (${NEW})`,
+      );
+      expect(run.git).not.toContain("merge --ff-only origin/main");
+      expect(run.lines.at(-1)).toBe("install: готово");
+    }));
+
+  const refusals: {
+    readonly name: string;
+    readonly env: Record<string, string>;
+    readonly said: string;
+  }[] = [
+    {
+      name: "ветка не main",
+      env: { FAKE_GIT_BRANCH: "feat/x" },
+      said: "install: исходники: ошибка: ветка feat/x, ставится только main — git switch main",
+    },
+    {
+      name: "незакоммиченная правка",
+      // Снято с git 2.47.3: porcelain даёт путь от корня репозитория.
+      env: { FAKE_GIT_DIRTY: " M ts/back/x.ts\n" },
+      said: "install: исходники: ошибка: незакоммиченные изменения (ts/back/x.ts) — закоммить или убери их",
+    },
+    {
+      name: "main и origin/main разошлись",
+      env: { FAKE_GIT_AHEAD: "2", FAKE_GIT_BEHIND: "3" },
+      said: "install: исходники: ошибка: main и origin/main разошлись (2 своих, 3 чужих) — git pull --rebase",
+    },
+    {
+      name: "git вместо счёта коммитов ответил не числами",
+      env: { FAKE_GIT_AHEAD: "warning:" },
+      said: "install: исходники: ошибка: git rev-list: не два числа: warning:\t0",
+    },
+    {
+      name: "git fetch не прошёл",
+      env: { FAKE_GIT_FETCH: "fail" },
+      said: "install: исходники: ошибка: git fetch origin main: and the repository exists.",
+    },
+    {
+      name: "bun install --frozen-lockfile отказал",
+      env: { FAKE_BUN_INSTALL: "fail" },
+      said: "install: зависимости: ошибка: note: try re-running without --frozen-lockfile and commit the updated lockfile",
+    },
+  ];
+  for (const { name, env, said } of refusals) {
+    it(`${name} — отказ, код 1, ничего не собрано и не поставлено`, () =>
+      withPlace(async (place) => {
+        const run = await install(place, [], env);
+        expect(run.code, run.lines.join("\n")).toBe(1);
+        expect(run.lines.at(-1)).toBe(said);
+        expect(compiles(run)).toStrictEqual([]);
+        expect(run.git).not.toContain("merge --ff-only origin/main");
+        expect(await snapshot(place.bin)).toStrictEqual({});
+        expect(await snapshot(place.unit)).toStrictEqual({});
+      }));
+  }
+
+  it("зависимости в порядке — сверены с bun.lock раньше первой сборки", () =>
+    withPlace(async (place) => {
+      const run = await install(place);
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.bun[0]).toBe("install --frozen-lockfile");
+      expect(
+        lineAt(run, "install: зависимости: сверены с bun.lock"),
+      ).toBeLessThan(lineAt(run, "install: сборка "));
+    }));
+
+  it("--check — строки исходников и зависимостей есть, ничего не поставлено", () =>
+    withPlace(async (place) => {
+      const run = await install(place, ["--check"]);
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(run.lines).toContain(`install: исходники: свежие (${OLD})`);
+      expect(run.lines).toContain("install: зависимости: сверены с bun.lock");
+      expect(await snapshot(place.bin)).toStrictEqual({});
+      expect(await snapshot(place.unit)).toStrictEqual({});
+      expect(run.calls).toStrictEqual([]);
+    }));
+});
 
 it("после перезапуска проверка ждёт ответа нового процесса (другой pid)", () =>
   withPlace(async (place) => {

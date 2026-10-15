@@ -1,7 +1,8 @@
 /**
  * Оснастка прогонов `ts/install.sh`
  * (`platform/supervisor-install.md`, `platform/cutover.md`): всё во
- * временных каталогах, сборка — поддельным `bun` (`MPU_BUN`), служба —
+ * временных каталогах, исходники — поддельным `git` (`MPU_GIT`), сверка
+ * зависимостей и сборка — поддельным `bun` (`MPU_BUN`), служба —
  * поддельным `systemctl`, каталог настроек nu — поддельным `nu`
  * (`MPU_NU`), проверки против серверов, поднятых тестом.
  * Настоящие `~/.local/bin`, служба пользователя, `systemctl` и файлы
@@ -21,8 +22,28 @@ import { text } from "node:stream/consumers";
 export const ROOT = new URL("../../", import.meta.url).pathname;
 
 const FAKE_BUN = `#!/bin/bash
-# Поддельная сборка: исполняемый скрипт с --version и version. Зовут её
-# только скриптом package.json: \`bun run compile:<часть>\`.
+# Поддельный bun: вызовы — в журнал. Сверка зависимостей —
+# \`bun install --frozen-lockfile\`: FAKE_BUN_INSTALL=fail — отказ
+# выводом, снятым с bun 1.4.2 при package.json, разошедшемся с bun.lock.
+# Сборка — исполняемый скрипт с --version и version, зовут её только
+# скриптом package.json: \`bun run compile:<часть>\`.
+echo "$*" >>"$FAKE_BUN_LOG"
+if [[ $* == "install --frozen-lockfile" ]]; then
+  # Сверяется дерево скрипта, а не каталог запускающего.
+  if [[ ! -f install.sh ]]; then
+    echo "error: bun install не в дереве скрипта: $PWD" >&2
+    exit 1
+  fi
+  echo "bun install v1.4.2 (744846f84)"
+  [[ \${FAKE_BUN_INSTALL:-} == fail ]] || exit 0
+  cat >&2 <<'OUT'
+Resolving dependencies
+Resolved, downloaded and extracted [2]
+error: lockfile had changes, but lockfile is frozen
+note: try re-running without --frozen-lockfile and commit the updated lockfile
+OUT
+  exit 1
+fi
 if [[ $1 != run || $2 != compile:* ]]; then
   echo "error: ждали bun run compile:<часть>, пришло: $*" >&2
   exit 1
@@ -90,6 +111,55 @@ case "$1 $2" in
   *) exit 3 ;;
 esac
 mv "$file.new" "$file"
+`;
+
+/** Коммит дерева по умолчанию и коммит, до которого его подтягивают. */
+export const COMMIT = "1dbb4a3a0f5e6d7c8b9a0f1e2d3c4b5a69788796";
+export const LATER = "663a9e32b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6";
+
+const FAKE_GIT = `#!/bin/bash
+# Поддельный git: вызовы — в журнал (без глобальных -C и -c); ответы —
+# окружением: ветка, вывод status, отказ fetch, счёт своих и чужих
+# коммитов, sha HEAD и origin/main. После merge HEAD — sha origin/main.
+# Неизвестный вызов — отказ: скрипт зовёт только перечисленное, и
+# только о дереве скрипта (-C на каталог с install.sh).
+if [[ $1 != -C || ! -f $2/install.sh ]]; then
+  echo "error: git не о дереве скрипта: $*" >&2
+  exit 1
+fi
+while [[ $1 == -C || $1 == -c ]]; do shift 2; done
+echo "$*" >>"$FAKE_GIT_LOG"
+before=\${FAKE_GIT_HEAD:-${COMMIT}}
+origin=\${FAKE_GIT_ORIGIN:-$before}
+head=$before
+grep -qx 'merge --ff-only origin/main' "$FAKE_GIT_LOG" && head=$origin
+case $* in
+  "rev-parse --abbrev-ref HEAD") echo "\${FAKE_GIT_BRANCH:-main}" ;;
+  "status --porcelain --untracked-files=no") printf '%s' "\${FAKE_GIT_DIRTY:-}" ;;
+  "fetch origin main")
+    [[ \${FAKE_GIT_FETCH:-} == fail ]] || exit 0
+    # Снято с git 2.47.3: remote, которого нет.
+    cat >&2 <<'ERR'
+fatal: '/nonexistent/repo' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+ERR
+    exit 128
+    ;;
+  "rev-list --left-right --count HEAD...origin/main")
+    printf '%s\\t%s\\n' "\${FAKE_GIT_AHEAD:-0}" "\${FAKE_GIT_BEHIND:-0}"
+    ;;
+  # Подтянуто — от коммита до слияния, не от origin/main.
+  "rev-list --count \${before:0:7}..HEAD") echo "\${FAKE_GIT_BEHIND:-0}" ;;
+  "merge --ff-only origin/main") echo "Fast-forward" ;;
+  "rev-parse --short=7 HEAD") echo "\${head:0:7}" ;;
+  *)
+    echo "error: поддельный git не знает вызова: $*" >&2
+    exit 1
+    ;;
+esac
 `;
 
 const FAKE_NU = `#!/bin/bash
@@ -172,6 +242,7 @@ export async function withPlace(body: (place: Place) => Promise<void>) {
     await writeFile(`${dir}/systemctl`, FAKE_SYSTEMCTL, { mode: 0o755 });
     await writeFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
     await writeFile(`${dir}/nu`, FAKE_NU, { mode: 0o755 });
+    await writeFile(`${dir}/git`, FAKE_GIT, { mode: 0o755 });
     await body({
       dir,
       back,
@@ -194,6 +265,10 @@ export interface Run {
   readonly calls: string[];
   /** Вызовы `claude`. */
   readonly claude: string[];
+  /** Вызовы `git`, без глобальных `-C` и `-c`. */
+  readonly git: string[];
+  /** Вызовы `bun`: сверка зависимостей и сборка. */
+  readonly bun: string[];
 }
 
 export async function runScript(
@@ -208,6 +283,10 @@ export async function runScript(
   await writeFile(place.calls, "");
   const claudeLog = `${place.dir}/claude-calls`;
   await writeFile(claudeLog, "");
+  const gitLog = `${place.dir}/git-calls`;
+  await writeFile(gitLog, "");
+  const bunLog = `${place.dir}/bun-calls`;
+  await writeFile(bunLog, "");
   const output = await ran("/bin/bash", [`${tree}${script}`, ...args], {
     cwd: where.from ?? ROOT,
     // Окружение запускающего — под подменами: прежний запуск сливал
@@ -222,6 +301,11 @@ export async function runScript(
       MPU_UNIT_DIR: place.unit,
       MPU_SYSTEMCTL: `${place.dir}/systemctl`,
       MPU_BUN: `${place.dir}/bun`,
+      // Настоящее дерево — не main и не в сети: без подмены исход
+      // зависел бы от ветки и состояния репозитория запускающего.
+      MPU_GIT: `${place.dir}/git`,
+      FAKE_GIT_LOG: gitLog,
+      FAKE_BUN_LOG: bunLog,
       MPU_CLAUDE: `${place.dir}/claude`,
       // Настоящий nu запускающего тестам не виден: без подмены исход
       // зависел бы от того, стоит ли nu на машине.
@@ -240,15 +324,21 @@ export async function runScript(
   const calls = (await readFile(place.calls, "utf8"))
     .split("\n")
     .filter((call) => call !== "" && !call.includes("is-active"));
-  const claude = (await readFile(claudeLog, "utf8"))
-    .split("\n")
-    .filter((call) => call !== "");
   return {
     code: output.code,
     lines: printed.split("\n").filter((line) => line !== ""),
     calls,
-    claude,
+    claude: await journal(claudeLog),
+    git: await journal(gitLog),
+    bun: await journal(bunLog),
   };
+}
+
+/** Журнал вызовов поддельной программы: строка — вызов. */
+async function journal(path: string): Promise<string[]> {
+  return (await readFile(path, "utf8"))
+    .split("\n")
+    .filter((call) => call !== "");
 }
 
 /** Каталог: имя файла → sha256 содержимого. */

@@ -14,10 +14,12 @@
 #
 #   ./install.sh [--only back,worker,mcp,cli,supervisor,task,complete,web] [--check]
 #
-# Состав сборки — только в скриптах compile:* package.json (bun run);
-# здесь его нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
-# MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_BUN, MPU_BACK_URL, MPU_MCP_URL,
-# MPU_WEB_DIR, MPU_CLAUDE, MPU_NU.
+# До сборки (шаг 0, и при --check) — ничего не отстаёт: дерево — main
+# без незакоммиченного, подтянутое до origin/main, зависимости — по
+# bun.lock; иначе отказ. Состав сборки — только в скриптах compile:*
+# package.json (bun run); здесь его нет. Переопределения окружением —
+# для тестов: MPU_GIT, MPU_BIN_DIR, MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_BUN,
+# MPU_BACK_URL, MPU_MCP_URL, MPU_WEB_DIR, MPU_CLAUDE, MPU_NU.
 set -uo pipefail
 
 # Дерево исходников — каталог самого скрипта, а не текущий: скрипт зовут
@@ -28,7 +30,11 @@ bin_dir=${MPU_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
 web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
 systemctl=${MPU_SYSTEMCTL:-systemctl}
+git=${MPU_GIT:-git}
 bun=${MPU_BUN:-bun}
+# Откуда ставится mpu: ветка и remote названы здесь один раз.
+main=main
+origin=origin
 nu=${MPU_NU:-nu}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
 mcp_url=${MPU_MCP_URL:-http://127.0.0.1:7339}
@@ -87,6 +93,90 @@ for old in "${old_units[@]}"; do
     fail "служба" "рядом старая служба $old, снимите её: systemctl --user disable --now ${old%.service}"
 done
 
+# 0. Ничего не отстаёт: установленное собирается только из main,
+# догнавшего origin/main, и из пакетов ровно по bun.lock. Иначе
+# собиралось бы то, что лежит (замер 2026-10-15: node_modules держали
+# @mpu/cmd-code 0.1.0 при bun.lock на 0.7.0, и mpu неделю не знал
+# команд из main). Нет сети — отказ, а не молчание.
+in_tree() { "$git" -C "$here" "$@"; }
+
+# Последняя строка вывода: причина отказа дословно от источника.
+last_line() { tail -n 1 <<<"$1"; }
+
+# stderr git — отдельно от ответа: предупреждение при успехе иначе
+# смешалось бы с ответом, который дальше разбирается.
+git_err=$(mktemp "${TMPDIR:-/tmp}/mpu-install-git.XXXXXX")
+trap 'rm -f "$git_err"' EXIT
+
+# Ответ git о дереве — в $said; отказ git — отказ шага с вызовом и
+# последней строкой stderr. Не в подстановке $(…): fail там завершил бы
+# только подоболочку.
+ask_tree() {
+  # Склеить, затем срезать: срез над $* идёт по каждому слову отдельно.
+  local call=$*
+  call=${call#-c core.quotePath=false }
+  said=$(in_tree "$@" 2>"$git_err") ||
+    fail "исходники" "git $call: $(last_line "$(<"$git_err")")"
+}
+
+# Дерево — main без незакоммиченного, не позади origin/main: отстаёт —
+# подтянуть, впереди — как есть, разошлись — отказ.
+freshen_sources() {
+  local said ahead behind head paths
+  ask_tree rev-parse --abbrev-ref HEAD
+  [[ $said == "$main" ]] ||
+    fail "исходники" "ветка $said, ставится только $main — git switch $main"
+  ask_tree -c core.quotePath=false status --porcelain --untracked-files=no
+  if [[ -n $said ]]; then
+    # Строка porcelain — «XY путь»: путь с четвёртого знака.
+    mapfile -t paths < <(cut -c4- <<<"$said")
+    printf -v said '%s, ' "${paths[@]}"
+    fail "исходники" "незакоммиченные изменения (${said%, }) — закоммить или убери их"
+  fi
+  ask_tree fetch "$origin" "$main"
+  ask_tree rev-list --left-right --count "HEAD...$origin/$main"
+  read -r ahead behind <<<"$said"
+  # Не два числа — отказ: арифметика над мусором дала бы «свежие».
+  [[ $ahead =~ ^[0-9]+$ && $behind =~ ^[0-9]+$ ]] ||
+    fail "исходники" "git rev-list: не два числа: $said"
+  if ((ahead && behind)); then
+    fail "исходники" "$main и $origin/$main разошлись ($ahead своих, $behind чужих) — git pull --rebase"
+  fi
+  ask_tree rev-parse --short=7 HEAD
+  head=$said
+  if ((behind)); then
+    pull_sources "$head"
+  elif ((ahead)); then
+    say "исходники: впереди $origin/$main на $ahead ($head)"
+  else
+    say "исходники: свежие ($head)"
+  fi
+}
+
+# Подтянуть без слияния; число и коммит — с того, что сделало слияние,
+# а не со счёта до него.
+#   $1 — коммит до слияния.
+pull_sources() {
+  local said pulled
+  ask_tree merge --ff-only "$origin/$main"
+  ask_tree rev-list --count "$1..HEAD"
+  pulled=$said
+  ask_tree rev-parse --short=7 HEAD
+  say "исходники: подтянуто $pulled ($1 → $said)"
+}
+
+# Пакеты — ровно по bun.lock: package.json, разошедшийся с ним, — отказ,
+# а не сборка со старым.
+sync_dependencies() {
+  local said
+  said=$(cd "$here" && "$bun" install --frozen-lockfile 2>&1) ||
+    fail "зависимости" "$(last_line "$said")"
+  say "зависимости: сверены с bun.lock"
+}
+
+freshen_sources
+sync_dependencies
+
 # 1. Сборка — во временный каталог рядом с целью (подмена mv атомарна в
 # пределах одного каталога); у --check цель не трогается вовсе.
 if ((check)); then
@@ -95,7 +185,7 @@ else
   mkdir -p "$bin_dir" || fail "сборка" "нет каталога $bin_dir"
   work=$(mktemp -d "$bin_dir/.mpu-install.XXXXXX")
 fi
-trap 'rm -rf "$work"' EXIT
+trap 'rm -rf "$work" "$git_err"' EXIT
 
 # Хэш каталога фронта: содержимое и относительные пути всех файлов.
 dir_digest() {
