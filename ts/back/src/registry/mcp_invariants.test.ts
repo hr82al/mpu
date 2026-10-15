@@ -215,6 +215,7 @@ const LIMITERS = ["limit", "tail"];
 
 /** Тулы с ограничителем поимённо: выпадение из обхода — тоже дефект. */
 const LIMITED = [
+  "code_copies",
   "code_literals",
   "code_mentions",
   "code_name",

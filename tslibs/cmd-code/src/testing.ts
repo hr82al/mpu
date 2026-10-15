@@ -92,6 +92,19 @@ export async function openShapeFixture(temp: string): Promise<Repo> {
   );
 }
 
+/**
+ * Дерево копий (`specs/code-copies.md`, «Сценарии») под именем
+ * `fixture`: своё по той же причине, что и у литералов.
+ */
+export async function openCopiesFixture(temp: string): Promise<Repo> {
+  return await materialize(
+    temp,
+    "fixture",
+    "testdata/code/copies-tree/",
+    OUT_OF_GIT,
+  );
+}
+
 /** Раскладывает дерево канала во временный каталог под именем `name`. */
 async function materialize(
   temp: string,

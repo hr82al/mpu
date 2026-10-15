@@ -48,6 +48,9 @@ interface CommandCase {
 /** Файл образца `code literals`: путь адреса и путь раздела ответа. */
 const LITERALS_FILE = "front/src/sample.spec.tsx";
 
+/** Файл образца `code copies`: путь адреса и путь раздела ответа. */
+const COPIES_FILE = "front/src/sample.spec.tsx";
+
 /** Файл образца `code shape`: путь адреса и путь раздела ответа. */
 const SHAPE_FILE = "src/sample.ts";
 
@@ -2127,6 +2130,41 @@ const CASES: readonly CommandCase[] = [
               flags: {
                 total: 1,
                 items: [{ line: 130, call: "render", argument: 2 }],
+              },
+            },
+          ],
+          unresolved: { total: 0, items: [] },
+        },
+      ],
+    },
+  },
+  {
+    // Синтаксис одного файла, без анализатора: вызов и состав — как в
+    // сценарии 4 спеки (`code-copies.md`), по записи в разделе из трёх.
+    path: "code copies",
+    argv: [`fixture:${COPIES_FILE}`, "--limit", "1"],
+    sampleResult: {
+      sections: [
+        {
+          mark: { repo: "fixture", git: null },
+          files: [
+            {
+              path: COPIES_FILE,
+              copies: {
+                total: 3,
+                items: [
+                  {
+                    text: "window.localStorage.setItem('memory', JSON.stringify({ sell…",
+                    count: 3,
+                    lines: [9, 16, 23],
+                  },
+                ],
+              },
+              conversions: {
+                total: 3,
+                items: [
+                  { call: "String(SELLER)", count: 4, lines: [9, 16, 23, 25] },
+                ],
               },
             },
           ],

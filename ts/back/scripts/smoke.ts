@@ -1317,6 +1317,28 @@ function checks(subject: Subject): readonly Check[] {
           ),
           `не те разделы: ${JSON.stringify(shape.stdout)}`,
         );
+        // Копии — тот же прогон по файлам, а константу файла узнаёт
+        // checker программы из одного файла: собранный бинарь обязан
+        // построить её так же, как исходники.
+        await writeFile(
+          `${repo}/src/c.ts`,
+          `const N = 1;\n${"f(1, 2, 3, 4, 5, 6, 7, 8, 9);\n".repeat(3)}String(N) + String(N);\n`,
+        );
+        const copies = await run(
+          subject,
+          ["code", "copies", "address:", "probe:src/c.ts"],
+          {},
+          repo,
+        );
+        assert.deepStrictEqual(copies.code, 0, `stderr: ${copies.stderr}`);
+        assert(
+          copies.stdout.endsWith(
+            "копии: 1\n  f(1, 2, 3, 4, 5, 6, 7, 8, 9) ×3  строки 2, 3, 4\n" +
+              "преобразования: 1\n  String(N) ×2  строки 5\n" +
+              "не разрешено: 0\n",
+          ),
+          `не те разделы: ${JSON.stringify(copies.stdout)}`,
+        );
         // Второй репозиторий заводится ради воркеров: вопрос по всей
         // рабочей области считается по репозиторию в отдельном потоке,
         // и модуль воркера обязан попасть в собранный бинарь. Тесты

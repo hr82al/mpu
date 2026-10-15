@@ -1,0 +1,11 @@
+fixture · вне git
+front/src/sample.spec.tsx
+копии: 3
+  window.localStorage.setItem('memory', JSON.stringify({ sell… ×3  строки 9, 16, 23
+  JSON.stringify({ seller: String(SELLER), sku: SKU, from: 'd… ×4  строки 9, 16, 23, 25
+  const option = (value: string, title: string) => ({ value, … ×3  строки 10, 17, 24
+преобразования: 3
+  String(SELLER) ×4  строки 9, 16, 23, 25
+  String(SKU) ×2  строки 11, 18
+  Number(SELLER) ×2  строки 11, 18
+не разрешено: 0

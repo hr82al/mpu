@@ -1,6 +1,7 @@
 /**
  * Состав справок семейства (`specs/code-refs.md`, `specs/code-twins.md`,
- * `specs/code-literals.md`, `specs/code-shape.md`, раздел «CLI-контракт»).
+ * `specs/code-literals.md`, `specs/code-shape.md`, `specs/code-copies.md`,
+ * раздел «CLI-контракт»).
  *
  * Спеки больше не цитируют текст справки — они задают её состав: два
  * источника одного текста расходятся молча, и проверить расхождение
@@ -10,6 +11,7 @@
 
 import { describe, expect, it } from "vitest";
 import { parseAddress } from "./address.ts";
+import { codeCopiesCommand } from "./cmd_copies.ts";
 import { codeLiteralsCommand } from "./cmd_literals.ts";
 import { codeRefsCommand } from "./cmd_refs.ts";
 import { codeShapeCommand } from "./cmd_shape.ts";
@@ -19,7 +21,7 @@ import { codeNameCommand } from "./cmd_name.ts";
 import { parseWindow } from "./cmd_name.ts";
 
 /**
- * Общее у команд по файлам (`literals`, `shape`): чем лучше грепа,
+ * Общее у команд по файлам (`literals`, `shape`, `copies`): чем лучше грепа,
  * форма адреса, ключи, «не разрешено» и коды выхода. Кодов два: отказа
  * раздела у них нет — анализатора они не открывают.
  */
@@ -129,6 +131,23 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "expect(…)",
     ...FILE_SURVEY,
   ],
+  "code copies": [
+    // момент и чем лучше грепа и code literals
+    "на приёмке и рецензии файла",
+    "многострочную запись с однострочной",
+    "code literals",
+    // что считается, оба порога числом
+    "Фрагмент —",
+    "не меньше 3 вхождений и не меньше 20 лексем",
+    "не меньше 2 раз",
+    // что исключено
+    "Не считаются:",
+    "describe/it/test",
+    // оба раздела
+    "«копии»",
+    "«преобразования»",
+    ...FILE_SURVEY,
+  ],
   "code name": [
     // форма окна и что без него отвечает каждый репозиторий
     "РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ",
@@ -150,6 +169,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
 };
 
 const COMMANDS = [
+  codeCopiesCommand,
   codeLiteralsCommand,
   codeShapeCommand,
   codeRefsCommand,

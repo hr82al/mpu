@@ -14,7 +14,7 @@
         "@mpu/cmd-call": "file:../tslibs/cmd-call/release/mpu-cmd-call-0.1.0.tgz",
         "@mpu/cmd-claudehook": "file:../tslibs/cmd-claudehook/release/mpu-cmd-claudehook-0.3.0.tgz",
         "@mpu/cmd-cleanlocal": "file:../tslibs/cmd-cleanlocal/release/mpu-cmd-cleanlocal-0.1.0.tgz",
-        "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.7.0.tgz",
+        "@mpu/cmd-code": "file:../tslibs/cmd-code/release/mpu-cmd-code-0.8.0.tgz",
         "@mpu/cmd-copy": "file:../tslibs/cmd-copy/release/mpu-cmd-copy-0.1.0.tgz",
         "@mpu/cmd-d2miro": "file:../tslibs/cmd-d2miro/release/mpu-cmd-d2miro-0.1.0.tgz",
         "@mpu/cmd-exec": "file:../tslibs/cmd-exec/release/mpu-cmd-exec-0.1.0.tgz",
@@ -235,7 +235,7 @@
 
     "@mpu/cmd-cleanlocal": ["@mpu/cmd-cleanlocal@../tslibs/cmd-cleanlocal/release/mpu-cmd-cleanlocal-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-copy": "0.1.0", "@mpu/cmd-sql": "0.1.0", "@mpu/command": "0.2.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-copy", "@mpu/cmd-sql", "@mpu/command"] }, "sha512-NPafBBNQncPjjSG/PI6flWXeBf/7ajqSjg7v3R7hBCbMuQmtv8zlqhPxRonLKe4ED7JecLdx+KCPYNyhoizQjA=="],
 
-    "@mpu/cmd-code": ["@mpu/cmd-code@../tslibs/cmd-code/release/mpu-cmd-code-0.7.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "@mpu/subprocess": "0.1.0", "typescript": "5.9.3", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/subprocess"] }, "sha512-ytDSVYLY02AHi9XzhdFelX4eMnBO/izIWtmkvw1asWUO/f3wewD6JAR7XPJtNbX4Vzj5dwmD4qEoDiW6S27jfQ=="],
+    "@mpu/cmd-code": ["@mpu/cmd-code@../tslibs/cmd-code/release/mpu-cmd-code-0.8.0.tgz", { "peerDependencies": { "@mpu/base": "0.1.0", "@mpu/command": "0.1.0", "@mpu/subprocess": "0.1.0", "typescript": "5.9.3", "zod": "4.4.3" }, "optionalPeers": ["@mpu/base", "@mpu/command", "@mpu/subprocess"] }, "sha512-u5Ub3n5nEg94CT/kT3cpQ6s3u9w0xqlLaleKjjZBepuek2c9+wsKe0TjWkq+5DZu6u8D3bh1zRji5os9/zAbPA=="],
 
     "@mpu/cmd-copy": ["@mpu/cmd-copy@../tslibs/cmd-copy/release/mpu-cmd-copy-0.1.0.tgz", { "peerDependencies": { "@mpu/cmd-sql": "0.1.0", "@mpu/command": "0.2.0", "@mpu/exec": "0.1.0", "@mpu/subprocess": "0.1.0", "zod": "4.4.3" }, "optionalPeers": ["@mpu/cmd-sql", "@mpu/command", "@mpu/exec", "@mpu/subprocess"] }, "sha512-9K881CqqqZPx1dcqJmsTw09GgZO4ObISq53/jROfUDacGvK2+z4vrhYLtd9gvVUz03//PYuOgD75GdYLf5gL4Q=="],
 

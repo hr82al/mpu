@@ -1,7 +1,8 @@
 /**
- * Прогон команды по файлам адресов — общий у `code literals` и
- * `code shape` (`specs/code-literals.md`, «Решения по отчёту CL1»;
- * `specs/code-shape.md`, «CLI-контракт»): адрес, `--base`, `--limit`,
+ * Прогон команды по файлам адресов — общий у `code literals`,
+ * `code shape` и `code copies` (`specs/code-literals.md`, «Решения по
+ * отчёту CL1»; `specs/code-shape.md`, `specs/code-copies.md`,
+ * «CLI-контракт»): адрес, `--base`, `--limit`,
  * разбор файла и «не разрешено». Что команда меряет в разобранном
  * файле, решает её `Survey`.
  *
@@ -334,12 +335,24 @@ function parseSource(ts: typeof TS, path: string, text: string): ParsedSource {
 /**
  * Синтаксические ошибки файла. Публичный путь к ним — программа из
  * одного файла: собственный перечень ошибок разбора у `SourceFile`
- * закрыт. Ни библиотек, ни импортов программа не грузит.
+ * закрыт.
  */
 function syntaxErrors(
   ts: typeof TS,
   file: TS.SourceFile,
 ): readonly TS.DiagnosticWithLocation[] {
+  return singleFileProgram(ts, file).getSyntacticDiagnostics(file);
+}
+
+/**
+ * Программа из одного разобранного файла: ни библиотек, ни импортов она
+ * не грузит. Её checker разрешает имена файла по его же областям
+ * видимости — так `code copies` узнаёт константу файла.
+ */
+export function singleFileProgram(
+  ts: typeof TS,
+  file: TS.SourceFile,
+): TS.Program {
   // `types: []` — иначе программа обходит `node_modules/@types` на
   // каждый файл, хотя типы разбору синтаксиса не нужны.
   const options: TS.CompilerOptions = {
@@ -349,8 +362,7 @@ function syntaxErrors(
   };
   const host = ts.createCompilerHost(options);
   host.getSourceFile = (name) => (name === file.fileName ? file : undefined);
-  const program = ts.createProgram([file.fileName], options, host);
-  return program.getSyntacticDiagnostics(file);
+  return ts.createProgram([file.fileName], options, host);
 }
 
 /** Причина разбора: строка первой ошибки и текст компилятора. */
