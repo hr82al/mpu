@@ -113,47 +113,117 @@ esac
 mv "$file.new" "$file"
 `;
 
-/** Коммит дерева по умолчанию и коммит, до которого его подтягивают. */
+/**
+ * Коммит дерева по умолчанию и коммиты, до которых его подтягивают
+ * первый и второй проход установщика.
+ */
 export const COMMIT = "1dbb4a3a0f5e6d7c8b9a0f1e2d3c4b5a69788796";
 export const LATER = "663a9e32b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6";
+export const LATEST = "7cfdcca1e2d3c4b5a69788796f0e1d2c3b4a5968";
 
 const FAKE_GIT = `#!/bin/bash
 # Поддельный git: вызовы — в журнал (без глобальных -C и -c); ответы —
-# окружением: ветка, вывод status, отказ fetch, счёт своих и чужих
-# коммитов, sha HEAD и origin/main. После merge HEAD — sha origin/main.
-# Неизвестный вызов — отказ: скрипт зовёт только перечисленное, и
-# только о дереве скрипта (-C на каталог с install.sh).
-if [[ $1 != -C || ! -f $2/install.sh ]]; then
-  echo "error: git не о дереве скрипта: $*" >&2
+# окружением: ветка, вывод status, счёт своих коммитов, sha HEAD.
+# Проход установщика — по числу fetch в журнале: FAKE_GIT_ORIGIN и
+# FAKE_GIT_BEHIND — списки по проходам (нет k-го: origin/main прежний,
+# чужих 0); merge ставит HEAD в origin/main своего прохода.
+# FAKE_GIT_FAIL — какой вызов отказывает: stderr снят с git 2.47.3.
+# FAKE_GIT_PULLED — строка, которую merge вписывает вторую в install.sh
+# дерева новым файлом, как настоящий: так видно, чей скрипт исполняется.
+# Неизвестный вызов — отказ: скрипт зовёт только перечисленное, только
+# о дереве скрипта (-C на каталог с install.sh) и с путями как есть
+# (core.quotePath=false: иначе не-ASCII путь — восьмеричные escape).
+if [[ $1 != -C || ! -f $2/install.sh || $3 != -c || $4 != core.quotePath=false ]]; then
+  echo "error: git не о дереве скрипта или без core.quotePath=false: $*" >&2
   exit 1
 fi
-while [[ $1 == -C || $1 == -c ]]; do shift 2; done
+tree=$2
+shift 4
 echo "$*" >>"$FAKE_GIT_LOG"
-before=\${FAKE_GIT_HEAD:-${COMMIT}}
-origin=\${FAKE_GIT_ORIGIN:-$before}
-head=$before
-grep -qx 'merge --ff-only origin/main' "$FAKE_GIT_LOG" && head=$origin
+read -r -a origins <<<"\${FAKE_GIT_ORIGIN:-}"
+read -r -a behinds <<<"\${FAKE_GIT_BEHIND:-}"
+head=\${FAKE_GIT_HEAD:-${COMMIT}}
+origin=$head
+pass=0
+while read -r call; do
+  case $call in
+    "fetch origin main")
+      origin=\${origins[pass]:-$origin}
+      behind=\${behinds[pass]:-0}
+      pass=$((pass + 1))
+      ;;
+    "merge --ff-only origin/main") before=$head; head=$origin ;;
+  esac
+done <"$FAKE_GIT_LOG"
+refuse() {
+  [[ \${FAKE_GIT_FAIL:-} == "$1" ]] || return 0
+  cat >&2
+  exit "$2"
+}
 case $* in
-  "rev-parse --abbrev-ref HEAD") echo "\${FAKE_GIT_BRANCH:-main}" ;;
-  "status --porcelain --untracked-files=no") printf '%s' "\${FAKE_GIT_DIRTY:-}" ;;
+  "rev-parse --abbrev-ref HEAD")
+    # Ветка без коммитов: stdout — HEAD, причина — в stderr.
+    refuse rev-parse 128 <<'ERR'
+fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ERR
+    echo "\${FAKE_GIT_BRANCH:-main}"
+    ;;
+  "status --porcelain --untracked-files=no")
+    refuse status 128 <<'ERR'
+fatal: .git/index: index file smaller than expected
+ERR
+    printf '%s' "\${FAKE_GIT_DIRTY:-}"
+    ;;
   "fetch origin main")
-    [[ \${FAKE_GIT_FETCH:-} == fail ]] || exit 0
-    # Снято с git 2.47.3: remote, которого нет.
-    cat >&2 <<'ERR'
-fatal: '/nonexistent/repo' does not appear to be a git repository
+    # Remote, которого нет.
+    refuse fetch 128 <<'ERR'
+fatal: 'origin' does not appear to be a git repository
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights
 and the repository exists.
 ERR
-    exit 128
     ;;
   "rev-list --left-right --count HEAD...origin/main")
-    printf '%s\\t%s\\n' "\${FAKE_GIT_AHEAD:-0}" "\${FAKE_GIT_BEHIND:-0}"
+    # origin/main, которого нет.
+    refuse rev-list 128 <<'ERR'
+fatal: ambiguous argument 'HEAD...origin/main': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ERR
+    printf '%s\\t%s\\n' "\${FAKE_GIT_AHEAD:-0}" "$behind"
     ;;
   # Подтянуто — от коммита до слияния, не от origin/main.
-  "rev-list --count \${before:0:7}..HEAD") echo "\${FAKE_GIT_BEHIND:-0}" ;;
-  "merge --ff-only origin/main") echo "Fast-forward" ;;
+  "rev-list --count \${before:0:7}..HEAD") echo "$behind" ;;
+  "merge --ff-only origin/main")
+    # Мешает неотслеживаемый файл: метки fatal: нет.
+    refuse merge-untracked 1 <<'ERR'
+error: The following untracked working tree files would be overwritten by merge:
+\tx
+Please move or remove them before you merge.
+Aborting
+ERR
+    # Ветви разошлись между счётом и слиянием.
+    refuse merge 128 <<'ERR'
+hint: Diverging branches can't be fast-forwarded, you need to either:
+hint:
+hint: \tgit merge --no-ff
+hint:
+hint: or:
+hint:
+hint: \tgit rebase
+hint:
+hint: Disable this message with "git config advice.diverging false"
+fatal: Not possible to fast-forward, aborting.
+ERR
+    if [[ -n \${FAKE_GIT_PULLED:-} ]]; then
+      { head -n 1 "$tree/install.sh"; echo "$FAKE_GIT_PULLED"; tail -n +2 "$tree/install.sh"; } >"$tree/install.sh.new"
+      mv "$tree/install.sh.new" "$tree/install.sh"
+    fi
+    echo "Fast-forward"
+    ;;
   "rev-parse --short=7 HEAD") echo "\${head:0:7}" ;;
   *)
     echo "error: поддельный git не знает вызова: $*" >&2
@@ -305,6 +375,8 @@ export async function runScript(
       // зависел бы от ветки и состояния репозитория запускающего.
       MPU_GIT: `${place.dir}/git`,
       FAKE_GIT_LOG: gitLog,
+      // Метка второго прохода у запускающего сделала бы первый вторым.
+      MPU_INSTALL_RERUN: "",
       FAKE_BUN_LOG: bunLog,
       MPU_CLAUDE: `${place.dir}/claude`,
       // Настоящий nu запускающего тестам не виден: без подмены исход

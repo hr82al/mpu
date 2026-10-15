@@ -10,6 +10,7 @@ import {
   copyFile,
   lstat,
   mkdir,
+  readdir,
   readFile,
   readlink,
   rm,
@@ -20,6 +21,7 @@ import {
 import {
   COMMIT,
   LATER,
+  LATEST,
   type Place,
   ROOT,
   type Run,
@@ -331,6 +333,10 @@ it("--only с неизвестной частью — ошибка аргуме�
 /** Короткие sha дерева до и после подтягивания — как их печатает установщик. */
 const OLD = COMMIT.slice(0, 7);
 const NEW = LATER.slice(0, 7);
+const NEWEST = LATEST.slice(0, 7);
+
+/** Строка, которую поддельный merge вписывает в подтянутый install.sh. */
+const PULLED = "install: исполняется подтянутый установщик";
 
 /**
  * Номер строки, начинающейся с `prefix`; строки нет — падение с выводом
@@ -340,6 +346,16 @@ function lineAt(run: Run, prefix: string): number {
   const at = run.lines.findIndex((line) => line.startsWith(prefix));
   expect(at, `нет строки «${prefix}…»:\n${run.lines.join("\n")}`).not.toBe(-1);
   return at;
+}
+
+/** Строки шага «исходники» по порядку: по одной на проход установщика. */
+function sourceLines(run: Run): string[] {
+  return run.lines.filter((line) => line.startsWith("install: исходники: "));
+}
+
+/** Номер строки сборки; её нет — падение с выводом прогона. */
+function buildAt(run: Run): number {
+  return lineAt(run, "install: сборка ");
 }
 
 /** Вызовы сборки поддельным `bun`. */
@@ -363,19 +379,82 @@ describe("шаг 0: исходники и зависимости не отста
       expect(run.lines.at(-1)).toBe("install: готово");
     }));
 
-  it("main отстаёт на 3, дерево чистое — подтянуто fast-forward, сборка после", () =>
+  it("main отстаёт на 3 — подтянуто, перезапуск подтянутым скриптом, сборка одна", () =>
+    withPlace(async (place) => {
+      // Копия дерева: поддельный merge переписывает её install.sh так,
+      // как настоящий — новым файлом с меткой подтянутого.
+      const tree = await fakeTree(`${place.dir}/tree`);
+      const tmp = `${place.dir}/tmp`;
+      await mkdir(tmp);
+      const run = await install(
+        place,
+        [],
+        {
+          FAKE_GIT_BEHIND: "3",
+          FAKE_GIT_ORIGIN: LATER,
+          FAKE_GIT_PULLED: `echo "${PULLED}"`,
+          TMPDIR: tmp,
+        },
+        { tree },
+      );
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(sourceLines(run)).toStrictEqual([
+        `install: исходники: подтянуто 3 (${OLD} → ${NEW})`,
+        `install: исходники: свежие (${NEW})`,
+      ]);
+      // Второй проход — подтянутый файл, а не прежний процесс.
+      expect(run.lines.filter((line) => line === PULLED)).toHaveLength(1);
+      expect(lineAt(run, PULLED)).toBeLessThan(
+        lineAt(run, `install: исходники: свежие (${NEW})`),
+      );
+      expect(run.git.filter((call) => call.startsWith("merge "))).toStrictEqual(
+        ["merge --ff-only origin/main"],
+      );
+      expect(buildAt(run)).toBeGreaterThan(
+        lineAt(run, `install: исходники: свежие (${NEW})`),
+      );
+      // Сборка одна: первый проход ушёл в перезапуск до неё.
+      expect(compiles(run)).toStrictEqual([...new Set(compiles(run))]);
+      expect(
+        run.bun.filter((call) => call.startsWith("install ")),
+      ).toHaveLength(1);
+      // exec не исполняет ловушку EXIT: временное первого прохода убрано до него.
+      expect(await readdir(tmp)).toStrictEqual([]);
+      expect(run.lines.at(-1)).toBe("install: готово");
+    }));
+
+  it("после перезапуска origin/main ушёл ещё на 1 — подтянуто, второго перезапуска нет", () =>
     withPlace(async (place) => {
       const run = await install(place, [], {
+        FAKE_GIT_BEHIND: "3 1",
+        FAKE_GIT_ORIGIN: `${LATER} ${LATEST}`,
+      });
+      expect(run.code, run.lines.join("\n")).toBe(0);
+      expect(sourceLines(run)).toStrictEqual([
+        `install: исходники: подтянуто 3 (${OLD} → ${NEW})`,
+        `install: исходники: подтянуто 1 (${NEW} → ${NEWEST})`,
+      ]);
+      expect(
+        run.git.filter((call) => call === "fetch origin main"),
+      ).toHaveLength(2);
+      expect(buildAt(run)).toBeGreaterThan(
+        lineAt(run, `install: исходники: подтянуто 1 (`),
+      );
+      expect(compiles(run)).toStrictEqual([...new Set(compiles(run))]);
+      expect(run.lines.at(-1)).toBe("install: готово");
+    }));
+
+  it("--check, отстаёт — перезапуск с теми же аргументами: ничего не поставлено", () =>
+    withPlace(async (place) => {
+      const run = await install(place, ["--check"], {
         FAKE_GIT_BEHIND: "3",
         FAKE_GIT_ORIGIN: LATER,
       });
       expect(run.code, run.lines.join("\n")).toBe(0);
-      expect(run.git).toContain("merge --ff-only origin/main");
-      const pulled = lineAt(
-        run,
-        `install: исходники: подтянуто 3 (${OLD} → ${NEW})`,
-      );
-      expect(pulled).toBeLessThan(lineAt(run, "install: сборка "));
+      expect(sourceLines(run)).toHaveLength(2);
+      expect(await snapshot(place.bin)).toStrictEqual({});
+      expect(await snapshot(place.unit)).toStrictEqual({});
+      expect(run.calls).toStrictEqual([]);
     }));
 
   it("main впереди origin/main на 2 — ставится как есть", () =>
@@ -396,6 +475,8 @@ describe("шаг 0: исходники и зависимости не отста
     readonly name: string;
     readonly env: Record<string, string>;
     readonly said: string;
+    /** Слияние, которое git отказал сделать; без поля — его не было. */
+    readonly merges?: readonly string[];
   }[] = [
     {
       name: "ветка не main",
@@ -419,24 +500,63 @@ describe("шаг 0: исходники и зависимости не отста
       said: "install: исходники: ошибка: git rev-list: не два числа: warning:\t0",
     },
     {
-      name: "git fetch не прошёл",
-      env: { FAKE_GIT_FETCH: "fail" },
-      said: "install: исходники: ошибка: git fetch origin main: and the repository exists.",
+      name: "незакоммиченная правка в пути с кириллицей — путь как есть",
+      env: { FAKE_GIT_DIRTY: " M ts/back/ф.ts\n" },
+      said: "install: исходники: ошибка: незакоммиченные изменения (ts/back/ф.ts) — закоммить или убери их",
     },
     {
-      name: "bun install --frozen-lockfile отказал",
+      name: "git rev-parse отказал (ветка без коммитов)",
+      env: { FAKE_GIT_FAIL: "rev-parse" },
+      said: "install: исходники: ошибка: git rev-parse --abbrev-ref HEAD: fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.",
+    },
+    {
+      name: "оторванная голова",
+      env: { FAKE_GIT_BRANCH: "HEAD" },
+      said: "install: исходники: ошибка: ветка HEAD, ставится только main — git switch main",
+    },
+    {
+      name: "git fetch не прошёл — причина строкой fatal:, а не последней",
+      env: { FAKE_GIT_FAIL: "fetch" },
+      said: "install: исходники: ошибка: git fetch origin main: fatal: 'origin' does not appear to be a git repository",
+    },
+    {
+      name: "git status отказал",
+      env: { FAKE_GIT_FAIL: "status" },
+      said: "install: исходники: ошибка: git status --porcelain --untracked-files=no: fatal: .git/index: index file smaller than expected",
+    },
+    {
+      name: "git rev-list отказал — причина строкой fatal:",
+      env: { FAKE_GIT_FAIL: "rev-list" },
+      said: "install: исходники: ошибка: git rev-list --left-right --count HEAD...origin/main: fatal: ambiguous argument 'HEAD...origin/main': unknown revision or path not in the working tree.",
+    },
+    {
+      name: "git merge отказал с fatal: — причина строкой fatal:",
+      env: { FAKE_GIT_BEHIND: "3", FAKE_GIT_FAIL: "merge" },
+      said: "install: исходники: ошибка: git merge --ff-only origin/main: fatal: Not possible to fast-forward, aborting.",
+      merges: ["merge --ff-only origin/main"],
+    },
+    {
+      name: "git merge отказал без fatal: (мешает неотслеживаемый файл) — последней строкой",
+      env: { FAKE_GIT_BEHIND: "3", FAKE_GIT_FAIL: "merge-untracked" },
+      said: "install: исходники: ошибка: git merge --ff-only origin/main: Aborting",
+      merges: ["merge --ff-only origin/main"],
+    },
+    {
+      name: "bun install --frozen-lockfile отказал — причина строкой error:, а не последней",
       env: { FAKE_BUN_INSTALL: "fail" },
-      said: "install: зависимости: ошибка: note: try re-running without --frozen-lockfile and commit the updated lockfile",
+      said: "install: зависимости: ошибка: error: lockfile had changes, but lockfile is frozen",
     },
   ];
-  for (const { name, env, said } of refusals) {
+  for (const { name, env, said, merges = [] } of refusals) {
     it(`${name} — отказ, код 1, ничего не собрано и не поставлено`, () =>
       withPlace(async (place) => {
         const run = await install(place, [], env);
         expect(run.code, run.lines.join("\n")).toBe(1);
         expect(run.lines.at(-1)).toBe(said);
         expect(compiles(run)).toStrictEqual([]);
-        expect(run.git).not.toContain("merge --ff-only origin/main");
+        expect(
+          run.git.filter((call) => call.startsWith("merge ")),
+        ).toStrictEqual(merges);
         expect(await snapshot(place.bin)).toStrictEqual({});
         expect(await snapshot(place.unit)).toStrictEqual({});
       }));

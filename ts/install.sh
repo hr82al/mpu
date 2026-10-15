@@ -25,7 +25,8 @@ set -uo pipefail
 # Дерево исходников — каталог самого скрипта, а не текущий: скрипт зовут
 # откуда придётся и бывает, что по символической ссылке. Ни один путь
 # ниже не берётся от $PWD (`platform/cutover.md`).
-here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+self=$(readlink -f "$0")
+here=$(cd "$(dirname "$self")" && pwd)
 bin_dir=${MPU_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
 web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
@@ -66,6 +67,9 @@ program_of() {
   esac
 }
 
+# Аргументы вызова — до разбора: разбор их сдвигает, а перезапуск
+# подтянутым скриптом (шаг 0) — с теми же.
+args=("$@")
 parts=(back worker mcp cli supervisor task complete web)
 check=0
 while (($# > 0)); do
@@ -98,10 +102,15 @@ done
 # собиралось бы то, что лежит (замер 2026-10-15: node_modules держали
 # @mpu/cmd-code 0.1.0 при bun.lock на 0.7.0, и mpu неделю не знал
 # команд из main). Нет сети — отказ, а не молчание.
-in_tree() { "$git" -C "$here" "$@"; }
+# Пути в ответах — как есть, без восьмеричных escape у не-ASCII.
+in_tree() { "$git" -C "$here" -c core.quotePath=false "$@"; }
 
-# Последняя строка вывода: причина отказа дословно от источника.
-last_line() { tail -n 1 <<<"$1"; }
+# Причина отказа дословно от источника: первая строка с его меткой
+# ошибки ($1: `fatal:` у git, `error:` у bun), без неё — последняя.
+# Первая, а не последняя: следом идут следствия и подсказки.
+reason_in() {
+  grep -m 1 "^$1" <<<"$2" || tail -n 1 <<<"$2"
+}
 
 # stderr git — отдельно от ответа: предупреждение при успехе иначе
 # смешалось бы с ответом, который дальше разбирается.
@@ -109,14 +118,11 @@ git_err=$(mktemp "${TMPDIR:-/tmp}/mpu-install-git.XXXXXX")
 trap 'rm -f "$git_err"' EXIT
 
 # Ответ git о дереве — в $said; отказ git — отказ шага с вызовом и
-# последней строкой stderr. Не в подстановке $(…): fail там завершил бы
+# причиной из stderr. Не в подстановке $(…): fail там завершил бы
 # только подоболочку.
 ask_tree() {
-  # Склеить, затем срезать: срез над $* идёт по каждому слову отдельно.
-  local call=$*
-  call=${call#-c core.quotePath=false }
   said=$(in_tree "$@" 2>"$git_err") ||
-    fail "исходники" "git $call: $(last_line "$(<"$git_err")")"
+    fail "исходники" "git $*: $(reason_in fatal: "$(<"$git_err")")"
 }
 
 # Дерево — main без незакоммиченного, не позади origin/main: отстаёт —
@@ -126,7 +132,7 @@ freshen_sources() {
   ask_tree rev-parse --abbrev-ref HEAD
   [[ $said == "$main" ]] ||
     fail "исходники" "ветка $said, ставится только $main — git switch $main"
-  ask_tree -c core.quotePath=false status --porcelain --untracked-files=no
+  ask_tree status --porcelain --untracked-files=no
   if [[ -n $said ]]; then
     # Строка porcelain — «XY путь»: путь с четвёртого знака.
     mapfile -t paths < <(cut -c4- <<<"$said")
@@ -146,6 +152,7 @@ freshen_sources() {
   head=$said
   if ((behind)); then
     pull_sources "$head"
+    rerun_pulled
   elif ((ahead)); then
     say "исходники: впереди $origin/$main на $ahead ($head)"
   else
@@ -165,12 +172,27 @@ pull_sources() {
   say "исходники: подтянуто $pulled ($1 → $said)"
 }
 
+# Подтянутое исполняет подтянутый скрипт: прежний bash дочитал бы
+# старый файл, и правка установщика сработала бы лишь со следующего
+# прогона. Перезапуск один за вызов: второй проход, снова увидевший
+# отставание, подтягивает и продолжает. Проход узнаёт себя по метке
+# окружения — аргументы остаются те же. exec не исполняет ловушку
+# EXIT, поэтому временный файл — до него.
+rerun_pulled() {
+  [[ -z ${MPU_INSTALL_RERUN:-} ]] || return 0
+  rm -f "$git_err"
+  # Без execfail неудачный exec молча завершил бы скрипт.
+  shopt -s execfail
+  MPU_INSTALL_RERUN=1 exec "$BASH" "$self" "${args[@]}"
+  fail "исходники" "перезапуск подтянутым скриптом не удался"
+}
+
 # Пакеты — ровно по bun.lock: package.json, разошедшийся с ним, — отказ,
 # а не сборка со старым.
 sync_dependencies() {
   local said
   said=$(cd "$here" && "$bun" install --frozen-lockfile 2>&1) ||
-    fail "зависимости" "$(last_line "$said")"
+    fail "зависимости" "$(reason_in error: "$said")"
   say "зависимости: сверены с bun.lock"
 }
 
