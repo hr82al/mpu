@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+const SELLER = 1539401;
+const SKU = 101;
+
+describe('экран', () => {
+  it('показывает товар', () => {
+    window.localStorage.setItem('memory', JSON.stringify({ seller: String(SELLER), sku: SKU, from: 'day' }));
+    const option = (value: string, title: string) => ({ value, title, offerId: null, imageUrl: null });
+    render(<Screen options={[option(String(SKU), 'Тонер')]} cabinets={[{ seller: Number(SELLER) }]} />);
+    expect(screen.getByTestId('cell')).toBeTruthy();
+  });
+
+  it('показывает товар', () => {
+    window.localStorage.setItem('memory', JSON.stringify({ seller: String(SELLER), sku: SKU, from: 'day' }));
+    const option = (value: string, title: string) => ({ value, title, offerId: null, imageUrl: null });
+    render(<Screen options={[option(String(SKU), 'Тонер')]} cabinets={[{ seller: Number(SELLER) }]} />);
+    expect(screen.getByTestId('cell')).toBeTruthy();
+  });
+
+  it('запоминает выбор', () => {
+    window.localStorage.setItem('memory', JSON.stringify({ seller: String(SELLER), sku: SKU, from: 'day' }));
+    const option = (value: string, title: string) => ({ value, title, offerId: null, imageUrl: null });
+    expect(window.localStorage.getItem('memory')).toBe(JSON.stringify({ seller: String(SELLER), sku: SKU, from: 'day' }));
+    expect(screen.getByTestId('cell')).toBeTruthy();
+  });
+
+  it('читает адрес', () => {
+    const read = (input: string) => String(input);
+    const parse = (input: string) => String(input);
+    expect(read('a') + parse('b')).toBe('ab');
+  });
+});

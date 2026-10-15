@@ -1127,6 +1127,15 @@
   {
     "path": [
       "code",
+      "copies"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "code",
       "literals"
     ],
     "verdict": "deny",
